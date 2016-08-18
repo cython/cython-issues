@@ -1,0 +1,210 @@
+{
+    "assignee": null,
+    "assignees": [],
+    "body": "As reported on the mailing list:\n\nThere seem to be some bugs regarding memoryviews of structured arrays \nin Cython when the struct itself contains arrays. I have a Cython fix for \none of them (the most relevant to me), but first I would like to make sure \nthat these are really bugs and I am not doing anything stupid. This \nquestion is related to \nhttp://stackoverflow.com/questions/17239091/cython-memoryviews-from-array-of-structs, \nbut the answer there works only for char arrays. An array of doubles breaks \nit again.\n\nIt seems to me that Cython implementation solves some special cases, but \nnot the general one. My proposed fix would be to insert\n```\nndim = ctx->head->field->type->ndim;\n```\nafter\n```\n/* Process the previous element */\n\nif (__Pyx_BufFmt_ProcessTypeChunk(ctx) == -1) return NULL;\n```\nin Cython\\Utility\\Buffer.c\n\nThis fixes tests 2, 4 and 7, but not 8 and 9 (see below). I am not sure \nabout the details of what the code in Buffer.c is supposed to do and \nwhether my modification would break some other functionality, but my code \n(not only the tests) works with this fix.\n\nOr am I possibly simply missing \"the right way\" to handle arrays of structs \ncontaining arrays in Cython? But in either case the compiler shouldn't \ncrash like in test 9...\n\n\n\nHere is the code of my tests with and without numpy with results ranging \nfrom \"ok\" to \"compiler crash\".\nThe numpy tests require these imports:\n\n```\nimport numpy as np\ncimport numpy as np\n```\n\n```\n*Test 1 (OK)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value\ncpdef test():\n    cdef My_Struct my_struct\n    cdef My_Struct[my_view = <My_Struct[:1](:])>&my_struct\n\n*Test 2 (FAILS)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value*[test():\n    cdef My_Struct my_struct\n    cdef My_Struct[:](1]*\ncpdef) my_view = <My_Struct[Expected 1 dimension(s), got 1*\n*\n*\n*Test 3 (OK)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value[*1*](:1]>&my_struct\n\n*ValueError:)\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n1*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*Test 4 (FAILS)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value[*2*](:])\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n2*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*ValueError: Expected 1 dimension(s), got 1*\n*\n*\n*Test 5 (OK)*\ncdef packed struct My_Struct:\n    double my_first_value\n    *char* my_second_value[2](:])\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','*a*',2)](('my_first_value','float64'),), \nalign=False)\n    cdef My_Struct[my_view = my_array\n\n*Test 6 (OK)*\ncdef packed struct My_Array_Struct:\n    double values[*1*](:])\ncdef packed struct My_Struct:\n    double my_first_value\n    My_Array_Struct my_second_value\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n1*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*Test 7 (FAILS)*\ncdef packed struct My_Array_Struct:\n    double values[*2*](:])\ncdef packed struct My_Struct:\n    double my_first_value\n    My_Array_Struct my_second_value\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n2*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*ValueError: Expected 1 dimension(s), got 1*\n\n*Test 8 (FAILS)*\ncdef packed struct My_Struct:\n    double my_first_value*[1](:])*\n    double my_second_value\ncpdef test():\n    cdef My_Struct my_struct\n    cdef My_Struct[my_view = <My_Struct[:1](:])>&my_struct\n\n*ValueError: Buffer dtype mismatch, expected 'double' but got end in \n'My_Struct.my_second_value'*\n\n*Test 9 (COMPILER CRASH)*\ncdef packed struct My_Array_Struct:\n    double values[packed struct My_Struct:\n    double my_first_value\n    My_Array_Struct my_second_value*[1](2]\ncdef)*\ncpdef test():\n    cdef My_Struct my_struct\n    cdef My_Struct[my_view = <My_Struct[:1](:])>&my_struct\n```\n\nMigrated from http://trac.cython.org/ticket/853",
+    "closed_at": null,
+    "comment_data": [
+        {
+            "body": "**scoder** changed **description** from\n\nAs reported on the mailing list:\n\nThere seem to be some bugs regarding memoryviews of structured arrays \nin Cython when the struct itself contains arrays. I have a Cython fix for \none of them (the most relevant to me), but first I would like to make sure \nthat these are really bugs and I am not doing anything stupid. This \nquestion is related to \nhttp://stackoverflow.com/questions/17239091/cython-memoryviews-from-array-of-structs, \nbut the answer there works only for char arrays. An array of doubles breaks \nit again.\n\nIt seems to me that Cython implementation solves some special cases, but \nnot the general one. My proposed fix would be to insert\n```\nndim = ctx->head->field->type->ndim;\n```\nafter\n```\n/* Process the previous element */\n\nif (__Pyx_BufFmt_ProcessTypeChunk(ctx) == -1) return NULL;\n```\nin Cython\\Utility\\Buffer.c\n\nThis fixes tests 2, 4 and 7, but not 8 and 9 (see below). I am not sure \nabout the details of what the code in Buffer.c is supposed to do and \nwhether my modification would break some other functionality, but my code \n(not only the tests) works with this fix.\n\nOr am I possibly simply missing \"the right way\" to handle arrays of structs \ncontaining arrays in Cython? But in either case the compiler shouldn't \ncrash like in test 9...\n\n\n\nHere is the code of my tests with and without numpy with results ranging \nfrom \"ok\" to \"compiler crash\".\nThe numpy tests require these imports:\n\n```\nimport numpy as np\ncimport numpy as np\n\n*Test 1 (OK)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value\ncpdef test():\n    cdef My_Struct my_struct\n    cdef My_Struct[my_view = <My_Struct[:1](:])>&my_struct\n\n*Test 2 (FAILS)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value*[test():\n    cdef My_Struct my_struct\n    cdef My_Struct[:](1]*\ncpdef) my_view = <My_Struct[Expected 1 dimension(s), got 1*\n*\n*\n*Test 3 (OK)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value[*1*](:1]>&my_struct\n\n*ValueError:)\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n1*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*Test 4 (FAILS)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value[*2*](:])\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n2*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*ValueError: Expected 1 dimension(s), got 1*\n*\n*\n*Test 5 (OK)*\ncdef packed struct My_Struct:\n    double my_first_value\n    *char* my_second_value[2](:])\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','*a*',2)](('my_first_value','float64'),), \nalign=False)\n    cdef My_Struct[my_view = my_array\n\n*Test 6 (OK)*\ncdef packed struct My_Array_Struct:\n    double values[*1*](:])\ncdef packed struct My_Struct:\n    double my_first_value\n    My_Array_Struct my_second_value\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n1*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*Test 7 (FAILS)*\ncdef packed struct My_Array_Struct:\n    double values[*2*](:])\ncdef packed struct My_Struct:\n    double my_first_value\n    My_Array_Struct my_second_value\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n2*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*ValueError: Expected 1 dimension(s), got 1*\n\n*Test 8 (FAILS)*\ncdef packed struct My_Struct:\n    double my_first_value*[1](:])*\n    double my_second_value\ncpdef test():\n    cdef My_Struct my_struct\n    cdef My_Struct[my_view = <My_Struct[:1](:])>&my_struct\n\n*ValueError: Buffer dtype mismatch, expected 'double' but got end in \n'My_Struct.my_second_value'*\n\n*Test 9 (COMPILER CRASH)*\ncdef packed struct My_Array_Struct:\n    double values[packed struct My_Struct:\n    double my_first_value\n    My_Array_Struct my_second_value*[1](2]\ncdef)*\ncpdef test():\n    cdef My_Struct my_struct\n    cdef My_Struct[my_view = <My_Struct[:1](:])>&my_struct\n```\n\nto\n\nAs reported on the mailing list:\n\nThere seem to be some bugs regarding memoryviews of structured arrays \nin Cython when the struct itself contains arrays. I have a Cython fix for \none of them (the most relevant to me), but first I would like to make sure \nthat these are really bugs and I am not doing anything stupid. This \nquestion is related to \nhttp://stackoverflow.com/questions/17239091/cython-memoryviews-from-array-of-structs, \nbut the answer there works only for char arrays. An array of doubles breaks \nit again.\n\nIt seems to me that Cython implementation solves some special cases, but \nnot the general one. My proposed fix would be to insert\n```\nndim = ctx->head->field->type->ndim;\n```\nafter\n```\n/* Process the previous element */\n\nif (__Pyx_BufFmt_ProcessTypeChunk(ctx) == -1) return NULL;\n```\nin Cython\\Utility\\Buffer.c\n\nThis fixes tests 2, 4 and 7, but not 8 and 9 (see below). I am not sure \nabout the details of what the code in Buffer.c is supposed to do and \nwhether my modification would break some other functionality, but my code \n(not only the tests) works with this fix.\n\nOr am I possibly simply missing \"the right way\" to handle arrays of structs \ncontaining arrays in Cython? But in either case the compiler shouldn't \ncrash like in test 9...\n\n\n\nHere is the code of my tests with and without numpy with results ranging \nfrom \"ok\" to \"compiler crash\".\nThe numpy tests require these imports:\n\n```\nimport numpy as np\ncimport numpy as np\n```\n\n```\n*Test 1 (OK)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value\ncpdef test():\n    cdef My_Struct my_struct\n    cdef My_Struct[my_view = <My_Struct[:1](:])>&my_struct\n\n*Test 2 (FAILS)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value*[test():\n    cdef My_Struct my_struct\n    cdef My_Struct[:](1]*\ncpdef) my_view = <My_Struct[Expected 1 dimension(s), got 1*\n*\n*\n*Test 3 (OK)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value[*1*](:1]>&my_struct\n\n*ValueError:)\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n1*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*Test 4 (FAILS)*\ncdef packed struct My_Struct:\n    double my_first_value\n    double my_second_value[*2*](:])\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n2*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*ValueError: Expected 1 dimension(s), got 1*\n*\n*\n*Test 5 (OK)*\ncdef packed struct My_Struct:\n    double my_first_value\n    *char* my_second_value[2](:])\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','*a*',2)](('my_first_value','float64'),), \nalign=False)\n    cdef My_Struct[my_view = my_array\n\n*Test 6 (OK)*\ncdef packed struct My_Array_Struct:\n    double values[*1*](:])\ncdef packed struct My_Struct:\n    double my_first_value\n    My_Array_Struct my_second_value\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n1*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*Test 7 (FAILS)*\ncdef packed struct My_Array_Struct:\n    double values[*2*](:])\ncdef packed struct My_Struct:\n    double my_first_value\n    My_Array_Struct my_second_value\ncpdef test():\n    cdef np.ndarray my_array = np.ndarray(1, \ndtype=np.dtype([('my_second_value','float64',*\n2*)](('my_first_value','float64'),), align=False)\n    cdef My_Struct[my_view = my_array\n\n*ValueError: Expected 1 dimension(s), got 1*\n\n*Test 8 (FAILS)*\ncdef packed struct My_Struct:\n    double my_first_value*[1](:])*\n    double my_second_value\ncpdef test():\n    cdef My_Struct my_struct\n    cdef My_Struct[my_view = <My_Struct[:1](:])>&my_struct\n\n*ValueError: Buffer dtype mismatch, expected 'double' but got end in \n'My_Struct.my_second_value'*\n\n*Test 9 (COMPILER CRASH)*\ncdef packed struct My_Array_Struct:\n    double values[packed struct My_Struct:\n    double my_first_value\n    My_Array_Struct my_second_value*[1](2]\ncdef)*\ncpdef test():\n    cdef My_Struct my_struct\n    cdef My_Struct[my_view = <My_Struct[:1](:])>&my_struct\n```\ncommented",
+            "created_at": "2015-06-29T13:43:49Z",
+            "html_url": "https://github.com/cython/cython/issues/1407#issuecomment-240052999",
+            "id": 240052999,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1407",
+            "updated_at": "2016-08-16T09:32:05Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/240052999",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            }
+        }
+    ],
+    "comments": 1,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/1407/comments",
+    "created_at": "2015-06-29T13:40:13Z",
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:32:05Z",
+            "event": "labeled",
+            "id": 756788214,
+            "label": {
+                "color": "444444",
+                "name": "Code Generation"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756788214"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:32:05Z",
+            "event": "labeled",
+            "id": 756788216,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756788216"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:32:05Z",
+            "event": "milestoned",
+            "id": 756788218,
+            "milestone": {
+                "title": "wishlist"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756788218"
+        }
+    ],
+    "events_url": "https://api.github.com/repos/cython/cython/issues/1407/events",
+    "html_url": "https://github.com/cython/cython/issues/1407",
+    "id": 171365109,
+    "labels": [
+        {
+            "color": "444444",
+            "name": "Code Generation",
+            "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
+        },
+        {
+            "color": "444444",
+            "name": "defect",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        }
+    ],
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/1407/labels{/name}",
+    "locked": false,
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 25,
+        "created_at": "2016-08-16T08:38:52Z",
+        "creator": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+            "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+            "followers_url": "https://api.github.com/users/robertwb/followers",
+            "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+            "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/robertwb",
+            "id": 486017,
+            "login": "robertwb",
+            "organizations_url": "https://api.github.com/users/robertwb/orgs",
+            "received_events_url": "https://api.github.com/users/robertwb/received_events",
+            "repos_url": "https://api.github.com/users/robertwb/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/robertwb"
+        },
+        "description": "",
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestones/wishlist",
+        "id": 1944442,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/6/labels",
+        "number": 6,
+        "open_issues": 196,
+        "state": "open",
+        "title": "wishlist",
+        "updated_at": "2016-08-17T04:27:14Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/6"
+    },
+    "number": 1407,
+    "repository_url": "https://api.github.com/repos/cython/cython",
+    "state": "open",
+    "title": "memoryviews of arrays of structs fail to work in some cases",
+    "updated_at": "2015-06-29T13:43:49Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/1407",
+    "user": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+        "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+        "followers_url": "https://api.github.com/users/robertwb/followers",
+        "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+        "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/robertwb",
+        "id": 486017,
+        "login": "robertwb",
+        "organizations_url": "https://api.github.com/users/robertwb/orgs",
+        "received_events_url": "https://api.github.com/users/robertwb/received_events",
+        "repos_url": "https://api.github.com/users/robertwb/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/robertwb"
+    }
+}

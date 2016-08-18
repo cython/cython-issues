@@ -1,0 +1,246 @@
+{
+    "assignee": null,
+    "assignees": [],
+    "body": "Here are some ideas of how this could be accomplished:\n\t* evaluate cdef-Classes which are using a Metaclass ''before any other classes''\n\t* create temporary pyd and pyx files for any cdef-class that uses cdef-metaclasses\n\t* those temporary classes need to be re-evaluated if anything changes in the original\n\nExample Scenario:\n\n```\n@cython.cclass\nclass FormMeta(type):\n\t@classmethod\n\tdef __prepare__(metacls, name, bases, **kwargs):\n\t\treturn OrderedDict()\n\tdef __init__(cls, name, bases, attrs):\n\t\t# add some attributes and methods to cls, in order to\n\t\t# have less boilerplate to write for each form class\n\t\treturn type.__init__(cls, name, bases, attrs)\n@cython.cclass\nclass UserForm(metaclass=FormMeta):\n\tname = TextField()\n```\n\nBenefits:\n\t* Once the Extension Module is built, there would be no need to do process the creation/manipulation via metaclasses, thus reduce startup time for application\n\t* Have all the benefits of cdef-Classes, like lower memory footprint, when there might be hundreds of those classes with lots of data in them\n\t* Have all the benefits of python beeing both very dynamic and flexible and simple to use\n\nI know there are many issues which have a higher priority right now, but a discussion about this would be very nice.\n\nMigrated from http://trac.cython.org/ticket/777",
+    "closed_at": null,
+    "comment_data": [
+        {
+            "body": "**valmynd** changed **type** from `defect` to `enhancement`\ncommented\n\nA more precise example scenario, in which meta classes make sense:\n\n```\n@cython.cclass\nclass _Field(object):\n   _parent = cython.declare(Form)\n   cpdef void bind_parent(self, Form form):\n      # handle group of fields recursively, e.g. radio buttons\n      self._parent = form\n@cython.cclass\nclass FormMeta(type):\n   @classmethod\n   def __prepare__(metacls, name, bases, **kwargs):\n      return OrderedDict()\n   def __init__(cls, name, bases, attrs):\n      for objname, obj in attrs.items():\n         if isinstance(obj, _Field):\n            # Field objects need to know which Form or FieldGroup they belong to\n            obj.bind_parent(cls)\n            cls._fields.append(obj)\n      return type.__init__(cls, name, bases, attrs)\n@cython.cclass\nclass Form(metaclass=FormMeta):\n   _fields = []\n@cython.cclass\nclass UserForm(Form):\n   name = TextField()\n```",
+            "created_at": "2012-05-25T10:28:01Z",
+            "html_url": "https://github.com/cython/cython/issues/1332#issuecomment-240051857",
+            "id": 240051857,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1332",
+            "updated_at": "2016-08-16T09:27:45Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/240051857",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            }
+        }
+    ],
+    "comments": 1,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/1332/comments",
+    "created_at": "2012-05-25T09:48:15Z",
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:27:45Z",
+            "event": "labeled",
+            "id": 756782797,
+            "label": {
+                "color": "444444",
+                "name": "Code Generation"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756782797"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:27:45Z",
+            "event": "labeled",
+            "id": 756782798,
+            "label": {
+                "color": "444444",
+                "name": "P: minor"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756782798"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:27:45Z",
+            "event": "labeled",
+            "id": 756782799,
+            "label": {
+                "color": "444444",
+                "name": "enhancement"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756782799"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:27:45Z",
+            "event": "milestoned",
+            "id": 756782800,
+            "milestone": {
+                "title": "wishlist"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756782800"
+        }
+    ],
+    "events_url": "https://api.github.com/repos/cython/cython/issues/1332/events",
+    "html_url": "https://github.com/cython/cython/issues/1332",
+    "id": 171364116,
+    "labels": [
+        {
+            "color": "444444",
+            "name": "Code Generation",
+            "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
+        },
+        {
+            "color": "444444",
+            "name": "enhancement",
+            "url": "https://api.github.com/repos/cython/cython/labels/enhancement"
+        },
+        {
+            "color": "444444",
+            "name": "P: minor",
+            "url": "https://api.github.com/repos/cython/cython/labels/P:%20minor"
+        }
+    ],
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/1332/labels{/name}",
+    "locked": false,
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 25,
+        "created_at": "2016-08-16T08:38:52Z",
+        "creator": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+            "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+            "followers_url": "https://api.github.com/users/robertwb/followers",
+            "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+            "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/robertwb",
+            "id": 486017,
+            "login": "robertwb",
+            "organizations_url": "https://api.github.com/users/robertwb/orgs",
+            "received_events_url": "https://api.github.com/users/robertwb/received_events",
+            "repos_url": "https://api.github.com/users/robertwb/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/robertwb"
+        },
+        "description": "",
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestones/wishlist",
+        "id": 1944442,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/6/labels",
+        "number": 6,
+        "open_issues": 196,
+        "state": "open",
+        "title": "wishlist",
+        "updated_at": "2016-08-17T04:27:14Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/6"
+    },
+    "number": 1332,
+    "repository_url": "https://api.github.com/repos/cython/cython",
+    "state": "open",
+    "title": "Metaclasses to generate cdef'ed Classes",
+    "updated_at": "2012-05-25T10:28:01Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/1332",
+    "user": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+        "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+        "followers_url": "https://api.github.com/users/robertwb/followers",
+        "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+        "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/robertwb",
+        "id": 486017,
+        "login": "robertwb",
+        "organizations_url": "https://api.github.com/users/robertwb/orgs",
+        "received_events_url": "https://api.github.com/users/robertwb/received_events",
+        "repos_url": "https://api.github.com/users/robertwb/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/robertwb"
+    }
+}

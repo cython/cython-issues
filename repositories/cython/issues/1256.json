@@ -1,0 +1,217 @@
+{
+    "assignee": null,
+    "assignees": [],
+    "body": "Note: also posted to cython-devel list\n\nI am getting some warnings when\nusing cython to compile a python module and then calling into the module from c.\n\nI was able to condense the problem down to a very succint example.\n\nThere are three files of interest:\n\ntest.pyx:\n----------------------------------\ncdef class foo:\n    cdef int a\n    cdef int b\n    def __init__(foo self, int a, int b):\n        self.a = a\n        self.b = b\n\ncdef public void bar(foo x):\n    print \"My_foo\", x.a, x.b\n\ncdef public foo make_foo(int a, int b):\n    return foo(a, b)\n------------------------------------------\n\nsetup.py:\n------------------------------------------\nfrom distutils.core import setup\nfrom distutils.extension import Extension\nfrom Cython.Distutils import build_ext\n\next_modules = [[\"test.pyx\"](Extension(\"test\",))]\n\nsetup(\n  name = 'Hello world app',\n  cmdclass = {'build_ext': build_ext},\n  ext_modules = ext_modules\n)\n------------------------------------------\nand dummy.c:\n-----------------------------------------\n#include \"Python.h\"\n#include \"test.h\"\n\nint main(int argc, char** argv){\n  Py_Initialize();\n  inittest();\n  bar(make_foo(1,2));\n  return 0;\n}\n---------------------------------------\n\nI use the following commands to compile and link:\npython setup.py build_ext --inplace\ngcc -I/usr/include/python2.6 -lpython2.6 -L/usr/include/python2.6/config -c dummy.c\n\nThe second command generates the following error messages:\nIn file included from dummy.c:2:\ntest.h:11: warning: 'struct __pyx_obj_4test_foo' declared inside parameter list\ntest.h:11: warning: its scope is only this definition or declaration, which is probably\nnot what you want\ndummy.c: In function 'main':\ndummy.c:7: warning: passing argument 1 of 'bar' from incompatible pointer type\ntest.h:11: note: expected 'struct __pyx_obj_4test_foo *' but argument is of type 'struct\n__pyx_obj_4test_foo *'\n\nAfter a bit of digging, I found the problem:\nThe definition for the struct in question was created in test.c, not test.h.\nGCC is therefore treating the parameter in test.h as a completely separate (and empty)\nstruct declaration.  Luckily, in this case struct pointers are being used, so enough mem\ngets allocated, etc. and everything actually ends up working.\n\nThat being said, the compiler errors are quite bothersome, and it may be that this could\ncause real errors in more complex programs with more interdependencies of types.\n\nI would like to propose as a fix that the struct declaration be generated inside the\nheader file instead of the .c file (and on a side note, I would personally prefer that\nthe #includes be placed in the header file as well).\n\nThanks for all the work that has been put into this project.  Cython is really quite a\nremarkable tool!\n\n-Seth \n\nMigrated from http://trac.cython.org/ticket/699",
+    "closed_at": null,
+    "comment_data": [],
+    "comments": 0,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/1256/comments",
+    "created_at": "2011-06-06T18:52:20Z",
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:14:12Z",
+            "event": "labeled",
+            "id": 756767032,
+            "label": {
+                "color": "444444",
+                "name": "Packaging"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756767032"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:14:12Z",
+            "event": "labeled",
+            "id": 756767033,
+            "label": {
+                "color": "444444",
+                "name": "P: minor"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756767033"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:14:12Z",
+            "event": "labeled",
+            "id": 756767034,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756767034"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:14:12Z",
+            "event": "milestoned",
+            "id": 756767037,
+            "milestone": {
+                "title": "wishlist"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756767037"
+        }
+    ],
+    "events_url": "https://api.github.com/repos/cython/cython/issues/1256/events",
+    "html_url": "https://github.com/cython/cython/issues/1256",
+    "id": 171361434,
+    "labels": [
+        {
+            "color": "444444",
+            "name": "defect",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        },
+        {
+            "color": "444444",
+            "name": "P: minor",
+            "url": "https://api.github.com/repos/cython/cython/labels/P:%20minor"
+        },
+        {
+            "color": "444444",
+            "name": "Packaging",
+            "url": "https://api.github.com/repos/cython/cython/labels/Packaging"
+        }
+    ],
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/1256/labels{/name}",
+    "locked": false,
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 25,
+        "created_at": "2016-08-16T08:38:52Z",
+        "creator": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+            "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+            "followers_url": "https://api.github.com/users/robertwb/followers",
+            "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+            "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/robertwb",
+            "id": 486017,
+            "login": "robertwb",
+            "organizations_url": "https://api.github.com/users/robertwb/orgs",
+            "received_events_url": "https://api.github.com/users/robertwb/received_events",
+            "repos_url": "https://api.github.com/users/robertwb/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/robertwb"
+        },
+        "description": "",
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestones/wishlist",
+        "id": 1944442,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/6/labels",
+        "number": 6,
+        "open_issues": 196,
+        "state": "open",
+        "title": "wishlist",
+        "updated_at": "2016-08-17T04:27:14Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/6"
+    },
+    "number": 1256,
+    "repository_url": "https://api.github.com/repos/cython/cython",
+    "state": "open",
+    "title": "Missing Declarations from Generated Header File",
+    "updated_at": "2011-06-06T18:52:20Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/1256",
+    "user": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+        "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+        "followers_url": "https://api.github.com/users/robertwb/followers",
+        "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+        "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/robertwb",
+        "id": 486017,
+        "login": "robertwb",
+        "organizations_url": "https://api.github.com/users/robertwb/orgs",
+        "received_events_url": "https://api.github.com/users/robertwb/received_events",
+        "repos_url": "https://api.github.com/users/robertwb/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/robertwb"
+    }
+}

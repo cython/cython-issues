@@ -1,0 +1,181 @@
+{
+    "assignee": null,
+    "assignees": [],
+    "body": "```\n\nMy bad,\n\nthe error actually goes away when I change to void *:\n- the return type of myFactory\n- the ptr local variable of myFactory\n- the ptr local variable of called_by_python\n\nI also must explicit the template argument of myTemplateObject when doing the \"new\", like so:\n    ptr = new cxx.myTemplateObject[*>stuff.data)\n\nSorry about that,\n\nLionel\n\n\n2010/6/18 Lionel Data <lionel.data@gmail.com>\nHi,\n\nThe C++ wrapper in Cython makes a pretty good job, even when using template variables. However I came across a strange error, and I don't know if I'm the one messing with cython too much, or if it is an actual bug. (I pulled the cython repository yesterday, changeset:   3394:37d40646533e)\n\nSo here it is (I hope you'll be able to reproduce it):\n\ncimport mycppDecl as cxx # <- this is my .px file containing the declarations\ncimport numpy as np\n\ncdef myFactory(np.ndarray stuff):\n    cxx.myTemplateObject[T](float](<float) * ptr\n\n    if stuff.dtype == np.dtype(np.float32):  # Is it the best way to do this btw ?\n        ptr = new cxx.myTemplateObject(<float *>stuff.data)\n    else:\n        ptr = new cxx.myTemplateObject(<double *>stuff.data)\n    return ptr\n\ndef called_by_python(np.ndarray stuff):\n    cxx.myTemplateObject[*  ptr  # Error goes away with void * here\n    ptr = myFactory(stuff)\n\n\nThis code produces an exception when cython tries to parse it (I think). It goes away when I change the type of ptr to void * in called_by_python().\nhere is the output of the error:\n\n\nTraceback (most recent call last):\n  File \"./setup.py\", line 25, in <module>\n    ext_modules = ext_modules\n  File \"/home/lionel/work/ets/python26/lib/python2.6/distutils/core.py\", line 152, in setup\n    dist.run_commands()\n  File \"/home/lionel/work/ets/python26/lib/python2.6/distutils/dist.py\", line 975, in run_commands\n    self.run_command(cmd)\n  File \"/home/lionel/work/ets/python26/lib/python2.6/distutils/dist.py\", line 995, in run_command\n    cmd_obj.run()\n  File \"/home/lionel/work/ets/python26/lib/python2.6/distutils/command/build_ext.py\", line 345, in run\n    self.build_extensions()\n  File \"/home/lionel/work/cython/cython-devel/Cython/Distutils/build_ext.py\", line 75, in build_extensions\n    ext.sources = self.cython_sources(ext.sources, ext)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Distutils/build_ext.py\", line 197, in cython_sources\n    full_module_name=module_name)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Main.py\", line 749, in compile\n    return compile_single(source, options, full_module_name)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Main.py\", line 696, in compile_single\n    return run_pipeline(source, options, full_module_name)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Main.py\", line 593, in run_pipeline\n    err, enddata = context.run_pipeline(pipeline, source)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Main.py\", line 234, in run_pipeline\n    data = phase(data)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/ParseTreeTransforms.py\", line 965, in __call__\n    return super(AnalyseDeclarationsTransform, self).__call__(root)        \n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Visitor.py\", line 276, in __call__\n    return super(CythonTransform, self).__call__(node)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Visitor.py\", line 259, in __call__\n    return self.visit(root)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Visitor.py\", line 28, in visit\n    return handler_method(obj)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/ParseTreeTransforms.py\", line 973, in visit_ModuleNode\n    node.analyse_declarations(self.env_stack[-1](T]))\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/ModuleNode.py\", line 63, in analyse_declarations\n    self.body.analyse_declarations(env)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Nodes.py\", line 341, in analyse_declarations\n    stat.analyse_declarations(env)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Nodes.py\", line 341, in analyse_declarations\n    stat.analyse_declarations(env)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Nodes.py\", line 1515, in analyse_declarations\n    base_type = self.base_type.analyse(env)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Nodes.py\", line 836, in analyse\n    self.type = base_type.specialize_here(self.pos, template_types)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/PyrexTypes.py\", line 1924, in specialize_here\n    return self.specialize(dict(zip(self.templates, template_values)))\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/PyrexTypes.py\", line 1940, in specialize\n    specialized.scope = self.scope.specialize(values)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Symtab.py\", line 1605, in specialize\n    entry.cname)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Symtab.py\", line 350, in declare_type\n    entry = self.declare(name, cname, type, pos, visibility)\n  File \"/home/lionel/work/cython/cython-devel/Cython/Compiler/Symtab.py\", line 306, in declare\n    if type.is_buffer and not isinstance(self, LocalScope):\nAttributeError: 'NoneType' object has no attribute 'is_buffer'\n```\n\nMigrated from http://trac.cython.org/ticket/545",
+    "closed_at": null,
+    "comment_data": [],
+    "comments": 0,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/1105/comments",
+    "created_at": "2010-06-21T18:48:05Z",
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:08:45Z",
+            "event": "labeled",
+            "id": 756760251,
+            "label": {
+                "color": "444444",
+                "name": "Buffers"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756760251"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:08:45Z",
+            "event": "labeled",
+            "id": 756760252,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756760252"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-08-16T09:08:45Z",
+            "event": "milestoned",
+            "id": 756760253,
+            "milestone": {
+                "title": "wishlist"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/756760253"
+        }
+    ],
+    "events_url": "https://api.github.com/repos/cython/cython/issues/1105/events",
+    "html_url": "https://github.com/cython/cython/issues/1105",
+    "id": 171360286,
+    "labels": [
+        {
+            "color": "444444",
+            "name": "Buffers",
+            "url": "https://api.github.com/repos/cython/cython/labels/Buffers"
+        },
+        {
+            "color": "444444",
+            "name": "defect",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        }
+    ],
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/1105/labels{/name}",
+    "locked": false,
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 25,
+        "created_at": "2016-08-16T08:38:52Z",
+        "creator": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+            "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+            "followers_url": "https://api.github.com/users/robertwb/followers",
+            "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+            "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/robertwb",
+            "id": 486017,
+            "login": "robertwb",
+            "organizations_url": "https://api.github.com/users/robertwb/orgs",
+            "received_events_url": "https://api.github.com/users/robertwb/received_events",
+            "repos_url": "https://api.github.com/users/robertwb/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/robertwb"
+        },
+        "description": "",
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestones/wishlist",
+        "id": 1944442,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/6/labels",
+        "number": 6,
+        "open_issues": 196,
+        "state": "open",
+        "title": "wishlist",
+        "updated_at": "2016-08-17T04:27:14Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/6"
+    },
+    "number": 1105,
+    "repository_url": "https://api.github.com/repos/cython/cython",
+    "state": "open",
+    "title": "Compiler crash with C++ templates/buffers",
+    "updated_at": "2010-06-21T18:48:05Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/1105",
+    "user": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+        "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+        "followers_url": "https://api.github.com/users/robertwb/followers",
+        "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+        "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/robertwb",
+        "id": 486017,
+        "login": "robertwb",
+        "organizations_url": "https://api.github.com/users/robertwb/orgs",
+        "received_events_url": "https://api.github.com/users/robertwb/received_events",
+        "repos_url": "https://api.github.com/users/robertwb/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/robertwb"
+    }
+}
