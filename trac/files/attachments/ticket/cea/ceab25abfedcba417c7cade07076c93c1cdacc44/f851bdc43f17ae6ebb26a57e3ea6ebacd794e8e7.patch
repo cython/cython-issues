@@ -1,0 +1,34 @@
+# HG changeset patch
+# User Carl Witty <Carl.Witty@gmail.com>
+# Date 1281631000 25200
+# Node ID b0ec38a81a3561c8f328fdf8fc8f01d05af47410
+# Parent  15eaaaa72cfe5f4693cd43a1d6758938c1feb8ec
+Fix #566, where __getslice__ generates code that gives a confusing compiler error under Python 3.  (Now you get a Cython compiler warning and a direct error message.)  A modification of the patch for #215.
+
+diff --git a/Cython/Compiler/ModuleNode.py b/Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py
++++ b/Cython/Compiler/ModuleNode.py
+@@ -932,8 +932,12 @@
+                         self.generate_getitem_int_function(scope, code)
+                     if scope.defines_any(["__setitem__", "__delitem__"]):
+                         self.generate_ass_subscript_function(scope, code)
++                    if scope.defines_any(["__getslice__", "__setslice__", "__delslice__"]):
++                        warning(self.pos, "__getslice__, __setslice__, and __delslice__ are not supported by Python 3, use __getitem__, __setitem__, and __delitem__ instead", 1)
++                        code.putln("#if PY_MAJOR_VERSION >= 3")
++                        code.putln("#error __getslice__, __setslice__, and __delslice__ not supported in Python 3.")
++                        code.putln("#endif")
+                     if scope.defines_any(["__setslice__", "__delslice__"]):
+-                        warning(self.pos, "__setslice__ and __delslice__ are not supported by Python 3, use __setitem__ and __getitem__ instead", 1)
+                         self.generate_ass_slice_function(scope, code)
+                     if scope.defines_any(["__getattr__","__getattribute__"]):
+                         self.generate_getattro_function(scope, code)
+@@ -1260,9 +1264,6 @@
+         # Setting and deleting a slice are both done through
+         # the ass_slice method, so we dispatch to user's __setslice__
+         # or __delslice__, or raise an exception.
+-        code.putln("#if PY_MAJOR_VERSION >= 3")
+-        code.putln("#error __setslice__ and __delslice__ not supported in Python 3.")
+-        code.putln("#endif")
+         base_type = scope.parent_type.base_type
+         set_entry = scope.lookup_here("__setslice__")
+         del_entry = scope.lookup_here("__delslice__")

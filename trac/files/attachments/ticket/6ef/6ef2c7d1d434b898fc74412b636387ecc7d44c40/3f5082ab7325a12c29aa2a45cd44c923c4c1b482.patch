@@ -1,0 +1,121 @@
+# HG changeset patch
+# Parent 4f3b80b0a9db0672ab73327e722cb63d1d2513f5
+diff -r 4f3b80b0a9db -r 0b0d09a5cde0 Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py	Wed Aug 28 21:48:11 2013 +0200
++++ b/Cython/Compiler/ModuleNode.py	Thu Aug 29 06:53:40 2013 +0200
+@@ -879,9 +879,10 @@
+ 
+         code.mark_pos(entry.pos)
+         # Generate final methods prototypes
+-        type = entry.type
+-        for method_entry in entry.type.scope.cfunc_entries:
+-            if not method_entry.is_inherited and method_entry.final_func_cname:
++        type_scope = entry.type.scope
++        for method_entry in type_scope.cfunc_entries:
++            if method_entry.final_func_cname:
++                print method_entry.final_func_cname, method_entry.type
+                 declaration = method_entry.type.declaration_code(
+                     method_entry.final_func_cname)
+                 modifiers = code.build_function_modifiers(method_entry.func_modifiers)
+diff -r 4f3b80b0a9db -r 0b0d09a5cde0 Cython/Compiler/PyrexTypes.py
+--- a/Cython/Compiler/PyrexTypes.py	Wed Aug 28 21:48:11 2013 +0200
++++ b/Cython/Compiler/PyrexTypes.py	Thu Aug 29 06:53:40 2013 +0200
+@@ -2490,6 +2490,16 @@
+     def as_argument_type(self):
+         return c_ptr_type(self)
+ 
++    def as_subtype_method(self, subtype):
++        args = self.args[:]
++        self_arg = args[0]
++        args[0] = CFuncTypeArg(self_arg.name, subtype, self_arg.pos, self_arg.cname)
++        return type(self)(
++            self.return_type, args, self.has_varargs,
++            self.exception_value, self.exception_check, self.calling_convention,
++            self.nogil, self.with_gil, self.is_overridable,
++            self.optional_arg_count, self.templates, self.is_strict_signature)
++
+     def same_c_signature_as(self, other_type, as_cmethod = 0):
+         return self.same_c_signature_as_resolved_type(
+             other_type.resolve(), as_cmethod)
+diff -r 4f3b80b0a9db -r 0b0d09a5cde0 Cython/Compiler/Symtab.py
+--- a/Cython/Compiler/Symtab.py	Wed Aug 28 21:48:11 2013 +0200
++++ b/Cython/Compiler/Symtab.py	Thu Aug 29 06:53:40 2013 +0200
+@@ -1295,10 +1295,10 @@
+             if defining or implementing:
+                 scope = CClassScope(name = name, outer_scope = self,
+                     visibility = visibility)
++                type.set_scope(scope)
+                 scope.directives = self.directives.copy()
+                 if base_type and base_type.scope:
+                     scope.declare_inherited_c_attributes(base_type.scope)
+-                type.set_scope(scope)
+                 self.type_entries.append(entry)
+         else:
+             if defining and type.scope.defined:
+@@ -2023,9 +2023,10 @@
+             is_builtin = var_entry and var_entry.is_builtin
+             if not is_builtin:
+                 cname = adapt(cname)
+-            entry = self.add_cfunction(base_entry.name, base_entry.type,
+-                                       base_entry.pos, cname,
+-                                       base_entry.visibility, base_entry.func_modifiers)
++            entry = self.add_cfunction(
++                base_entry.name, base_entry.type.as_subtype_method(self.parent_type),
++                base_entry.pos, cname,
++                base_entry.visibility, base_entry.func_modifiers)
+             entry.is_inherited = 1
+             if base_entry.is_final_cmethod:
+                 entry.is_final_cmethod = True
+diff -r 4f3b80b0a9db -r 0b0d09a5cde0 tests/run/final_method_T586.pyx
+--- a/tests/run/final_method_T586.pyx	Wed Aug 28 21:48:11 2013 +0200
++++ b/tests/run/final_method_T586.pyx	Thu Aug 29 06:53:40 2013 +0200
+@@ -47,23 +47,43 @@
+     """
+     >>> obj = BaseTypeWithFinalMethods()
+     >>> obj.test_cdef()
++    1
++    >>> obj.call_non_final()
++    123
+     """
++    @cython.test_assert_path_exists("//AttributeNode[@entry.is_final_cmethod=True]")
++    def test_cdef(self):
++        return self.cdef_method()
++
++    def call_non_final(self):
++        return self.non_final()
++
++    cdef non_final(self):
++        return 123
+ 
+     @cython.test_assert_path_exists("//CFuncDefNode[@entry.is_final_cmethod=True]")
+     @cython.final
+     cdef cdef_method(self):
+-        pass
+-
+-    @cython.test_assert_path_exists("//AttributeNode[@entry.is_final_cmethod=True]")
+-    def test_cdef(self):
+-        self.cdef_method()
++        return 1
+ 
+ 
+ cdef class SubType(BaseTypeWithFinalMethods):
+     """
+     >>> obj = SubType()
+     >>> obj.test_cdef()
++    1
++    >>> obj.call_non_final()
++    234
++    >>> obj.call_now_final()
++    234
+     """
+     @cython.test_assert_path_exists("//AttributeNode[@entry.is_final_cmethod=True]")
+     def test_cdef(self):
+-        self.cdef_method()
++        return self.cdef_method()
++
++    def call_now_final(self):
++        return self.non_final()
++
++    @cython.final
++    cdef non_final(self):
++        return 234

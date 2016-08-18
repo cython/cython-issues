@@ -1,0 +1,30 @@
+# HG changeset patch
+# User Eric Huss <eric@huss.org>
+# Date 1243884922 25200
+# Node ID ca95113af5b4ce3a36ee0bc023681db05ba01d26
+# Parent  88fa346e169d202affa38db4cf5472b33fd82626
+Check dependencies defined for the extension to determine if cython
+compile is necessary.
+
+diff -r 88fa346e169d -r ca95113af5b4 Cython/Distutils/build_ext.py
+--- a/Cython/Distutils/build_ext.py	Tue May 26 22:54:46 2009 +0200
++++ b/Cython/Distutils/build_ext.py	Mon Jun 01 12:35:22 2009 -0700
+@@ -181,7 +181,8 @@
+ 
+         for source in pyrex_sources:
+             target = pyrex_targets[source]
+-            rebuild = self.force or newer(source, target)
++            depends = [source] + extension.depends
++            rebuild = self.force or newer_group(depends, target, 'newer')
+             if not rebuild and newest_dependency is not None:
+                 rebuild = newer(newest_dependency, target)
+             if rebuild:
+@@ -195,6 +196,8 @@
+                     generate_pxi = pyrex_gen_pxi)
+                 result = cython_compile(source, options=options,
+                                         full_module_name=module_name)
++            else:
++                log.info("skipping '%s' Cython extension (up-to-date)", target)
+ 
+         return new_sources
+ 

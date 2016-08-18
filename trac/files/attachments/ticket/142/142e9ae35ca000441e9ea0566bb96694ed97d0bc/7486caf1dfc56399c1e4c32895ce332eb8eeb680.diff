@@ -1,0 +1,703 @@
+# HG changeset patch
+# User Lisandro Dalcin <dalcinl@gmail.com>
+# Date 1268230834 10800
+# Node ID 6184101d21b6e25d91c6bd61a2d5a445e63cc81d
+# Parent  13f6a390a8feb98246f205895de6f73d47206d75
+remove dependency on structmember.h" (ticket #517)
+
+diff -r 13f6a390a8fe -r 6184101d21b6 Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py
++++ b/Cython/Compiler/ModuleNode.py
+@@ -426,6 +426,11 @@
+         code.globalstate["end"].putln("#endif /* Py_PYTHON_H */")
+         
+         code.put("""
++#include <stddef.h> /* For offsetof */
++#ifndef offsetof
++#define offsetof(type, member) ( (size_t) & ((type*)0) -> member )
++#endif
++
+ #ifndef PY_LONG_LONG
+   #define PY_LONG_LONG LONG_LONG
+ #endif
+@@ -903,7 +908,6 @@
+                         self.generate_descr_set_function(scope, code)
+                     self.generate_property_accessors(scope, code)
+                     self.generate_method_table(scope, code)
+-                    self.generate_member_table(scope, code)
+                     self.generate_getset_table(scope, code)
+                     self.generate_typeobj_definition(full_module_name, entry, code)
+     
+@@ -1529,34 +1533,6 @@
+         code.putln(
+             "};")
+     
+-    def generate_member_table(self, env, code):
+-        #print "ModuleNode.generate_member_table: scope =", env ###
+-        if env.public_attr_entries:
+-            code.putln("")
+-            code.putln(
+-                "static struct PyMemberDef %s[] = {" %
+-                    env.member_table_cname)
+-            type = env.parent_type
+-            if type.typedef_flag:
+-                objstruct = type.objstruct_cname
+-            else:
+-                objstruct = "struct %s" % type.objstruct_cname
+-            for entry in env.public_attr_entries:
+-                type_code = entry.type.pymemberdef_typecode
+-                if entry.visibility == 'readonly':
+-                    flags = "READONLY"
+-                else:
+-                    flags = "0"
+-                code.putln('{(char *)"%s", %s, %s, %s, 0},' % (
+-                    entry.name,
+-                    type_code,
+-                    "offsetof(%s, %s)" % (objstruct, entry.cname),
+-                    flags))
+-            code.putln(
+-                    "{0, 0, 0, 0, 0}")
+-            code.putln(
+-                "};")
+-    
+     def generate_getset_table(self, env, code):
+         if env.property_entries:
+             code.putln("")
+diff -r 13f6a390a8fe -r 6184101d21b6 Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py
++++ b/Cython/Compiler/Nodes.py
+@@ -891,13 +891,13 @@
+     #  declarators   [CDeclaratorNode]
+     #  in_pxd        boolean
+     #  api           boolean
+-    #  need_properties [entry]
++    #  properties [entry]
+ 
+     #  decorators    [cython.locals(...)] or None 
+     #  directive_locals { string : NameNode } locals defined by cython.locals(...)
+ 
+     child_attrs = ["base_type", "declarators"]
+-    need_properties = ()
++    properties = ()
+     
+     decorators = None
+     directive_locals = {}
+@@ -912,15 +912,12 @@
+         # so do conversion ourself rather than rely on the CPython mechanism (through
+         # a property; made in AnalyseDeclarationsTransform).
+         if (dest_scope.is_c_class_scope
+-                and self.visibility == 'public' 
+-                and base_type.is_pyobject 
+-                and (base_type.is_builtin_type or base_type.is_extension_type)):
+-            self.need_properties = []
++            and self.visibility in ('public', 'readonly')):
++            self.properties = []
+             need_property = True
+-            visibility = 'private'
+         else:
+             need_property = False
+-            visibility = self.visibility
++        visibility = self.visibility
+             
+         for declarator in self.declarators:
+             name_declarator, type = declarator.analyse(base_type, env)
+@@ -951,8 +948,7 @@
+                 entry = dest_scope.declare_var(name, type, declarator.pos,
+                             cname = cname, visibility = visibility, is_cdef = 1)
+                 if need_property:
+-                    self.need_properties.append(entry)
+-                    entry.needs_property = 1
++                    self.properties.append(entry)
+     
+ 
+ class CStructOrUnionDefNode(StatNode):
+diff -r 13f6a390a8fe -r 6184101d21b6 Cython/Compiler/ParseTreeTransforms.py
+--- a/Cython/Compiler/ParseTreeTransforms.py
++++ b/Cython/Compiler/ParseTreeTransforms.py
+@@ -947,11 +947,18 @@
+ 
+     basic_property = TreeFragment(u"""
+ property NAME:
++    #DOC
+     def __get__(self):
+         return ATTR
+     def __set__(self, value):
+         ATTR = value
+     """, level='c_class')
++    basic_property_ro = TreeFragment(u"""
++property NAME:
++    #DOC
++    def __get__(self):
++        return ATTR
++    """, level='c_class')
+ 
+     def __call__(self, root):
+         self.env_stack = [root.scope]
+@@ -1037,12 +1044,9 @@
+         # to ensure all CNameDeclaratorNodes are visited.
+         self.visitchildren(node)
+ 
+-        if node.need_properties:
+-            # cdef public attributes may need type testing on 
+-            # assignment, so we create a property accesss
+-            # mechanism for them. 
++        if node.properties:
+             stats = []
+-            for entry in node.need_properties:
++            for entry in node.properties:
+                 property = self.create_Property(entry)
+                 property.analyse_declarations(node.dest_scope)
+                 self.visit(property)
+@@ -1052,13 +1056,19 @@
+             return None
+             
+     def create_Property(self, entry):
+-        template = self.basic_property
++        if entry.visibility == 'public':
++            template = self.basic_property
++        elif entry.visibility == 'readonly':
++            template = self.basic_property_ro
+         property = template.substitute({
++                #u"DOC": StringNode(EncodedString(docstring)),
+                 u"ATTR": AttributeNode(pos=entry.pos,
+                                        obj=NameNode(pos=entry.pos, name="self"), 
+                                        attribute=entry.name),
+             }, pos=entry.pos).stats[0]
+         property.name = entry.name
++        docstring = "attribute '%s' of '%s' objects" % (entry.name, entry.scope.qualified_name)
++        property.doc = EncodedString(docstring)
+         return property
+ 
+ class AnalyseExpressionsTransform(CythonTransform):
+diff -r 13f6a390a8fe -r 6184101d21b6 Cython/Compiler/PyrexTypes.py
+--- a/Cython/Compiler/PyrexTypes.py
++++ b/Cython/Compiler/PyrexTypes.py
+@@ -56,7 +56,6 @@
+     #  is_buffer             boolean     Is buffer access type
+     #  has_attributes        boolean     Has C dot-selectable attributes
+     #  default_value         string      Initial value
+-    #  pymemberdef_typecode  string      Type code for PyMemberDef struct
+     #
+     #  declaration_code(entity_code, 
+     #      for_display = 0, dll_linkage = None, pyrex = 0)
+@@ -109,7 +108,6 @@
+     is_buffer = 0
+     has_attributes = 0
+     default_value = ""
+-    pymemberdef_typecode = None
+     
+     def resolve(self):
+         # If a typedef, returns the base type.
+@@ -198,18 +196,6 @@
+         self.typedef_cname = cname
+         self.typedef_base_type = base_type
+         self.typedef_is_external = is_external
+-        # Make typecodes in external typedefs use typesize-neutral macros
+-        if is_external:
+-            typecode = None
+-            if base_type.is_int:
+-                if base_type.signed == 0:
+-                    typecode = "__Pyx_T_UNSIGNED_INT"
+-                else:
+-                    typecode = "__Pyx_T_SIGNED_INT"
+-            elif base_type.is_float and not rank_to_type_name[base_type.rank] == "long double":
+-                typecode = "__Pyx_T_FLOATING"
+-            if typecode:
+-                self.pymemberdef_typecode = "%s(%s)" % (typecode, cname)
+     
+     def resolve(self):
+         return self.typedef_base_type.resolve()
+@@ -348,7 +334,6 @@
+     name = "object"
+     is_pyobject = 1
+     default_value = "0"
+-    pymemberdef_typecode = "T_OBJECT"
+     buffer_defaults = None
+     is_extern = False
+     is_subclassed = False
+@@ -617,10 +602,9 @@
+     
+     sign_words = ("unsigned ", "", "signed ")
+     
+-    def __init__(self, rank, signed = 1, pymemberdef_typecode = None):
++    def __init__(self, rank, signed = 1):
+         self.rank = rank
+         self.signed = signed
+-        self.pymemberdef_typecode = pymemberdef_typecode
+     
+     def sign_and_name(self):
+         s = self.sign_words[self.signed]
+@@ -786,8 +770,8 @@
+     from_py_function = "__Pyx_PyInt_AsInt"
+     exception_value = -1
+ 
+-    def __init__(self, rank, signed, pymemberdef_typecode = None, is_returncode = 0):
+-        CNumericType.__init__(self, rank, signed, pymemberdef_typecode)
++    def __init__(self, rank, signed, is_returncode = 0):
++        CNumericType.__init__(self, rank, signed)
+         self.is_returncode = is_returncode
+         if self.from_py_function == "__Pyx_PyInt_AsInt":
+             self.from_py_function = self.get_type_conversion()
+@@ -886,8 +870,8 @@
+ 
+     exception_value = -1
+     
+-    def __init__(self, rank, pymemberdef_typecode = None, math_h_modifier = ''):
+-        CNumericType.__init__(self, rank, 1, pymemberdef_typecode)
++    def __init__(self, rank, math_h_modifier = ''):
++        CNumericType.__init__(self, rank, 1)
+         self.math_h_modifier = math_h_modifier
+     
+     def assignable_from_resolved_type(self, src_type):
+@@ -1990,7 +1974,6 @@
+ class CUTF8CharArrayType(CStringType, CArrayType):
+     #  C 'char []' type.
+     
+-    pymemberdef_typecode = "T_STRING_INPLACE"
+     is_unicode = 1
+     
+     to_py_function = "PyUnicode_DecodeUTF8"
+@@ -2002,8 +1985,6 @@
+ class CCharArrayType(CStringType, CArrayType):
+     #  C 'char []' type.
+     
+-    pymemberdef_typecode = "T_STRING_INPLACE"
+-    
+     def __init__(self, size):
+         CArrayType.__init__(self, c_char_type, size)
+     
+@@ -2011,8 +1992,6 @@
+ class CCharPtrType(CStringType, CPtrType):
+     # C 'char *' type.
+     
+-    pymemberdef_typecode = "T_STRING"
+-    
+     def __init__(self):
+         CPtrType.__init__(self, c_char_type)
+ 
+@@ -2020,8 +1999,6 @@
+ class CUCharPtrType(CStringType, CPtrType):
+     # C 'unsigned char *' type.
+     
+-    pymemberdef_typecode = "T_STRING"
+-    
+     to_py_function = "__Pyx_PyBytes_FromUString"
+     from_py_function = "__Pyx_PyBytes_AsUString"
+ 
+@@ -2087,30 +2064,30 @@
+ c_void_ptr_type =     CPtrType(c_void_type)
+ c_void_ptr_ptr_type = CPtrType(c_void_ptr_type)
+ 
+-c_uchar_type =       CIntType(0, 0, "T_UBYTE")
+-c_ushort_type =      CIntType(1, 0, "T_USHORT")
+-c_uint_type =        CUIntType(2, 0, "T_UINT")
+-c_ulong_type =       CULongType(3, 0, "T_ULONG")
+-c_ulonglong_type =   CULongLongType(6, 0, "T_ULONGLONG")
++c_uchar_type =       CIntType(0, 0)
++c_ushort_type =      CIntType(1, 0)
++c_uint_type =        CUIntType(2, 0)
++c_ulong_type =       CULongType(3, 0)
++c_ulonglong_type =   CULongLongType(6, 0)
+ 
+-c_char_type =        CIntType(0, 1, "T_CHAR")
+-c_short_type =       CIntType(1, 1, "T_SHORT")
+-c_int_type =         CIntType(2, 1, "T_INT")
+-c_long_type =        CLongType(3, 1, "T_LONG")
+-c_longlong_type =    CLongLongType(6, 1, "T_LONGLONG")
+-c_bint_type =        CBIntType(2, 1, "T_INT")
++c_char_type =        CIntType(0, 1)
++c_short_type =       CIntType(1, 1)
++c_int_type =         CIntType(2, 1)
++c_long_type =        CLongType(3, 1)
++c_longlong_type =    CLongLongType(6, 1)
++c_bint_type =        CBIntType(2, 1)
+ 
+-c_schar_type =       CIntType(0, 2, "T_CHAR")
+-c_sshort_type =      CIntType(1, 2, "T_SHORT")
+-c_sint_type =        CIntType(2, 2, "T_INT")
+-c_slong_type =       CLongType(3, 2, "T_LONG")
+-c_slonglong_type =   CLongLongType(6, 2, "T_LONGLONG")
++c_schar_type =       CIntType(0, 2)
++c_sshort_type =      CIntType(1, 2)
++c_sint_type =        CIntType(2, 2)
++c_slong_type =       CLongType(3, 2)
++c_slonglong_type =   CLongLongType(6, 2)
+ 
+-c_py_ssize_t_type =  CPySSizeTType(4, 2, "T_PYSSIZET")
+-c_size_t_type =      CSizeTType(5, 0, "T_SIZET")
++c_py_ssize_t_type =  CPySSizeTType(4, 2)
++c_size_t_type =      CSizeTType(5, 0)
+ 
+-c_float_type =       CFloatType(7, "T_FLOAT", math_h_modifier='f')
+-c_double_type =      CFloatType(8, "T_DOUBLE")
++c_float_type =       CFloatType(7, math_h_modifier='f')
++c_double_type =      CFloatType(8)
+ c_longdouble_type =  CFloatType(9, math_h_modifier='l')
+ 
+ c_double_complex_type = CComplexType(c_double_type)
+@@ -2125,7 +2102,7 @@
+ c_py_ssize_t_ptr_type =  CPtrType(c_py_ssize_t_type)
+ c_size_t_ptr_type =  CPtrType(c_size_t_type)
+ 
+-c_returncode_type =   CIntType(2, 1, "T_INT", is_returncode = 1)
++c_returncode_type =   CIntType(2, 1, is_returncode = 1)
+ 
+ c_anon_enum_type =    CAnonEnumType(-1, 1)
+ 
+@@ -2496,68 +2473,6 @@
+ static CYTHON_INLINE int __Pyx_PyObject_IsTrue(PyObject*);
+ static CYTHON_INLINE PyObject* __Pyx_PyNumber_Int(PyObject* x);
+ 
+-#if !defined(T_PYSSIZET)
+-#if PY_VERSION_HEX < 0x02050000
+-#define T_PYSSIZET T_INT
+-#elif !defined(T_LONGLONG)
+-#define T_PYSSIZET \\
+-        ((sizeof(Py_ssize_t) == sizeof(int))  ? T_INT  : \\
+-        ((sizeof(Py_ssize_t) == sizeof(long)) ? T_LONG : -1))
+-#else
+-#define T_PYSSIZET \\
+-        ((sizeof(Py_ssize_t) == sizeof(int))          ? T_INT      : \\
+-        ((sizeof(Py_ssize_t) == sizeof(long))         ? T_LONG     : \\
+-        ((sizeof(Py_ssize_t) == sizeof(PY_LONG_LONG)) ? T_LONGLONG : -1)))
+-#endif
+-#endif
+-
+-
+-#if !defined(T_ULONGLONG)
+-#define __Pyx_T_UNSIGNED_INT(x) \\
+-        ((sizeof(x) == sizeof(unsigned char))  ? T_UBYTE : \\
+-        ((sizeof(x) == sizeof(unsigned short)) ? T_USHORT : \\
+-        ((sizeof(x) == sizeof(unsigned int))   ? T_UINT : \\
+-        ((sizeof(x) == sizeof(unsigned long))  ? T_ULONG : -1))))
+-#else
+-#define __Pyx_T_UNSIGNED_INT(x) \\
+-        ((sizeof(x) == sizeof(unsigned char))  ? T_UBYTE : \\
+-        ((sizeof(x) == sizeof(unsigned short)) ? T_USHORT : \\
+-        ((sizeof(x) == sizeof(unsigned int))   ? T_UINT : \\
+-        ((sizeof(x) == sizeof(unsigned long))  ? T_ULONG : \\
+-        ((sizeof(x) == sizeof(unsigned PY_LONG_LONG)) ? T_ULONGLONG : -1)))))
+-#endif
+-#if !defined(T_LONGLONG)
+-#define __Pyx_T_SIGNED_INT(x) \\
+-        ((sizeof(x) == sizeof(char))  ? T_BYTE : \\
+-        ((sizeof(x) == sizeof(short)) ? T_SHORT : \\
+-        ((sizeof(x) == sizeof(int))   ? T_INT : \\
+-        ((sizeof(x) == sizeof(long))  ? T_LONG : -1))))
+-#else
+-#define __Pyx_T_SIGNED_INT(x) \\
+-        ((sizeof(x) == sizeof(char))  ? T_BYTE : \\
+-        ((sizeof(x) == sizeof(short)) ? T_SHORT : \\
+-        ((sizeof(x) == sizeof(int))   ? T_INT : \\
+-        ((sizeof(x) == sizeof(long))  ? T_LONG : \\
+-        ((sizeof(x) == sizeof(PY_LONG_LONG))   ? T_LONGLONG : -1)))))
+-#endif
+-
+-#define __Pyx_T_FLOATING(x) \\
+-        ((sizeof(x) == sizeof(float)) ? T_FLOAT : \\
+-        ((sizeof(x) == sizeof(double)) ? T_DOUBLE : -1))
+-
+-#if !defined(T_SIZET)
+-#if !defined(T_ULONGLONG)
+-#define T_SIZET \\
+-        ((sizeof(size_t) == sizeof(unsigned int))  ? T_UINT  : \\
+-        ((sizeof(size_t) == sizeof(unsigned long)) ? T_ULONG : -1))
+-#else
+-#define T_SIZET \\
+-        ((sizeof(size_t) == sizeof(unsigned int))          ? T_UINT      : \\
+-        ((sizeof(size_t) == sizeof(unsigned long))         ? T_ULONG     : \\
+-        ((sizeof(size_t) == sizeof(unsigned PY_LONG_LONG)) ? T_ULONGLONG : -1)))
+-#endif
+-#endif
+-
+ static CYTHON_INLINE Py_ssize_t __Pyx_PyIndex_AsSsize_t(PyObject*);
+ static CYTHON_INLINE PyObject * __Pyx_PyInt_FromSize_t(size_t);
+ static CYTHON_INLINE size_t __Pyx_PyInt_AsSize_t(PyObject*);
+diff -r 13f6a390a8fe -r 6184101d21b6 Cython/Compiler/Symtab.py
+--- a/Cython/Compiler/Symtab.py
++++ b/Cython/Compiler/Symtab.py
+@@ -793,7 +793,7 @@
+         self.doc_cname = Naming.moddoc_cname
+         self.utility_code_list = []
+         self.module_entries = {}
+-        self.python_include_files = ["Python.h", "structmember.h"]
++        self.python_include_files = ["Python.h"]
+         self.include_files = []
+         self.type_names = dict(outer_scope.type_names)
+         self.pxd_file_loaded = 0
+@@ -1326,7 +1326,6 @@
+     #  member_table_cname    string
+     #  getset_table_cname    string
+     #  has_pyobject_attrs    boolean  Any PyObject attributes?
+-    #  public_attr_entries   boolean  public/readonly attrs
+     #  property_entries      [Entry]
+     #  defined               boolean  Defined in .pxd file
+     #  implemented           boolean  Defined in .pyx file
+@@ -1341,7 +1340,6 @@
+             self.member_table_cname = outer_scope.mangle(Naming.memtab_prefix, name)
+             self.getset_table_cname = outer_scope.mangle(Naming.gstab_prefix, name)
+         self.has_pyobject_attrs = 0
+-        self.public_attr_entries = []
+         self.property_entries = []
+         self.inherited_var_entries = []
+         self.defined = 0
+@@ -1382,16 +1380,14 @@
+                 error(pos,
+                     "Attribute of extension type cannot be declared %s" % visibility)
+             if visibility in ('public', 'readonly'):
+-                if type.pymemberdef_typecode:
+-                    self.public_attr_entries.append(entry)
+-                    if name == "__weakref__":
+-                        error(pos, "Special attribute __weakref__ cannot be exposed to Python")
+-                else:
+-                    error(pos,
+-                        "C attribute of type '%s' cannot be accessed from Python" % type)
+-            if visibility == 'public' and type.is_extension_type:
+-                error(pos,
+-                    "Non-generic Python attribute cannot be exposed for writing from Python")
++                if name == "__weakref__":
++                    error(pos, "Special attribute __weakref__ cannot be exposed to Python")
++                if not type.is_pyobject:
++                    if (not type.create_to_py_utility_code(self) or
++                        (visibility=='public' and not
++                         type.create_from_py_utility_code(self))):
++                        error(pos,
++                              "C attribute of type '%s' cannot be accessed from Python" % type)
+             return entry
+         else:
+             if type is unspecified_type:
+diff -r 13f6a390a8fe -r 6184101d21b6 Cython/Compiler/TypeSlots.py
+--- a/Cython/Compiler/TypeSlots.py
++++ b/Cython/Compiler/TypeSlots.py
+@@ -370,10 +370,7 @@
+     #  Slot descriptor for the table of Python-accessible attributes.
+     
+     def slot_code(self, scope):
+-        if scope.public_attr_entries:
+-            return scope.member_table_cname
+-        else:
+-            return "0"
++        return "0"
+ 
+ 
+ class GetSetSlot(SlotDescriptor):
+diff -r 13f6a390a8fe -r 6184101d21b6 tests/compile/extpymemberdef.pyx
+--- a/tests/compile/extpymemberdef.pyx
++++ b/tests/compile/extpymemberdef.pyx
+@@ -8,7 +8,7 @@
+     cdef public float f
+     cdef public double d
+     cdef public char *s
+-    cdef public char a[42]
++    cdef readonly char a[42]
+     cdef public object o
+     cdef readonly int r
+     cdef readonly Spam e
+diff -r 13f6a390a8fe -r 6184101d21b6 tests/errors/cdef_members_T517.pyx
+--- /dev/null
++++ b/tests/errors/cdef_members_T517.pyx
+@@ -0,0 +1,26 @@
++ctypedef void* VoidP
++
++cdef class Spam:
++    cdef          VoidP vp0
++    cdef readonly VoidP vp2
++    cdef public   VoidP vp1
++
++ctypedef struct Foo:
++    int i
++
++cdef class Bar:
++    cdef          Foo foo0
++    cdef readonly Foo foo2
++    cdef public   Foo foo1
++    pass
++
++_ERRORS = u"""
++5:24: C attribute of type 'VoidP' cannot be accessed from Python
++5:24: Cannot convert 'VoidP' to Python object
++6:24: C attribute of type 'VoidP' cannot be accessed from Python
++6:24: Cannot convert 'VoidP' to Python object
++6:24: Cannot convert Python object to 'VoidP'
++14:22: C attribute of type 'Foo' cannot be accessed from Python
++14:22: Cannot convert Python object to 'Foo'
++"""
++
+diff -r 13f6a390a8fe -r 6184101d21b6 tests/errors/e_extweakref.pyx
+--- a/tests/errors/e_extweakref.pyx
++++ b/tests/errors/e_extweakref.pyx
+@@ -13,7 +13,10 @@
+ 	x = c.__weakref__
+ 	c.__weakref__ = x
+ _ERRORS = u"""
++5:20: Illegal use of special attribute __weakref__
++5:20: Illegal use of special attribute __weakref__
+ 5:20: Special attribute __weakref__ cannot be exposed to Python
++8:22: Illegal use of special attribute __weakref__
+ 8:22: Special attribute __weakref__ cannot be exposed to Python
+ 13:6: Illegal use of special attribute __weakref__
+ 14:2: Illegal use of special attribute __weakref__
+diff -r 13f6a390a8fe -r 6184101d21b6 tests/run/cdef_members_T517.pyx
+--- /dev/null
++++ b/tests/run/cdef_members_T517.pyx
+@@ -0,0 +1,129 @@
++__doc__ = u"""
++>>> a = A()
++>>> a.h = 7
++>>> a.i = 127
++>>> a.l = 255
++>>> a.f = 1.0/2.0
++>>> a.d = 1/2.0 + 1/4.0
++>>> a.g = 1/2.0 + 1/4.0 + 1/8.0
++>>> a.Zf = 1+2j
++>>> a.Zd = 3+4j
++>>> a.Zg = 5+6j
++
++>>> a.h, a.i, a.l
++(7, 127, 255)
++>>> a.ro_h, a.ro_i, a.ro_l
++(7, 127, 255)
++>>> a.f, a.d, a.g
++(0.5, 0.75, 0.875)
++>>> a.ro_f, a.ro_d, a.ro_g
++(0.5, 0.75, 0.875)
++>>> a.Zf, a.Zd, a.Zg
++((1+2j), (3+4j), (5+6j))
++>>> a.ro_Zf, a.ro_Zd, a.ro_Zg
++((1+2j), (3+4j), (5+6j))
++
++>>> b = B()
++>>> b.a0 #doctest: +ELLIPSIS
++Traceback (most recent call last):
++    ...
++AttributeError: ...
++>>> b.b0 #doctest: +ELLIPSIS
++Traceback (most recent call last):
++    ...
++AttributeError: ...
++>>> b.c0 #doctest: +ELLIPSIS
++Traceback (most recent call last):
++    ...
++AttributeError: ...
++
++>>> isinstance(b.a1, type(None))
++True
++>>> isinstance(b.a2, type(None))
++True
++>>> isinstance(b.b1, list)
++True
++>>> isinstance(b.b2, list)
++True
++>>> isinstance(b.c1, A)
++True
++>>> isinstance(b.c2, A)
++True
++
++>>> b.a1 = a
++>>> b.a1 is not b.a2
++True
++
++>>> b.b1 = 1 #doctest: +ELLIPSIS
++Traceback (most recent call last):
++    ...
++TypeError: ...
++>>> b.c1 = 1 #doctest: +ELLIPSIS
++Traceback (most recent call last):
++    ...
++TypeError: ...
++>>> b.a2 = None #doctest: +ELLIPSIS
++Traceback (most recent call last):
++    ...
++AttributeError: ...
++>>> b.b2 = [] #doctest: +ELLIPSIS
++Traceback (most recent call last):
++    ...
++AttributeError: ...
++>>> b.c2 = A() #doctest: +ELLIPSIS
++Traceback (most recent call last):
++    ...
++AttributeError: ...
++"""
++
++cdef class A:
++
++    cdef public short h
++    cdef public int i
++    cdef public long l
++    cdef public float f
++    cdef public double d
++    cdef public long double g
++    cdef public float complex Zf
++    cdef public double complex Zd
++    cdef public long double complex Zg
++
++    cdef readonly short ro_h
++    cdef readonly int ro_i
++    cdef readonly long ro_l
++    cdef readonly float ro_f
++    cdef readonly double ro_d
++    cdef readonly long double ro_g
++    cdef readonly float complex ro_Zf
++    cdef readonly double complex ro_Zd
++    cdef readonly long double complex ro_Zg
++
++    def __cinit__(self):
++        self.ro_h = 7
++        self.ro_i = 127
++        self.ro_l = 255
++        self.ro_f = 1.0/2.0
++        self.ro_d = 1/2.0 + 1/4.0
++        self.ro_g = 1/2.0 + 1/4.0 + 1/8.0
++        self.ro_Zf = 1+2j
++        self.ro_Zd = 3+4j
++        self.ro_Zg = 5+6j
++
++
++cdef class B:
++
++    cdef object a0
++    cdef public object a1
++    cdef readonly object a2
++
++    cdef list b0
++    cdef public list b1
++    cdef readonly list b2
++
++    cdef A c0
++    cdef public A c1
++    cdef readonly A c2
++
++    def __cinit__(self):
++        self.b0 = self.b1 = self.b2 = []
++        self.c0 = self.c1 = self.c2 = A()
+diff -r 13f6a390a8fe -r 6184101d21b6 tests/run/typedfieldbug_T303.pyx
+--- a/tests/run/typedfieldbug_T303.pyx
++++ b/tests/run/typedfieldbug_T303.pyx
+@@ -1,12 +1,12 @@
+ __doc__ = """
+->>> readonly()
++>>> readonly() #doctest: +ELLIPSIS
+ Traceback (most recent call last):
+-...
+-TypeError: readonly attribute
++    ...
++TypeError: ...
+ """
+ 
+ import sys
+-if sys.version_info[0] >= 3:
++if sys.version_info[0:2] >= (2,4):
+     __doc__ = __doc__.replace(u'TypeError:', u'AttributeError:')
+ 
+ 
+@@ -51,9 +51,7 @@
+ def longdouble_access():
+     """
+     >>> longdouble_access()
+-    Traceback (most recent call last):
+-    ...
+-    SystemError: bad memberdescr type
++    42.0
+     """
+     cdef object c = MyClass()
+     print c.float_isreally_longdouble

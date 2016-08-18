@@ -1,0 +1,99 @@
+exporting patch:
+# HG changeset patch
+# User Vitja Makarov <vitja.makarov@gmail.com>
+# Date 1290874178 -10800
+# Node ID e7599dce90bbf5e95f8cd3ec37b6900b39b3903d
+# Parent  11e8f724146b25c1c674131830834a03cd121120
+Support lambda in module scope #603
+
+diff -r 11e8f724146b -r e7599dce90bb Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py	Fri Nov 26 17:41:46 2010 +0100
++++ b/Cython/Compiler/Nodes.py	Sat Nov 27 19:09:38 2010 +0300
+@@ -2215,6 +2215,8 @@
+ 
+     def needs_assignment_synthesis(self, env, code=None):
+         # Should enable for module level as well, that will require more testing...
++        if self.entry.is_lambda:
++            return True
+         if env.is_module_scope:
+             if code is None:
+                 return env.directives['binding']
+diff -r 11e8f724146b -r e7599dce90bb Cython/Compiler/ParseTreeTransforms.py
+--- a/Cython/Compiler/ParseTreeTransforms.py	Fri Nov 26 17:41:46 2010 +0100
++++ b/Cython/Compiler/ParseTreeTransforms.py	Sat Nov 27 19:09:38 2010 +0300
+@@ -181,9 +181,6 @@
+ 
+     def visit_LambdaNode(self, node):
+         # unpack a lambda expression into the corresponding DefNode
+-        if self.scope_type != 'function':
+-            error(node.pos,
+-                  "lambda functions are currently only supported in functions")
+         lambda_id = self.lambda_counter
+         self.lambda_counter += 1
+         node.lambda_name = EncodedString(u'lambda%d' % lambda_id)
+@@ -1366,7 +1363,7 @@
+         while cscope.is_py_class_scope or cscope.is_c_class_scope:
+             cscope = cscope.outer_scope
+ 
+-        if not from_closure and self.path:
++        if not from_closure and (self.path or inner_node):
+             if not inner_node:
+                 if not node.assmt:
+                     raise InternalError, "DefNode does not have assignment node"
+diff -r 11e8f724146b -r e7599dce90bb Cython/Compiler/Symtab.py
+--- a/Cython/Compiler/Symtab.py	Fri Nov 26 17:41:46 2010 +0100
++++ b/Cython/Compiler/Symtab.py	Sat Nov 27 19:09:38 2010 +0300
+@@ -75,6 +75,7 @@
+     # is_cfunction     boolean    Is a C function
+     # is_cmethod       boolean    Is a C method of an extension type
+     # is_unbound_cmethod boolean  Is an unbound C method of an extension type
++    # is_lambda        boolean    Is a lambda function
+     # is_type          boolean    Is a type definition
+     # is_cclass        boolean    Is an extension class
+     # is_cpp_class     boolean    Is a C++ class
+@@ -137,6 +138,7 @@
+     is_cfunction = 0
+     is_cmethod = 0
+     is_unbound_cmethod = 0
++    is_lambda = 0
+     is_type = 0
+     is_cclass = 0
+     is_cpp_class = 0
+@@ -530,7 +532,7 @@
+         entry.name = EncodedString(func_cname)
+         entry.func_cname = func_cname
+         entry.signature = pyfunction_signature
+-        self.pyfunc_entries.append(entry)
++        entry.is_lambda = True
+         return entry
+ 
+     def add_lambda_def(self, def_node):
+diff -r 11e8f724146b -r e7599dce90bb tests/run/lambda_module.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/lambda_module.pyx	Sat Nov 27 19:09:38 2010 +0300
+@@ -0,0 +1,25 @@
++# Module scope lambda functions
++__doc__ = """
++>>> pow2(16)
++256
++>>> with_closure(0)
++0
++>>> typed_lambda(1)(2)
++3
++>>> typed_lambda(1.5)(1.5)
++2
++>>> cdef_const_lambda()
++123
++>>> const_lambda()
++321
++"""
++
++pow2 = lambda x: x * x
++with_closure = lambda x:(lambda: x)()
++typed_lambda = lambda int x : (lambda int y: x + y)
++
++cdef int xxx = 123
++cdef_const_lambda = lambda: xxx
++
++yyy = 321
++const_lambda = lambda: yyy

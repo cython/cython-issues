@@ -1,0 +1,507 @@
+diff -r 48d0197cfee6 Cython/Includes/array.pxd
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/Cython/Includes/array.pxd	Sun Dec 06 10:54:37 2009 -0800
+@@ -0,0 +1,183 @@
++"""
++  array.pxd
++  
++  Cython interface to Python's array.array module.
++  
++  * 1D contiguous data view
++  * tools for fast array creation, maximum C-speed and handiness
++  * suitable as allround light weight auto-array within Cython code too
++  
++  Usage:
++  
++  >>> cimport array
++
++  Usage through Cython buffer interface (Py2.3+):  
++  
++    >>> def f(arg1, unsigned i, double dx)
++    ...     array.array[double] a = arg1
++    ...     a[i] += dx
++  
++  Fast C-level new_array(_zeros), resize_array, copy_array, .length,
++  zero_array
++  
++    cdef array.array[double] k = array.copy(d) 
++    cdef array.array[double] n = array.array(d, d.length * 2 ) 
++    cdef array.array[double] m = array.zeros_like(FLOAT_TEMPLATE)
++    array.resize(f, 200000)
++  
++  Zero overhead with naked data pointer views by union: 
++  _f, _d, _i, _c, _u, ... 
++  => Original C array speed + Python dynamic memory management
++
++    cdef array.array a = inarray
++    if 
++    a._d[2] += 0.66   # use as double array without extra casting
++  
++    float *subview = vector._f + 10  # starting from 10th element
++    unsigned char *subview_buffer = vector._B + 4  
++    
++  Suitable as lightweight arrays intra Cython without speed penalty. 
++  Replacement for C stack/malloc arrays; no trouble with refcounting, 
++  mem.leaks; seamless Python compatibility, buffer() option
++  
++
++  IMPORTANT: arrayarray.h (arrayobject, arraydescr) is not part of 
++             the official Python C-API so far; arrayarray.h is located 
++             next to this file copy it to PythonXX/include or local or 
++             somewhere on your -I path 
++
++  last changes: 2009-05-15 rk
++              : 2009-12-06 bp
++"""
++cimport stdlib
++
++cdef extern from "stdlib.h" nogil:
++    void *memset(void *str, int c, size_t n)
++    char *strcat(char *str1, char *str2)
++    char *strncat(char *str1, char *str2, size_t n)
++    void *memchr(void *str, int c, size_t n)
++    int memcmp(void *str1, void *str2, size_t n)
++    void *memcpy(void *str1, void *str2, size_t n)
++    void *memmove(void *str1, void *str2, size_t n)
++
++
++cdef extern from "arrayarray.h":
++    ctypedef void PyTypeObject
++    ctypedef short Py_UNICODE
++    int PyErr_BadArgument()    
++    ctypedef class array.array [object arrayobject]
++    ctypedef object GETF(array a, Py_ssize_t ix)
++    ctypedef object SETF(array a, Py_ssize_t ix, object o)
++    ctypedef struct arraydescr:  # [object arraydescr]:
++            int typecode
++            int itemsize
++            GETF getitem    # PyObject * (*getitem)(struct arrayobject *, Py_ssize_t);
++            SETF setitem    # int (*setitem)(struct arrayobject *, Py_ssize_t, PyObject *);
++
++    ctypedef class array.array [object arrayobject]:
++        cdef __cythonbufferdefaults__ = {'ndim' : 1, 'mode':'c'}
++        
++        cdef:
++            PyTypeObject* ob_type
++            
++            int ob_size             # number of valid items; 
++            unsigned length         # == ob_size (by union)
++            
++            char* ob_item           # to first item
++            
++            Py_ssize_t allocated    # bytes
++            arraydescr* ob_descr    # struct arraydescr *ob_descr;
++            object weakreflist      # /* List of weak references */
++
++            # view's of ob_item:
++            float* _f               # direct float pointer access to buffer
++            double* _d              # double ...
++            int*    _i
++            unsigned *_I
++            unsigned char *_B
++            signed char *_b
++            char *_c
++            unsigned long *_L
++            long *_l
++            short *_h
++            unsigned short *_H
++            Py_UNICODE *_u
++            void* _v
++
++        def __getbuffer__(array self, Py_buffer* info, int flags):
++            # This implementation of getbuffer is geared towards Cython
++            # requirements, and does not yet fullfill the PEP.
++            # In particular strided access is always provided regardless
++            # of flags
++            cdef unsigned rows, columns, itemsize
++            
++            info.suboffsets = NULL
++            info.buf = self.ob_item
++            info.readonly = 0
++            info.ndim = 1
++            info.itemsize = itemsize = self.ob_descr.itemsize   # e.g. sizeof(float)
++            
++            info.strides = <Py_ssize_t*> \
++                           stdlib.malloc(sizeof(Py_ssize_t) * info.ndim * 2 + 2)
++            info.shape = info.strides + 1
++            info.shape[0] = self.ob_size            # number of items
++            info.strides[0] = info.itemsize         
++
++            info.format = <char*>(info.strides + 2 * info.ndim)
++            info.format[0] = self.ob_descr.typecode
++            info.format[1] = 0
++            info.obj = self
++
++        def __releasebuffer__(array self, Py_buffer* info):
++            #if PyArray_HASFIELDS(self):
++            #    stdlib.free(info.format)
++            #if sizeof(npy_intp) != sizeof(Py_ssize_t):
++            stdlib.free(info.strides)
++        
++    array newarrayobject(PyTypeObject* type, Py_ssize_t size, 
++                              arraydescr *descr)
++
++    # fast resize/realloc
++    # not suitable for small increments; reallocation 'to the point'
++    int resize(array self, Py_ssize_t n)
++    # efficient for small increments (not in Py2.3-)
++    int resize_smart(array self, Py_ssize_t n)  
++
++
++#  fast creation of a new array - init with zeros 
++#  yet you need a (any) template array of the same item type (but not same size)
++cdef inline array zeros_like(array sametype):
++    cdef array op = newarrayobject(<PyTypeObject*>sametype.ob_type, sametype.ob_size, sametype.ob_descr)
++    if op:
++        memset(op.ob_item, 0, op.ob_size * op.ob_descr.itemsize)
++        return op
++
++#  fast creation of a new array - no init with zeros 
++cdef inline array empty_like(array sametype):
++    return newarrayobject(<PyTypeObject*>sametype.ob_type, sametype.op.ob_size, 
++                           sametype.ob_descr)
++
++cdef inline array copy(array self):
++    cdef array op = newarrayobject(<PyTypeObject*>self.ob_type, self.ob_size, 
++                                   self.ob_descr)
++    memcpy(op.ob_item, self.ob_item, op.ob_size * op.ob_descr.itemsize)
++    return op
++
++cdef inline int extend_buffer(array self, char* stuff, Py_ssize_t n):
++    """ efficent appending of new stuff of same type (e.g. of same array type)
++        n: number of elements (not number of bytes!)
++    """
++    cdef Py_ssize_t itemsize = self.ob_descr.itemsize, orgsize = self.ob_size
++    if -1 == resize_smart(self, orgsize + n):
++        return -1
++    memcpy( self.ob_item + orgsize * itemsize, stuff, n * itemsize ) 
++
++cdef inline int extend(array self, array other):
++    if self.ob_descr.typecode != self.ob_descr.typecode:
++        PyErr_BadArgument()
++        return -1
++    return extend_buffer(self, other.ob_item, other.ob_size)
++
++
++cdef inline void zero(array op):
++    memset(op.ob_item, 0, op.ob_size * op.ob_descr.itemsize)
+diff -r 48d0197cfee6 Cython/Includes/arrayarray.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/Cython/Includes/arrayarray.h	Sun Dec 06 10:54:37 2009 -0800
+@@ -0,0 +1,165 @@
++/* arrayarray.h  
++
++    artificial C-API for Python's 
++    <array.array> type.
++    copy this file to your -I path, e.g. .../pythonXX/include
++    See array.pxd next to this file
++    
++    last changes: 2009-05-15 rk
++
++*/
++
++#ifndef _ARRAYARRAY_H
++#define _ARRAYARRAY_H
++
++#include <Python.h>
++
++struct arrayobject; /* Forward */
++
++/* All possible arraydescr values are defined in the vector "descriptors"
++ * below.  That's defined later because the appropriate get and set
++ * functions aren't visible yet.
++ */
++typedef struct arraydescr {
++	int typecode;
++	int itemsize;
++	PyObject * (*getitem)(struct arrayobject *, Py_ssize_t);
++	int (*setitem)(struct arrayobject *, Py_ssize_t, PyObject *);
++#if PY_VERSION_HEX >= 0x03000000
++    char *formats;
++#endif    
++} arraydescr;
++
++
++typedef struct arrayobject {
++	PyObject_HEAD
++    union {
++        int ob_size;
++        unsigned length;
++    };
++    union {
++	    char *ob_item;
++        float *_f;
++        double *_d;
++        int *_i;
++        unsigned *_I;
++        unsigned char *_B;
++        signed char *_b;
++        char *_c;
++        unsigned long *_L;
++        long *_l;
++        short *_h;
++        unsigned short *_H;
++        Py_UNICODE *_u;
++        void *_v;
++    };
++#if PY_VERSION_HEX >= 0x02040000
++	Py_ssize_t allocated;
++#endif
++	struct arraydescr *ob_descr;
++#if PY_VERSION_HEX >= 0x02040000
++	PyObject *weakreflist; /* List of weak references */
++#if PY_VERSION_HEX >= 0x03000000
++        int ob_exports;  /* Number of exported buffers */
++#endif
++#endif
++} arrayobject;
++
++
++#ifndef NO_NEWARRAY_INLINE
++/* 
++ * 
++ *  fast creation of a new array - init with zeros
++ */
++ 
++static inline PyObject *
++newarrayobject(PyTypeObject *type, Py_ssize_t size, struct arraydescr *descr)
++{
++	arrayobject *op;
++	size_t nbytes;
++
++	if (size < 0) {
++		PyErr_BadInternalCall();
++		return NULL;
++	}
++
++	nbytes = size * descr->itemsize;
++	/* Check for overflow */
++	if (nbytes / descr->itemsize != (size_t)size) {
++		return PyErr_NoMemory();
++	}
++	op = (arrayobject *) type->tp_alloc(type, 0);
++	if (op == NULL) {
++		return NULL;
++	}
++	op->ob_descr = descr;
++#if !( PY_VERSION_HEX < 0x02040000 )
++	op->allocated = size;
++	op->weakreflist = NULL;
++#endif
++	Py_SIZE(op) = size;
++	if (size <= 0) {
++		op->ob_item = NULL;
++	}
++	else {
++		op->ob_item = PyMem_NEW(char, nbytes);
++		if (op->ob_item == NULL) {
++			Py_DECREF(op);
++			return PyErr_NoMemory();
++		}
++	}
++	return (PyObject *) op;
++}
++#else
++PyObject *
++newarrayobject(PyTypeObject *type, Py_ssize_t size, struct arraydescr *descr);
++#endif
++
++/* fast resize (reallocation to the point) 
++   not designed for filing small increments (but for fast opaque array apps) */
++static inline int resize(arrayobject *self, Py_ssize_t n) 
++{
++    char *item=self->ob_item;
++    PyMem_RESIZE(item, char, (unsigned)(n * self->ob_descr->itemsize));
++    if (item == NULL) {
++        PyErr_NoMemory();
++        return -1;
++    }    
++    self->ob_item = item;
++    self->ob_size = n;
++#if PY_VERSION_HEX >= 0x02040000
++    self->allocated = n;
++#endif
++    return 0;
++}
++
++/* suitable for small increments; over allocation 50% ;
++   Remains non-smart in Python 2.3- ; but exists for compatibility */
++static inline int resize_smart(arrayobject *self, Py_ssize_t n) 
++{
++    char *item=self->ob_item;
++#if PY_VERSION_HEX >= 0x02040000
++    if (n < self->allocated) {
++        if (n*4 > self->allocated) {
++            self->ob_size = n;
++            return 0;
++        }
++    }
++    Py_ssize_t newsize = n  * 3 / 2 + 1;
++    PyMem_RESIZE(item, char, (unsigned)(newsize * self->ob_descr->itemsize));
++    if (item == NULL) {
++        PyErr_NoMemory();
++        return -1;
++    }    
++    self->ob_item = item;
++    self->ob_size = n;
++    self->allocated = newsize;
++    return 0;
++#else
++    return resize(self, n)   /* Python 2.3 has no 'allocated' */
++#endif
++}
++
++
++#endif
++/* _ARRAYARRAY_H */
+diff -r 48d0197cfee6 runtests.py
+--- a/runtests.py	Sat Dec 05 17:39:14 2009 +0100
++++ b/runtests.py	Sun Dec 06 10:54:37 2009 -0800
+@@ -31,12 +31,19 @@
+ TEST_DIRS = ['compile', 'errors', 'run', 'pyregr']
+ TEST_RUN_DIRS = ['run', 'pyregr']
+ 
++PATH = os.path.abspath(__file__)
++
+ # Lists external modules, and a matcher matching tests
+ # which should be excluded if the module is not present.
+ EXT_DEP_MODULES = {
+-    'numpy' : re.compile('.*\.numpy_.*').match
++    'numpy' : re.compile('.*\.numpy_.*').match,
++    'array' : re.compile('.*\.pyarray.*').match
+ }
+ 
++def get_pyarray_include_dirs():
++    op = os.path
++    return [op.join(op.dirname(PATH), "Cython/Includes")]
++
+ def get_numpy_include_dirs():
+     import numpy
+     return [numpy.get_include()]
+@@ -44,6 +51,7 @@
+ EXT_DEP_INCLUDES = [
+     # test name matcher , callable returning list
+     (re.compile('numpy_.*').match, get_numpy_include_dirs),
++    (re.compile('pyarray.*').match, get_pyarray_include_dirs),
+ ]
+ 
+ VER_DEP_MODULES = {
+diff -r 48d0197cfee6 tests/run/pyarray.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/pyarray.pyx	Sun Dec 06 10:54:37 2009 -0800
+@@ -0,0 +1,115 @@
++__doc__ = u"""
++
++    >>> len(a)
++    3
++
++    >>> test_len(a)
++    3L
++
++    >>> test_copy(a)
++    array('f', [1.0, 2.0, 3.0])
++
++    >>> a[2]
++    3.5
++
++    >>> test_fast_access(a)
++    
++    >>> test_new_zero(a)
++    array('f', [0.0, 0.0, 0.0])
++
++    >>> test_set_zero(a)
++    array('f', [0.0, 0.0, 0.0])
++   
++    >>> test_resize(a)
++
++    >> test_likes(a)
++    array('f', [0.0, 0.0, 0.0])
++
++    >>> test_view()
++
++    >>> test_extend()
++
++    >>> test_extend_buffer()
++    array('c', 'abcdefghij')
++
++
++"""
++
++import array  # Python builtin module  
++cimport array  # array.pxd / arrayarray.h
++
++a = array.array('f', [1.0, 2.0, 3.0])
++
++def test_len(a):
++    cdef array.array ca = a  # for C-fast array usage
++    return ca.length
++
++def test_copy(a):
++    cdef array.array ca = a 
++    cdef array.array b
++    b = array.copy(a)
++    a[2] = 3.5
++    assert b[2] != a[2]
++    return b
++
++
++def test_fast_access(a):
++    cdef array.array ca = a 
++    assert ca._f[1] == 2.0, ca._f[1]
++
++    assert ca._c[:5] == b'\x00\x00\x80?\x00', ca._c[:5]
++
++    ca._f[1] += 2.0
++    assert ca._f[1] == 4.0
++
++
++def test_new_zero(a):
++    cdef array.array cb = array.zeros_like(a)
++    assert cb.length == len(a)
++    return cb
++
++
++def test_set_zero(a):
++    cdef array.array cb = array.copy(a)
++    array.zero(cb)
++    assert a[1] != 0.0, a
++    assert cb[1] == 0.0, cb
++    return cb
++
++
++def test_resize(a):
++    cdef array.array cb = array.copy(a)
++    array.resize(cb, 10)
++    for i in range(10):
++        cb._f[i] = i
++    assert cb.length == 10
++    assert cb[9] == cb[-1] == cb._f[9] == 9
++
++
++def test_view():
++    a = array.array('i', [1, 2, 3]) 
++    cdef array.array[int] ca = a
++    assert ca._i[0] == 1
++    assert ca._i[2] == 3
++
++
++def test_extend():
++    cdef array.array ca = array.array('i', [1, 2, 3]) 
++    cdef array.array cb = array.array('i', range(4, 6)) 
++    array.extend(ca, cb)
++    assert list(ca) == range(1, 6), list(ca)
++
++def test_likes(a):
++    cdef array.array z = array.zeros_like(a)
++    cdef array.array e = array.empty_like(a)
++    assert e.length == len(a)
++    return z
++
++def test_extend_buffer():
++    cdef array.array ca = array.array('c', "abcdef") 
++    cdef char* s = "ghij"
++    array.extend_buffer(ca, s, len(s)) # or use stdlib.strlen
++
++    assert ca._c[9] == 'j'
++    assert len(ca) == 10
++    return ca

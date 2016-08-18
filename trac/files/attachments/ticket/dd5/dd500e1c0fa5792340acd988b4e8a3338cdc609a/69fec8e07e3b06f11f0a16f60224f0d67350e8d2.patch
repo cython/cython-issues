@@ -1,0 +1,184 @@
+diff -r 5a66cd8359e8 Cython/Compiler/Optimize.py
+--- a/Cython/Compiler/Optimize.py	Thu May 21 22:33:33 2009 +0200
++++ b/Cython/Compiler/Optimize.py	Thu Jun 11 11:24:02 2009 +0200
+@@ -55,6 +55,23 @@
+ 
+     PyDict_Next_entry = Symtab.Entry(
+         PyDict_Next_name, PyDict_Next_name, PyDict_Next_func_type)
++
++    PyObject_RichCompareBool_func_type = PyrexTypes.CFuncType(
++        PyrexTypes.c_bint_type, [
++            PyrexTypes.CFuncTypeArg("o1",   PyrexTypes.py_object_type, None),
++            PyrexTypes.CFuncTypeArg("o2",   PyrexTypes.py_object_type, None),
++            PyrexTypes.CFuncTypeArg("opid", PyrexTypes.c_int_type, None),
++            ],
++        exception_value = "-1"
++        )
++
++    PyObject_RichCompareBool_name = EncodedString("PyObject_RichCompareBool")
++
++    PyObject_RichCompareBool_entry = Symtab.Entry(
++        PyObject_RichCompareBool_name, PyObject_RichCompareBool_name,
++        PyObject_RichCompareBool_func_type)
++
++    # node handlers
+ 
+     visit_Node = Visitor.VisitorTransform.recurse_to_children
+ 
+@@ -110,11 +127,13 @@
+             return self._transform_enumerate_iteration(node, iterator)
+ 
+         # range() iteration?
+-        if Options.convert_range and node.target.type.is_int:
+-            if iterator.self is None and \
+-                    isinstance(function, ExprNodes.NameNode) and \
+-                    function.entry.is_builtin and \
+-                    function.name in ('range', 'xrange'):
++        if iterator.self is None and \
++               isinstance(function, ExprNodes.NameNode) and \
++               function.entry.is_builtin and \
++               function.name in ('range', 'xrange'):
++            if Options.convert_range and node.target.type.is_int:
++                return self._transform_int_range_iteration(node, iterator)
++            else:
+                 return self._transform_range_iteration(node, iterator)
+ 
+         return node
+@@ -186,6 +205,137 @@
+         return UtilNodes.LetNode(temp, self._optimise_for_loop(node)) 
+ 
+     def _transform_range_iteration(self, node, range_function):
++        # more conservative version of the range() optimisation that
++        # does not convert the loop variable to a C int
++        args = range_function.arg_tuple.args
++        if len(args) < 3:
++            step_pos = range_function.pos
++            step_value = 1
++            step = ExprNodes.IntNode(step_pos, value="1")
++        else:
++            step = args[2]
++            step_pos = step.pos
++            if not isinstance(step.constant_result, (int, long)):
++                # cannot determine step direction
++                return node
++            step_value = step.constant_result
++            if step_value == 0:
++                # will lead to an error elsewhere
++                return node
++            elif not isinstance(step, ExprNodes.IntNode):
++                step = ExprNodes.IntNode(step_pos, value=str(step_value))
++
++        if len(args) == 1:
++            bound1 = ExprNodes.IntNode(range_function.pos, value="0")
++            bound2 = args[0]
++        else:
++            bound1 = args[0]
++            bound2 = args[1]
++
++        bound1 = bound1.coerce_to_pyobject(self.current_scope)
++        bound2 = bound2.coerce_to_pyobject(self.current_scope)
++        step   = step.coerce_to_pyobject(self.current_scope)
++
++        # build new loop body
++
++        temps = []
++        loop_var = UtilNodes.TempHandle(PyrexTypes.py_object_type)
++        temps.append(loop_var)
++
++        if step_value == 1:
++            step_temp = None
++            step_add = step
++        else:
++            step_temp = UtilNodes.TempHandle(PyrexTypes.py_object_type)
++            temps.append(step_temp)
++            step_add = step_temp.ref(step_pos)
++
++        loop_body = [
++            Nodes.SingleAssignmentNode(
++                pos = range_function.pos,
++                lhs = node.target,
++                rhs = loop_var.ref(node.target.pos)),
++            ]
++
++        if isinstance(node.body, Nodes.StatListNode):
++            loop_body += node.body.stats
++        else:
++            loop_body.append(node.body)
++
++        loop_body.append(
++            Nodes.SingleAssignmentNode(
++                pos = range_function.pos,
++                lhs = loop_var.ref(node.target.pos),
++                rhs = ExprNodes.AddNode(
++                    pos = range_function.pos,
++                    operand1 = loop_var.ref(node.target.pos),
++                    operand2 = step_add,
++                    operator = '+',
++                    type = node.target.type,
++                    is_temp = True),
++            ))
++
++        # build looping code
++
++        end_temp = UtilNodes.TempHandle(PyrexTypes.py_object_type)
++        temps.append(end_temp)
++
++        stats = [
++            Nodes.SingleAssignmentNode(
++                pos = range_function.pos,
++                lhs = loop_var.ref(bound1.pos),
++                rhs = bound1),
++            Nodes.SingleAssignmentNode(
++                pos = range_function.pos,
++                lhs = end_temp.ref(bound2.pos),
++                rhs = bound2),
++            ]
++
++        if step_temp is not None:
++            stats.append(
++                Nodes.SingleAssignmentNode(
++                pos = step.pos,
++                lhs = step_temp.ref(bound1.pos),
++                rhs = step)
++                )
++
++        if step_value < 0:
++            relation = 'Py_GT'
++        else:
++            relation = 'Py_LT'
++
++        stats.append(
++            Nodes.WhileStatNode(
++                pos = node.pos,
++                condition = ExprNodes.SimpleCallNode(
++                    pos = range_function.pos,
++                    type = PyrexTypes.c_bint_type,
++                    result_ctype = PyrexTypes.c_bint_type,
++                    is_temp = True,
++                    function = ExprNodes.NameNode(
++                        pos = range_function.pos,
++                        name = self.PyObject_RichCompareBool_name,
++                        type = self.PyObject_RichCompareBool_func_type,
++                        entry = self.PyObject_RichCompareBool_entry),
++                    args = [loop_var.ref(range_function.pos),
++                            end_temp.ref(range_function.pos),
++                            ExprNodes.IntNode(range_function.pos, value=relation)]
++                    ),
++                body = Nodes.StatListNode(
++                    pos = node.body.pos,
++                    stats = loop_body,
++                ),
++                else_clause = node.else_clause
++            ))
++
++        return UtilNodes.TempsBlockNode(
++            node.pos, temps=temps,
++            body=Nodes.StatListNode(
++                node.pos,
++                stats = stats
++                ))
++
++    def _transform_int_range_iteration(self, node, range_function):
+         args = range_function.arg_tuple.args
+         if len(args) < 3:
+             step_pos = range_function.pos

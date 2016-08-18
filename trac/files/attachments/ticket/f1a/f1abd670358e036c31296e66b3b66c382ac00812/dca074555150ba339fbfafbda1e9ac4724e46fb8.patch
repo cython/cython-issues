@@ -1,0 +1,576 @@
+# HG changeset patch
+# User Gregory Ewing <greg.ewing@canterbury.ac.nz>
+# Date 1210422711 -43200
+# Node ID 9a5d15e9acd3ecc238cbd77ed3bbd98cae171d9f
+# Parent  f123b93c4339cf2b842d100681931da86eb379da
+Dependency tracking
+
+
+
+diff -r f123b93c4339 -r 9a5d15e9acd3 Pyrex/Compiler/CmdLine.py
+--- a/Cython/Compiler/CmdLine.py	Sat May 10 19:59:29 2008 +1200
++++ b/Cython/Compiler/CmdLine.py	Sun May 11 00:31:51 2008 +1200
+@@ -11,6 +11,10 @@ Options:
+   -l, --create-listing           Write error messages to a listing file
+   -I, --include-dir <directory>  Search for include files in named directory
+   -o, --output-file <filename>   Specify name of generated C file
++  -r, --recursive                Recursively find and compile dependencies
++  -t, --timestamps               Only compile newer source files (implied with -r)
++  -f, --force                    Compile all source files (overrides implied -t)
++  -q, --quiet                    Don't print module names in recursive mode
+ The following experimental options are supported only on MacOSX:
+   -C, --compile    Compile generated .c file to .o file
+   -X, --link       Link .o file to produce extension module (implies -C)
+@@ -60,6 +64,12 @@ def parse_command_line(args):
+                 options.include_path.append(pop_arg())
+             elif option in ("-o", "--output-file"):
+                 options.output_file = pop_arg()
++            elif option in ("-r", "--recursive"):
++                options.recursive = 1
++            elif option in ("-t", "--timestamps"):
++                options.timestamps = 1
++            elif option in ("-f", "--force"):
++                options.timestamps = 0
+             else:
+                 bad_usage()
+         else:
+diff -r f123b93c4339 -r 9a5d15e9acd3 Pyrex/Compiler/Main.py
+--- a/Cython/Compiler/Main.py	Sat May 10 19:59:29 2008 +1200
++++ b/Cython/Compiler/Main.py	Sun May 11 00:31:51 2008 +1200
+@@ -3,22 +3,22 @@
+ #
+ 
+ import os, sys
+-if sys.version_info[:2] < (2, 2):
+-    print >>sys.stderr, "Sorry, Pyrex requires Python 2.2 or later"
++if sys.version_info[:2] < (2, 3):
++    print >>sys.stderr, "Sorry, Pyrex requires Python 2.3 or later"
+     sys.exit(1)
+ 
+ import os
+ from time import time
++import Builtin
++import Code
++import Errors
++import Parsing
+ import Version
++from Errors import PyrexError, CompileError, error
+ from Scanning import PyrexScanner
+-import Errors
+-from Errors import PyrexError, CompileError, error
+-import Parsing
+ from Symtab import BuiltinScope, ModuleScope
+-import Code
+-from Pyrex.Utils import replace_suffix
+-import Builtin
+-from Pyrex import Utils
++from Pyrex.Utils import set, replace_suffix, modification_time, \
++    file_newer_than, castrate_file
+ 
+ verbose = 0
+ 
+@@ -84,24 +84,32 @@ class Context:
+                 try:
+                     if debug_find_module:
+                         print "Context.find_module: Parsing", pxd_pathname
+-                    pxd_tree = self.parse(pxd_pathname, scope.type_names, pxd = 1)
++                    pxd_tree = self.parse(pxd_pathname, scope, pxd = 1)
+                     pxd_tree.analyse_declarations(scope)
+                 except CompileError:
+                     pass
+         return scope
+     
+     def find_pxd_file(self, qualified_name, pos):
+-        #  Search include directories for the .pxd file
+-        #  corresponding to the given fully-qualified module name.
++        #  Search include path for the .pxd file corresponding to the
++        #  given fully-qualified module name.
+         #  Will find either a dotted filename or a file in a
+         #  package directory. If a source file position is given,
+         #  the directory containing the source file is searched first
+         #  for a dotted filename, and its containing package root
+         #  directory is searched first for a non-dotted filename.
+-        dotted_pxd_filename = "%s.pxd" % qualified_name
++        return self.search_package_directories(qualified_name, ".pxd", pos)
++    
++    def find_pyx_file(self, qualified_name, pos):
++        #  Search include path for the .pyx file corresponding to the
++        #  given fully-qualified module name, as for find_pxd_file().
++        return self.search_package_directories(qualified_name, ".pyx", pos)
++    
++    def search_package_directories(self, qualified_name, suffix, pos):
++        dotted_filename = qualified_name + suffix
+         if pos:
+             here = os.path.dirname(pos[0])
+-            path = os.path.join(here, dotted_pxd_filename)
++            path = os.path.join(here, dotted_filename)
+             if os.path.exists(path):
+                 return path
+         dirs = self.include_directories
+@@ -111,17 +119,17 @@ class Context:
+         names = qualified_name.split(".")
+         package_names = names[:-1]
+         module_name = names[-1]
+-        pxd_filename = module_name + ".pxd"
++        filename = module_name + suffix
+         for root in dirs:
+-            path = os.path.join(root, dotted_pxd_filename)
++            path = os.path.join(root, dotted_filename)
+             if os.path.exists(path):
+                 return path
+             dir = self.descend_to_package_dir(root, package_names)
+             if dir:
+-                path = os.path.join(dir, pxd_filename)
++                path = os.path.join(dir, filename)
+                 if os.path.exists(path):
+                     return path
+-                path = os.path.join(dir, module_name, "__init__.pxd")
++                path = os.path.join(dir, module_name, "__init__" + suffix)
+                 if os.path.exists(path):
+                     return path
+     
+@@ -192,11 +200,10 @@ class Context:
+             self.modules[name] = scope
+         return scope
+ 
+-    def parse(self, source_filename, type_names, pxd):
++    def parse(self, source_filename, scope, pxd):
+         # Parse the given source file and return a parse tree.
+         f = open(source_filename, "rU")
+-        s = PyrexScanner(f, source_filename, 
+-            type_names = type_names, context = self)
++        s = PyrexScanner(f, source_filename, scope = scope, context = self)
+         try:
+             tree = Parsing.p_module(s, pxd)
+         finally:
+@@ -208,7 +215,6 @@ class Context:
+     def extract_module_name(self, path):
+         #  Find fully_qualified module name from the full pathname
+         #  of a source file.
+-        #print "extract_module_name:", path ###
+         dir, filename = os.path.split(path)
+         module_name, _ = os.path.splitext(filename)
+         if "." in module_name:
+@@ -218,14 +224,53 @@ class Context:
+         names = [module_name]
+         while self.is_package_dir(dir):
+             parent, package_name = os.path.split(dir)
+-            #print dir, "-->", parent, package_name ###
+             if parent == dir:
+                 break
+             names.insert(0, package_name)
+             dir = parent
+-        result = ".".join(names)
+-        #print "result:", result ###
+-        return result
++        return ".".join(names)
++    
++    def c_file_out_of_date(self, source_path):
++        #print "Checking whether", source_path, "is out of date" ###
++        c_path = replace_suffix(source_path, ".c")
++        if not os.path.exists(c_path):
++            #print "...yes, c file doesn't exist" ###
++            return 1
++        c_time = modification_time(c_path)
++        if file_newer_than(source_path, c_time):
++            #print "...yes, newer than c file" ###
++            return 1
++        pos = [source_path]
++        pxd_path = replace_suffix(source_path, ".pxd")
++        if os.path.exists(pxd_path) and file_newer_than(pxd_path, c_time):
++            #print "...yes, pxd file newer than c file" ###
++            return 1
++        for kind, name in self.read_dependency_file(source_path):
++            if kind == "cimport":
++                dep_path = self.find_pxd_file(name, pos)
++            elif kind == "include":
++                dep_path = self.search_include_directories(name, pos)
++            else:
++                continue
++            if dep_path and file_newer_than(dep_path, c_time):
++                #print "...yes,", dep_path, "newer than c file" ###
++                return 1
++        #print "...no" ###
++    
++    def find_cimported_module_names(self, source_path):
++        for kind, name in self.read_dependency_file(source_path):
++            if kind == "cimport":
++                yield name
++    
++    def read_dependency_file(self, source_path):
++        dep_path = replace_suffix(source_path, ".dep")
++        if os.path.exists(dep_path):
++            f = open(dep_path, "rU")
++            for line in f.readlines():
++                chunks = line.strip().split(" ", 1)
++                if len(chunks) == 2:
++                    yield chunks
++            f.close()
+ 
+     def compile(self, source, options = None):
+         # Compile a Pyrex implementation file in this context
+@@ -249,18 +294,18 @@ class Context:
+             else:
+                 c_suffix = ".c"
+             result.c_file = replace_suffix(source, c_suffix)
+-        c_stat = None
+-        if result.c_file:
+-            try:
+-                c_stat = os.stat(result.c_file)
+-            except EnvironmentError:
+-                pass
++        #c_stat = None
++        #if result.c_file:
++        #    try:
++        #        c_stat = os.stat(result.c_file)
++        #    except EnvironmentError:
++        #        pass
+         module_name = self.extract_module_name(source)
+         initial_pos = (source, 1, 0)
+         scope = self.find_module(module_name, pos = initial_pos, need_pxd = 0)
+         errors_occurred = False
+         try:
+-            tree = self.parse(source, scope.type_names, pxd = 0)
++            tree = self.parse(source, scope, pxd = 0)
+             tree.process_implementation(scope, options, result)
+         except CompileError:
+             errors_occurred = True
+@@ -270,7 +315,8 @@ class Context:
+             errors_occurred = True
+         if errors_occurred and result.c_file:
+             try:
+-                Utils.castrate_file(result.c_file, c_stat)
++                st = os.stat(source)
++                castrate_file(result.c_file, st)
+             except EnvironmentError:
+                 pass
+             result.c_file = None
+@@ -287,7 +333,7 @@ class Context:
+ 
+ #------------------------------------------------------------------------
+ #
+-#  Main Python entry point
++#  Main Python entry points
+ #
+ #------------------------------------------------------------------------
+ 
+@@ -301,6 +347,10 @@ class CompilationOptions:
+     include_path      [string]  Directories to search for include files
+     output_file       string    Name of generated .c file
+     generate_pxi      boolean   Generate .pxi file for public declarations
++    recursive         boolean   Recursively find and compile dependencies
++    timestamps        boolean   Only compile changed source files. If None,
++                                defaults to true when recursive is true.
++    quiet             boolean   Don't print source names in recursive mode
+     
+     Following options are experimental and only used on MacOSX:
+     
+@@ -310,7 +360,7 @@ class CompilationOptions:
+     cplus             boolean   Compile as c++ code
+     """
+     
+-    def __init__(self, defaults = None, **kw):
++    def __init__(self, defaults = None, c_compile = 0, c_link = 0, **kw):
+         self.include_path = []
+         self.objects = []
+         if defaults:
+@@ -320,6 +370,10 @@ class CompilationOptions:
+             defaults = default_options
+         self.__dict__.update(defaults)
+         self.__dict__.update(kw)
++        if c_compile:
++            self.c_only = 0
++        if c_link:
++            self.obj_only = 0
+ 
+ 
+ class CompilationResult:
+@@ -346,22 +400,85 @@ class CompilationResult:
+         self.extension_file = None
+ 
+ 
+-def compile(source, options = None, c_compile = 0, c_link = 0):
++class CompilationResultSet(dict):
+     """
+-    compile(source, options = default_options)
++    Results from compiling multiple Pyrex source files. A mapping
++    from source file paths to CompilationResult instances. Also
++    has the following attributes:
+     
+-    Compile the given Pyrex implementation file and return
+-    a CompilationResult object describing what was produced.
++    num_errors   integer   Total number of compilation errors
+     """
+-    if not options:
+-        options = default_options
+-    options = CompilationOptions(defaults = options)
+-    if c_compile:
+-        options.c_only = 0
+-    if c_link:
+-        options.obj_only = 0
++    
++    num_errors = 0
++
++    def add(self, source, result):
++        self[source] = result
++        self.num_errors += result.num_errors
++
++
++def compile_single(source, options):
++    """
++    compile_single(source, options)
++    
++    Compile the given Pyrex implementation file and return a CompilationResult.
++    Always compiles a single file; does not perform timestamp checking or
++    recursion.
++    """
+     context = Context(options.include_path)
+     return context.compile(source, options)
++
++def compile_multiple(sources, options):
++    """
++    compile_multiple(sources, options)
++    
++    Compiles the given sequence of Pyrex implementation files and returns
++    a CompilationResultSet. Performs timestamp checking and/or recursion
++    if these are specified in the options.
++    """
++    sources = [os.path.abspath(source) for source in sources]
++    processed = set()
++    results = CompilationResultSet()
++    context = Context(options.include_path)
++    recursive = options.recursive
++    timestamps = options.timestamps
++    if timestamps is None:
++        timestamps = recursive
++    verbose = recursive and not options.quiet
++    for source in sources:
++        if source not in processed:
++            if not timestamps or context.c_file_out_of_date(source):
++                if verbose:
++                    print >>sys.stderr, "Compiling", source
++                result = context.compile(source, options)
++                results.add(source, result)
++            processed.add(source)
++            if recursive:
++                for module_name in context.find_cimported_module_names(source):
++                    path = context.find_pyx_file(module_name, [source])
++                    if path:
++                        sources.append(path)
++                    else:
++                        print >>sys.stderr, \
++                            "Cannot find .pyx file for cimported module '%s'" % module_name
++    return results
++
++def compile(source, options = None, c_compile = 0, c_link = 0, **kwds):
++    """
++    compile(source [, options], [, <option> = <value>]...)
++    
++    Compile one or more Pyrex implementation files, with optional timestamp
++    checking and recursing on dependecies. The source argument may be a string
++    or a sequence of strings If it is a string and no recursion or timestamp
++    checking is requested, a CompilationResult is returned, otherwise a
++    CompilationResultSet is returned.
++    """
++    options = CompilationOptions(defaults = options, c_compile = c_compile,
++        c_link = c_link, **kwds)
++    if isinstance(source, basestring) and not options.timestamps \
++            and not options.recursive:
++        return compile_single(source, options)
++    else:
++        return compile_multiple(source, options)
+ 
+ #------------------------------------------------------------------------
+ #
+@@ -376,19 +493,26 @@ def main(command_line = 0):
+         from CmdLine import parse_command_line
+         options, sources = parse_command_line(args)
+     else:
+-        options = default_options
++        options = CompilationOptions(default_options)
+         sources = args
+     if options.show_version:
+         print >>sys.stderr, "Pyrex version %s" % Version.version
+-    context = Context(options.include_path)
+-    for source in sources:
+-        try:
+-            result = context.compile(source, options)
+-            if result.num_errors > 0:
+-                any_failures = 1
+-        except PyrexError, e:
+-            print >>sys.stderr, e
++    #context = Context(options.include_path)
++    #for source in sources:
++    #    try:
++    #        result = context.compile(source, options)
++    #        if result.num_errors > 0:
++    #            any_failures = 1
++    #    except (EnvironmentError, PyrexError), e:
++    #        print >>sys.stderr, e
++    #        any_failures = 1
++    try:
++        result = compile(sources, options)
++        if result.num_errors > 0:
+             any_failures = 1
++    except (EnvironmentError, PyrexError), e:
++        print >>sys.stderr, e
++        any_failures = 1
+     if any_failures:
+         sys.exit(1)
+ 
+@@ -406,7 +530,10 @@ default_options = dict(
+     obj_only = 1,
+     cplus = 0,
+     output_file = None,
+-    generate_pxi = 0)
++    generate_pxi = 0,
++    recursive = 0,
++    timestamps = None,
++    quiet = 0)
+     
+ if sys.platform == "mac":
+     from Pyrex.Mac.MacSystem import c_compile, c_link, CCompilerError
+diff -r f123b93c4339 -r 9a5d15e9acd3 Pyrex/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py	Sat May 10 19:59:29 2008 +1200
++++ b/Cython/Compiler/ModuleNode.py	Sun May 11 00:31:51 2008 +1200
+@@ -46,6 +46,7 @@ class ModuleNode(Nodes.Node, Nodes.Block
+         if self.has_imported_c_functions():
+             self.module_temp_cname = env.allocate_temp_pyobject()
+             env.release_temp(self.module_temp_cname)
++        self.generate_dep_file(env, result)
+         self.generate_c_code(env, result)
+         self.generate_h_code(env, options, result)
+         self.generate_api_code(env, result)
+@@ -56,6 +57,20 @@ class ModuleNode(Nodes.Node, Nodes.Block
+                 if entry.defined_in_pxd:
+                     return 1
+         return 0
++    
++    def generate_dep_file(self, env, result):
++        modules = self.referenced_modules
++        if len(modules) > 1 or env.pyrex_include_files:
++            dep_file = replace_suffix(result.c_file, ".dep")
++            f = open(dep_file, "w")
++            try:
++                for module in modules:
++                    if module is not env:
++                        f.write("cimport %s\n" % module.qualified_name)
++                    for path in module.pyrex_include_files:
++                        f.write("include %s\n" % path)
++            finally:
++                f.close()
+     
+     def generate_h_code(self, env, options, result):
+         def h_entries(entries, pxd = 0):
+diff -r f123b93c4339 -r 9a5d15e9acd3 Pyrex/Compiler/Parsing.py
+--- a/Cython/Compiler/Parsing.py	Sat May 10 19:59:29 2008 +1200
++++ b/Cython/Compiler/Parsing.py	Sun May 11 00:31:51 2008 +1200
+@@ -1164,8 +1164,9 @@ def p_include_statement(s, level):
+     if s.compile_time_eval:
+         include_file_path = s.context.find_include_file(include_file_name, pos)
+         if include_file_path:
++            s.included_files.append(include_file_name)
+             f = open(include_file_path, "rU")
+-            s2 = PyrexScanner(f, include_file_path, s)
++            s2 = PyrexScanner(f, include_file_path, parent_scanner = s)
+             try:
+                 tree = p_statement_list(s2, level)
+             finally:
+diff -r f123b93c4339 -r 9a5d15e9acd3 Pyrex/Compiler/Scanning.py
+--- a/Cython/Compiler/Scanning.py	Sat May 10 19:59:29 2008 +1200
++++ b/Cython/Compiler/Scanning.py	Sun May 11 00:31:51 2008 +1200
+@@ -205,6 +205,7 @@ class PyrexScanner(Scanner):
+ class PyrexScanner(Scanner):
+     #  context            Context  Compilation context
+     #  type_names         set      Identifiers to be treated as type names
++    #  included_files     [string] Files included with 'include' statement
+     #  compile_time_env   dict     Environment for conditional compilation
+     #  compile_time_eval  boolean  In a true conditional compilation context
+     #  compile_time_expr  boolean  In a compile-time expression context
+@@ -212,17 +213,19 @@ class PyrexScanner(Scanner):
+     resword_dict = build_resword_dict()
+ 
+     def __init__(self, file, filename, parent_scanner = None, 
+-            type_names = None, context = None):
++            scope = None, context = None):
+         Scanner.__init__(self, get_lexicon(), file, filename)
+         if parent_scanner:
+             self.context = parent_scanner.context
+             self.type_names = parent_scanner.type_names
++            self.included_files = parent_scanner.included_files
+             self.compile_time_env = parent_scanner.compile_time_env
+             self.compile_time_eval = parent_scanner.compile_time_eval
+             self.compile_time_expr = parent_scanner.compile_time_expr
+         else:
+             self.context = context
+-            self.type_names = type_names
++            self.type_names = scope.type_names
++            self.included_files = scope.pyrex_include_files
+             self.compile_time_env = initial_compile_time_env()
+             self.compile_time_eval = 1
+             self.compile_time_expr = 0
+diff -r f123b93c4339 -r 9a5d15e9acd3 Pyrex/Compiler/Symtab.py
+--- a/Cython/Compiler/Symtab.py	Sat May 10 19:59:29 2008 +1200
++++ b/Cython/Compiler/Symtab.py	Sun May 11 00:31:51 2008 +1200
+@@ -496,10 +496,6 @@ class Scope:
+         return [entry for entry in self.temp_entries
+             if entry not in self.free_temp_entries]
+     
+-    #def recycle_pending_temps(self):
+-    #    # Obsolete
+-    #    pass
+-
+     def use_utility_code(self, new_code):
+         self.global_scope().use_utility_code(new_code)
+     
+@@ -598,6 +594,7 @@ class ModuleScope(Scope):
+     # all_pystring_entries [Entry]            Python string consts from all scopes
+     # types_imported       {PyrexType : 1}    Set of types for which import code generated
+     # type_names           {string : 1}       Set of type names (used during parsing)
++    # pyrex_include_files  [string]           Pyrex sources included with 'include'
+ 
+     def __init__(self, name, parent_module, context):
+         self.parent_module = parent_module
+@@ -623,6 +620,7 @@ class ModuleScope(Scope):
+         self.interned_names = []
+         self.all_pystring_entries = []
+         self.types_imported = {}
++        self.pyrex_include_files = []
+     
+     def qualifying_scope(self):
+         return self.parent_module
+diff -r f123b93c4339 -r 9a5d15e9acd3 Pyrex/Utils.py
+--- a/Cython/Utils.py	Sat May 10 19:59:29 2008 +1200
++++ b/Cython/Utils.py	Sun May 11 00:31:51 2008 +1200
+@@ -4,6 +4,10 @@
+ #
+ 
+ import os, sys
++try:
++    set
++except NameError:
++    from sets import Set as set
+ 
+ def replace_suffix(path, newsuf):
+     base, _ = os.path.splitext(path)
+@@ -24,7 +28,6 @@ def castrate_file(path, st):
+     except EnvironmentError:
+         pass
+     else:
+-        #st = os.stat(path)
+         f.seek(0, 0)
+         f.truncate()
+         f.write(
+@@ -32,3 +35,11 @@ def castrate_file(path, st):
+         f.close()
+         if st:
+             os.utime(path, (st.st_atime, st.st_mtime))
++
++def modification_time(path):
++    st = os.stat(path)
++    return st.st_mtime
++
++def file_newer_than(path, time):
++    ftime = modification_time(path)
++    return ftime > time
+

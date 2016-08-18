@@ -1,0 +1,45 @@
+# HG changeset patch
+# User Eric Huss <eric@huss.org>
+# Date 1243885713 25200
+# Node ID 092d0952c150c132ae1c26cc94faa96eddd56af9
+# Parent  88fa346e169d202affa38db4cf5472b33fd82626
+Wrap docstrings with PyDoc_STRVAR macro.  This does not address
+class docstrings because those are defined as __doc__ constants
+and would be much more difficult to wrap.
+
+diff -r 88fa346e169d -r 092d0952c150 Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py	Tue May 26 22:54:46 2009 +0200
++++ b/Cython/Compiler/ModuleNode.py	Mon Jun 01 12:48:33 2009 -0700
+@@ -585,7 +585,7 @@
+             if not isinstance(docstr, str):
+                 docstr = docstr.utf8encode()
+             code.putln('')
+-            code.putln('static char %s[] = "%s";' % (
++            code.putln('PyDoc_STRVAR(%s, "%s");' % (
+                     env.doc_cname, escape_byte_string(docstr)))
+ 
+         env.use_utility_code(streq_utility_code)
+diff -r 88fa346e169d -r 092d0952c150 Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py	Tue May 26 22:54:46 2009 +0200
++++ b/Cython/Compiler/Nodes.py	Mon Jun 01 12:48:33 2009 -0700
+@@ -1888,7 +1888,7 @@
+             if not isinstance(docstr, str):
+                 docstr = docstr.utf8encode()
+             code.putln(
+-                'static char %s[] = "%s";' % (
++                'PyDoc_STRVAR(%s, "%s");' % (
+                     self.entry.doc_cname,
+                     split_docstring(escape_byte_string(docstr))))
+         if with_pymethdef:
+diff -r 88fa346e169d -r 092d0952c150 Cython/Compiler/TypeSlots.py
+--- a/Cython/Compiler/TypeSlots.py	Tue May 26 22:54:46 2009 +0200
++++ b/Cython/Compiler/TypeSlots.py	Mon Jun 01 12:48:33 2009 -0700
+@@ -324,7 +324,7 @@
+                 doc = scope.doc.utf8encode()
+             else:
+                 doc = scope.doc.byteencode()
+-            return '__Pyx_DOCSTR("%s")' % StringEncoding.escape_byte_string(doc)
++            return '__Pyx_DOCSTR(PyDoc_STR("%s"))' % StringEncoding.escape_byte_string(doc)
+         else:
+             return "0"
+ 

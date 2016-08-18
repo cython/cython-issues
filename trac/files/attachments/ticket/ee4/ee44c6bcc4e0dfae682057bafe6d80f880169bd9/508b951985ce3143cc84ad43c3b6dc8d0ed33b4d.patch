@@ -1,0 +1,125 @@
+# HG changeset patch
+# User Nicolas Dumazet <nicdumz.commits@gmail.com>
+# Date 1237545014 -32400
+# Node ID bb746318c7768c657b18e121cb2eb61cb7380f50
+# Parent  07c1e0dc312b4de0777191264e25d88a59fdb468
+Fixing T249 (build overhead)
+
+diff -r 07c1e0dc312b -r bb746318c776 setup.py
+--- a/setup.py	Thu Mar 19 11:58:58 2009 -0700
++++ b/setup.py	Fri Mar 20 19:30:14 2009 +0900
+@@ -1,8 +1,70 @@
+ from distutils.core import setup, Extension
+ from distutils.sysconfig import get_python_lib
++from distutils.dep_util import newer_group
+ import os, os.path
+ import sys
+ from Cython.Compiler.Version import version
++
++def configure_extensions():
++    from distutils.command.build_ext import build_ext as build_ext_orig
++
++    class build_ext(build_ext_orig):
++        def build_extension(self, ext, *args, **kargs):
++            try:
++                build_ext_orig.build_extension(self, ext, *args, **kargs)
++            except StandardError:
++                print("Compilation of '%s' failed" % ext.sources[0])
++
++    import glob
++    extension_dependencies = [ 'Cython/Compiler/Lexicon.pickle' ] + \
++            [ f for pattern in
++                       ['Cython/*/*.pxd',
++                        'Cython/*/*.pyx',
++                        'Cython/*/*.py',
++                        'Cython/*.py']
++                       for f in glob.glob(pattern) ]
++
++
++    try:
++        from Cython.Compiler.Main import compile
++    
++        source_root = os.path.dirname(__file__)
++        compiled_modules = ["Cython.Plex.Scanners",
++                            "Cython.Compiler.Scanning",
++                            "Cython.Compiler.Parsing",
++                            "Cython.Compiler.Visitor",
++                            "Cython.Runtime.refnanny"]
++        extensions = []
++        for module in compiled_modules:
++            source_file = os.path.join(source_root, *module.split('.'))
++            if os.path.exists(source_file + ".py"):
++                py_file = source_file + ".py"
++            else:
++                py_file = source_file + ".pyx"
++            c_file = source_file + ".c"
++
++            # compile the sources with Cython only if needed
++            # (never compiled, or Cython has change since last generation)
++            if newer_group(extension_dependencies, c_file):
++                print("Compiling module %s ..." % module)
++                result = compile(py_file)
++                if not result.c_file:
++                    print("Compilation failed")
++                    continue
++            else:
++                print("C files are already up-to-date for module %s!" % module)
++
++            # distutils is smart. c_file will only be compiled
++            # if needed (no .so, or .c has changed since last .so generation)
++            extensions.append(Extension(module, sources = [c_file]))
++        if extensions:
++            setup_args['ext_modules'] = extensions
++            setup_args['cmdclass'] = {"build_ext" : build_ext}
++    except Exception:
++        print("ERROR: %s" % sys.exc_info()[1])
++        print("Extension module compilation failed, using plain Python implementation")
++
++    #endof configure_extensions
+ 
+ compiler_dir = os.path.join(get_python_lib(prefix=''), 'Cython/Compiler')
+ if sys.platform == "win32":
+@@ -37,42 +99,7 @@
+ try:
+     sys.argv.remove("--no-cython-compile")
+ except ValueError:
+-    try:
+-        from distutils.command.build_ext import build_ext as build_ext_orig
+-        class build_ext(build_ext_orig):
+-            def build_extension(self, ext, *args, **kargs):
+-                try:
+-                    build_ext_orig.build_extension(self, ext, *args, **kargs)
+-                except StandardError:
+-                    print("Compilation of '%s' failed" % ext.sources[0])
+-        from Cython.Compiler.Main import compile
+-        source_root = os.path.dirname(__file__)
+-        compiled_modules = ["Cython.Plex.Scanners",
+-                            "Cython.Compiler.Scanning",
+-                            "Cython.Compiler.Parsing",
+-                            "Cython.Compiler.Visitor",
+-                            "Cython.Runtime.refnanny"]
+-        extensions = []
+-        for module in compiled_modules:
+-            source_file = os.path.join(source_root, *module.split('.'))
+-            if os.path.exists(source_file + ".py"):
+-                source_file = source_file + ".py"
+-            else:
+-                source_file = source_file + ".pyx"
+-            print("Compiling module %s ..." % module)
+-            result = compile(source_file)
+-            if result.c_file:
+-                extensions.append(
+-                    Extension(module, sources = [result.c_file])
+-                    )
+-            else:
+-                print("Compilation failed")
+-        if extensions:
+-            setup_args['ext_modules'] = extensions
+-            setup_args['cmdclass'] = {"build_ext" : build_ext}
+-    except Exception:
+-        print("ERROR: %s" % sys.exc_info()[1])
+-        print("Extension module compilation failed, using plain Python implementation")
++    configure_extensions()
+ 
+ 
+ setup(

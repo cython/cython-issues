@@ -1,0 +1,29 @@
+From 363684de2b9a8ac7489b323539afddd205d62987 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Mat=C4=9Bj=20Laitl?= <matej@laitl.cz>
+Date: Mon, 8 Nov 2010 00:27:19 +0100
+Subject: [PATCH] partial fix for ticket #583: Wrong C code generated (cdef class < cdef class inheritance, cpdef methods, pure python mode)
+
+---
+ Cython/Compiler/ParseTreeTransforms.py |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/Cython/Compiler/ParseTreeTransforms.py b/Cython/Compiler/ParseTreeTransforms.py
+index 64c29a0..2a9c18d 100644
+--- a/Cython/Compiler/ParseTreeTransforms.py
++++ b/Cython/Compiler/ParseTreeTransforms.py
+@@ -1200,6 +1200,12 @@ class AlignFunctionDefinitions(CythonTransform):
+         if pxd_def:
+             if self.scope.is_c_class_scope and len(pxd_def.type.args) > 0:
+                 # The self parameter type needs adjusting.
++                # we need to copy type as it may be shared with another
++                # definition and we want to alter just this one
++                import copy
++                pxd_def.type = copy.copy(pxd_def.type)
++                pxd_def.type.args = copy.copy(pxd_def.type.args)
++                pxd_def.type.args[0] = copy.copy(pxd_def.type.args[0])
+                 pxd_def.type.args[0].type = self.scope.parent_type
+             if pxd_def.is_cfunction:
+                 node = node.as_cfunction(pxd_def)
+-- 
+1.7.2.2
+

@@ -1,0 +1,106 @@
+# HG changeset patch
+# User Kirill Smelkov <kirr@mns.spb.ru>
+# Date 1210785361 -14400
+# Node ID 58eeed07e1c817e023923f935bebafbc1e8ab366
+# Parent  9a731464ea49650627ac6a988518aee93e6991aa
+RFC: constify Cython output all over the place  (newbie approach)
+
+You know, when developing code, it is very tedious to look for meaningful
+errors and warnings in presence of tons of noise like
+
+    warning: deprecated conversion from string constant to ‘char*’
+
+And you know what? It seems in the next version of gcc, this deprecation
+warnings will be turned into errors.
+
+----
+
+Python sources already use 'const' keyword freely, so I think it's time to add
+constify bits all over the place.
+
+diff --git a/Cython/Compiler/ModuleNode.py b/Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py
++++ b/Cython/Compiler/ModuleNode.py
+@@ -399,9 +399,9 @@ class ModuleNode(Nodes.Node, Nodes.Block
+             code.putln('static PyObject *%s;' % Naming.preimport_cname)
+         code.putln('static int %s;' % Naming.lineno_cname)
+         code.putln('static int %s = 0;' % Naming.clineno_cname)
+-        code.putln('static char * %s= %s;' % (Naming.cfilenm_cname, Naming.file_c_macro))
+-        code.putln('static char *%s;' % Naming.filename_cname)
+-        code.putln('static char **%s;' % Naming.filetable_cname)
++        code.putln('static const char * %s= %s;' % (Naming.cfilenm_cname, Naming.file_c_macro))
++        code.putln('static const char *%s;' % Naming.filename_cname)
++        code.putln('static const char **%s;' % Naming.filetable_cname)
+         if env.doc:
+             code.putln('')
+             code.putln('static char %s[] = "%s";' % (env.doc_cname, env.doc))
+@@ -425,7 +425,7 @@ class ModuleNode(Nodes.Node, Nodes.Block
+     
+     def generate_filename_table(self, code):
+         code.putln("")
+-        code.putln("static char *%s[] = {" % Naming.filenames_cname)
++        code.putln("static const char *%s[] = {" % Naming.filenames_cname)
+         if code.filename_list:
+             for filename in code.filename_list:
+                 filename = os.path.basename(filename)
+diff --git a/Cython/Compiler/Nodes.py b/Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py
++++ b/Cython/Compiler/Nodes.py
+@@ -1515,7 +1515,7 @@ class DefNode(FuncDefNode):
+             reqd_kw_flags = []
+             has_reqd_kwds = False
+             code.put(
+-                "static char *%s[] = {" %
++                "static const char *%s[] = {" %
+                     Naming.kwdlist_cname)
+             for arg in self.args:
+                 if arg.is_generic:
+@@ -1668,7 +1668,7 @@ class DefNode(FuncDefNode):
+ 
+         argformat = '"%s"' % string.join(arg_formats, "")
+         pt_arglist = [Naming.args_cname, Naming.kwds_cname, argformat,
+-                      Naming.kwdlist_cname] + arg_addrs
++                      '(char **)/*temp.hack*/'+Naming.kwdlist_cname] + arg_addrs
+         pt_argstring = string.join(pt_arglist, ", ")
+         code.putln(
+             'if (unlikely(!PyArg_ParseTupleAndKeywords(%s))) %s' % (
+@@ -3729,8 +3729,8 @@ utility_function_predeclarations = \
+ #define INLINE 
+ #endif
+ 
+-typedef struct {PyObject **p; char *s;} __Pyx_InternTabEntry; /*proto*/
+-typedef struct {PyObject **p; char *s; long n; int is_unicode;} __Pyx_StringTabEntry; /*proto*/
++typedef struct {PyObject **p; const char *s;} __Pyx_InternTabEntry; /*proto*/
++typedef struct {PyObject **p; const char *s; long n; int is_unicode;} __Pyx_StringTabEntry; /*proto*/
+ 
+ """ + """
+ 
+@@ -4141,9 +4141,9 @@ missing_kwarg:
+ 
+ unraisable_exception_utility_code = [
+ """
+-static void __Pyx_WriteUnraisable(char *name); /*proto*/
+-""","""
+-static void __Pyx_WriteUnraisable(char *name) {
++static void __Pyx_WriteUnraisable(const char *name); /*proto*/
++""","""
++static void __Pyx_WriteUnraisable(const char *name) {
+     PyObject *old_exc, *old_val, *old_tb;
+     PyObject *ctx;
+     PyErr_Fetch(&old_exc, &old_val, &old_tb);
+@@ -4159,13 +4159,13 @@ static void __Pyx_WriteUnraisable(char *
+ 
+ traceback_utility_code = [
+ """
+-static void __Pyx_AddTraceback(char *funcname); /*proto*/
++static void __Pyx_AddTraceback(const char *funcname); /*proto*/
+ ""","""
+ #include "compile.h"
+ #include "frameobject.h"
+ #include "traceback.h"
+ 
+-static void __Pyx_AddTraceback(char *funcname) {
++static void __Pyx_AddTraceback(const char *funcname) {
+     PyObject *py_srcfile = 0;
+     PyObject *py_funcname = 0;
+     PyObject *py_globals = 0;

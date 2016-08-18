@@ -1,0 +1,24 @@
+# HG changeset patch
+# User jek-cythonhg@kleckner.net
+# Date 1211590727 25200
+# Node ID d7bdb7bbd52c517e26ebb6d24395b980b3b75a56
+# Parent  3bd2418c165d428c0380761e97781f78659386aa
+Emit code to guard declarations for this module's public functions.
+
+It appears that the machinery is all there to protect the declaration
+of inconsistent linkage types (i.e. dllimport vs. dllexport) by using
+a guard unique to the pyx file.  This patch simply emits that guard
+for the current module to prevent the error "inconsistent linkage types"
+on a Windows-based system.
+
+diff -r 3bd2418c165d -r d7bdb7bbd52c Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py	Fri May 23 14:42:06 2008 -0700
++++ b/Cython/Compiler/ModuleNode.py	Fri May 23 17:58:47 2008 -0700
+@@ -453,6 +453,7 @@ class ModuleNode(Nodes.Node, Nodes.Block
+         code.putln("#endif")
+         self.generate_extern_c_macro_definition(code)
+         code.putln("#include <math.h>")
++        code.putln("#define %s" % Naming.api_guard_prefix + self.api_name(env))
+         self.generate_includes(env, cimported_modules, code)
+         code.putln('')
+         code.put(Nodes.utility_function_predeclarations)

@@ -1,0 +1,232 @@
+exporting patches:
+# HG changeset patch
+# User Vitja Makarov <vitja.makarov@gmail.com>
+# Date 1288737129 -10800
+# Node ID e1abe3b440cb886e412ffd67aba1b40dd12b152c
+# Parent  a412783d157a995526f319c8a1d6eb42b5151dd5
+Fill class attributes dict before class creation. Use bindings for class methods.
+And use PyCFunction for staticmethods and __new__. Add simple testcase for __metaclass__.
+And test for staticmethod as decorator
+
+diff -r a412783d157a -r e1abe3b440cb Cython/Compiler/ExprNodes.py
+--- a/Cython/Compiler/ExprNodes.py	Sun Oct 31 00:20:00 2010 -0700
++++ b/Cython/Compiler/ExprNodes.py	Wed Nov 03 01:32:09 2010 +0300
+@@ -1441,6 +1441,22 @@
+             return # There was an error earlier
+         if entry.is_builtin and Options.cache_builtins:
+             return # Lookup already cached
++        elif entry.is_real_dict:
++            assert entry.type.is_pyobject, "Python global or builtin not a Python object"
++            interned_cname = code.intern_identifier(self.entry.name)
++            if entry.is_builtin:
++                namespace = Naming.builtins_cname
++            else: # entry.is_pyglobal
++                namespace = entry.scope.namespace_cname
++            code.globalstate.use_utility_code(getitem_dict_utility_code)
++            code.putln(
++                '%s = __Pyx_PyDict_GetItem(%s, %s); %s' % (
++                self.result(),
++                namespace,
++                interned_cname,
++                code.error_goto_if_null(self.result(), self.pos)))
++            code.put_gotref(self.py_result())
++            
+         elif entry.is_pyglobal or entry.is_builtin:
+             assert entry.type.is_pyobject, "Python global or builtin not a Python object"
+             interned_cname = code.intern_identifier(self.entry.name)
+@@ -1495,8 +1511,16 @@
+                 rhs.free_temps(code)
+                 # in Py2.6+, we need to invalidate the method cache
+                 code.putln("PyType_Modified(%s);" %
+-                           entry.scope.parent_type.typeptr_cname)
+-            else: 
++                            entry.scope.parent_type.typeptr_cname)
++            elif entry.is_real_dict:
++                code.put_error_if_neg(self.pos,
++                    'PyDict_SetItem(%s, %s, %s)' % (
++                        namespace,
++                        interned_cname,
++                        rhs.py_result()))
++                rhs.generate_disposal_code(code)
++                rhs.free_temps(code)
++            else:
+                 code.put_error_if_neg(self.pos,
+                     'PyObject_SetAttr(%s, %s, %s)' % (
+                         namespace,
+@@ -1575,10 +1599,17 @@
+         if not self.entry.is_pyglobal:
+             error(self.pos, "Deletion of local or C global name not supported")
+             return
+-        code.put_error_if_neg(self.pos, 
+-            '__Pyx_DelAttrString(%s, "%s")' % (
+-                Naming.module_cname,
+-                self.entry.name))
++        if self.entry.is_real_dict:
++            namespace = self.entry.scope.namespace_cname
++            code.put_error_if_neg(self.pos,
++                'PyDict_DelItemString(%s, "%s")' % (
++                    namespace,
++                    self.entry.name))
++        else:
++            code.put_error_if_neg(self.pos, 
++                '__Pyx_DelAttrString(%s, "%s")' % (
++                    Naming.module_cname,
++                    self.entry.name))
+                 
+     def annotate(self, code):
+         if hasattr(self, 'is_called') and self.is_called:
+@@ -7118,16 +7149,38 @@
+ """,
+ impl = """
+ static PyObject *__Pyx_CreateClass(
+-    PyObject *bases, PyObject *dict, PyObject *name, PyObject *modname)
++    PyObject *bases, PyObject *methods, PyObject *name, PyObject *modname)
+ {
+     PyObject *result = 0;
+-
+-    if (PyDict_SetItemString(dict, "__module__", modname) < 0)
++#if PY_MAJOR_VERSION < 3
++    PyObject *metaclass = 0, *base;
++#endif
++
++    if (PyDict_SetItemString(methods, "__module__", modname) < 0)
+         goto bad;
+     #if PY_MAJOR_VERSION < 3
+-    result = PyClass_New(bases, dict, name);
++    metaclass = PyDict_GetItemString(methods, "__metaclass__");
++
++    if (metaclass != NULL)
++        Py_INCREF(metaclass);
++    else if (PyTuple_Check(bases) && PyTuple_GET_SIZE(bases) > 0) {
++        base = PyTuple_GET_ITEM(bases, 0);
++        metaclass = PyObject_GetAttrString(base, "__class__");
++        if (metaclass == NULL) {
++            PyErr_Clear();
++            metaclass = (PyObject *)base->ob_type;
++            Py_INCREF(metaclass);
++        }
++    }
++    else {
++        metaclass = (PyObject *) &PyClass_Type;
++        Py_INCREF(metaclass);
++    }
++
++    result = PyObject_CallFunctionObjArgs(metaclass, name, bases, methods, NULL);
+     #else
+-    result = PyObject_CallFunctionObjArgs((PyObject *)&PyType_Type, name, bases, dict, NULL);
++    /* it seems that python3+ handle __metaclass__ itself */
++    result = PyObject_CallFunctionObjArgs((PyObject *)&PyType_Type, name, bases, methods, NULL);
+     #endif
+ bad:
+     return result;
+diff -r a412783d157a -r e1abe3b440cb Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py	Sun Oct 31 00:20:00 2010 -0700
++++ b/Cython/Compiler/Nodes.py	Wed Nov 03 01:32:09 2010 +0300
+@@ -1959,6 +1959,9 @@
+             # staticmethod() was overridden - not much we can do here ...
+             self.is_staticmethod = False
+ 
++        if self.name == '__new__':
++            self.is_staticmethod = 1
++
+         self.analyse_argument_types(env)
+         if self.name == '<lambda>':
+             self.declare_lambda_function(env)
+@@ -2203,9 +2206,11 @@
+     def synthesize_assignment_node(self, env):
+         import ExprNodes
+         if env.is_py_class_scope:
+-            rhs = ExprNodes.UnboundMethodNode(self.pos, 
+-                function = ExprNodes.PyCFunctionNode(self.pos,
+-                    pymethdef_cname = self.entry.pymethdef_cname))
++            rhs = ExprNodes.PyCFunctionNode(self.pos,
++                        pymethdef_cname = self.entry.pymethdef_cname)
++            if not self.is_staticmethod and not self.is_classmethod:
++                rhs.binding = True
++
+         elif env.is_closure_scope:
+             rhs = ExprNodes.InnerFunctionNode(
+                 self.pos, pymethdef_cname = self.entry.pymethdef_cname)
+@@ -3016,9 +3021,10 @@
+         code.pyclass_stack.append(self)
+         cenv = self.scope
+         self.dict.generate_evaluation_code(code)
++        cenv.namespace_cname = cenv.class_obj_cname = self.dict.result()
++        self.body.generate_execution_code(code)
+         self.classobj.generate_evaluation_code(code)
+         cenv.namespace_cname = cenv.class_obj_cname = self.classobj.result()
+-        self.body.generate_execution_code(code)
+         self.target.generate_assignment_code(self.classobj, code)
+         self.dict.generate_disposal_code(code)
+         self.dict.free_temps(code)
+diff -r a412783d157a -r e1abe3b440cb Cython/Compiler/Symtab.py
+--- a/Cython/Compiler/Symtab.py	Sun Oct 31 00:20:00 2010 -0700
++++ b/Cython/Compiler/Symtab.py	Wed Nov 03 01:32:09 2010 +0300
+@@ -70,6 +70,7 @@
+     #                               or class attribute during
+     #                               class construction
+     # is_member        boolean    Is an assigned class member
++    # is_real_dict     boolean    Is a real dict, PyClass attributes dict
+     # is_variable      boolean    Is a variable
+     # is_cfunction     boolean    Is a C function
+     # is_cmethod       boolean    Is a C method of an extension type
+@@ -131,6 +132,7 @@
+     is_cglobal = 0
+     is_pyglobal = 0
+     is_member = 0
++    is_real_dict = 0
+     is_variable = 0
+     is_cfunction = 0
+     is_cmethod = 0
+@@ -1405,6 +1407,7 @@
+         entry = Scope.declare_var(self, name, type, pos, 
+             cname, visibility, is_cdef)
+         entry.is_pyglobal = 1
++        entry.is_real_dict = 1
+         return entry
+ 
+     def add_default_value(self, type):
+diff -r a412783d157a -r e1abe3b440cb tests/run/staticmethod.pyx
+--- a/tests/run/staticmethod.pyx	Sun Oct 31 00:20:00 2010 -0700
++++ b/tests/run/staticmethod.pyx	Wed Nov 03 01:32:09 2010 +0300
+@@ -5,6 +5,8 @@
+ 2
+ >>> class3.plus1(1)
+ 2
++>>> class4.plus1(1)
++2
+ """
+ 
+ def f_plus(a):
+@@ -18,3 +20,8 @@
+ 
+ cdef class class3:
+     plus1 = f_plus
++
++class class4:
++    @staticmethod
++    def plus1(a):
++        return a + 1
+# HG changeset patch
+# User Vitja Makarov <vitja.makarov@gmail.com>
+# Date 1288768094 -10800
+# Node ID c294ef4b200cffd6929a4f8032fa0be48c06707e
+# Parent  e1abe3b440cb886e412ffd67aba1b40dd12b152c
+Add test for __metaclass__
+
+diff -r e1abe3b440cb -r c294ef4b200c tests/run/metaclass.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/metaclass.pyx	Wed Nov 03 10:08:14 2010 +0300
+@@ -0,0 +1,12 @@
++"""
++>>> obj = Foo()
++>>> obj.metaclass_was_here
++True
++"""
++class Base(type):
++    def __new__(cls, name, bases, attrs):
++        attrs['metaclass_was_here'] = True
++        return type.__new__(cls, name, bases, attrs)
++
++class Foo(object):
++    __metaclass__ = Base

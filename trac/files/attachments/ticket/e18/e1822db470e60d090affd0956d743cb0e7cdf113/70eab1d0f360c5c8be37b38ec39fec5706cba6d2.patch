@@ -1,0 +1,38 @@
+# HG changeset patch
+# User david@evans-2.local
+# Date 1218809165 18000
+# Node ID b877bf48ceb22461133fb6d46c6d2dc64b191628
+# Parent  94b327b81f1653d9610b792351fb01854c8bedcf
+Split docstring around \n for compilers who barf at long string literals (VS 2003).
+
+diff -r 94b327b81f16 -r b877bf48ceb2 Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py	Fri Aug 15 15:04:23 2008 +0200
++++ b/Cython/Compiler/Nodes.py	Fri Aug 15 09:06:05 2008 -0500
+@@ -13,7 +13,7 @@
+ from Symtab import ModuleScope, LocalScope, GeneratorLocalScope, \
+     StructOrUnionScope, PyClassScope, CClassScope
+ from Cython.Utils import open_new_file, replace_suffix
+-from StringEncoding import EncodedString, escape_byte_string
++from StringEncoding import EncodedString, escape_byte_string, split_docstring
+ import Options
+ import ControlFlow
+ 
+@@ -1522,7 +1522,7 @@
+             code.putln(
+                 'static char %s[] = "%s";' % (
+                     self.entry.doc_cname,
+-                    escape_byte_string(docstr)))
++                    split_docstring(escape_byte_string(docstr))))
+         if with_pymethdef:
+             code.put(
+                 "static PyMethodDef %s = " % 
+diff -r 94b327b81f16 -r b877bf48ceb2 Cython/Compiler/StringEncoding.py
+--- a/Cython/Compiler/StringEncoding.py	Fri Aug 15 15:04:23 2008 +0200
++++ b/Cython/Compiler/StringEncoding.py	Fri Aug 15 09:06:05 2008 -0500
+@@ -142,3 +142,6 @@
+         else:
+             append(c)
+     return ''.join(l)
++
++def split_docstring(s):
++    return '\\n\"\"'.join(s.split(r'\n'))

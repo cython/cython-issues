@@ -1,0 +1,89 @@
+# HG changeset patch
+# User Stefan Behnel <scoder@users.berlios.de>
+# Date 1239743406 -7200
+# Node ID 6d2df0c4be3177fe949dc9a3effb144effb50370
+# Parent  c58481f1e136d9d2a7826da45d53bea23de19b7c
+removed various invalid syntax combinations for the c(p)def statement
+
+diff -r c58481f1e136 -r 6d2df0c4be31 Cython/Compiler/Parsing.py
+--- a/Cython/Compiler/Parsing.py	Fri Apr 10 00:12:34 2009 -0700
++++ b/Cython/Compiler/Parsing.py	Tue Apr 14 23:10:06 2009 +0200
+@@ -2068,31 +2068,30 @@
+     elif s.sy == 'import':
+         s.next()
+         return p_cdef_extern_block(s, pos, ctx)
+-    if p_nogil(s):
++    elif p_nogil(s):
+         ctx.nogil = 1
+-    if s.sy == ':':
++        if ctx.overridable:
++            error(pos, "cdef blocks cannot be declared cpdef")
++        return p_cdef_block(s, ctx)
++    elif s.sy == ':':
++        if ctx.overridable:
++            error(pos, "cdef blocks cannot be declared cpdef")
+         return p_cdef_block(s, ctx)
+     elif s.sy == 'class':
+         if ctx.level not in ('module', 'module_pxd'):
+             error(pos, "Extension type definition not allowed here")
+-        #if ctx.api:
+-        #    error(pos, "'api' not allowed with extension class")
++        if ctx.overridable:
++            error(pos, "Extension types cannot be declared cpdef")
+         return p_c_class_definition(s, pos, ctx)
+     elif s.sy == 'IDENT' and s.systring in struct_union_or_enum:
+         if ctx.level not in ('module', 'module_pxd'):
+             error(pos, "C struct/union/enum definition not allowed here")
+-        #if ctx.visibility == 'public':
+-        #    error(pos, "Public struct/union/enum definition not implemented")
+-        #if ctx.api:
+-        #    error(pos, "'api' not allowed with '%s'" % s.systring)
++        if ctx.overridable:
++            error(pos, "C struct/union/enum cannot be declared cpdef")
+         if s.systring == "enum":
+             return p_c_enum_definition(s, pos, ctx)
+         else:
+             return p_c_struct_or_union_definition(s, pos, ctx)
+-    elif s.sy == 'pass':
+-        node = p_pass_statement(s)
+-        s.expect_newline('Expected a newline')
+-        return node
+     else:
+         return p_c_func_or_var_declaration(s, pos, ctx)
+ 
+@@ -2100,6 +2099,8 @@
+     return p_suite(s, ctx(cdef_flag = 1))
+ 
+ def p_cdef_extern_block(s, pos, ctx):
++    if ctx.overridable:
++        error(pos, "cdef extern blocks cannot be declared cpdef")
+     include_file = None
+     s.expect('from')
+     if s.sy == '*':
+diff -r c58481f1e136 -r 6d2df0c4be31 tests/errors/cdef_syntax.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/errors/cdef_syntax.pyx	Tue Apr 14 23:10:06 2009 +0200
+@@ -0,0 +1,10 @@
++
++cdef pass
++cdef void
++cdef nogil class test: pass
++
++_ERRORS = u"""
++ 2: 5: Expected an identifier, found 'pass'
++ 3: 9: Empty declarator
++ 4:11: Expected ':'
++"""
+diff -r c58481f1e136 -r 6d2df0c4be31 tests/errors/cpdef_syntax.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/errors/cpdef_syntax.pyx	Tue Apr 14 23:10:06 2009 +0200
+@@ -0,0 +1,9 @@
++
++cpdef nogil: pass
++cpdef nogil class test: pass
++
++_ERRORS = u"""
++ 2: 6: cdef blocks cannot be declared cpdef
++ 3: 6: cdef blocks cannot be declared cpdef
++ 3:12: Expected ':'
++"""

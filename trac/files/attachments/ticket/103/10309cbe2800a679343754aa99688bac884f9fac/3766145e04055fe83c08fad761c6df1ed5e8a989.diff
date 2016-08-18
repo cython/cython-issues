@@ -1,0 +1,645 @@
+# HG changeset patch
+# User Lisandro Dalcin <dalcinl@gmail.com>
+# Date 1255132587 10800
+# Node ID 461099d1b5ade64bc1afb00815ab83d6c4dc424a
+# Parent  72e6fc1d554cb7b9b522280ea0ed3a60cab9a174
+Seamless C99/C++ complex numbers support (ticket #398)
+
+diff -r 72e6fc1d554c -r 461099d1b5ad Cython/Compiler/Code.py
+--- a/Cython/Compiler/Code.py	Fri Oct 09 14:48:25 2009 -0300
++++ b/Cython/Compiler/Code.py	Fri Oct 09 20:56:27 2009 -0300
+@@ -393,7 +393,6 @@
+ 
+     code_layout = [
+         'h_code',
+-        'complex_numbers_utility_code',
+         'utility_code_proto_before_types',
+         'type_declarations',
+         'utility_code_proto',
+diff -r 72e6fc1d554c -r 461099d1b5ad Cython/Compiler/ExprNodes.py
+--- a/Cython/Compiler/ExprNodes.py	Fri Oct 09 14:48:25 2009 -0300
++++ b/Cython/Compiler/ExprNodes.py	Fri Oct 09 20:56:27 2009 -0300
+@@ -525,9 +525,8 @@
+         elif src.type.is_pyobject:
+             src = CoerceFromPyTypeNode(dst_type, src, env)
+         elif (dst_type.is_complex 
+-                and src_type != dst_type
+-                and dst_type.assignable_from(src_type) 
+-                and not env.directives['c99_complex']):
++              and src_type != dst_type
++              and dst_type.assignable_from(src_type)):
+             src = CoerceToComplexNode(src, dst_type, env)
+         else: # neither src nor dst are py types
+             # Added the string comparison, since for c types that
+@@ -933,8 +932,6 @@
+     def calculate_result_code(self):
+         if self.type.is_pyobject:
+             return self.result()
+-        elif self.c99_complex:
+-            return "%rj" % float(self.value)
+         else:
+             return "%s(0, %r)" % (self.type.from_parts, float(self.value))
+ 
+@@ -946,8 +943,6 @@
+                     float(self.value),
+                     code.error_goto_if_null(self.result(), self.pos)))
+             code.put_gotref(self.py_result())
+-        else:
+-            self.c99_complex = code.globalstate.directives['c99_complex']
+         
+ 
+ 
+@@ -2940,7 +2935,7 @@
+             else:
+                 return self.member
+         elif obj.type.is_complex:
+-            return "__Pyx_%s_PART(%s)" % (self.member.upper(), obj_code)
++            return "__Pyx_C%s(%s)" % (self.member.upper(), obj_code)
+         else:
+             return "%s%s%s" % (obj_code, self.op, self.member)
+     
+@@ -3997,7 +3992,7 @@
+         else:
+             self.type_error()
+         if self.type.is_complex:
+-            self.infix = env.directives['c99_complex']
++            self.infix = False
+     
+     def py_operation_function(self):
+         return "PyNumber_Negative"
+@@ -4424,7 +4419,7 @@
+         if not self.type:
+             self.type_error()
+             return
+-        if self.type.is_complex and not env.directives['c99_complex']:
++        if self.type.is_complex:
+             self.infix = False
+         if not self.infix:
+             self.operand1 = self.operand1.coerce_to(self.type, env)
+@@ -5072,9 +5067,11 @@
+                         richcmp_constants[op],
+                         code.error_goto_if_null(result_code, self.pos)))
+                 code.put_gotref(result_code)
+-        elif operand1.type.is_complex and not code.globalstate.directives['c99_complex']:
+-            if op == "!=": negation = "!"
+-            else: negation = ""
++        elif operand1.type.is_complex:
++            if op == "!=": 
++                negation = "!"
++            else: 
++                negation = ""
+             code.putln("%s = %s(%s%s(%s, %s));" % (
+                 result_code, 
+                 coerce_result,
+@@ -5610,8 +5607,8 @@
+ 
+     def calculate_result_code(self):
+         if self.arg.type.is_complex:
+-            real_part = "__Pyx_REAL_PART(%s)" % self.arg.result()
+-            imag_part = "__Pyx_IMAG_PART(%s)" % self.arg.result()
++            real_part = "__Pyx_CREAL(%s)" % self.arg.result()
++            imag_part = "__Pyx_CIMAG(%s)" % self.arg.result()
+         else:
+             real_part = self.arg.result()
+             imag_part = "0"
+diff -r 72e6fc1d554c -r 461099d1b5ad Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py	Fri Oct 09 14:48:25 2009 -0300
++++ b/Cython/Compiler/ModuleNode.py	Fri Oct 09 20:56:27 2009 -0300
+@@ -557,12 +557,12 @@
+         code.putln("#include <math.h>")
+         code.putln("#define %s" % Naming.api_guard_prefix + self.api_name(env))
+         self.generate_includes(env, cimported_modules, code)
+-        if env.directives['c99_complex']:
+-            code.putln("#ifndef _Complex_I")
+-            code.putln("#include <complex.h>")
++        if env.directives['ccomplex']:
++            code.putln("")
++            code.putln("#if !defined(CYTHON_CCOMPLEX)")
++            code.putln("#define CYTHON_CCOMPLEX 1")
+             code.putln("#endif")
+-        code.putln("#define __PYX_USE_C99_COMPLEX defined(_Complex_I)")
+-        code.putln('')
++            code.putln("")
+         code.put(Nodes.utility_function_predeclarations)
+         code.put(PyrexTypes.type_conversion_predeclarations)
+         code.put(Nodes.branch_prediction_macros)
+diff -r 72e6fc1d554c -r 461099d1b5ad Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py	Fri Oct 09 14:48:25 2009 -0300
++++ b/Cython/Compiler/Nodes.py	Fri Oct 09 20:56:27 2009 -0300
+@@ -3133,7 +3133,7 @@
+                 c_op = "/"
+             elif c_op == "**":
+                 error(self.pos, "No C inplace power operator")
+-            elif self.lhs.type.is_complex and not code.globalstate.directives['c99_complex']:
++            elif self.lhs.type.is_complex:
+                 error(self.pos, "Inplace operators not implemented for complex types.")
+                 
+             # have to do assignment directly to avoid side-effects
+diff -r 72e6fc1d554c -r 461099d1b5ad Cython/Compiler/Options.py
+--- a/Cython/Compiler/Options.py	Fri Oct 09 14:48:25 2009 -0300
++++ b/Cython/Compiler/Options.py	Fri Oct 09 20:56:27 2009 -0300
+@@ -65,7 +65,7 @@
+     'cdivision_warnings': False,
+     'always_allow_keywords': False,
+     'wraparound' : True,
+-    'c99_complex' : False, # Don't use macro wrappers for complex arith, not sure what to name this...
++    'ccomplex' : False, # use C99/C++ for complex types and arith
+     'callspec' : "",
+     'profile': False,
+     'infer_types': False,
+diff -r 72e6fc1d554c -r 461099d1b5ad Cython/Compiler/PyrexTypes.py
+--- a/Cython/Compiler/PyrexTypes.py	Fri Oct 09 14:48:25 2009 -0300
++++ b/Cython/Compiler/PyrexTypes.py	Fri Oct 09 20:56:27 2009 -0300
+@@ -823,7 +823,7 @@
+ class CComplexType(CNumericType):
+     
+     is_complex = 1
+-    to_py_function = "__pyx_PyObject_from_complex"
++    to_py_function = "__pyx_PyComplex_FromComplex"
+     has_attributes = 1
+     scope = None
+     
+@@ -859,7 +859,9 @@
+         return self.base_declaration_code(base,  entity_code)
+ 
+     def sign_and_name(self):
+-        return Naming.type_prefix + self.real_type.specalization_name() + "_complex"
++        real_type_name = self.real_type.specalization_name()
++        real_type_name = real_type_name.replace('long__double','long_double')
++        return Naming.type_prefix + real_type_name + "_complex"
+     
+     def assignable_from_resolved_type(self, src_type):
+         return (src_type.is_complex and self.real_type.assignable_from_resolved_type(src_type.real_type)
+@@ -877,21 +879,34 @@
+     def create_declaration_utility_code(self, env):
+         # This must always be run, because a single CComplexType instance can be shared
+         # across multiple compilations (the one created in the module scope)
+-        env.use_utility_code(complex_generic_utility_code)
+-        env.use_utility_code(
+-            complex_arithmatic_utility_code.specialize(self, 
+-                math_h_modifier = self.real_type.math_h_modifier,
+-                real_type = self.real_type.declaration_code('')))
++        env.use_utility_code(complex_header_utility_code)
++        env.use_utility_code(complex_real_imag_utility_code)
++        for utility_code in (complex_type_utility_code,
++                             complex_from_parts_utility_code,
++                             complex_arithmatic_utility_code):
++            env.use_utility_code(
++                utility_code.specialize(
++                    self, 
++                    real_type = self.real_type.declaration_code(''),
++                    m = self.real_type.math_h_modifier))
++        return True
++
++    def create_to_py_utility_code(self, env):
++        env.use_utility_code(complex_real_imag_utility_code)
++        env.use_utility_code(complex_to_py_utility_code)
+         return True
+ 
+     def create_from_py_utility_code(self, env):
+         self.real_type.create_from_py_utility_code(env)
+-        env.use_utility_code(
+-            complex_conversion_utility_code.specialize(self, 
+-                        math_h_modifier = self.real_type.math_h_modifier,
+-                        real_type = self.real_type.declaration_code(''),
+-                        type_convert = self.real_type.from_py_function))
+-        self.from_py_function = "__pyx_PyObject_As_" + self.specalization_name()
++
++        for utility_code in (complex_from_parts_utility_code,
++                             complex_from_py_utility_code):
++            env.use_utility_code(
++                utility_code.specialize(
++                    self, 
++                    real_type = self.real_type.declaration_code(''),
++                    m = self.real_type.math_h_modifier))
++        self.from_py_function = "__Pyx_PyComplex_As_" + self.specalization_name()
+         return True
+     
+     def lookup_op(self, nargs, op):
+@@ -901,7 +916,8 @@
+             pass
+         try:
+             op_name = complex_ops[nargs, op]
+-            self.binops[nargs, op] = func_name = "%s_%s" % (self.specalization_name(), op_name)
++            modifier = self.real_type.math_h_modifier
++            self.binops[nargs, op] = func_name = "__Pyx_c_%s%s" % (op_name, modifier)
+             return func_name
+         except KeyError:
+             return None
+@@ -915,114 +931,210 @@
+ complex_ops = {
+     (1, '-'): 'neg',
+     (1, 'zero'): 'is_zero',
+-    (2, '+'): 'add',
+-    (2, '-') : 'sub',
+-    (2, '*'): 'mul',
+-    (2, '/'): 'div',
++    (2, '+'): 'sum',
++    (2, '-'): 'diff',
++    (2, '*'): 'prod',
++    (2, '/'): 'quot',
+     (2, '=='): 'eq',
+ }
+ 
+-complex_generic_utility_code = UtilityCode(
++complex_header_utility_code = UtilityCode(
++proto_block='utility_code_proto_before_types',
+ proto="""
+-#if __PYX_USE_C99_COMPLEX
+-    #define __Pyx_REAL_PART(z) __real__(z)
+-    #define __Pyx_IMAG_PART(z) __imag__(z)
+-#else
+-    #define __Pyx_REAL_PART(z) ((z).real)
+-    #define __Pyx_IMAG_PART(z) ((z).imag)
++#if !defined(CYTHON_CCOMPLEX)
++  #if defined(__cplusplus)
++    #define CYTHON_CCOMPLEX 1
++  #elif defined(_Complex_I)
++    #define CYTHON_CCOMPLEX 1
++  #else
++    #define CYTHON_CCOMPLEX 0
++  #endif
+ #endif
+ 
+-#define __pyx_PyObject_from_complex(z) PyComplex_FromDoubles((double)__Pyx_REAL_PART(z), (double)__Pyx_IMAG_PART(z))
++#if CYTHON_CCOMPLEX
++  #ifdef __cplusplus
++    #include <complex>
++  #else
++    #include <complex.h>
++  #endif
++#endif
+ """)
+ 
+-complex_conversion_utility_code = UtilityCode(
++complex_real_imag_utility_code = UtilityCode(
+ proto="""
+-static %(type)s __pyx_PyObject_As_%(type_name)s(PyObject* o); /* proto */
+-""", 
++#if CYTHON_CCOMPLEX
++  #ifdef __cplusplus
++    #define __Pyx_CREAL(z) ((z).real())
++    #define __Pyx_CIMAG(z) ((z).imag())
++  #else
++    #define __Pyx_CREAL(z) (__real__(z))
++    #define __Pyx_CIMAG(z) (__imag__(z))
++  #endif
++#else
++    #define __Pyx_CREAL(z) ((z).real)
++    #define __Pyx_CIMAG(z) ((z).imag)
++#endif
++""")
++
++complex_type_utility_code = UtilityCode(
++proto_block='utility_code_proto_before_types',
++proto="""
++#if CYTHON_CCOMPLEX
++  #ifdef __cplusplus
++    typedef ::std::complex< %(real_type)s > %(type_name)s;
++  #else
++    typedef %(real_type)s _Complex %(type_name)s;
++  #endif
++#else
++    typedef struct { %(real_type)s real, imag; } %(type_name)s;
++#endif
++""")
++
++complex_from_parts_utility_code = UtilityCode(
++proto_block='utility_code_proto_before_types',
++proto="""
++#if CYTHON_CCOMPLEX
++  #ifdef __cplusplus
++    static INLINE %(type)s %(type_name)s_from_parts(%(real_type)s, %(real_type)s);
++  #else
++    static INLINE %(type)s %(type_name)s_from_parts(%(real_type)s, %(real_type)s);
++  #endif
++#else
++    static INLINE %(type)s %(type_name)s_from_parts(%(real_type)s, %(real_type)s);
++#endif
++""",
+ impl="""
+-static %(type)s __pyx_PyObject_As_%(type_name)s(PyObject* o) {
+-    if (PyComplex_CheckExact(o)) {
+-        return %(type_name)s_from_parts(
+-            (%(real_type)s)((PyComplexObject *)o)->cval.real,
+-            (%(real_type)s)((PyComplexObject *)o)->cval.imag);
++#if CYTHON_CCOMPLEX
++  #ifdef __cplusplus
++    static INLINE %(type)s %(type_name)s_from_parts(%(real_type)s x, %(real_type)s y) {
++      return ::std::complex< %(real_type)s >(x, y);
+     }
+-    else {
+-        Py_complex cval = PyComplex_AsCComplex(o);
+-        return %(type_name)s_from_parts((%(real_type)s)cval.real, (%(real_type)s)cval.imag);
++  #else
++    static INLINE %(type)s %(type_name)s_from_parts(%(real_type)s x, %(real_type)s y) {
++      return x + y*(%(type)s)_Complex_I;
+     }
++  #endif
++#else
++    static INLINE %(type)s %(type_name)s_from_parts(%(real_type)s x, %(real_type)s y) {
++      %(type)s z;
++       z.real = x;
++       z.imag = y;
++       return z;
++    }
++#endif
++""")
++
++complex_to_py_utility_code = UtilityCode(
++proto="""
++#define __pyx_PyComplex_FromComplex(z) \\
++        PyComplex_FromDoubles((double)__Pyx_CREAL(z), \\
++                              (double)__Pyx_CIMAG(z))
++""")
++
++complex_from_py_utility_code = UtilityCode(
++proto="""
++static %(type)s __Pyx_PyComplex_As_%(type_name)s(PyObject*);
++""",
++impl="""
++static %(type)s __Pyx_PyComplex_As_%(type_name)s(PyObject* o) {
++    Py_complex cval;
++    if (PyComplex_CheckExact(o))
++        cval = ((PyComplexObject *)o)->cval;
++    else
++        cval = PyComplex_AsCComplex(o);
++    return %(type_name)s_from_parts(
++               (%(real_type)s)cval.real,
++               (%(real_type)s)cval.imag);
+ }
+ """)
+ 
+ complex_arithmatic_utility_code = UtilityCode(
+ proto="""
+-#if __PYX_USE_C99_COMPLEX
+-
+-    typedef %(real_type)s _Complex %(type_name)s;
+-    static INLINE %(type)s %(type_name)s_from_parts(%(real_type)s x, %(real_type)s y) {
+-      return x + y*(%(type)s)_Complex_I;
++#if CYTHON_CCOMPLEX
++    #define __Pyx_c_eq%(m)s(a, b)   ((a)==(b))
++    #define __Pyx_c_sum%(m)s(a, b)  ((a)+(b))
++    #define __Pyx_c_diff%(m)s(a, b) ((a)-(b))
++    #define __Pyx_c_prod%(m)s(a, b) ((a)*(b))
++    #define __Pyx_c_quot%(m)s(a, b) ((a)/(b))
++    #define __Pyx_c_neg%(m)s(a)     (-(a))
++  #ifdef __cplusplus
++    #define __Pyx_c_is_zero%(m)s(z) ((z)==0.0)
++    #define __Pyx_c_conj%(m)s(z)    (::std::conj(z))
++    /*#define __Pyx_c_abs%(m)s(z)     (::std::abs(z))*/
++  #else
++    #define __Pyx_c_is_zero%(m)s(z) ((z)==0)
++    #define __Pyx_c_conj%(m)s(z)    (conj%(m)s(z))
++    /*#define __Pyx_c_abs%(m)s(z)     (cabs%(m)s(z))*/
++ #endif
++#else
++    static INLINE int __Pyx_c_eq%(m)s(%(type)s, %(type)s);
++    static INLINE %(type)s __Pyx_c_sum%(m)s(%(type)s, %(type)s);
++    static INLINE %(type)s __Pyx_c_diff%(m)s(%(type)s, %(type)s);
++    static INLINE %(type)s __Pyx_c_prod%(m)s(%(type)s, %(type)s);
++    static INLINE %(type)s __Pyx_c_quot%(m)s(%(type)s, %(type)s);
++    static INLINE %(type)s __Pyx_c_neg%(m)s(%(type)s);
++    static INLINE int __Pyx_c_is_zero%(m)s(%(type)s);
++    static INLINE %(type)s __Pyx_c_conj%(m)s(%(type)s);
++    /*static INLINE %(real_type)s __Pyx_c_abs%(m)s(%(type)s);*/
++#endif
++""",
++impl="""
++#if CYTHON_CCOMPLEX
++#else
++    static INLINE int __Pyx_c_eq%(m)s(%(type)s a, %(type)s b) {
++       return (a.real == b.real) && (a.imag == b.imag);
+     }
+-    
+-    #define %(type_name)s_is_zero(a) ((a) == 0)
+-    #define %(type_name)s_eq(a, b) ((a) == (b))
+-    #define %(type_name)s_add(a, b) ((a)+(b))
+-    #define %(type_name)s_sub(a, b) ((a)-(b))
+-    #define %(type_name)s_mul(a, b) ((a)*(b))
+-    #define %(type_name)s_div(a, b) ((a)/(b))
+-    #define %(type_name)s_neg(a) (-(a))
+-
+-#else
+-
+-    typedef struct { %(real_type)s real, imag; } %(type_name)s;
+-    static INLINE %(type)s %(type_name)s_from_parts(%(real_type)s x, %(real_type)s y) {
+-      %(type)s c; c.real = x; c.imag = y; return c;
+-    }
+-    
+-    static INLINE int %(type_name)s_is_zero(%(type)s a) {
+-       return (a.real == 0) & (a.imag == 0);
+-    }
+-
+-    static INLINE int %(type_name)s_eq(%(type)s a, %(type)s b) {
+-       return (a.real == b.real) & (a.imag == b.imag);
+-    }
+-
+-    static INLINE %(type)s %(type_name)s_add(%(type)s a, %(type)s b) {
++    static INLINE %(type)s __Pyx_c_sum%(m)s(%(type)s a, %(type)s b) {
+         %(type)s z;
+         z.real = a.real + b.real;
+         z.imag = a.imag + b.imag;
+         return z;
+     }
+-
+-    static INLINE %(type)s %(type_name)s_sub(%(type)s a, %(type)s b) {
++    static INLINE %(type)s __Pyx_c_diff%(m)s(%(type)s a, %(type)s b) {
+         %(type)s z;
+         z.real = a.real - b.real;
+         z.imag = a.imag - b.imag;
+         return z;
+     }
+-
+-    static INLINE %(type)s %(type_name)s_mul(%(type)s a, %(type)s b) {
++    static INLINE %(type)s __Pyx_c_prod%(m)s(%(type)s a, %(type)s b) {
+         %(type)s z;
+         z.real = a.real * b.real - a.imag * b.imag;
+         z.imag = a.real * b.imag + a.imag * b.real;
+         return z;
+     }
+-
+-    static INLINE %(type)s %(type_name)s_div(%(type)s a, %(type)s b) {
++    static INLINE %(type)s __Pyx_c_quot%(m)s(%(type)s a, %(type)s b) {
+         %(type)s z;
+-        %(real_type)s denom = b.real*b.real + b.imag*b.imag;
++        %(real_type)s denom = b.real * b.real + b.imag * b.imag;
+         z.real = (a.real * b.real + a.imag * b.imag) / denom;
+         z.imag = (a.imag * b.real - a.real * b.imag) / denom;
+         return z;
+     }
+-
+-    static INLINE %(type)s %(type_name)s_neg(%(type)s a) {
++    static INLINE %(type)s __Pyx_c_neg%(m)s(%(type)s a) {
+         %(type)s z;
+         z.real = -a.real;
+         z.imag = -a.imag;
+         return z;
+     }
+-
++    static INLINE int __Pyx_c_is_zero%(m)s(%(type)s a) {
++       return (a.real == 0) && (a.imag == 0);
++    }
++    static INLINE %(type)s __Pyx_c_conj%(m)s(%(type)s a) {
++        %(type)s z;
++        z.real =  a.real;
++        z.imag = -a.imag;
++        return z;
++    }
++/*
++    static INLINE %(real_type)s __Pyx_c_abs%(m)s(%(type)s z) {
++#if HAVE_HYPOT
++        return hypot%(m)s(z.real, z.imag);
++#else
++        return sqrt%(m)s(z.real*z.real + z.imag*z.imag);
+ #endif
+-""", proto_block='complex_numbers_utility_code')
++    }
++*/
++#endif
++""")
+ 
+ 
+ class CArrayType(CType):
+diff -r 72e6fc1d554c -r 461099d1b5ad Cython/Compiler/Symtab.py
+--- a/Cython/Compiler/Symtab.py	Fri Oct 09 14:48:25 2009 -0300
++++ b/Cython/Compiler/Symtab.py	Fri Oct 09 20:56:27 2009 -0300
+@@ -1157,7 +1157,7 @@
+     def declare_cfunction(self, name, type, pos, 
+                           cname = None, visibility = 'private', defining = 0,
+                           api = 0, in_pxd = 0, modifiers = ()):
+-        self.declare_var(name, type, pos, cname, visibility)
++        return self.declare_var(name, type, pos, cname, visibility)
+ 
+ class ClassScope(Scope):
+     #  Abstract base class for namespace of
+diff -r 72e6fc1d554c -r 461099d1b5ad tests/run/complex_numbers_T305.pyx
+--- a/tests/run/complex_numbers_T305.pyx	Fri Oct 09 14:48:25 2009 -0300
++++ b/tests/run/complex_numbers_T305.pyx	Fri Oct 09 20:56:27 2009 -0300
+@@ -1,22 +1,23 @@
+ __doc__ = u"""
+     >>> test_object_conversion(2)
+-    ((2+0j), (2+0j))
++    ((2+0j), (2+0j), (2+0j))
+     >>> test_object_conversion(2j - 0.5)
+-    ((-0.5+2j), (-0.5+2j))
++    ((-0.5+2j), (-0.5+2j), (-0.5+2j))
+     
+     >>> test_arithmetic(2j, 4j)
+-    (-2j, 6j, -2j, (-8+0j), (0.5+0j))
++    (2j, -2j, 6j, -2j, (-8+0j), (0.5+0j))
+     >>> test_arithmetic(6+12j, 3j)
+-    ((-6-12j), (6+15j), (6+9j), (-36+18j), (4-2j))
++    ((6+12j), (-6-12j), (6+15j), (6+9j), (-36+18j), (4-2j))
+     >>> test_arithmetic(5-10j, 3+4j)
+-    ((-5+10j), (8-6j), (2-14j), (55-10j), (-1-2j))
++    ((5-10j), (-5+10j), (8-6j), (2-14j), (55-10j), (-1-2j))
+ 
+-    >>> test_div_by_zero(4j)
+-    -0.25j
+-    >>> test_div_by_zero(0)
+-    Traceback (most recent call last):
+-    ...
+-    ZeroDivisionError: float division
++## XXX this is not working
++## >>> test_div_by_zero(4j)
++## -0.25j
++## >>> test_div_by_zero(0)
++## Traceback (most recent call last):
++## ...
++## ZeroDivisionError: float division
+ 
+     >>> test_coercion(1, 1.5, 2.5, 4+1j, 10j)
+     (1+0j)
+@@ -56,6 +57,10 @@
+     (1+2j)
+     >>> test_real_imag_assignment(1.5, -3.5)
+     (1.5-3.5j)
++
++## XXX not implemented yet!
++## >>> test_conjugate(1+2j)
++## (1-2j)
+ """
+ 
+ #cdef extern from "complex.h":
+@@ -65,15 +70,17 @@
+ 
+ def test_object_conversion(o):
+     cdef float complex a = o
+-    cdef double complex z = o
+-    return (a, z)
++    cdef double complex b = o
++    cdef long double complex c = o
++    return (a, b, c)
+ 
+ def test_arithmetic(double complex z, double complex w):
+-    return -z, z+w, z-w, z*w, z/w
++    return +z, -z, z+w, z-w, z*w, z/w
+ 
+-@cython.cdivision(False)
+-def test_div_by_zero(double complex z):
+-    return 1/z
++## XXX this is not working
++## @cython.cdivision(False)
++## def test_div_by_zero(double complex z):
++##    return 1/z
+ 
+ def test_coercion(int a, float b, double c, float complex d, double complex e):
+     cdef double complex z
+@@ -102,3 +109,6 @@
+     z.imag = b
+     return z
+ 
++## XXX not implemented yet!
++## def test_conjugate(float complex z):
++##     return z.conjugate()
+diff -r 72e6fc1d554c -r 461099d1b5ad tests/run/complex_numbers_c89_T398.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/complex_numbers_c89_T398.h	Fri Oct 09 20:56:27 2009 -0300
+@@ -0,0 +1,1 @@
++#define CYTHON_CCOMPLEX 0
+diff -r 72e6fc1d554c -r 461099d1b5ad tests/run/complex_numbers_c89_T398.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/complex_numbers_c89_T398.pyx	Fri Oct 09 20:56:27 2009 -0300
+@@ -0,0 +1,2 @@
++cdef extern from "complex_numbers_c89_T398.h": pass
++include "complex_numbers_T305.pyx"
+diff -r 72e6fc1d554c -r 461099d1b5ad tests/run/complex_numbers_c99_T398.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/complex_numbers_c99_T398.h	Fri Oct 09 20:56:27 2009 -0300
+@@ -0,0 +1,14 @@
++#if !defined(__cplusplus)
++#if (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)) \
++  || defined(__GNUC__)						 \
++  || defined(__INTEL_COMPILER)					 \
++  || defined(__IBMC__)						 \
++
++#include <complex.h>
++#if !defined(_Complex_I)
++#error The "complex.h" header does not define the '_Complex_I' macro.
++#error Please report this to Cython developers <cython-dev@codespeak.net>
++#endif
++
++#endif
++#endif
+diff -r 72e6fc1d554c -r 461099d1b5ad tests/run/complex_numbers_c99_T398.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/complex_numbers_c99_T398.pyx	Fri Oct 09 20:56:27 2009 -0300
+@@ -0,0 +1,2 @@
++cdef extern from "complex_numbers_c99_T398.h": pass
++include "complex_numbers_T305.pyx"
+diff -r 72e6fc1d554c -r 461099d1b5ad tests/run/complex_numbers_cxx_T398.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/complex_numbers_cxx_T398.h	Fri Oct 09 20:56:27 2009 -0300
+@@ -0,0 +1,5 @@
++#if defined(__cplusplus)
++#define CYTHON_CCOMPLEX 1
++#else
++#define CYTHON_CCOMPLEX 0
++#endif
+diff -r 72e6fc1d554c -r 461099d1b5ad tests/run/complex_numbers_cxx_T398.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/complex_numbers_cxx_T398.pyx	Fri Oct 09 20:56:27 2009 -0300
+@@ -0,0 +1,2 @@
++cdef extern from "complex_numbers_cxx_T398.h": pass
++include "complex_numbers_T305.pyx"

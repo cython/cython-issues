@@ -1,0 +1,237 @@
+From 345c250f17058b4610834a76f2b6a290042ed389 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Bj=C3=B6rn=20Linse?= <bjornlinse@nowhere>
+Date: Wed, 11 Jan 2012 18:03:17 +0100
+Subject: [PATCH] added compile_module (with test+doc)
+
+---
+ Cython/Build/Inline.py             |   94 ++++++++++++++++++++++++++---------
+ Cython/Build/Tests/TestInline.py   |   37 ++++++++++++++-
+ Cython/Shadow.py                   |    4 ++
+ docs/src/reference/compilation.rst |   17 +++++++
+ 4 files changed, 127 insertions(+), 25 deletions(-)
+ create mode 100644 Cython/Build/Tests/TestDyncompile.py
+
+diff --git a/Cython/Build/Inline.py b/Cython/Build/Inline.py
+index c3a3714..f84e589 100644
+--- a/Cython/Build/Inline.py
++++ b/Cython/Build/Inline.py
+@@ -93,6 +93,36 @@ def safe_type(arg, context=None):
+                     return '%s.%s' % (base_type.__module__, base_type.__name__)
+         return 'object'
+ 
++def add_to_path(lib_dir):
++    if not os.path.exists(lib_dir):
++        os.makedirs(lib_dir)
++    if lib_dir not in sys.path:
++        sys.path.append(lib_dir)
++
++def build_module(module_code, module_name, lib_dir, cython_include_dirs, c_include_dirs, cflags, quiet):
++    add_to_path(lib_dir)
++    pyx_file = os.path.join(lib_dir, module_name + '.pyx')
++    fh = open(pyx_file, 'w')
++    try: 
++        fh.write(module_code)
++    finally:
++        fh.close()
++    extension = Extension(
++        name = module_name,
++        sources = [pyx_file],
++        include_dirs = c_include_dirs,
++        extra_compile_args = cflags)
++    build_extension = build_ext(Distribution())
++    build_extension.finalize_options()
++    build_extension.extensions = cythonize([extension], include_path=cython_include_dirs, quiet=quiet)
++    build_extension.build_temp = os.path.dirname(pyx_file)
++    build_extension.build_lib  = lib_dir
++    build_extension.run()
++    return __import__(module_name)
++
++def hash_key(key):
++    return hashlib.md5(str(key).encode('utf-8')).hexdigest()
++
+ def cython_inline(code,
+                   get_type=unsafe_type,
+                   lib_dir=os.path.expanduser('~/.cython/inline'),
+@@ -136,16 +166,13 @@ def cython_inline(code,
+     arg_names.sort()
+     arg_sigs = tuple([(get_type(kwds[arg], ctx), arg) for arg in arg_names])
+     key = orig_code, arg_sigs, sys.version_info, sys.executable, Cython.__version__
+-    module_name = "_cython_inline_" + hashlib.md5(str(key).encode('utf-8')).hexdigest()
++    module_name = "_cython_inline_" + hash_key(key)
++    add_to_path(lib_dir)
+     try:
+-        if not os.path.exists(lib_dir):
+-            os.makedirs(lib_dir)
+-        if lib_dir not in sys.path:
+-            sys.path.append(lib_dir)
+         if force:
+             raise ImportError
+         else:
+-            __import__(module_name)
++            module = __import__(module_name)
+     except ImportError:
+         cflags = []
+         c_include_dirs = []
+@@ -169,26 +196,45 @@ def __invoke(%(params)s):
+         """ % {'cimports': '\n'.join(cimports), 'module_body': module_body, 'params': params, 'func_body': func_body }
+         for key, value in literals.items():
+             module_code = module_code.replace(key, value)
+-        pyx_file = os.path.join(lib_dir, module_name + '.pyx')
+-        fh = open(pyx_file, 'w')
+-        try: 
+-            fh.write(module_code)
+-        finally:
+-            fh.close()
+-        extension = Extension(
+-            name = module_name,
+-            sources = [pyx_file],
+-            include_dirs = c_include_dirs,
+-            extra_compile_args = cflags)
+-        build_extension = build_ext(Distribution())
+-        build_extension.finalize_options()
+-        build_extension.extensions = cythonize([extension], ctx=ctx, quiet=quiet)
+-        build_extension.build_temp = os.path.dirname(pyx_file)
+-        build_extension.build_lib  = lib_dir
+-        build_extension.run()
++        module = build_module(module_code, module_name, lib_dir, 
++                cython_include_dirs, c_include_dirs, cflags, quiet)
+         _code_cache[key] = module_name
++
+     arg_list = [kwds[arg] for arg in arg_names]
+-    return __import__(module_name).__invoke(*arg_list)
++    return module.__invoke(*arg_list)
++
++
++def compile_module(code,
++                  lib_dir=os.path.expanduser('~/.cython/compile'),
++                  cython_include_dirs=['.'],
++                  cflags=[],
++                  c_include_dirs = [],
++                  force=False,
++                  quiet=False,
++                  ):
++    code = to_unicode(code)
++    key = code, sys.version_info, sys.executable, Cython.__version__
++    module_name = "_cython_compile_" + hash_key(key)
++    add_to_path(lib_dir)
++    if not force:
++        try:
++            module = __import__(module_name)
++            return module
++        except ImportError:
++            pass # compile module below
++
++    np1 = re.compile("cimport[\s]+numpy")
++    np2 = re.compile("from[\s]+numpy[\s]+cimport")
++    if np1.search(code) or np2.search(code):
++        try:
++            import numpy
++            c_include_dirs.append(numpy.get_include())
++        except ImportError:
++            pass 
++
++    module = build_module(code, module_name, lib_dir, cython_include_dirs, c_include_dirs, cflags, quiet)
++    return module
++
+ 
+ non_space = re.compile('[^ ]')
+ def strip_common_indent(code):
+diff --git a/Cython/Build/Tests/TestDyncompile.py b/Cython/Build/Tests/TestDyncompile.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/Cython/Build/Tests/TestInline.py b/Cython/Build/Tests/TestInline.py
+index 54fffcb..812784c 100644
+--- a/Cython/Build/Tests/TestInline.py
++++ b/Cython/Build/Tests/TestInline.py
+@@ -1,5 +1,5 @@
+ import os, tempfile
+-from Cython.Shadow import inline
++from Cython.Shadow import inline, compile_module
+ from Cython.Build.Inline import safe_type
+ from Cython.TestUtils import CythonTest
+ 
+@@ -57,3 +57,38 @@ class TestInline(CythonTest):
+             a[0,0] = 10
+             self.assertEquals(safe_type(a), 'numpy.ndarray[numpy.float64_t, ndim=2]')
+             self.assertEquals(inline("return a[0,0]", a=a, **self.test_kwds), 10.0)
++
++class TestCompileModule(CythonTest):
++    def setUp(self):
++        CythonTest.setUp(self)
++        self.test_kwds = dict(test_kwds)
++        if os.path.isdir('BUILD'):
++            lib_dir = os.path.join('BUILD','dyncompile')
++        else:
++            lib_dir = tempfile.mkdtemp(prefix='cython_dyncompile_')
++        self.test_kwds['lib_dir'] = lib_dir
++
++    def test_compile_module(self):
++        mod = compile_module("""
++a = 10
++def sqr(int x):
++    return x*x
++""", **self.test_kwds)
++        self.assertEquals(mod.a, 10)
++        self.assertEquals(mod.sqr(10), 100)
++
++
++    if has_numpy:
++
++        def test_numpy(self):
++            import numpy
++            a = numpy.ndarray((10, 20))
++            a[0,0] = 10
++            mod = compile_module(
++"""
++import numpy as np
++cimport numpy as np
++def x(np.ndarray[np.float64_t, ndim=2] arr):
++    return arr[0,0]
++""", **self.test_kwds)
++            self.assertEquals(mod.x(a), 10.0)
+diff --git a/Cython/Shadow.py b/Cython/Shadow.py
+index 816df82..af7634d 100644
+--- a/Cython/Shadow.py
++++ b/Cython/Shadow.py
+@@ -40,6 +40,10 @@ def inline(f, *args, **kwds):
+     assert len(args) == len(kwds) == 0
+     return f
+ 
++def compile_module(f, *args, **kwds):
++    from Cython.Build.Inline import compile_module
++    return compile_module(f, *args, **kwds)
++
+ def compile(f):
+     from Cython.Build.Inline import RuntimeCompiledFunction
+     return RuntimeCompiledFunction(f)
+diff --git a/docs/src/reference/compilation.rst b/docs/src/reference/compilation.rst
+index 9f40bfe..c58caea 100644
+--- a/docs/src/reference/compilation.rst
++++ b/docs/src/reference/compilation.rst
+@@ -122,6 +122,23 @@ Unbound variables are automatically pulled from the surrounding local
+ and global scopes, and the result of the compilation is cached for
+ efficient re-use.
+ 
++Compiling with ``cython.compile_module``
++=================================
++
++Similar to ``cython.inline``, but allows compilation of an entire module at runtime. 
++For example::
++
++    >>> import cython
++    >>> mod = cython.compile_module("""
++    ... def f(int x):
++    ...     return x*x
++    ... """)
++    >>> print mod.f(10)
++
++This is equivalent to saving the code to a .pyx file and compiling it.
++Compiled modules are cached, so that invoking compile_module twice 
++with the same code might return the same module object. 
++
+ Compiling with Sage
+ ===================
+ 
+-- 
+1.7.8.3
+

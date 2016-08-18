@@ -1,0 +1,191 @@
+# HG changeset patch
+# User Lisandro Dalcin <dalcinl@gmail.com>
+# Date 1255556746 10800
+# Node ID 1658964fa868bf476df16455b11bf64d2191cd77
+# Parent  cc8bd714d0b50612e85625e26f0bd54bf4f30843
+Public module C-API is broken under Python 3.2 (ticket #407)
+
+diff -r cc8bd714d0b5 -r 1658964fa868 Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py	Wed Oct 14 18:22:16 2009 -0300
++++ b/Cython/Compiler/ModuleNode.py	Wed Oct 14 18:45:46 2009 -0300
+@@ -2198,11 +2198,6 @@
+ """,
+ impl = r"""
+ static int __Pyx_ExportFunction(const char *name, void (*f)(void), const char *sig) {
+-#if PY_VERSION_HEX < 0x02050000
+-    char *api = (char *)"%(API)s";
+-#else
+-    const char *api = "%(API)s";
+-#endif
+     PyObject *d = 0;
+     PyObject *cobj = 0;
+     union {
+@@ -2210,19 +2205,22 @@
+         void *p;
+     } tmp;
+ 
+-
+-    d = PyObject_GetAttrString(%(MODULE)s, api);
++    d = PyObject_GetAttrString(%(MODULE)s, (char *)"%(API)s");
+     if (!d) {
+         PyErr_Clear();
+         d = PyDict_New();
+         if (!d)
+             goto bad;
+         Py_INCREF(d);
+-        if (PyModule_AddObject(%(MODULE)s, api, d) < 0)
++        if (PyModule_AddObject(%(MODULE)s, (char *)"%(API)s", d) < 0)
+             goto bad;
+     }
+     tmp.fp = f;
++#if PY_VERSION_HEX < 0x03010000
+     cobj = PyCObject_FromVoidPtrAndDesc(tmp.p, (void *)sig, 0);
++#else
++    cobj = PyCapsule_New(tmp.p, sig, 0);
++#endif
+     if (!cobj)
+         goto bad;
+     if (PyDict_SetItemString(d, name, cobj) < 0)
+@@ -2238,8 +2236,6 @@
+ """ % {'MODULE': Naming.module_cname, 'API': Naming.api_name}
+ )
+ 
+-#------------------------------------------------------------------------------------
+-
+ function_import_utility_code = UtilityCode(
+ proto = """
+ static int __Pyx_ImportFunction(PyObject *module, const char *funcname, void (**f)(void), const char *sig); /*proto*/
+@@ -2248,21 +2244,17 @@
+ #ifndef __PYX_HAVE_RT_ImportFunction
+ #define __PYX_HAVE_RT_ImportFunction
+ static int __Pyx_ImportFunction(PyObject *module, const char *funcname, void (**f)(void), const char *sig) {
+-#if PY_VERSION_HEX < 0x02050000
+-    char *api = (char *)"%(API)s";
+-#else
+-    const char *api = "%(API)s";
+-#endif
+     PyObject *d = 0;
+     PyObject *cobj = 0;
+-    const char *desc;
+-    const char *s1, *s2;
+     union {
+         void (*fp)(void);
+         void *p;
+     } tmp;
++#if PY_VERSION_HEX < 0x03010000
++    const char *desc, *s1, *s2;
++#endif
+ 
+-    d = PyObject_GetAttrString(module, api);
++    d = PyObject_GetAttrString(module, (char *)"%(API)s");
+     if (!d)
+         goto bad;
+     cobj = PyDict_GetItemString(d, funcname);
+@@ -2272,6 +2264,7 @@
+                 PyModule_GetName(module), funcname);
+         goto bad;
+     }
++#if PY_VERSION_HEX < 0x03010000
+     desc = (const char *)PyCObject_GetDesc(cobj);
+     if (!desc)
+         goto bad;
+@@ -2284,7 +2277,18 @@
+         goto bad;
+     }
+     tmp.p = PyCObject_AsVoidPtr(cobj);
++#else
++    if (!PyCapsule_IsValid(cobj, sig)) {
++        PyErr_Format(PyExc_TypeError,
++            "C function %%s.%%s has wrong signature (expected %%s, got %%s)",
++             PyModule_GetName(module), funcname, sig, PyCapsule_GetName(cobj));
++        goto bad;
++    }
++    tmp.p = PyCapsule_GetPointer(cobj, sig);
++#endif
+     *f = tmp.fp;
++    if (!(*f))
++        goto bad;
+     Py_DECREF(d);
+     return 0;
+ bad:
+@@ -2295,6 +2299,8 @@
+ """ % dict(API = Naming.api_name)
+ )
+ 
++#------------------------------------------------------------------------------------
++
+ register_cleanup_utility_code = UtilityCode(
+ proto = """
+ static int __Pyx_RegisterCleanup(void); /*proto*/
+diff -r cc8bd714d0b5 -r 1658964fa868 Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py	Wed Oct 14 18:22:16 2009 -0300
++++ b/Cython/Compiler/Nodes.py	Wed Oct 14 18:45:46 2009 -0300
+@@ -5424,22 +5424,20 @@
+ """,
+ impl = """
+ static int __Pyx_SetVtable(PyObject *dict, void *vtable) {
+-    PyObject *pycobj = 0;
+-    int result;
+-    
+-    pycobj = PyCObject_FromVoidPtr(vtable, 0);
+-    if (!pycobj)
++#if PY_VERSION_HEX < 0x03010000
++    PyObject *ob = PyCObject_FromVoidPtr(vtable, 0);
++#else
++    PyObject *ob = PyCapsule_New(vtable, 0, 0);
++#endif
++    if (!ob)
+         goto bad;
+-    if (PyDict_SetItemString(dict, "__pyx_vtable__", pycobj) < 0)
++    if (PyDict_SetItemString(dict, "__pyx_vtable__", ob) < 0)
+         goto bad;
+-    result = 0;
+-    goto done;
+-
++    Py_DECREF(ob);
++    return 0;
+ bad:
+-    result = -1;
+-done:
+-    Py_XDECREF(pycobj);
+-    return result;
++    Py_XDECREF(ob);
++    return -1;
+ }
+ """)
+ 
+@@ -5451,23 +5449,21 @@
+ """,
+ impl = r"""
+ static int __Pyx_GetVtable(PyObject *dict, void *vtabptr) {
+-    int result;
+-    PyObject *pycobj;
+-
+-    pycobj = PyMapping_GetItemString(dict, (char *)"__pyx_vtable__");
+-    if (!pycobj)
++    PyObject *ob = PyMapping_GetItemString(dict, (char *)"__pyx_vtable__");
++    if (!ob)
+         goto bad;
+-    *(void **)vtabptr = PyCObject_AsVoidPtr(pycobj);
++#if PY_VERSION_HEX < 0x03010000
++    *(void **)vtabptr = PyCObject_AsVoidPtr(ob);
++#else
++    *(void **)vtabptr = PyCapsule_GetPointer(ob, 0);
++#endif
+     if (!*(void **)vtabptr)
+         goto bad;
+-    result = 0;
+-    goto done;
+-
++    Py_DECREF(ob);
++    return 0;
+ bad:
+-    result = -1;
+-done:
+-    Py_XDECREF(pycobj);
+-    return result;
++    Py_XDECREF(ob);
++    return -1;
+ }
+ """)
+ 

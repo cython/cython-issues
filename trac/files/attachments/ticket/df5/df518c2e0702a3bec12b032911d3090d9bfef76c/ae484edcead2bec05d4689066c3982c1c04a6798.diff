@@ -1,0 +1,119 @@
+# HG changeset patch
+# User Lisandro Dalcin <dalcinl@gmail.com>
+# Date 1239156313 10800
+# Node ID fe1aa7bf0d92f20b91f77f7a67b5fe084552f675
+# Parent  d3b49a84a8215fefc0ec6ebd19f12ff5305c7682
+fixes for "exec" statement implementation.
+
+- fix broken compile with MSVC (does not like preprocessor #if/#else/#endif inside call to macro PyRun_String)
+- enable "exectest" testcase for Python 3
+
+diff -r d3b49a84a821 -r fe1aa7bf0d92 Cython/Compiler/Builtin.py
+--- a/Cython/Compiler/Builtin.py	Tue Apr 07 18:22:36 2009 -0300
++++ b/Cython/Compiler/Builtin.py	Tue Apr 07 23:05:13 2009 -0300
+@@ -168,6 +168,7 @@
+ static PyObject* __Pyx_PyRun(PyObject* o, PyObject* globals, PyObject* locals) {
+     PyObject* result;
+     PyObject* s = 0;
++    char *code = 0;
+ 
+     if (!locals && !globals) {
+         globals = PyModule_GetDict(%s);""" % Naming.module_cname + """
+@@ -195,13 +196,12 @@
+         goto bad;
+     }
+ 
+-    result = PyRun_String(
+     #if PY_MAJOR_VERSION >= 3
+-        PyBytes_AS_STRING(o),
++    code = PyBytes_AS_STRING(o);
+     #else
+-        PyString_AS_STRING(o),
++    code = PyString_AS_STRING(o);
+     #endif
+-        Py_file_input, globals, locals);
++    result = PyRun_String(code, Py_file_input, globals, locals);
+ 
+     Py_XDECREF(s);
+     return result;
+diff -r d3b49a84a821 -r fe1aa7bf0d92 tests/run/exectest.pyx
+--- a/tests/run/exectest.pyx	Tue Apr 07 18:22:36 2009 -0300
++++ b/tests/run/exectest.pyx	Tue Apr 07 23:05:13 2009 -0300
+@@ -1,4 +1,4 @@
+-__doc__ = """# no unicode string, not tested in Python3!
++__doc__ = u"""
+ #>>> a
+ #Traceback (most recent call last):
+ #NameError: name 'a' is not defined
+@@ -10,32 +10,32 @@
+ 
+ >>> d = {}
+ >>> test_dict_scope2(d)
+->>> print d['b']
++>>> print (d['b'])
+ 2
+ 
+ >>> d1 = {}
+ >>> test_dict_scope3(d1, d1)
+->>> print d1['b']
++>>> print (d1['b'])
+ 2
+ 
+ >>> d1, d2 = {}, {}
+ >>> test_dict_scope3(d1, d2)
+->>> print d1.get('b'), d2.get('b')
+-None 2
++>>> print ((d1.get('b'), d2.get('b')))
++(None, 2)
+ 
+ >>> d1, d2 = {}, {}
+ >>> test_dict_scope3(d1, d2)
+->>> print d1.get('b'), d2.get('b')
+-None 2
++>>> print ((d1.get('b'), d2.get('b')))
++(None, 2)
+ 
+ >>> d1, d2 = dict(a=11), dict(c=5)
+ >>> test_dict_scope_ref(d1, d2)
+->>> print d1.get('b'), d2.get('b')
+-None 16
++>>> print ((d1.get('b'), d2.get('b')))
++(None, 16)
+ 
+ >>> d = dict(a=11, c=5)
+ >>> test_dict_scope_ref(d, d)
+->>> print d['b']
++>>> print (d['b'])
+ 16
+ 
+ >>> d = dict(seq = [1,2,3,4])
+@@ -57,22 +57,22 @@
+ 
+ def test_dict_scope1():
+     cdef dict d = {}
+-    exec "b=1+1" in d
+-    return d['b']
++    exec u"b=1+1" in d
++    return d[u'b']
+ 
+ def test_dict_scope2(d):
+-    exec "b=1+1" in d
++    exec u"b=1+1" in d
+ 
+ def test_dict_scope3(d1, d2):
+-    exec "b=1+1" in d1, d2
++    exec u"b=1+1" in d1, d2
+ 
+ def test_dict_scope_ref(d1, d2):
+-    exec "b=a+c" in d1, d2
++    exec u"b=a+c" in d1, d2
+ 
+ def test_def(d, varref):
+-    exec """
++    exec u"""
+ def test():
+     for x in %s:
+         yield x+1
+ """ % varref in d
+-    return d['test']
++    return d[u'test']

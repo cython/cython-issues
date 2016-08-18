@@ -1,0 +1,106 @@
+# HG changeset patch
+# User Mark Lodato <lodatom@gmail.com>
+# Date 1254701000 14400
+freeze: add -p option for calling Py_Main()
+
+Add an option to build a regular interpreter, calling Py_Main(), rather
+than running the first module as __main__.
+
+diff --git a/Demos/freeze/README.rst b/Demos/freeze/README.rst
+index 9b97a8b..bd64ad7 100644
+--- a/Demos/freeze/README.rst
++++ b/Demos/freeze/README.rst
+@@ -7,7 +7,7 @@ cython_freeze - create a C file for embedding Cython modules
+ SYNOPSIS
+ ========
+ 
+-cython_freeze [-o outfile] module [...]
++cython_freeze [-o outfile] [-p] module [...]
+ 
+ 
+ DESCRIPTION
+@@ -16,10 +16,12 @@ DESCRIPTION
+ **cython_freeze** generates a C source file to embed a Python interpreter
+ with one or more Cython modules built in.  This allows one to create a single
+ executable from Cython code, without having to have separate shared objects
+-for each Cython module.
++for each Cython module.  A major advantage of this approach is that it allows
++debuging with gprof(1), which does not work with shared objects.
+ 
+-A major advantage of this approach is that it allows debuging with gprof(1),
+-which does not work with shared objects.
++Unless ``-p`` is given, the first module's ``__name__`` is set to
++``"__main__"`` and is imported on startup; if ``-p`` is given, a normal Python
++interpreter is built, with the given modules built into the binary.
+ 
+ Note that this method differs from ``cython --embed``.  The ``--embed`` options
+ modifies the resulting C source file to include a ``main()`` function, so it
+@@ -32,6 +34,7 @@ OPTIONS
+ =======
+ 
+ -o FILE, --outfile=FILE   write output to FILE instead of standard output
++-p, --pymain              do not automatically run the first module as __main__
+ 
+ 
+ EXAMPLE
+diff --git a/bin/cython_freeze b/bin/cython_freeze
+index 1bb582a..6e47586 100755
+--- a/bin/cython_freeze
++++ b/bin/cython_freeze
+@@ -8,11 +8,13 @@ See Demos/freeze/README.rst for more details.
+ 
+ import optparse
+ 
+-usage= '%prog [-o outfile] module [module ...]'
++usage= '%prog [-o outfile] [-p] module [module ...]'
+ description = 'Create a C file for embedding Cython modules.'
+ p = optparse.OptionParser(usage=usage, description=description)
+ p.add_option('-o', '--output', metavar='FILE',
+         help='write output to FILE instead of standard output')
++p.add_option('-p', '--pymain', action='store_true', default=False,
++        help='do not automatically run the first module as __main__')
+ 
+ options, args = p.parse_args()
+ 
+@@ -57,20 +59,36 @@ for name in modules:
+ 
+ print """    {NULL, NULL}
+ };
++""",
+ 
+-extern int __pyx_module_is_main_%(main)s;
++if not options.pymain:
++    print "\nextern int __pyx_module_is_main_%s;" % modules[0]
+ 
++print """
+ #if PY_MAJOR_VERSION < 3 || (!defined(WIN32) && !defined(MS_WINDOWS))
+ int main(int argc, char** argv) {
+ #else
+ int wmain(int argc, wchar_t **argv) {
+ #endif
+-    int r = 0;
++""",
++if not options.pymain:
++    print """\
+     PyObject *m = NULL;
++    int r = 0;
++""",
++print """\
+     if (PyImport_ExtendInittab(inittab)) {
+         fprintf(stderr, "No memory\\n");
+         exit(1);
+     }
++""",
++if options.pymain:
++    print """\
++    return Py_Main(argc, argv);
++}
++"""
++else:
++    print """\
+     Py_SetProgramName(argv[0]);
+     Py_Initialize();
+     PySys_SetArgv(argc, argv);
+-- 
+1.6.5.rc3
+

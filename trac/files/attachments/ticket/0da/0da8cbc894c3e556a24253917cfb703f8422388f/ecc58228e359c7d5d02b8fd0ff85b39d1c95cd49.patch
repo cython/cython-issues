@@ -1,0 +1,64 @@
+# HG changeset patch
+# Parent 024087f50ed6502432fc404e5832837ef2eafb0b
+safely replace all node references when injecting a literal set for set([...])
+
+diff -r 024087f50ed6 -r 60c510c26ba8 Cython/Compiler/Optimize.py
+--- a/Cython/Compiler/Optimize.py	Sun Sep 07 08:53:37 2014 +0200
++++ b/Cython/Compiler/Optimize.py	Sun Sep 07 14:40:22 2014 +0200
+@@ -1775,7 +1775,8 @@
+         return node
+ 
+ 
+-class OptimizeBuiltinCalls(Visitor.MethodDispatcherTransform):
++class OptimizeBuiltinCalls(Visitor.NodeRefCleanupMixin,
++                           Visitor.MethodDispatcherTransform):
+     """Optimize some common methods calls and instantiation patterns
+     for builtin types *after* the type analysis phase.
+ 
+@@ -2061,17 +2062,18 @@
+                     temps.append(arg)
+                 args.append(arg)
+             result = ExprNodes.SetNode(node.pos, is_temp=1, args=args)
++            self.replace(node, result)
+             for temp in temps[::-1]:
+                 result = UtilNodes.EvalWithTempExprNode(temp, result)
+             return result
+         else:
+             # PySet_New(it) is better than a generic Python call to set(it)
+-            return ExprNodes.PythonCapiCallNode(
++            return self.replace(node, ExprNodes.PythonCapiCallNode(
+                 node.pos, "PySet_New",
+                 self.PySet_New_func_type,
+                 args=pos_args,
+                 is_temp=node.is_temp,
+-                py_name="set")
++                py_name="set"))
+ 
+     PyFrozenSet_New_func_type = PyrexTypes.CFuncType(
+         Builtin.frozenset_type, [
+diff -r 024087f50ed6 -r 60c510c26ba8 tests/run/set.pyx
+--- a/tests/run/set.pyx	Sun Sep 07 08:53:37 2014 +0200
++++ b/tests/run/set.pyx	Sun Sep 07 14:40:22 2014 +0200
+@@ -144,6 +144,22 @@
+     return s.pop()
+ 
+ 
++def test_noop_pop():
++    """
++    >>> test_noop_pop()
++    """
++    set([0]).pop()
++
++
++def test_noop_pop_exception():
++    """
++    >>> try: test_noop_pop_exception()
++    ... except KeyError: pass
++    ... else: print("KeyError expected but not raised!")
++    """
++    set([]).pop()
++
++
+ def test_set_discard():
+     """
+     >>> type(test_set_discard()) is _set

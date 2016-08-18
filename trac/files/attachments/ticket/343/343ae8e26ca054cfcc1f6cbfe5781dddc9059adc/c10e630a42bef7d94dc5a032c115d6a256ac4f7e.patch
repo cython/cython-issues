@@ -1,0 +1,221 @@
+exporting patch:
+# HG changeset patch
+# User Vitja Makarov <vitja.makarov@gmail.com>
+# Date 1291658640 -10800
+# Node ID 6c79b26286cedd572bff116550681b5a7cff8cd9
+# Parent  db3de7c288bd7c92c7313a4286b0d425dd1462a3
+Allow pyfunction redefinition
+
+diff -r db3de7c288bd -r 6c79b26286ce Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py	Sun Dec 05 04:37:30 2010 -0800
++++ b/Cython/Compiler/Nodes.py	Mon Dec 06 21:04:00 2010 +0300
+@@ -2148,9 +2148,10 @@
+         entry = env.lookup_here(name)
+         if entry and entry.type.is_cfunction and not self.is_wrapper:
+             warning(self.pos, "Overriding cdef method with def method.", 5)
+-        entry = env.declare_pyfunction(name, self.pos)
++        entry = env.declare_pyfunction(name, self.pos, allow_redefine=not self.is_wrapper)
+         self.entry = entry
+-        prefix = env.scope_prefix
++        prefix = env.next_id(env.scope_prefix)
++
+         entry.func_cname = \
+             Naming.pyfunc_prefix + prefix + name
+         entry.pymethdef_cname = \
+@@ -2225,7 +2226,7 @@
+ 
+     def needs_assignment_synthesis(self, env, code=None):
+         # Should enable for module level as well, that will require more testing...
+-        if self.entry.is_lambda:
++        if self.entry.is_anonymous:
+             return True
+         if env.is_module_scope:
+             if code is None:
+diff -r db3de7c288bd -r 6c79b26286ce Cython/Compiler/Symtab.py
+--- a/Cython/Compiler/Symtab.py	Sun Dec 05 04:37:30 2010 -0800
++++ b/Cython/Compiler/Symtab.py	Mon Dec 06 21:04:00 2010 +0300
+@@ -75,7 +75,7 @@
+     # is_cfunction     boolean    Is a C function
+     # is_cmethod       boolean    Is a C method of an extension type
+     # is_unbound_cmethod boolean  Is an unbound C method of an extension type
+-    # is_lambda        boolean    Is a lambda function
++    # is_anonymous     boolean    Is a anonymous pyfunction entry
+     # is_type          boolean    Is a type definition
+     # is_cclass        boolean    Is an extension class
+     # is_cpp_class     boolean    Is a C++ class
+@@ -138,7 +138,7 @@
+     is_cfunction = 0
+     is_cmethod = 0
+     is_unbound_cmethod = 0
+-    is_lambda = 0
++    is_anonymous = 0
+     is_type = 0
+     is_cclass = 0
+     is_cpp_class = 0
+@@ -513,16 +513,34 @@
+         
+     def declare_builtin(self, name, pos):
+         return self.outer_scope.declare_builtin(name, pos)
+-    
+-    def declare_pyfunction(self, name, pos):
++
++    def _declare_pyfunction(self, name, pos, visibility='extern', entry=None):
++        if entry and not entry.type.is_cfunction:
++            error(pos, "'%s' already declared" % name)
++            error(entry.pos, "Previous declaration is here")
++        entry = self.declare_var(name, py_object_type, pos, visibility=visibility)
++        entry.signature = pyfunction_signature
++        self.pyfunc_entries.append(entry)
++        return entry
++
++    def declare_pyfunction(self, name, pos, allow_redefine=False, visibility='extern'):
+         # Add an entry for a Python function.
+         entry = self.lookup_here(name)
+-        if entry and not entry.type.is_cfunction:
+-            # This is legal Python, but for now will produce invalid C.
+-            error(pos, "'%s' already declared" % name)
+-        entry = self.declare_var(name, py_object_type, pos, visibility='extern')
++        if not allow_redefine:
++            return self._declare_pyfunction(name, pos, visibility=visibility, entry=entry)
++        if entry:
++            if entry.type.is_unspecified:
++                entry.type = py_object_type
++            elif not entry.type.is_pyobject:
++                return self._declare_pyfunction(name, pos, visibility=visibility, entry=entry)
++        else: # declare entry stub
++            self.declare_var(name, py_object_type, pos, visibility=visibility)
++        entry = self.declare_var(None, py_object_type, pos,
++                                 cname=name, visibility='private')
++        entry.name = EncodedString(name)
++        entry.qualified_name = self.qualify_name(name)
+         entry.signature = pyfunction_signature
+-        self.pyfunc_entries.append(entry)
++        entry.is_anonymous = True
+         return entry
+ 
+     def declare_lambda_function(self, func_cname, pos):
+@@ -532,7 +550,7 @@
+         entry.name = EncodedString(func_cname)
+         entry.func_cname = func_cname
+         entry.signature = pyfunction_signature
+-        entry.is_lambda = True
++        entry.is_anonymous = True
+         return entry
+ 
+     def add_lambda_def(self, def_node):
+@@ -1337,17 +1355,8 @@
+ #        return "%s->%s" % (self.cur_scope_cname, name)
+ #        return "%s->%s" % (self.closure_cname, name)
+ 
+-    def declare_pyfunction(self, name, pos):
+-        # Add an entry for a Python function.
+-        entry = self.lookup_here(name)
+-        if entry and not entry.type.is_cfunction:
+-            # This is legal Python, but for now may produce invalid C.
+-            error(pos, "'%s' already declared" % name)
+-        entry = self.declare_var(name, py_object_type, pos)
+-        entry.signature = pyfunction_signature
+-        self.pyfunc_entries.append(entry)
+-        return entry
+-
++    def declare_pyfunction(self, name, pos, allow_redefine=False):
++        return LocalScope.declare_pyfunction(self, name, pos, allow_redefine, visibility='private')
+ 
+ class StructOrUnionScope(Scope):
+     #  Namespace of a C struct or union.
+@@ -1521,7 +1530,7 @@
+             return entry
+ 
+ 
+-    def declare_pyfunction(self, name, pos):
++    def declare_pyfunction(self, name, pos, allow_redefine=False):
+         # Add an entry for a method.
+         if name in ('__eq__', '__ne__', '__lt__', '__gt__', '__le__', '__ge__'):
+             error(pos, "Special method %s must be implemented via __richcmp__" % name)
+@@ -1765,7 +1774,7 @@
+ 
+     is_property_scope = 1
+     
+-    def declare_pyfunction(self, name, pos):
++    def declare_pyfunction(self, name, pos, allow_redefine=False):
+         # Add an entry for a method.
+         signature = get_property_accessor_signature(name)
+         if signature:
+diff -r db3de7c288bd -r 6c79b26286ce tests/errors/e_redeclmeth.pyx
+--- a/tests/errors/e_redeclmeth.pyx	Sun Dec 05 04:37:30 2010 -0800
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,8 +0,0 @@
+-class C:
+-	def f(self):
+-		pass
+-	def f(self):
+-		pass
+-_ERRORS = u"""
+-4:1: 'f' already declared
+-"""
+diff -r db3de7c288bd -r 6c79b26286ce tests/run/pyfuncion_redefine_T489.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/pyfuncion_redefine_T489.pyx	Mon Dec 06 21:04:00 2010 +0300
+@@ -0,0 +1,62 @@
++"""
++>>> xxx
++[0, 1, 2, 3]
++"""
++
++xxx = []
++foo = 0
++xxx.append(foo)
++def foo():
++    return 1
++xxx.append(foo())
++def foo():
++    return 2
++xxx.append(foo())
++foo = 3
++xxx.append(foo)
++
++def closure_scope(a):
++    """
++    >>> closure_scope(0)
++    [0, 1, 'X', -4, 3]
++    """
++    ret = []
++    foo = a + 0
++    ret.append(foo)
++    def foo():
++        return a + 1
++    ret.append(foo())
++    def foo():
++        return 'X'
++    ret.append(foo())
++    def foo(b):
++        return a - b
++    ret.append(foo(4))
++    foo = a + 3
++    ret.append(foo)
++    return ret
++
++class ClassScope(object):
++    """
++    >>> obj = ClassScope()
++    [0, 1, 2, 3]
++    """
++    x = []
++    def __init__(self):
++        r = []
++        for x in self.x:
++            if isinstance(x, int):
++                r.append(x)
++            else:
++                r.append(x(self))
++        print r
++    foo = 0
++    x.append(foo)
++    def foo(self):
++        return 1
++    x.append(foo)
++    def foo(self):
++        return 2
++    x.append(foo)
++    foo = 3
++    x.append(foo)

@@ -1,0 +1,42 @@
+# HG changeset patch
+# User Dag Sverre Seljebotn <dagss@student.matnat.uio.no>
+# Date 1210795087 -7200
+# Node ID d1111d697875a1b5a9710a19b64b9e037d7556f0
+# Parent  9a731464ea49650627ac6a988518aee93e6991aa
+Fixed iterator raising exception bug.
+
+Simply a typo in NextNode...
+
+diff -r 9a731464ea49 -r d1111d697875 Cython/Compiler/ExprNodes.py
+--- a/Cython/Compiler/ExprNodes.py	Sat May 10 14:46:37 2008 +0200
++++ b/Cython/Compiler/ExprNodes.py	Wed May 14 21:58:07 2008 +0200
+@@ -1175,7 +1175,7 @@ class NextNode(AtomicExprNode):
+         code.putln(
+             "if (!%s) {" %
+                 self.result_code)
+-        code.error_goto_if_PyErr(self.pos)
++        code.putln(code.error_goto_if_PyErr(self.pos))
+         code.putln("break;")
+         code.putln("}")
+         code.putln("}")
+diff -r 9a731464ea49 -r d1111d697875 tests/run/iteratorexception.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/iteratorexception.pyx	Wed May 14 21:58:07 2008 +0200
+@@ -0,0 +1,17 @@
++__doc__ = """
++    >>> f()
++"""
++
++class IteratorAndIterateable:
++    def next(self):
++        raise ValueError("")
++    def __iter__(self):
++        return self
++
++def f():
++    try:
++        for x in IteratorAndIterateable():
++            pass
++        assert False, "Should not reach this point, iterator has thrown exception"
++    except ValueError:
++        pass

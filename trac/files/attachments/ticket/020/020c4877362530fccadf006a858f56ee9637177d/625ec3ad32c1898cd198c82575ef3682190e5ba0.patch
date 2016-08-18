@@ -1,0 +1,139 @@
+# HG changeset patch
+# User Haoyu Bai <baihaoyu@gmail.com>
+# Date 1273834582 -28800
+# Branch T422
+# Node ID f9703a7c50c3a2857038cefb4939f2405fccefd9
+# Parent  92d1eb8aa41e99950ce8bbb070af69e18a85df2f
+Fix T422 by making module name as a StringConst
+
+diff -r 92d1eb8aa41e -r f9703a7c50c3 Cython/Compiler/ExprNodes.py
+--- a/Cython/Compiler/ExprNodes.py	Wed May 12 22:22:20 2010 +0200
++++ b/Cython/Compiler/ExprNodes.py	Fri May 14 18:56:22 2010 +0800
+@@ -4207,7 +4207,7 @@
+         if self.doc:
+             self.doc.analyse_types(env)
+             self.doc = self.doc.coerce_to_pyobject(env)
+-        self.module_name = env.global_scope().qualified_name
++        self.module_name = env.global_scope().module_name
+         self.type = py_object_type
+         self.is_temp = 1
+         env.use_utility_code(create_class_utility_code);
+@@ -4224,13 +4224,15 @@
+                 'PyDict_SetItemString(%s, "__doc__", %s)' % (
+                     self.dict.py_result(),
+                     self.doc.py_result()))
++        py_mod_name = code.globalstate.get_py_string_const(
++                 self.module_name, identifier=True)
+         code.putln(
+-            '%s = __Pyx_CreateClass(%s, %s, %s, "%s"); %s' % (
++            '%s = __Pyx_CreateClass(%s, %s, %s, %s); %s' % (
+                 self.result(),
+                 self.bases.py_result(),
+                 self.dict.py_result(),
+                 cname,
+-                self.module_name,
++                py_mod_name.cname,
+                 code.error_goto_if_null(self.result(), self.pos)))
+         code.put_gotref(self.py_result())
+ 
+@@ -4300,6 +4302,7 @@
+     #  pymethdef_cname   string   PyMethodDef structure
+     #  self_object       ExprNode or None
+     #  binding           bool
++    #  module_name       str
+ 
+     subexprs = []
+     self_object = None
+@@ -4311,6 +4314,7 @@
+     def analyse_types(self, env):
+         if self.binding:
+             env.use_utility_code(binding_cfunc_utility_code)
++        self.module_name = env.global_scope().module_name
+ 
+     def may_be_none(self):
+         return False
+@@ -4326,15 +4330,18 @@
+ 
+     def generate_result_code(self, code):
+         if self.binding:
+-            constructor = "%s_New" % Naming.binding_cfunc
++            constructor = "%s_NewEx" % Naming.binding_cfunc
+         else:
+-            constructor = "PyCFunction_New"
++            constructor = "PyCFunction_NewEx"
++        py_mod_name = code.globalstate.get_py_string_const(
++                 self.module_name, identifier=True)
+         code.putln(
+-            "%s = %s(&%s, %s); %s" % (
++            '%s = %s(&%s, %s, %s); %s' % (
+                 self.result(),
+                 constructor,
+                 self.pymethdef_cname,
+                 self.self_result_code(),
++                py_mod_name.cname,
+                 code.error_goto_if_null(self.result(), self.pos)))
+         code.put_gotref(self.py_result())
+ 
+@@ -6790,23 +6797,15 @@
+ 
+ create_class_utility_code = UtilityCode(
+ proto = """
+-static PyObject *__Pyx_CreateClass(PyObject *bases, PyObject *dict, PyObject *name, const char *modname); /*proto*/
++static PyObject *__Pyx_CreateClass(PyObject *bases, PyObject *dict, PyObject *name, PyObject *modname); /*proto*/
+ """,
+ impl = """
+ static PyObject *__Pyx_CreateClass(
+-    PyObject *bases, PyObject *dict, PyObject *name, const char *modname)
++    PyObject *bases, PyObject *dict, PyObject *name, PyObject *modname)
+ {
+-    PyObject *py_modname;
+     PyObject *result = 0;
+ 
+-    #if PY_MAJOR_VERSION < 3
+-    py_modname = PyString_FromString(modname);
+-    #else
+-    py_modname = PyUnicode_FromString(modname);
+-    #endif
+-    if (!py_modname)
+-        goto bad;
+-    if (PyDict_SetItemString(dict, "__module__", py_modname) < 0)
++    if (PyDict_SetItemString(dict, "__module__", modname) < 0)
+         goto bad;
+     #if PY_MAJOR_VERSION < 3
+     result = PyClass_New(bases, dict, name);
+@@ -6814,7 +6813,6 @@
+     result = PyObject_CallFunctionObjArgs((PyObject *)&PyType_Type, name, bases, dict, NULL);
+     #endif
+ bad:
+-    Py_XDECREF(py_modname);
+     return result;
+ }
+ """)
+diff -r 92d1eb8aa41e -r f9703a7c50c3 Cython/Compiler/Symtab.py
+--- a/Cython/Compiler/Symtab.py	Wed May 12 22:22:20 2010 +0200
++++ b/Cython/Compiler/Symtab.py	Fri May 14 18:56:22 2010 +0800
+@@ -800,6 +800,7 @@
+             # Treat Spam/__init__.pyx specially, so that when Python loads
+             # Spam/__init__.so, initSpam() is defined.
+             self.module_name = parent_module.module_name
++        self.module_name = EncodedString(self.module_name)
+         self.context = context
+         self.module_cname = Naming.module_cname
+         self.module_dict_cname = Naming.moddict_cname
+diff -r 92d1eb8aa41e -r f9703a7c50c3 tests/run/method_module_name_T422.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/method_module_name_T422.pyx	Fri May 14 18:56:22 2010 +0800
+@@ -0,0 +1,13 @@
++"""
++>>> Foo.incr.__module__ is not None
++True
++>>> Foo.incr.__module__ == Foo.__module__ == bar.__module__
++True
++
++"""
++class Foo(object):
++   def incr(self,x):
++       return x+1
++
++def bar():
++    pass

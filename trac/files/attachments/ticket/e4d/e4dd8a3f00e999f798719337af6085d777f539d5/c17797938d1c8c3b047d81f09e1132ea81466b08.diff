@@ -1,0 +1,365 @@
+exporting patch:
+# HG changeset patch
+# User Vitja Makarov <vitja.makarov@gmail.com>
+# Date 1288954578 -10800
+# Node ID 244397238f957a395bc7de1627d46e6fb9578334
+# Parent  bedc5f44459e71cdb7f859aadc5cab9e7a0fd2b4
+Py3 metaclasses initial support.
+
+diff -r bedc5f44459e -r 244397238f95 Cython/Compiler/ExprNodes.py
+--- a/Cython/Compiler/ExprNodes.py	Fri Nov 05 01:46:49 2010 -0700
++++ b/Cython/Compiler/ExprNodes.py	Fri Nov 05 13:56:18 2010 +0300
+@@ -4475,14 +4475,23 @@
+     #  dict         ExprNode           Class dict (not owned by this node)
+     #  doc          ExprNode or None   Doc string
+     #  module_name  EncodedString      Name of defining module
+-    
+-    subexprs = ['bases', 'doc']
++    #  keyword_args ExprNode or None   Py3 Dict of keyword arguments, passed to __new__
++    #  starstar_arg ExprNode or None   Py3 Dict of extra keyword args, same here
++    
++    subexprs = ['bases', 'keyword_args', 'starstar_arg', 'doc']
+ 
+     def analyse_types(self, env):
+         self.bases.analyse_types(env)
+         if self.doc:
+             self.doc.analyse_types(env)
+             self.doc = self.doc.coerce_to_pyobject(env)
++        if self.keyword_args:
++            self.keyword_args.analyse_types(env)
++        if self.starstar_arg:
++            self.starstar_arg.analyse_types(env)
++        if self.starstar_arg:
++            self.starstar_arg = \
++                self.starstar_arg.coerce_to_pyobject(env)
+         self.type = py_object_type
+         self.is_temp = 1
+         env.use_utility_code(create_class_utility_code);
+@@ -4496,6 +4505,19 @@
+ 
+     def generate_result_code(self, code):
+         cname = code.intern_identifier(self.name)
++        if self.keyword_args and self.starstar_arg:
++            code.put_error_if_neg(self.pos,
++                "PyDict_Update(%s, %s)" % (
++                    self.keyword_args.py_result(),
++                    self.starstar_arg.py_result()))
++            keyword_code = self.keyword_args.py_result()
++        elif self.keyword_args:
++            keyword_code = self.keyword_args.py_result()
++        elif self.starstar_arg:
++            keyword_code = self.starstar_arg.py_result()
++        else:
++            keyword_code = 'NULL'
++
+         if self.doc:
+             code.put_error_if_neg(self.pos, 
+                 'PyDict_SetItemString(%s, "__doc__", %s)' % (
+@@ -4503,12 +4525,13 @@
+                     self.doc.py_result()))
+         py_mod_name = self.get_py_mod_name(code)
+         code.putln(
+-            '%s = __Pyx_CreateClass(%s, %s, %s, %s); %s' % (
++            '%s = __Pyx_CreateClass(%s, %s, %s, %s, %s); %s' % (
+                 self.result(),
+                 self.bases.py_result(),
+                 self.dict.py_result(),
+                 cname,
+                 py_mod_name,
++                keyword_code,
+                 code.error_goto_if_null(self.result(), self.pos)))
+         code.put_gotref(self.py_result())
+ 
+@@ -7154,45 +7177,106 @@
+ 
+ create_class_utility_code = UtilityCode(
+ proto = """
+-static PyObject *__Pyx_CreateClass(PyObject *bases, PyObject *dict, PyObject *name, PyObject *modname); /*proto*/
++static PyObject *__Pyx_CreateClass(PyObject *bases, PyObject *dict, PyObject *name,
++                                     PyObject *modname, PyObject *kwargs); /*proto*/
+ """,
+ impl = """
++static int __Pyx_PrepareClass(PyObject *metaclass, PyObject *bases, PyObject *name, PyObject *mkw, PyObject *dict)
++{
++    PyObject *prep;
++    PyObject *pargs;
++    PyObject *ns;
++
++    prep = PyObject_GetAttrString(metaclass, "__prepare__");
++    if (prep == NULL) {
++        if (!PyErr_ExceptionMatches(PyExc_AttributeError))
++            return -1;
++        PyErr_Clear();
++        return 0;
++    }
++    pargs = PyTuple_Pack(2, name, bases);
++    if (pargs == NULL) {
++        Py_DECREF(prep);
++        return -1;
++    }
++    ns = PyEval_CallObjectWithKeywords(prep, pargs, mkw);
++    Py_DECREF(pargs);
++    Py_DECREF(prep);
++    if (ns == NULL)
++        return -1;
++    /* XXX: This is hack, merge namespace back to dict,
++       __prepare__ should be ran before dict initialization */
++    if (PyDict_Merge(dict, ns, 0)) {
++        Py_DECREF(ns);
++        return -1;
++    }
++    Py_DECREF(ns);
++    return 0;
++}
++
+ static PyObject *__Pyx_CreateClass(
+-    PyObject *bases, PyObject *methods, PyObject *name, PyObject *modname)
++    PyObject *bases, PyObject *dict, PyObject *name, PyObject *modname, PyObject *kwargs)
+ {
+-    PyObject *result = 0;
+-#if PY_MAJOR_VERSION < 3
+-    PyObject *metaclass = 0, *base;
+-#endif
+-
+-    if (PyDict_SetItemString(methods, "__module__", modname) < 0)
+-        goto bad;
+-    #if PY_MAJOR_VERSION < 3
+-    metaclass = PyDict_GetItemString(methods, "__metaclass__");
+-
+-    if (metaclass != NULL)
+-        Py_INCREF(metaclass);
+-    else if (PyTuple_Check(bases) && PyTuple_GET_SIZE(bases) > 0) {
+-        base = PyTuple_GET_ITEM(bases, 0);
+-        metaclass = PyObject_GetAttrString(base, "__class__");
+-        if (metaclass == NULL) {
+-            PyErr_Clear();
+-            metaclass = (PyObject *)base->ob_type;
++    PyObject *result = NULL;
++    PyObject *metaclass = NULL;
++    PyObject *mkw = NULL;
++
++    if (PyDict_SetItemString(dict, "__module__", modname) < 0)
++        return NULL;
++
++    /* Python3 metaclasses */
++    if (kwargs) {
++        mkw = PyDict_Copy(kwargs); /* Don't modify kwargs passed in! */
++        if (mkw == NULL)
++            return NULL;
++        metaclass = PyDict_GetItemString(mkw, "metaclass");
++        if (metaclass) {
+             Py_INCREF(metaclass);
++            if (PyDict_DelItemString(mkw, "metaclass") < 0)
++                goto bad;
++            if (__Pyx_PrepareClass(metaclass, bases, name, mkw, dict))
++                goto bad;
+         }
+     }
+-    else {
+-        metaclass = (PyObject *) &PyClass_Type;
++    /* Python2 __metaclass__ */
++    if (metaclass == NULL) {
++        metaclass = PyDict_GetItemString(dict, "__metaclass__");
++        if (metaclass)
++            Py_INCREF(metaclass);
++    }
++    /* Default metaclass */
++    if (metaclass == NULL) {
++#if PY_MAJOR_VERSION < 3
++        if (PyTuple_Check(bases) && PyTuple_GET_SIZE(bases) > 0) {
++            PyObject *base = PyTuple_GET_ITEM(bases, 0);
++            metaclass = PyObject_GetAttrString(base, "__class__");
++            if (metaclass == NULL) {
++                PyErr_Clear();
++                metaclass = (PyObject *)base->ob_type;
++            }
++        } else
++            metaclass = (PyObject *) &PyClass_Type;
++#else
++        if (PyTuple_Check(bases) && PyTuple_GET_SIZE(bases) > 0) {
++            PyObject *base = PyTuple_GET_ITEM(bases, 0);
++            metaclass = (PyObject *)base->ob_type;
++        } else
++            metaclass = (PyObject *) &PyType_Type;
++#endif
+         Py_INCREF(metaclass);
+     }
+-
+-    result = PyObject_CallFunctionObjArgs(metaclass, name, bases, methods, NULL);
++    if (mkw && PyDict_Size(mkw) > 0) {
++        PyObject *margs;
++        margs = PyTuple_Pack(3, name, bases, dict, NULL);
++        result = PyEval_CallObjectWithKeywords(metaclass, margs, mkw);
++        Py_DECREF(margs);
++    } else {
++        result = PyObject_CallFunctionObjArgs(metaclass, name, bases, dict, NULL);
++    }
++bad:
+     Py_DECREF(metaclass);
+-    #else
+-    /* it seems that python3+ handle __metaclass__ itself */
+-    result = PyObject_CallFunctionObjArgs((PyObject *)&PyType_Type, name, bases, methods, NULL);
+-    #endif
+-bad:
++    if (mkw)
++        Py_XDECREF(mkw);
+     return result;
+ }
+ """)
+diff -r bedc5f44459e -r 244397238f95 Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py	Fri Nov 05 01:46:49 2010 -0700
++++ b/Cython/Compiler/Nodes.py	Fri Nov 05 13:56:18 2010 +0300
+@@ -2935,7 +2935,8 @@
+     child_attrs = ["body", "dict", "classobj", "target"]
+     decorators = None
+     
+-    def __init__(self, pos, name, bases, doc, body, decorators = None):
++    def __init__(self, pos, name, bases, doc, body, decorators = None,
++                 keyword_args = None, starstar_arg = None):
+         StatNode.__init__(self, pos)
+         self.name = name
+         self.doc = doc
+@@ -2950,7 +2951,8 @@
+         else:
+             doc_node = None
+         self.classobj = ExprNodes.ClassNode(pos, name = name,
+-            bases = bases, dict = self.dict, doc = doc_node)
++            bases = bases, dict = self.dict, doc = doc_node,
++            keyword_args = keyword_args, starstar_arg = starstar_arg)
+         self.target = ExprNodes.NameNode(pos, name = name)
+         
+     def as_cclass(self):
+diff -r bedc5f44459e -r 244397238f95 Cython/Compiler/Parsing.py
+--- a/Cython/Compiler/Parsing.py	Fri Nov 05 01:46:49 2010 -0700
++++ b/Cython/Compiler/Parsing.py	Fri Nov 05 13:56:18 2010 +0300
+@@ -381,7 +381,7 @@
+ # arglist:  argument (',' argument)* [',']
+ # argument: [test '='] test       # Really [keyword '='] test
+ 
+-def p_call(s, function):
++def p_call_parse(s):
+     # s.sy == '('
+     pos = s.position()
+     s.next()
+@@ -428,29 +428,43 @@
+         if s.sy == ',':
+             s.next()
+     s.expect(')')
++    return positional_args, keyword_args, star_arg, starstar_arg
++
++def p_call_prepare_full(pos, positional_args, keyword_args, star_arg):
++    arg_tuple = None
++    keyword_dict = None
++    if positional_args or not star_arg:
++        arg_tuple = ExprNodes.TupleNode(pos,
++            args = positional_args)
++    if star_arg:
++        star_arg_tuple = ExprNodes.AsTupleNode(pos, arg = star_arg)
++        if arg_tuple:
++            arg_tuple = ExprNodes.binop_node(pos,
++                operator = '+', operand1 = arg_tuple,
++                operand2 = star_arg_tuple)
++        else:
++            arg_tuple = star_arg_tuple
++    if keyword_args:
++        keyword_args = [ExprNodes.DictItemNode(pos=key.pos, key=key, value=value)
++                          for key, value in keyword_args]
++        keyword_dict = ExprNodes.DictNode(pos,
++            key_value_pairs = keyword_args)
++    return arg_tuple, keyword_dict
++
++def p_call(s, function):
++    # s.sy == '('
++    pos = s.position()
++
++    positional_args, keyword_args, star_arg, starstar_arg = \
++                     p_call_parse(s)
++
+     if not (keyword_args or star_arg or starstar_arg):
+         return ExprNodes.SimpleCallNode(pos,
+             function = function,
+             args = positional_args)
+     else:
+-        arg_tuple = None
+-        keyword_dict = None
+-        if positional_args or not star_arg:
+-            arg_tuple = ExprNodes.TupleNode(pos, 
+-                args = positional_args)
+-        if star_arg:
+-            star_arg_tuple = ExprNodes.AsTupleNode(pos, arg = star_arg)
+-            if arg_tuple:
+-                arg_tuple = ExprNodes.binop_node(pos, 
+-                    operator = '+', operand1 = arg_tuple,
+-                    operand2 = star_arg_tuple)
+-            else:
+-                arg_tuple = star_arg_tuple
+-        if keyword_args:
+-            keyword_args = [ExprNodes.DictItemNode(pos=key.pos, key=key, value=value) 
+-                              for key, value in keyword_args]
+-            keyword_dict = ExprNodes.DictNode(pos,
+-                key_value_pairs = keyword_args)
++        arg_tuple, keyword_dict = p_call_prepare_full(pos,
++                            positional_args, keyword_args, star_arg)
+         return ExprNodes.GeneralCallNode(pos, 
+             function = function,
+             positional_args = arg_tuple,
+@@ -2607,16 +2621,23 @@
+     s.next()
+     class_name = EncodedString( p_ident(s) )
+     class_name.encoding = s.source_encoding
++    arg_tuple = None
++    keyword_dict = None
++    starstar_arg = None
+     if s.sy == '(':
+-        s.next()
+-        base_list = p_simple_expr_list(s)
+-        s.expect(')')
+-    else:
+-        base_list = []
++        positional_args, keyword_args, star_arg, starstar_arg = \
++                            p_call_parse(s)
++        arg_tuple, keyword_dict = p_call_prepare_full(pos,
++                            positional_args, keyword_args, star_arg)
++    if arg_tuple is None:
++        # XXX: empty arg_tuple
++        arg_tuple = ExprNodes.TupleNode(pos, args = [])
+     doc, body = p_suite(s, Ctx(level = 'class'), with_doc = 1)
+     return Nodes.PyClassDefNode(pos,
+         name = class_name,
+-        bases = ExprNodes.TupleNode(pos, args = base_list),
++        bases = arg_tuple,
++        keyword_args = keyword_dict,
++        starstar_arg = starstar_arg,
+         doc = doc, body = body, decorators = decorators)
+ 
+ def p_c_class_definition(s, pos,  ctx):
+diff -r bedc5f44459e -r 244397238f95 tests/run/metaclass.pyx
+--- a/tests/run/metaclass.pyx	Fri Nov 05 01:46:49 2010 -0700
++++ b/tests/run/metaclass.pyx	Fri Nov 05 13:56:18 2010 +0300
+@@ -11,3 +11,26 @@
+     True
+     """
+     __metaclass__ = Base
++
++class Py3Base(type):
++    def __new__(cls, name, bases, attrs, foo=None):
++        attrs['foo'] = foo
++        return type.__new__(cls, name, bases, attrs)
++
++    def __init__(self, cls, attrs, obj, foo=None):
++        pass
++    @staticmethod
++    def __prepare__(name, bases, **kwargs):
++        return {'bar': 666, 'dirty': True}
++
++class Py3Foo(object, metaclass=Py3Base, foo=123):
++    """
++    >>> obj = Py3Foo()
++    >>> obj.foo
++    123
++    >>> obj.bar
++    666
++    >>> obj.dirty
++    False
++    """
++    dirty = False

@@ -1,0 +1,278 @@
+# HG changeset patch
+# User Eric Huss <eric@huss.org>
+# Date 1243885405 25200
+# Node ID 504e093dfc5b62398aaf92d482dc3677f5422b50
+# Parent  88fa346e169d202affa38db4cf5472b33fd82626
+Add support for specifying condition-compilation symbols as a
+compiler option in distutils.
+
+diff -r 88fa346e169d -r 504e093dfc5b Cython/Compiler/Main.py
+--- a/Cython/Compiler/Main.py	Tue May 26 22:54:46 2009 +0200
++++ b/Cython/Compiler/Main.py	Mon Jun 01 12:43:25 2009 -0700
+@@ -56,23 +56,23 @@
+     #  of directories to search for include files.
+     #
+     #  modules               {string : ModuleScope}
++    #  options               CompilationOptions
+     #  include_directories   [string]
+     #  future_directives     [object]
+-    
+-    def __init__(self, include_directories, pragma_overrides):
++
++    def __init__(self, options):
++        self.options = options
+         #self.modules = {"__builtin__" : BuiltinScope()}
+         import Builtin, CythonScope
+         self.modules = {"__builtin__" : Builtin.builtin_scope}
+         self.modules["cython"] = CythonScope.create_cython_scope(self)
+-        self.include_directories = include_directories
+         self.future_directives = set()
+-        self.pragma_overrides = pragma_overrides
+ 
+         self.pxds = {} # full name -> node tree
+ 
+         standard_include_path = os.path.abspath(
+             os.path.join(os.path.dirname(__file__), '..', 'Includes'))
+-        self.include_directories = include_directories + [standard_include_path]
++        self.include_directories = options.include_path + [standard_include_path]
+ 
+     def create_pipeline(self, pxd, py=False):
+         from Visitor import PrintTree
+@@ -112,7 +112,7 @@
+             NormalizeTree(self),
+             PostParse(self),
+             _specific_post_parse,
+-            InterpretCompilerDirectives(self, self.pragma_overrides),
++            InterpretCompilerDirectives(self, self.options.pragma_overrides),
+             _align_function_definitions,
+             FlattenInListTransform(),
+             WithTransform(self),
+@@ -133,9 +133,9 @@
+             #        CreateClosureClasses(context),
+             ]
+ 
+-    def create_pyx_pipeline(self, options, result, py=False):
++    def create_pyx_pipeline(self, result, py=False):
+         def generate_pyx_code(module_node):
+-            module_node.process_implementation(options, result)
++            module_node.process_implementation(self.options, result)
+             result.compilation_source = module_node.compilation_source
+             return result
+ 
+@@ -175,9 +175,9 @@
+         return [parse_pxd] + self.create_pipeline(pxd=True) + [
+             ExtractPxdCode(self),
+             ]
+-            
+-    def create_py_pipeline(self, options, result):
+-        return self.create_pyx_pipeline(options, result, py=True)
++
++    def create_py_pipeline(self, result):
++        return self.create_pyx_pipeline(result, py=True)
+ 
+ 
+     def process_pxd(self, source_desc, scope, module_name):
+@@ -428,7 +428,8 @@
+             f = Utils.open_source_file(source_filename, "rU")
+             try:
+                 s = PyrexScanner(f, source_desc, source_encoding = f.encoding,
+-                                 scope = scope, context = self)
++                                 scope = scope, context = self,
++                                 compile_time_env = self.options.compile_time_env)
+                 tree = Parsing.p_module(s, pxd, full_module_name)
+             finally:
+                 f.close()
+@@ -440,7 +441,7 @@
+             raise CompileError
+         return tree
+ 
+-    def extract_module_name(self, path, options):
++    def extract_module_name(self, path):
+         # Find fully_qualified module name from the full pathname
+         # of a source file.
+         dir, filename = os.path.split(path)
+@@ -459,15 +460,15 @@
+         names.reverse()
+         return ".".join(names)
+ 
+-    def setup_errors(self, options):
+-        if options.use_listing_file:
++    def setup_errors(self):
++        if self.options.use_listing_file:
+             result.listing_file = Utils.replace_suffix(source, ".lis")
+             Errors.open_listing_file(result.listing_file,
+-                echo_to_stderr = options.errors_to_stderr)
++                echo_to_stderr = self.options.errors_to_stderr)
+         else:
+             Errors.open_listing_file(None)
+ 
+-    def teardown_errors(self, err, options, result):
++    def teardown_errors(self, err, result):
+         source_desc = result.compilation_source.source_desc
+         if not isinstance(source_desc, FileSourceDescriptor):
+             raise RuntimeError("Only file sources for code supported")
+@@ -481,15 +482,15 @@
+             except EnvironmentError:
+                 pass
+             result.c_file = None
+-        if result.c_file and not options.c_only and c_compile:
++        if result.c_file and not self.options.c_only and c_compile:
+             result.object_file = c_compile(result.c_file,
+-                verbose_flag = options.show_version,
+-                cplus = options.cplus)
+-            if not options.obj_only and c_link:
++                verbose_flag = self.options.show_version,
++                cplus = self.options.cplus)
++            if not self.options.obj_only and c_link:
+                 result.extension_file = c_link(result.object_file,
+-                    extra_objects = options.objects,
+-                    verbose_flag = options.show_version,
+-                    cplus = options.cplus)
++                    extra_objects = self.options.objects,
++                    verbose_flag = self.options.show_version,
++                    cplus = self.options.cplus)
+ 
+ def create_parse(context):
+     def parse(compsrc):
+@@ -521,12 +522,12 @@
+ 
+ def run_pipeline(source, options, full_module_name = None):
+     # Set up context
+-    context = Context(options.include_path, options.pragma_overrides)
++    context = Context(options)
+ 
+     # Set up source object
+     cwd = os.getcwd()
+     source_desc = FileSourceDescriptor(os.path.join(cwd, source))
+-    full_module_name = full_module_name or context.extract_module_name(source, options)
++    full_module_name = full_module_name or context.extract_module_name(source)
+     source = CompilationSource(source_desc, full_module_name, cwd)
+ 
+     # Set up result object
+@@ -534,13 +535,13 @@
+     
+     # Get pipeline
+     if source_desc.filename.endswith(".py"):
+-        pipeline = context.create_py_pipeline(options, result)
++        pipeline = context.create_py_pipeline(result)
+     else:
+-        pipeline = context.create_pyx_pipeline(options, result)
++        pipeline = context.create_pyx_pipeline(result)
+ 
+-    context.setup_errors(options)
++    context.setup_errors()
+     err, enddata = context.run_pipeline(pipeline, source)
+-    context.teardown_errors(err, options, result)
++    context.teardown_errors(err, result)
+     return result
+ 
+ #------------------------------------------------------------------------
+@@ -582,6 +583,7 @@
+     obj_only          boolean   Stop after compiling to .o file
+     objects           [string]  Extra .o files to link with
+     cplus             boolean   Compile as c++ code
++    compile_time_env  dict      Conditional compilation symbols
+     """
+     
+     def __init__(self, defaults = None, c_compile = 0, c_link = 0, **kw):
+@@ -764,6 +766,7 @@
+     quiet = 0,
+     pragma_overrides = {},
+     emit_linenums = False,
++    compile_time_env = {},
+ )
+ if sys.platform == "mac":
+     from Cython.Mac.MacSystem import c_compile, c_link, CCompilerError
+diff -r 88fa346e169d -r 504e093dfc5b Cython/Compiler/Scanning.py
+--- a/Cython/Compiler/Scanning.py	Tue May 26 22:54:46 2009 +0200
++++ b/Cython/Compiler/Scanning.py	Mon Jun 01 12:43:25 2009 -0700
+@@ -191,7 +191,10 @@
+     
+     def declare(self, name, value):
+         self.entries[name] = value
+-    
++
++    def update(self, other):
++        self.entries.update(other)
++
+     def lookup_here(self, name):
+         return self.entries[name]
+         
+@@ -306,8 +309,10 @@
+     #  compile_time_eval  boolean  In a true conditional compilation context
+     #  compile_time_expr  boolean  In a compile-time expression context
+ 
+-    def __init__(self, file, filename, parent_scanner = None, 
+-                 scope = None, context = None, source_encoding=None, parse_comments=True, initial_pos=None):
++    def __init__(self, file, filename, parent_scanner = None,
++                 scope = None, context = None, source_encoding=None,
++                 parse_comments=True, initial_pos=None,
++                 compile_time_env=None):
+         Scanner.__init__(self, get_lexicon(), file, filename, initial_pos)
+         if parent_scanner:
+             self.context = parent_scanner.context
+@@ -321,6 +326,8 @@
+             self.compile_time_env = initial_compile_time_env()
+             self.compile_time_eval = 1
+             self.compile_time_expr = 0
++            if compile_time_env is not None:
++                self.compile_time_env.update(compile_time_env)
+         self.parse_comments = parse_comments
+         self.source_encoding = source_encoding
+         self.trace = trace_scanner
+diff -r 88fa346e169d -r 504e093dfc5b Cython/Compiler/TreeFragment.py
+--- a/Cython/Compiler/TreeFragment.py	Tue May 26 22:54:46 2009 +0200
++++ b/Cython/Compiler/TreeFragment.py	Mon Jun 01 12:43:25 2009 -0700
+@@ -20,8 +20,8 @@
+ """
+ 
+ class StringParseContext(Main.Context):
+-    def __init__(self, include_directories, name):
+-        Main.Context.__init__(self, include_directories, {})
++    def __init__(self, options, name):
++        Main.Context.__init__(self, options)
+         self.module_name = name
+         
+     def find_module(self, module_name, relative_to = None, pos = None, need_pxd = 1):
+@@ -51,7 +51,8 @@
+         initial_pos = (name, 1, 0)
+     code_source = StringSourceDescriptor(name, code)
+ 
+-    context = StringParseContext([], name)
++    options = Main.CompilationOptions(Main.default_options)
++    context = StringParseContext(options, name)
+     scope = context.find_module(module_name, pos = initial_pos, need_pxd = 0)
+ 
+     buf = StringIO(code.encode(encoding))
+diff -r 88fa346e169d -r 504e093dfc5b Cython/Distutils/build_ext.py
+--- a/Cython/Distutils/build_ext.py	Tue May 26 22:54:46 2009 +0200
++++ b/Cython/Distutils/build_ext.py	Mon Jun 01 12:43:25 2009 -0700
+@@ -192,7 +192,8 @@
+                     include_path = includes,
+                     output_file = target,
+                     cplus = cplus,
+-                    generate_pxi = pyrex_gen_pxi)
++                    generate_pxi = pyrex_gen_pxi,
++                    compile_time_env = extension.pyrex_compile_time_env)
+                 result = cython_compile(source, options=options,
+                                         full_module_name=module_name)
+ 
+diff -r 88fa346e169d -r 504e093dfc5b Cython/Distutils/extension.py
+--- a/Cython/Distutils/extension.py	Tue May 26 22:54:46 2009 +0200
++++ b/Cython/Distutils/extension.py	Mon Jun 01 12:43:25 2009 -0700
+@@ -50,6 +50,7 @@
+             pyrex_cplus = 0,
+             pyrex_c_in_temp = 0,
+             pyrex_gen_pxi = 0,
++            pyrex_compile_time_env = None,
+             **kw):
+ 
+         _Extension.Extension.__init__(self, name, sources,
+@@ -73,6 +74,7 @@
+         self.pyrex_cplus = pyrex_cplus
+         self.pyrex_c_in_temp = pyrex_c_in_temp
+         self.pyrex_gen_pxi = pyrex_gen_pxi
++        self.pyrex_compile_time_env = pyrex_compile_time_env
+ 
+ # class Extension
+ 

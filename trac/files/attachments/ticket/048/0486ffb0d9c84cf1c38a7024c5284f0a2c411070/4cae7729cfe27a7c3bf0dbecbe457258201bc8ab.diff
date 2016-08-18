@@ -1,0 +1,50 @@
+# HG changeset patch
+# User Lisandro Dalcin <dalcinl@gmail.com>
+# Date 1268251420 10800
+# Node ID 982665cb1a0146d3a8e6074f0a826fb1899c3232
+# Parent  3345e2713fcbdb4199057aba212f70a906aaf1db
+casting to typedef pointer/array types (ticket #518)
+
+diff -r 3345e2713fcb -r 982665cb1a01 Cython/Compiler/PyrexTypes.py
+--- a/Cython/Compiler/PyrexTypes.py	Wed Mar 10 10:46:44 2010 -0800
++++ b/Cython/Compiler/PyrexTypes.py	Wed Mar 10 17:03:40 2010 -0300
+@@ -228,8 +228,9 @@
+     def cast_code(self, expr_code):
+         # If self is really an array (rather than pointer), we can't cast.
+         # For example, the gmp mpz_t. 
+-        if self.typedef_base_type.is_ptr:
+-            return self.typedef_base_type.cast_code(expr_code)
++        if self.typedef_base_type.is_array:
++            base_type = self.typedef_base_type.base_type
++            return CPtrType(base_type).cast_code(expr_code)
+         else:
+             return BaseType.cast_code(self, expr_code)
+ 
+diff -r 3345e2713fcb -r 982665cb1a01 tests/compile/cast_ctypedef_array_T518.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/compile/cast_ctypedef_array_T518.pyx	Wed Mar 10 17:03:40 2010 -0300
+@@ -0,0 +1,15 @@
++cdef extern from "cast_ctypedef_array_T518_helper.h":
++    cdef struct __foo_struct:
++       int i, j
++    ctypedef __foo_struct foo_t[1]
++
++    void foo_init(foo_t)
++    void foo_clear(foo_t)
++
++cdef foo_t value
++foo_init(value) 
++foo_clear(value) 
++
++cdef void *pointer = <void*> value
++foo_init(<foo_t>pointer) 
++foo_clear(<foo_t>pointer) 
+diff -r 3345e2713fcb -r 982665cb1a01 tests/compile/cast_ctypedef_array_T518_helper.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/compile/cast_ctypedef_array_T518_helper.h	Wed Mar 10 17:03:40 2010 -0300
+@@ -0,0 +1,5 @@
++struct __foo_struct { int i, j; };
++typedef struct __foo_struct foo_t[1];
++
++static void foo_init  (foo_t v) { v[0].i = 0; v[0].j = 0; }
++static void foo_clear (foo_t v) { v[0].i = 0; v[0].j = 0; }

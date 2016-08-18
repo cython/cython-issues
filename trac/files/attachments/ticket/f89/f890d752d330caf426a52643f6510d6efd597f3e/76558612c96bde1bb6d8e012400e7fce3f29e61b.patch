@@ -1,0 +1,77 @@
+From 40f6eae9980662367934b0dfc21b6c54afda7f64 Mon Sep 17 00:00:00 2001
+From: John Stumpo <stump@jstump.com>
+Date: Sun, 24 Mar 2013 16:53:52 -0400
+Subject: [PATCH 1/2] Allow cppclasses to be declared nogil.
+
+Doing so just makes all methods implicitly nogil. This also makes nogil
+on a cdef extern from statement do the right thing to cppclasses (and
+their methods) contained inside.
+---
+ Cython/Compiler/Parsing.py  |    3 ++-
+ tests/compile/cpp_nogil.h   |    9 +++++++++
+ tests/compile/cpp_nogil.pyx |   18 ++++++++++++++++++
+ 3 files changed, 29 insertions(+), 1 deletion(-)
+ create mode 100644 tests/compile/cpp_nogil.h
+ create mode 100644 tests/compile/cpp_nogil.pyx
+
+diff --git a/Cython/Compiler/Parsing.py b/Cython/Compiler/Parsing.py
+index ea1731b..757c407 100644
+--- a/Cython/Compiler/Parsing.py
++++ b/Cython/Compiler/Parsing.py
+@@ -3115,12 +3115,13 @@ def p_cpp_class_definition(s, pos,  ctx):
+         base_classes = []
+     if s.sy == '[':
+         error(s.position(), "Name options not allowed for C++ class")
++    nogil = p_nogil(s)
+     if s.sy == ':':
+         s.next()
+         s.expect('NEWLINE')
+         s.expect_indent()
+         attributes = []
+-        body_ctx = Ctx(visibility = ctx.visibility, level='cpp_class')
++        body_ctx = Ctx(visibility = ctx.visibility, level='cpp_class', nogil=nogil or ctx.nogil)
+         body_ctx.templates = templates
+         while s.sy != 'DEDENT':
+             if s.systring == 'cppclass':
+diff --git a/tests/compile/cpp_nogil.h b/tests/compile/cpp_nogil.h
+new file mode 100644
+index 0000000..101b9c8
+--- /dev/null
++++ b/tests/compile/cpp_nogil.h
+@@ -0,0 +1,9 @@
++struct NoGilTest1 {
++  NoGilTest1() { }
++  void doSomething() { }
++};
++
++struct NoGilTest2 {
++  NoGilTest2() { }
++  void doSomething() { }
++};
+diff --git a/tests/compile/cpp_nogil.pyx b/tests/compile/cpp_nogil.pyx
+new file mode 100644
+index 0000000..e712980
+--- /dev/null
++++ b/tests/compile/cpp_nogil.pyx
+@@ -0,0 +1,18 @@
++# tag: cpp
++# mode: compile
++
++cdef extern from "cpp_nogil.h" nogil:
++    cdef cppclass NoGilTest1:
++        NoGilTest1()
++        void doSomething()
++
++# This is declared in cpp_nogil.h, but here we're testing
++# that we can put nogil directly on the cppclass.
++cdef extern from *:
++    cdef cppclass NoGilTest2 nogil:
++        NoGilTest2()
++        void doSomething()
++
++with nogil:
++    NoGilTest1().doSomething()
++    NoGilTest2().doSomething()
+-- 
+1.7.10.4
+

@@ -1,0 +1,101 @@
+# HG changeset patch
+# User Magnus Lie Hetland <magnus@hetland.org>
+# Date 1233323896 -3600
+# Node ID 8ec1acab2e2236e48dede5f44b066a6ca0460daf
+# Parent  41ac022ba25ce119cbd22455de2a8291c7281d5a
+Fixed #196
+
+diff -r 41ac022ba25c -r 8ec1acab2e22 Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py	Fri Jan 30 10:54:11 2009 +0100
++++ b/Cython/Compiler/Nodes.py	Fri Jan 30 14:58:16 2009 +0100
+@@ -3904,9 +3904,15 @@
+         self.bound1.generate_evaluation_code(code)
+         self.bound2.generate_evaluation_code(code)
+         offset, incop = self.relation_table[self.relation1]
++        if incop == "++":
++            decop = "--"
++        else:
++            decop = "++"
+         if self.step is not None:
+             self.step.generate_evaluation_code(code)
+-            incop = "%s=%s" % (incop[0], self.step.result())
++            step = self.step.result()
++            incop = "%s=%s" % (incop[0], step)
++            decop = "%s=%s" % (decop[0], step)
+         loopvar_name = self.loopvar_node.result()
+         code.putln(
+             "for (%s = %s%s; %s %s %s; %s%s) {" % (
+@@ -3919,7 +3925,11 @@
+             self.target.generate_assignment_code(self.py_loopvar_node, code)
+         self.body.generate_execution_code(code)
+         code.put_label(code.continue_label)
+-        code.putln("}")
++        if getattr(self, "from_range", False):
++            # Undo last increment to maintain Python semantics:
++            code.putln("} %s%s;" % (loopvar_name, decop))
++        else:
++            code.putln("}")
+         break_label = code.break_label
+         code.set_loop_labels(old_loop_labels)
+         if self.else_clause:
+diff -r 41ac022ba25c -r 8ec1acab2e22 Cython/Compiler/Optimize.py
+--- a/Cython/Compiler/Optimize.py	Fri Jan 30 10:54:11 2009 +0100
++++ b/Cython/Compiler/Optimize.py	Fri Jan 30 14:58:16 2009 +0100
+@@ -144,7 +144,8 @@
+             relation2=relation2, bound2=bound2,
+             step=step, body=node.body,
+             else_clause=node.else_clause,
+-            loopvar_node=node.target)
++            loopvar_node=node.target,
++            from_range=True)
+         return for_node
+ 
+     def _transform_dict_iteration(self, node, dict_obj, keys, values):
+diff -r 41ac022ba25c -r 8ec1acab2e22 tests/run/for_decrement.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/for_decrement.pyx	Fri Jan 30 14:58:16 2009 +0100
+@@ -0,0 +1,43 @@
++"""
++>>> range_loop_indices()
++** Calculating step **
++(9, 9, 8, 1, 2)
++>>> from_loop_indices()
++** Calculating step **
++** Calculating step **
++** Calculating step **
++** Calculating step **
++** Calculating step **
++(10, 10, 0)
++"""
++
++cdef int get_step():
++    """
++    This should only be called once, when used in range().
++    """
++    print "** Calculating step **"
++    return 2
++
++def range_loop_indices():
++    """
++    Optimized integer for loops using range() should follow Python behavior, 
++    and leave the index variable with the last value of the range.
++    """
++    cdef int i, j, k, l, m
++    for i in range(10): pass
++    for j in range(2,10): pass
++    for k in range(0,10,get_step()): pass
++    for l in range(10,0,-1): pass
++    for m in range(10,0,-2): pass
++    return i, j, k, l, m
++
++def from_loop_indices():
++    """
++    for-from-loops should follow C behavior, and leave the index variable 
++    incremented one step after the last iteration.
++    """
++    cdef int i, j, k
++    for i from 0 <= i < 10 by get_step(): pass
++    for j from 0 <= j < 10: pass
++    for k from 10 > k > 0: pass
++    return i, j, k
+\ No newline at end of file

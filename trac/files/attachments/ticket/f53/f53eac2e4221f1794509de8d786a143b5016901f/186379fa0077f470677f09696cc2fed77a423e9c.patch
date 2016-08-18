@@ -1,0 +1,135 @@
+diff -r 37d40646533e Cython/Compiler/ExprNodes.py
+--- a/Cython/Compiler/ExprNodes.py	Tue Jun 15 21:55:52 2010 +0200
++++ b/Cython/Compiler/ExprNodes.py	Thu Jun 17 14:59:01 2010 +0800
+@@ -575,6 +575,8 @@
+         return src
+ 
+     def fail_assignment(self, dst_type):
++        print '...'
++        assert(0)
+         error(self.pos, "Cannot assign type '%s' to '%s'" % (self.type, dst_type))
+ 
+     def check_for_coercion_error(self, dst_type, fail=False, default=None):
+@@ -5905,11 +5907,11 @@
+         func_type = entry.type
+         if func_type.is_ptr:
+             func_type = func_type.base_type
+-        if len(func_type.args) == 1:
+-            self.operand2 = self.operand2.coerce_to(func_type.args[0].type, env)
+-        else:
+-            self.operand1 = self.operand1.coerce_to(func_type.args[0].type, env)
+-            self.operand2 = self.operand2.coerce_to(func_type.args[1].type, env)
++        #if len(func_type.args) == 1:
++            #self.operand2 = self.operand2.coerce_to(func_type.args[0].type, env)
++        #else:
++            #self.operand1 = self.operand1.coerce_to(func_type.args[0].type, env)
++            #self.operand2 = self.operand2.coerce_to(func_type.args[1].type, env)
+         self.type = func_type.return_type
+     
+     def has_python_operands(self):
+diff -r 37d40646533e Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py	Tue Jun 15 21:55:52 2010 +0200
++++ b/Cython/Compiler/Nodes.py	Thu Jun 17 14:59:01 2010 +0800
+@@ -1027,14 +1027,12 @@
+         if self.attributes is not None:
+             scope = CppClassScope(self.name, env)
+         base_class_types = []
+-        for base_class_name in self.base_classes:
+-            base_class_entry = env.lookup(base_class_name)
+-            if base_class_entry is None:
+-                error(self.pos, "'%s' not found" % base_class_name)
+-            elif not base_class_entry.is_type or not base_class_entry.type.is_cpp_class:
++        for base_class in self.base_classes:
++            base_class_type = base_class.analyse_as_type(env)
++            if not base_class_type.is_cpp_class:
+                 error(self.pos, "'%s' is not a cpp class type" % base_class_name)
+             else:
+-                base_class_types.append(base_class_entry.type)
++                base_class_types.append(base_class_type)
+         if self.templates is None:
+             template_types = None
+         else:
+diff -r 37d40646533e Cython/Compiler/Parsing.py
+--- a/Cython/Compiler/Parsing.py	Tue Jun 15 21:55:52 2010 +0200
++++ b/Cython/Compiler/Parsing.py	Thu Jun 17 14:59:01 2010 +0800
+@@ -2627,10 +2627,11 @@
+         templates = None
+     if s.sy == '(':
+         s.next()
+-        base_classes = [p_dotted_name(s, False)[2]]
++        #base_classes = [p_dotted_name(s, False)[2]]
++        base_classes = [p_c_base_type(s, templates = templates)]
+         while s.sy == ',':
+             s.next()
+-            base_classes.append(p_dotted_name(s, False)[2])
++            base_classes.append(p_c_base_type(s, templates=templates))
+         s.expect(')')
+     else:
+         base_classes = []
+diff -r 37d40646533e Cython/Compiler/Symtab.py
+--- a/Cython/Compiler/Symtab.py	Tue Jun 15 21:55:52 2010 +0200
++++ b/Cython/Compiler/Symtab.py	Thu Jun 17 14:59:01 2010 +0800
+@@ -1555,6 +1555,7 @@
+                         break
+                 if not found:
+                     self.default_constructor = temp_entry.scope.name
++                    #assert(0)
+                     error(pos, "no matching function for call to " \
+                             "%s::%s()" % (temp_entry.scope.name, temp_entry.scope.name))
+         elif not self.default_constructor:
+@@ -1565,7 +1566,7 @@
+             cname = None, visibility = 'extern', defining = 0,
+             api = 0, in_pxd = 0, modifiers = ()):
+         if name == self.name.split('::')[-1] and cname is None:
+-            self.check_base_default_constructor(pos)
++            #self.check_base_default_constructor(pos)
+             name = '<init>'
+             type.return_type = self.lookup(self.name).type
+         prev_entry = self.lookup_here(name)
+diff -r 37d40646533e tests/run/cpp_templates.pyx
+--- a/tests/run/cpp_templates.pyx	Tue Jun 15 21:55:52 2010 +0200
++++ b/tests/run/cpp_templates.pyx	Thu Jun 17 14:59:01 2010 +0800
+@@ -14,6 +14,9 @@
+         bint operator==(Pair[T1,T2])
+         bint operator!=(Pair[T1,T2])
+ 
++    cdef cppclass InheritedWrap(Wrap[int]):
++        InheritedWrap(int)
++
+ def test_int(int x, int y):
+     """
+     >>> test_int(3, 4)
+@@ -29,6 +32,20 @@
+     finally:
+         del a, b
+ 
++def test_inherit(int x, int y):
++    """
++    >>> test_inherit(3, 4)
++    (3, 4, False)
++    >>> test_inherit(100, 100)
++    (100, 100, True)
++    """
++    try:
++        a = new InheritedWrap(x)
++        b = new InheritedWrap(0)
++        b.set(y)
++        return a.get(), b.get() , a[0] == b[0] # 
++    finally:
++        del a, b
+ 
+ def test_double(double x, double y):
+     """
+diff -r 37d40646533e tests/run/cpp_templates_helper.h
+--- a/tests/run/cpp_templates_helper.h	Tue Jun 15 21:55:52 2010 +0200
++++ b/tests/run/cpp_templates_helper.h	Thu Jun 17 14:59:01 2010 +0800
+@@ -20,3 +20,9 @@
+     bool operator==(Pair<T1,T2> other) { return _first == other._first && _second == other._second; }
+     bool operator!=(Pair<T1,T2> other) { return _first != other._first || _second != other._second; }
+ };
++
++class InheritedWrap : public Wrap<int> {
++public:
++    InheritedWrap(int v) : Wrap<int>(v) {}
++};
++

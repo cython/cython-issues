@@ -1,0 +1,212 @@
+# HG changeset patch
+# User Haoyu Bai <baihaoyu@gmail.com>
+# Date 1269752193 -28800
+# Node ID 36fed2932afa6cd4a42641086c8d829670ec9a8d
+# Parent  22234d577112606c17cab87c8eff3fa35a940c13
+patch for #399
+
+diff -r 22234d577112 -r 36fed2932afa Cython/Compiler/Parsing.py
+--- a/Cython/Compiler/Parsing.py	Sat Mar 20 22:01:32 2010 +0100
++++ b/Cython/Compiler/Parsing.py	Sun Mar 28 12:56:33 2010 +0800
+@@ -1908,6 +1908,7 @@
+ special_basic_c_types = {
+     # name : (signed, longness)
+     "Py_ssize_t" : (2, 0),
++    "ssize_t"    : (2, 0),
+     "size_t"     : (0, 0),
+ }
+ 
+diff -r 22234d577112 -r 36fed2932afa Cython/Compiler/PyrexTypes.py
+--- a/Cython/Compiler/PyrexTypes.py	Sat Mar 20 22:01:32 2010 +0100
++++ b/Cython/Compiler/PyrexTypes.py	Sun Mar 28 12:56:33 2010 +0800
+@@ -861,6 +861,13 @@
+     def sign_and_name(self):
+         return rank_to_type_name[self.rank]
+ 
++class CSsizeTType(CIntType):
++
++    to_py_function = "PyInt_FromSsize_t"
++    from_py_function = "__Pyx_PyIndex_AsSsize_t"
++
++    def sign_and_name(self):
++        return rank_to_type_name[self.rank]
+ 
+ class CSizeTType(CUIntType):
+ 
+@@ -2057,11 +2064,12 @@
+     "int",          # 2
+     "long",         # 3
+     "Py_ssize_t",   # 4
+-    "size_t",       # 5
+-    "PY_LONG_LONG", # 6
+-    "float",        # 7
+-    "double",       # 8
+-    "long double",  # 9
++    "ssize_t",      # 5
++    "size_t",       # 6
++    "PY_LONG_LONG", # 7
++    "float",        # 8
++    "double",       # 9
++    "long double",  # 10
+ )
+ 
+ py_object_type = PyObjectType()
+@@ -2074,7 +2082,7 @@
+ c_ushort_type =      CIntType(1, 0)
+ c_uint_type =        CUIntType(2, 0)
+ c_ulong_type =       CULongType(3, 0)
+-c_ulonglong_type =   CULongLongType(6, 0)
++c_ulonglong_type =   CULongLongType(7, 0)
+ 
+ c_char_type =        CIntType(0, 1)
+ c_short_type =       CIntType(1, 1)
+@@ -2087,14 +2095,15 @@
+ c_sshort_type =      CIntType(1, 2)
+ c_sint_type =        CIntType(2, 2)
+ c_slong_type =       CLongType(3, 2)
+-c_slonglong_type =   CLongLongType(6, 2)
++c_slonglong_type =   CLongLongType(7, 2)
+ 
+ c_py_ssize_t_type =  CPySSizeTType(4, 2)
+-c_size_t_type =      CSizeTType(5, 0)
++c_ssize_t_type =     CSsizeTType(5, 2)
++c_size_t_type =      CSizeTType(6, 0)
+ 
+-c_float_type =       CFloatType(7, math_h_modifier='f')
+-c_double_type =      CFloatType(8)
+-c_longdouble_type =  CFloatType(9, math_h_modifier='l')
++c_float_type =       CFloatType(8, math_h_modifier='f')
++c_double_type =      CFloatType(9)
++c_longdouble_type =  CFloatType(10, math_h_modifier='l')
+ 
+ c_double_complex_type = CComplexType(c_double_type)
+ 
+@@ -2106,6 +2115,7 @@
+ c_char_ptr_ptr_type = CPtrType(c_char_ptr_type)
+ c_int_ptr_type =      CPtrType(c_int_type)
+ c_py_ssize_t_ptr_type =  CPtrType(c_py_ssize_t_type)
++c_ssize_t_ptr_type = CPtrType(c_ssize_t_type)
+ c_size_t_ptr_type =  CPtrType(c_size_t_type)
+ 
+ c_returncode_type =   CIntType(2, 1, is_returncode = 1)
+@@ -2142,17 +2152,20 @@
+     (0, 4): c_py_ssize_t_type,
+     (1, 4): c_py_ssize_t_type,
+     (2, 4): c_py_ssize_t_type,
+-    (0, 5): c_size_t_type,
+-    (1, 5): c_size_t_type,
+-    (2, 5): c_size_t_type,
++    (0, 5): c_ssize_t_type,
++    (1, 5): c_ssize_t_type,
++    (2, 5): c_ssize_t_type,
++    (0, 6): c_size_t_type,
++    (1, 6): c_size_t_type,
++    (2, 6): c_size_t_type,
+ 
+-    (1, 7): c_float_type,
+-    (1, 8): c_double_type,
+-    (1, 9): c_longdouble_type,
++    (1, 8): c_float_type,
++    (1, 9): c_double_type,
++    (1, 10): c_longdouble_type,
+ # In case we're mixing unsigned ints and floats...
+-    (0, 7): c_float_type,
+-    (0, 8): c_double_type,
+-    (0, 9): c_longdouble_type,
++    (0, 8): c_float_type,
++    (0, 9): c_double_type,
++    (0, 10): c_longdouble_type,
+ }
+ 
+ modifiers_and_name_to_type = {
+@@ -2180,6 +2193,7 @@
+     (2, 2, "int"): c_slonglong_type,
+ 
+     (2, 0, "Py_ssize_t"): c_py_ssize_t_type,
++    (2, 0, "ssize_t"): c_ssize_t_type,
+     (0, 0, "size_t") : c_size_t_type,
+ 
+     (1, 0, "long"): c_long_type,
+diff -r 22234d577112 -r 36fed2932afa tests/run/ssize_t.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/ssize_t.pyx	Sun Mar 28 12:56:33 2010 +0800
+@@ -0,0 +1,79 @@
++__doc__ = u"""
++>>> test(-1)
++-1
++>>> test(0)
++0
++>>> test(1)
++1
++>>> test(2)
++2
++>>> str(test((1<<31)-1))
++'2147483647'
++
++>>> test(-1<<31)
++-2147483648
++
++>>> test(1<<31) #doctest: +ELLIPSIS
++Traceback (most recent call last):
++    ...
++OverflowError: ...
++
++>>> a = A(1,2)
++>>> a.a == 1
++True
++>>> a.b == 2
++True
++>>> a.foo(5)
++5
++>>> a.foo(-1)
++-1
++>>> try: a.foo(-(1<<32))
++... except (OverflowError, TypeError): print("ERROR")
++ERROR
++>>> a.foo(1 << 180) #doctest: +ELLIPSIS
++Traceback (most recent call last):
++    ...
++OverflowError: ...
++
++>>> a.bar(5)
++5
++>>> a.bar(-5)
++-5
++>>> a.bar(-1<<31) == -1<<31
++True
++>>> a.bar((1<<31)-1) == (1<<31)-1
++True
++
++>>> a.bar2(5)
++5
++>>> a.bar2(-5)
++-5
++>>> a.bar2(-1<<31) == -1<<31
++True
++>>> a.bar2((1<<31)-1) == (1<<31)-1
++True
++
++"""
++
++def test(ssize_t i):
++    return i
++
++cdef class A:
++    cdef public ssize_t a
++    cdef readonly ssize_t b
++
++    def __init__(self, ssize_t a, object b):
++        self.a = a
++        self.b = b
++
++    cpdef ssize_t foo(self, ssize_t x):
++        cdef object o = x
++        return o
++
++    cpdef Py_ssize_t bar(self, ssize_t x):
++        cdef Py_ssize_t o = x
++        return o
++
++    cpdef ssize_t bar2(self, Py_ssize_t x):
++        cdef ssize_t o = x
++        return o

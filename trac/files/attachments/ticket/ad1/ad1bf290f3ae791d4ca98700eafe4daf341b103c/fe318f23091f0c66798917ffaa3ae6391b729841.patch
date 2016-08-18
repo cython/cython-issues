@@ -1,0 +1,55 @@
+diff -r 10d8af264a21 runtests.py
+--- a/runtests.py	Fri Nov 19 02:28:12 2010 +0300
++++ b/runtests.py	Sun Nov 21 01:59:56 2010 +0300
+@@ -836,6 +836,42 @@
+                      ''')
+     sys.path.insert(0, cy3_dir)
+ 
++_old_threads_atexit = None
++def check_threads_atexit():
++    try:
++        import threading
++    except ImportError: # No threads, no problems
++        return
++    current = threading.currentThread()
++    blocking_threads = []
++    for t in threading.enumerate():
++        if t.isDaemon() or not t.isAlive() or t == current:
++            continue
++        t.join(timeout=2)
++        if t.isAlive():
++            blocking_threads.append(t)
++    if not blocking_threads:
++        if _old_threads_atexit:
++            return _old_threads_atexit()
++        return
++    sys.stderr.write(
++            "Bad news! There are threads blocking python interpreter from exit.\n"
++            "Here they are:\n")
++    for t in blocking_threads:
++        sys.stderr.write('...%s\n'  % repr(t))
++
++def install_threads_atexit_hook():
++    try:
++        import threading
++    except ImportError:
++        return
++    global _old_threads_atexit
++    if hasattr(threading, '_shutdown'):
++        _old_threads_atexit = threading._shutdown
++        threading._shutdown = check_threads_atexit
++    else:
++        _old_threads_atexit = sys.exitfunc
++        sys.exitfunc = check_threads_atexit
+ 
+ if __name__ == '__main__':
+     from optparse import OptionParser
+@@ -960,6 +996,8 @@
+         from Cython.Compiler import DebugFlags
+         DebugFlags.debug_temp_code_comments = 1
+ 
++    install_threads_atexit_hook()
++
+     # RUN ALL TESTS!
+     UNITTEST_MODULE = "Cython"
+     UNITTEST_ROOT = os.path.join(os.getcwd(), UNITTEST_MODULE)

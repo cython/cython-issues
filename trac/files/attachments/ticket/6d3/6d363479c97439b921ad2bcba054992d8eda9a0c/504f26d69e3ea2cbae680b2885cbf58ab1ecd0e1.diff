@@ -1,0 +1,43 @@
+# HG changeset patch
+# User Lisandro Dalcin <dalcinl@gmail.com>
+# Date 1239232164 10800
+# Node ID 51e9e31af03faa4be09506916d0a5f7226d3578b
+# Parent  27773f7821f952212d42203306b7841f9935a3a5
+fix bad core generation for ctypedef classes when init tp_weaklistoffset type slot
+
+diff -r 27773f7821f9 -r 51e9e31af03f Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py	Wed Apr 08 06:38:56 2009 +0200
++++ b/Cython/Compiler/ModuleNode.py	Wed Apr 08 20:09:24 2009 -0300
+@@ -1959,10 +1959,14 @@
+                 if weakref_entry:
+                     if weakref_entry.type is py_object_type:
+                         tp_weaklistoffset = "%s.tp_weaklistoffset" % typeobj_cname
+-                        code.putln("if (%s == 0) %s = offsetof(struct %s, %s);" % (
++                        if type.typedef_flag:
++                            objstruct = type.objstruct_cname
++                        else:
++                            objstruct = "struct %s" % type.objstruct_cname
++                        code.putln("if (%s == 0) %s = offsetof(%s, %s);" % (
+                             tp_weaklistoffset,
+                             tp_weaklistoffset,
+-                            type.objstruct_cname,
++                            objstruct,
+                             weakref_entry.cname))
+                     else:
+                         error(weakref_entry.pos, "__weakref__ slot must be of type 'object'")
+diff -r 27773f7821f9 -r 51e9e31af03f tests/bugs/weakref_T276.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/bugs/weakref_T276.pyx	Wed Apr 08 20:09:24 2009 -0300
+@@ -0,0 +1,12 @@
++__doc__ = u"""
++"""
++
++cdef class A:
++    cdef __weakref__
++
++ctypedef public class B [type B_Type, object BObject]:
++    cdef __weakref__
++
++cdef public class C [type C_Type, object CObject]:
++    cdef __weakref__
++

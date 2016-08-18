@@ -1,0 +1,142 @@
+# HG changeset patch
+# User Lisandro Dalcin <dalcinl@gmail.com>
+# Date 1257952291 7200
+# Node ID 0f961e1b583b95e1666ebef7c8546ee124fedb6d
+# Parent  c85d5fc09b7cba8aaee8a38300683dd0e9c47012
+implementation of 'not in' is broken (ticket #455)
+
+diff -r c85d5fc09b7c -r 0f961e1b583b Cython/Compiler/ExprNodes.py
+--- a/Cython/Compiler/ExprNodes.py	Wed Nov 11 08:35:37 2009 +0100
++++ b/Cython/Compiler/ExprNodes.py	Wed Nov 11 13:11:31 2009 -0200
+@@ -5226,9 +5226,14 @@
+             coerce_result = "__Pyx_PyBool_FromLong"
+         else:
+             coerce_result = ""
+-        if 'not' in op: negation = "!"
+-        else: negation = ""
++        if 'not' in op: 
++            negation = "!"
++        else: 
++            negation = ""
+         if op == 'in' or op == 'not_in':
++            assert not coerce_result
++            if op == 'not_in':
++                negation = "if (likely(%s != -1)) %s = !%s; " % ((result_code,)*3)
+             if operand2.type is dict_type:
+                 code.globalstate.use_utility_code(
+                     raise_none_iter_error_utility_code)
+@@ -5237,23 +5242,22 @@
+                            code.error_goto(self.pos))
+                 code.putln("} else {")
+                 code.putln(
+-                    "%s = %s(%sPyDict_Contains(%s, %s)); %s" % (
++                    "%s = PyDict_Contains(%s, %s); %s%s" % (
+                         result_code, 
+-                        coerce_result,
+-                        negation,
+                         operand2.py_result(), 
+                         operand1.py_result(), 
++                        negation,
+                         code.error_goto_if_neg(result_code, self.pos)))
+                 code.putln("}")
+             else:
+                 code.putln(
+-                    "%s = %s(%sPySequence_Contains(%s, %s)); %s" % (
++                    "%s = PySequence_Contains(%s, %s); %s%s" % (
+                         result_code, 
+-                        coerce_result,
+-                        negation,
+                         operand2.py_result(), 
+                         operand1.py_result(), 
++                        negation,
+                         code.error_goto_if_neg(result_code, self.pos)))
++                    
+         elif (operand1.type.is_pyobject
+             and op not in ('is', 'is_not')):
+                 code.putln("%s = PyObject_RichCompare(%s, %s, %s); %s" % (
+diff -r c85d5fc09b7c -r 0f961e1b583b tests/run/contains_T455.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/contains_T455.pyx	Wed Nov 11 13:11:31 2009 -0200
+@@ -0,0 +1,82 @@
++def in_sequence(x, seq):
++    """
++    >>> in_sequence(1, [])
++    False
++    >>> in_sequence(1, ())
++    False
++    >>> in_sequence(1, {})
++    False
++    >>> in_sequence(1, [1])
++    True
++    >>> in_sequence(1, (1,))
++    True
++    >>> in_sequence(1, {1:None})
++    True
++
++    >>> in_sequence(1, None)
++    Traceback (most recent call last):
++    ...
++    TypeError: argument of type 'NoneType' is not iterable
++
++    >>> in_sequence(1, 1)
++    Traceback (most recent call last):
++    ...
++    TypeError: argument of type 'int' is not iterable
++    """
++    return x in seq
++
++def not_in_sequence(x, seq):
++    """
++    >>> not_in_sequence(1, [])
++    True
++    >>> not_in_sequence(1, ())
++    True
++    >>> not_in_sequence(1, {})
++    True
++    >>> not_in_sequence(1, [1])
++    False
++    >>> not_in_sequence(1, (1,))
++    False
++    >>> not_in_sequence(1, {1:None})
++    False
++
++    >>> not_in_sequence(1, None)
++    Traceback (most recent call last):
++    ...
++    TypeError: argument of type 'NoneType' is not iterable
++
++    >>> not_in_sequence(1, 1)
++    Traceback (most recent call last):
++    ...
++    TypeError: argument of type 'int' is not iterable
++    """
++    return x not in seq
++
++
++def in_dict(k, dict dct):
++    """
++    >>> in_dict(1, {})
++    False
++    >>> in_dict(1, {1:None})
++    True
++
++    >>> in_dict(1, None)
++    Traceback (most recent call last):
++    ...
++    TypeError: 'NoneType' object is not iterable
++    """
++    return k in dct
++
++def not_in_dict(k, dict dct):
++    """
++    >>> not_in_dict(1, {})
++    True
++    >>> not_in_dict(1, {1:None})
++    False
++
++    >>> not_in_dict(1, None)
++    Traceback (most recent call last):
++    ...
++    TypeError: 'NoneType' object is not iterable
++    """
++    return k not in dct

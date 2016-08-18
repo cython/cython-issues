@@ -1,0 +1,468 @@
+# HG changeset patch
+# User Carl Witty <Carl.Witty@gmail.com>
+# Date 1281635741 25200
+# Node ID 9475b17ac598e5334832c2eb1fed16452400d509
+# Parent  b0ec38a81a3561c8f328fdf8fc8f01d05af47410
+Fix #561 doctests to work under Python 2 and 3; remove problematic doctest from type_slots_int_long_T287.pyx
+
+diff --git a/runtests.py b/runtests.py
+--- a/runtests.py
++++ b/runtests.py
+@@ -59,9 +59,15 @@
+     (2,6) : (operator.lt, lambda x: x in ['run.print_function',
+                                           'run.cython3',
+                                           ]),
++    # The next line should start (3,); but this is a dictionary, so
++    # we can only have one (3,) key.  Since 2.7 is supposed to be the
++    # last 2.x release, things would have to change drastically for this
++    # to be unsafe...
++    (2,999): (operator.lt, lambda x: x in ['run.special_methods_T561_py3']),
+     (3,): (operator.ge, lambda x: x in ['run.non_future_division',
+                                         'compile.extsetslice',
+-                                        'compile.extdelslice']),
++                                        'compile.extdelslice',
++                                        'run.special_methods_T561_py2']),
+ }
+ 
+ INCLUDE_DIRS = [ d for d in os.getenv('INCLUDE', '').split(os.pathsep) if d ]
+diff --git a/tests/run/special_methods_T561.pyx b/tests/run/special_methods_T561.pyx
+--- a/tests/run/special_methods_T561.pyx
++++ b/tests/run/special_methods_T561.pyx
+@@ -6,6 +6,11 @@
+ # To test this, we go through and verify that each affected special 
+ # method works as a bound method.
+ 
++# Special methods that are treated the same under Python 2 and 3 are
++# tested here; see also special_methods_T561_py2.pyx and 
++# special_methods_T561_py3.pyx for tests of the differences between
++# Python 2 and 3.
++
+ __doc__ = u"""
+     >>> vs0 = VerySpecial(0)
+     VS __init__ 0
+@@ -20,9 +25,6 @@
+     >>> vs0_mul = vs0.__mul__
+     >>> vs0_mul(vs1)
+     VS __mul__ 0 1
+-    >>> vs0_div = vs0.__div__
+-    >>> vs0_div(vs1)
+-    VS __div__ 0 1
+     >>> vs0_mod = vs0.__mod__
+     >>> vs0_mod(vs1)
+     VS __mod__ 0 1
+@@ -43,10 +45,6 @@
+     >>> vs0_abs = vs0.__abs__
+     >>> vs0_abs()
+     VS __abs__ 0
+-    >>> vs0_nonzero = vs0.__nonzero__
+-    >>> vs0_nonzero()
+-    VS __nonzero__ 0
+-    False
+     >>> vs0_invert = vs0.__invert__
+     >>> vs0_invert()
+     VS __invert__ 0
+@@ -68,18 +66,9 @@
+     >>> vs0_int = vs0.__int__
+     >>> vs0_int()
+     VS __int__ 0
+-    >>> vs0_long = vs0.__long__
+-    >>> vs0_long()
+-    VS __long__ 0
+     >>> vs0_float = vs0.__float__
+     >>> vs0_float()
+     VS __float__ 0
+-    >>> vs0_oct = vs0.__oct__
+-    >>> vs0_oct()
+-    VS __oct__ 0
+-    >>> vs0_hex = vs0.__hex__
+-    >>> vs0_hex()
+-    VS __hex__ 0
+     >>> vs0_iadd = vs0.__iadd__
+     >>> vs0_iadd(vs1)
+     VS __iadd__ 0 += 1
+@@ -89,9 +78,6 @@
+     >>> vs0_imul = vs0.__imul__
+     >>> vs0_imul(vs1)
+     VS __imul__ 0 *= 1
+-    >>> vs0_idiv = vs0.__idiv__
+-    >>> vs0_idiv(vs1)
+-    VS __idiv__ 0 /= 1
+     >>> vs0_imod = vs0.__imod__
+     >>> vs0_imod(vs1)
+     VS __imod__ 0 %= 1
+@@ -136,9 +122,6 @@
+     >>> vs0_rmul = vs0.__rmul__
+     >>> vs0_rmul(vs1)
+     VS __mul__ 1 0
+-    >>> vs0_rdiv = vs0.__rdiv__
+-    >>> vs0_rdiv(vs1)
+-    VS __div__ 1 0
+     >>> vs0_rmod = vs0.__rmod__
+     >>> vs0_rmod(vs1)
+     VS __mod__ 1 0
+@@ -175,33 +158,6 @@
+     >>> vs0_getitem = vs0.__getitem__
+     >>> vs0_getitem('foo')
+     VS __getitem__ 0['foo']
+-    >>> vs0_getslice = vs0.__getslice__
+-    >>> vs0_getslice(13, 42)
+-    VS __getslice__ 0 13 42
+-    >>> # If you define either setslice or delslice, you get wrapper objects 
+-    >>> # for both methods.  (This behavior is unchanged by #561.)
+-    >>> ss_setslice = SetSlice().__setslice__
+-    >>> ss_setslice(13, 42, 'foo')
+-    SetSlice setslice 13 42 'foo'
+-    >>> ss_delslice = SetSlice().__delslice__
+-    >>> ss_delslice(13, 42)
+-    Traceback (most recent call last):
+-    ...
+-    NotImplementedError: 2-element slice deletion not supported by special_methods_T561.SetSlice
+-    >>> ds_setslice = DelSlice().__setslice__
+-    >>> ds_setslice(13, 42, 'foo')
+-    Traceback (most recent call last):
+-    ...
+-    NotImplementedError: 2-element slice assignment not supported by special_methods_T561.DelSlice
+-    >>> ds_delslice = DelSlice().__delslice__
+-    >>> ds_delslice(13, 42)
+-    DelSlice delslice 13 42
+-    >>> sds_setslice = SetDelSlice().__setslice__
+-    >>> sds_setslice(13, 42, 'foo')
+-    SetDelSlice setslice 13 42 'foo'
+-    >>> sds_delslice = SetDelSlice().__delslice__
+-    >>> sds_delslice(13, 42)
+-    SetDelSlice delslice 13 42
+     >>> vs0_contains = vs0.__contains__
+     >>> vs0_contains(vs1)
+     VS __contains__ 0 1
+@@ -234,10 +190,6 @@
+     >>> sdi_delitem = SetDelItem().__delitem__
+     >>> sdi_delitem('foo')
+     SetDelItem delitem 'foo'
+-    >>> vs0_cmp = vs0.__cmp__
+-    >>> vs0_cmp(vs1)
+-    VS __cmp__ 0 1
+-    0
+     >>> vs0_repr = vs0.__repr__
+     >>> vs0_repr()
+     VS __repr__ 0
+@@ -317,14 +269,9 @@
+     >>> vs0_iter = vs0.__iter__
+     >>> vs0_iter()
+     VS __iter__ 0
+-    >>> # If you define __next__, you get both __next__ and next (this behavior
+-    >>> # is unchanged by T561)
+     >>> vs0_next = vs0.__next__
+     >>> vs0_next()
+     VS next/__next__ 0
+-    >>> vs0_next2 = vs0.next
+-    >>> vs0_next2()
+-    VS next/__next__ 0
+     >>> vs0_get = vs0.__get__
+     >>> vs0_get('instance', 'owner')
+     VS __get__ 0 'instance' 'owner'
+@@ -355,11 +302,8 @@
+     >>> vs0_init = vs0.__init__
+     >>> vs0_init(0)
+     VS __init__ 0
+-    >>> # If you define __long__, you also get a wrapper object for __int__.
++    >>> # If you define __long__, you get a wrapper object for __int__.
+     >>> # (This behavior is unchanged by #561.)
+-    >>> Ll = Long().__long__
+-    >>> Ll()
+-    Long __long__
+     >>> Li = Long().__int__
+     >>> Li()
+     Long __long__
+@@ -491,9 +435,6 @@
+     def __getitem__(self, index):
+         print "VS __getitem__ %d[%r]" % (self.value, index)
+ 
+-    def __getslice__(self, a, b):
+-        print "VS __getslice__ %d %d %d" % (self.value, a, b)
+-
+     def __contains__(self, other):
+         print "VS __contains__ %d %d" % (self.value, other.value)
+ 
+@@ -528,21 +469,6 @@
+     def __get__(self, inst, own):
+         print "VS __get__ %d %r %r" % (self.value, inst, own)
+ 
+-cdef class SetSlice:
+-    def __setslice__(self, a, b, value):
+-        print "SetSlice setslice %d %d %r" % (a, b, value)
+-
+-cdef class DelSlice:
+-    def __delslice__(self, a, b):
+-        print "DelSlice delslice %d %d" % (a, b)
+-
+-cdef class SetDelSlice:
+-    def __setslice__(self, a, b, value):
+-        print "SetDelSlice setslice %d %d %r" % (a, b, value)
+-
+-    def __delslice__(self, a, b):
+-        print "SetDelSlice delslice %d %d" % (a, b)
+-
+ cdef class SetItem:
+     def __setitem__(self, index, value):
+         print "SetItem setitem %r %r" % (index, value)
+diff --git a/tests/run/special_methods_T561_py2.pyx b/tests/run/special_methods_T561_py2.pyx
+new file mode 100644
+--- /dev/null
++++ b/tests/run/special_methods_T561_py2.pyx
+@@ -0,0 +1,130 @@
++# This file tests the behavior of special methods under Python 2
++# after #561.  (Only methods whose behavior differs between Python 2 and 3
++# are tested here; see special_methods_T561.pyx for the rest of the tests.)
++
++__doc__ = u"""
++    >>> vs0 = VerySpecial(0)
++    VS __init__ 0
++    >>> vs1 = VerySpecial(1)
++    VS __init__ 1
++    >>> # Python 3 does not use __cmp__.
++    >>> vs0_cmp = vs0.__cmp__
++    >>> vs0_cmp(vs1)
++    VS __cmp__ 0 1
++    0
++    >>> # Python 3 does not use __div__ or __idiv__.
++    >>> vs0_div = vs0.__div__
++    >>> vs0_div(vs1)
++    VS __div__ 0 1
++    >>> vs0_idiv = vs0.__idiv__
++    >>> vs0_idiv(vs1)
++    VS __idiv__ 0 /= 1
++    >>> vs0_rdiv = vs0.__rdiv__
++    >>> vs0_rdiv(vs1)
++    VS __div__ 1 0
++    >>> # Python 3 does not use __oct__ or __hex__.
++    >>> vs0_oct = vs0.__oct__
++    >>> vs0_oct()
++    VS __oct__ 0
++    >>> vs0_hex = vs0.__hex__
++    >>> vs0_hex()
++    VS __hex__ 0
++    >>> # Python 3 does not use __nonzero__; if you define a __nonzero__
++    >>> # method, Cython for Python 3 would give you a __bool__ method
++    >>> # instead.
++    >>> vs0_nonzero = vs0.__nonzero__
++    >>> vs0_nonzero()
++    VS __nonzero__ 0
++    False
++    >>> # If you define __next__, you get both __next__ and next (this behavior
++    >>> # is unchanged by T561, but only happens in Python 2)
++    >>> vs0_next = vs0.__next__
++    >>> vs0_next()
++    VS next/__next__ 0
++    >>> vs0_next2 = vs0.next
++    >>> vs0_next2()
++    VS next/__next__ 0
++    >>> # Cython supports getslice only for Python 2.
++    >>> vs0_getslice = vs0.__getslice__
++    >>> vs0_getslice(13, 42)
++    VS __getslice__ 0 13 42
++    >>> # Cython supports setslice and delslice only for Python 2.
++    >>> # If you define either setslice or delslice, you get wrapper objects 
++    >>> # for both methods.  (This behavior is unchanged by #561.)
++    >>> ss_setslice = SetSlice().__setslice__
++    >>> ss_setslice(13, 42, 'foo')
++    SetSlice setslice 13 42 'foo'
++    >>> ss_delslice = SetSlice().__delslice__
++    >>> ss_delslice(13, 42)
++    Traceback (most recent call last):
++    ...
++    NotImplementedError: 2-element slice deletion not supported by special_methods_T561_py2.SetSlice
++    >>> ds_setslice = DelSlice().__setslice__
++    >>> ds_setslice(13, 42, 'foo')
++    Traceback (most recent call last):
++    ...
++    NotImplementedError: 2-element slice assignment not supported by special_methods_T561_py2.DelSlice
++    >>> ds_delslice = DelSlice().__delslice__
++    >>> ds_delslice(13, 42)
++    DelSlice delslice 13 42
++    >>> sds_setslice = SetDelSlice().__setslice__
++    >>> sds_setslice(13, 42, 'foo')
++    SetDelSlice setslice 13 42 'foo'
++    >>> sds_delslice = SetDelSlice().__delslice__
++    >>> sds_delslice(13, 42)
++    SetDelSlice delslice 13 42
++    >>> # Python 3 does not use __long__.
++    >>> Ll = Long().__long__
++    >>> Ll()
++    Long __long__
++"""
++
++cdef class VerySpecial:
++    cdef readonly int value
++
++    def __init__(self, v):
++        self.value = v
++        print "VS __init__ %d" % self.value
++
++    def __getslice__(self, a, b):
++        print "VS __getslice__ %d %d %d" % (self.value, a, b)
++
++    def __next__(self):
++        print "VS next/__next__ %d" % self.value
++
++    def __nonzero__(self):
++        print "VS __nonzero__ %d" % self.value
++
++    def __oct__(self):
++        print "VS __oct__ %d" % self.value
++
++    def __hex__(self):
++        print "VS __hex__ %d" % self.value
++
++    def __cmp__(self, other):
++        print "VS __cmp__ %d %d" % (self.value, other.value)
++
++    def __div__(self, other):
++        print "VS __div__ %d %d" % (self.value, other.value)
++
++    def __idiv__(self, other):
++        print "VS __idiv__ %d /= %d" % (self.value, other.value)
++
++cdef class SetSlice:
++    def __setslice__(self, a, b, value):
++        print "SetSlice setslice %d %d %r" % (a, b, value)
++
++cdef class DelSlice:
++    def __delslice__(self, a, b):
++        print "DelSlice delslice %d %d" % (a, b)
++
++cdef class SetDelSlice:
++    def __setslice__(self, a, b, value):
++        print "SetDelSlice setslice %d %d %r" % (a, b, value)
++
++    def __delslice__(self, a, b):
++        print "SetDelSlice delslice %d %d" % (a, b)
++
++cdef class Long:
++    def __long__(self):
++        print "Long __long__"
+diff --git a/tests/run/special_methods_T561_py3.pyx b/tests/run/special_methods_T561_py3.pyx
+new file mode 100644
+--- /dev/null
++++ b/tests/run/special_methods_T561_py3.pyx
+@@ -0,0 +1,82 @@
++# This file tests the behavior of special methods under Python 3
++# after #561.  (Only methods whose behavior differs between Python 2 and 3
++# are tested here; see special_methods_T561.pyx for the rest of the tests.)
++
++__doc__ = u"""
++    >>> vs0 = VerySpecial(0)
++    VS __init__ 0
++    >>> # Python 3 does not use __cmp__, so any provided __cmp__ method is
++    >>> # discarded under Python 3.
++    >>> vs0_cmp = vs0.__cmp__
++    Traceback (most recent call last):
++    ...
++    AttributeError: 'special_methods_T561_py3.VerySpecial' object has no attribute '__cmp__'
++    >>> # Python 3 does not use __div__ or __idiv__, so these methods are
++    >>> # discarded under Python 3.
++    >>> vs0_div = vs0.__div__
++    Traceback (most recent call last):
++    ...
++    AttributeError: 'special_methods_T561_py3.VerySpecial' object has no attribute '__div__'
++    >>> vs0_rdiv = vs0.__rdiv__
++    Traceback (most recent call last):
++    ...
++    AttributeError: 'special_methods_T561_py3.VerySpecial' object has no attribute '__rdiv__'
++    >>> vs0_idiv = vs0.__idiv__
++    Traceback (most recent call last):
++    ...
++    AttributeError: 'special_methods_T561_py3.VerySpecial' object has no attribute '__idiv__'
++    >>> # Python 3 does not use __oct__ or __hex__, so these methods are
++    >>> # discarded under Python 3.
++    >>> vs0_oct = vs0.__oct__
++    Traceback (most recent call last):
++    ...
++    AttributeError: 'special_methods_T561_py3.VerySpecial' object has no attribute '__oct__'
++    >>> vs0_hex = vs0.__hex__
++    Traceback (most recent call last):
++    ...
++    AttributeError: 'special_methods_T561_py3.VerySpecial' object has no attribute '__hex__'
++    >>> # Python 3 does not use __long__; if you define __long__ but not
++    >>> # __int__, the __long__ definition will be used for __int__.
++    >>> Ll = Long().__long__
++    Traceback (most recent call last):
++    ...
++    AttributeError: 'special_methods_T561_py3.Long' object has no attribute '__long__'
++    >>> Li = Long().__int__
++    >>> Li()
++    Long __long__
++    >>> # As of Python 3, defining __nonzero__ gives you a __bool__ method
++    >>> # instead.
++    >>> vs0_bool = vs0.__bool__
++    >>> vs0_bool()
++    VS __nonzero__ 0
++    False
++"""
++
++cdef class VerySpecial:
++    cdef readonly int value
++
++    def __init__(self, v):
++        self.value = v
++        print "VS __init__ %d" % self.value
++
++    def __nonzero__(self):
++        print "VS __nonzero__ %d" % self.value
++
++    def __oct__(self):
++        print "VS __oct__ %d" % self.value
++
++    def __hex__(self):
++        print "VS __hex__ %d" % self.value
++
++    def __cmp__(self, other):
++        print "VS __cmp__ %d %d" % (self.value, other.value)
++
++    def __div__(self, other):
++        print "VS __div__ %d %d" % (self.value, other.value)
++
++    def __idiv__(self, other):
++        print "VS __idiv__ %d /= %d" % (self.value, other.value)
++
++cdef class Long:
++    def __long__(self):
++        print "Long __long__"
+diff --git a/tests/run/type_slots_int_long_T287.pyx b/tests/run/type_slots_int_long_T287.pyx
+--- a/tests/run/type_slots_int_long_T287.pyx
++++ b/tests/run/type_slots_int_long_T287.pyx
+@@ -7,8 +7,6 @@
+ 2
+ >>> print( "%d" % IntLongB() )
+ 2
+->>> print( "%d" % IntLongC() )
+-3
+ 
+ """
+ 
+@@ -23,8 +21,6 @@
+     2
+     >>> getint( IntLongB() )
+     2
+-    >>> getint( IntLongC() )
+-    3
+     """
+     return i
+ 
+@@ -38,8 +34,6 @@
+     2
+     >>> getlong( IntLongB() )
+     2
+-    >>> getlong( IntLongC() )
+-    3
+     """
+     return <int>i
+ 
+@@ -62,8 +56,3 @@
+    def __int__(self):
+        return 2
+    __long__ = __int__
+-
+-cdef class IntLongC:
+-   def __long__(self):
+-       return 3
+-   __int__ = __long__

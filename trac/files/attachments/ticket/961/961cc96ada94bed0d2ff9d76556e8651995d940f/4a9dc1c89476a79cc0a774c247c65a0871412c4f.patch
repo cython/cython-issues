@@ -1,0 +1,179 @@
+diff -r b816b03ff502 Cython/Compiler/CmdLine.py
+--- a/Cython/Compiler/CmdLine.py	Tue Dec 21 02:09:22 2010 -0800
++++ b/Cython/Compiler/CmdLine.py	Fri Jan 14 13:58:48 2011 +0300
+@@ -116,6 +116,8 @@
+                 Options.convert_range = True
+             elif option == "--line-directives":
+                 options.emit_linenums = True
++            elif option == "--no-c-in-traceback":
++                options.c_line_in_traceback = False
+             elif option == "--gdb":
+                 options.gdb_debug = True
+                 options.output_dir = os.curdir
+diff -r b816b03ff502 Cython/Compiler/Code.py
+--- a/Cython/Compiler/Code.py	Tue Dec 21 02:09:22 2010 -0800
++++ b/Cython/Compiler/Code.py	Fri Jan 14 13:58:48 2011 +0300
+@@ -860,24 +860,26 @@
+       coming from the same root share the same instances simultaneously.
+     """
+ 
+-    # f                file            output file
+-    # buffer           StringIOTree
++    # f                   file            output file
++    # buffer              StringIOTree
+ 
+-    # level            int             indentation level
+-    # bol              bool            beginning of line?
+-    # marker           string          comment to emit before next line
+-    # funcstate        FunctionState   contains state local to a C function used for code
+-    #                                  generation (labels and temps state etc.)
+-    # globalstate      GlobalState     contains state global for a C file (input file info,
+-    #                                  utility code, declared constants etc.)
+-    # emit_linenums    boolean         whether or not to write #line pragmas
++    # level               int             indentation level
++    # bol                 bool            beginning of line?
++    # marker              string          comment to emit before next line
++    # funcstate           FunctionState   contains state local to a C function used for code
++    #                                     generation (labels and temps state etc.)
++    # globalstate         GlobalState     contains state global for a C file (input file info,
++    #                                     utility code, declared constants etc.)
++    # emit_linenums       boolean         whether or not to write #line pragmas
+     #
+-    # pyclass_stack    list            used during recursive code generation to pass information
+-    #                                  about the current class one is in
++    # c_line_in_traceback boolean         append the c file and line number to the traceback for exceptions
++    #
++    # pyclass_stack       list            used during recursive code generation to pass information
++    #                                     about the current class one is in
+ 
+     globalstate = None
+ 
+-    def __init__(self, create_from=None, buffer=None, copy_formatting=False, emit_linenums=None):
++    def __init__(self, create_from=None, buffer=None, copy_formatting=False, emit_linenums=None, c_line_in_traceback=True):
+         if buffer is None: buffer = StringIOTree()
+         self.buffer = buffer
+         self.marker = None
+@@ -902,11 +904,12 @@
+             self.emit_linenums = self.globalstate.emit_linenums
+         else:
+             self.emit_linenums = emit_linenums
++        self.c_line_in_traceback = c_line_in_traceback
+ 
+     def create_new(self, create_from, buffer, copy_formatting):
+         # polymorphic constructor -- very slightly more versatile
+         # than using __class__
+-        result = CCodeWriter(create_from, buffer, copy_formatting)
++        result = CCodeWriter(create_from, buffer, copy_formatting, c_line_in_traceback=self.c_line_in_traceback)
+         return result
+ 
+     def copyto(self, f):
+@@ -935,7 +938,7 @@
+         Creates a new CCodeWriter connected to the same global state, which
+         can later be inserted using insert.
+         """
+-        return CCodeWriter(create_from=self)
++        return CCodeWriter(create_from=self, c_line_in_traceback=self.c_line_in_traceback)
+ 
+     def insert(self, writer):
+         """
+@@ -1319,7 +1322,7 @@
+         return self.putln("if (%s < 0) %s" % (value, self.error_goto(pos)))
+ 
+     def set_error_info(self, pos):
+-        if Options.c_line_in_traceback:
++        if self.c_line_in_traceback:
+             cinfo = " %s = %s;" % (Naming.clineno_cname, Naming.line_c_macro)
+         else:
+             cinfo = ""
+diff -r b816b03ff502 Cython/Compiler/Main.py
+--- a/Cython/Compiler/Main.py	Tue Dec 21 02:09:22 2010 -0800
++++ b/Cython/Compiler/Main.py	Fri Jan 14 13:58:48 2011 +0300
+@@ -820,6 +820,7 @@
+     compiler_directives = {},
+     evaluate_tree_assertions = False,
+     emit_linenums = False,
++    c_line_in_traceback = True,
+     language_level = 2,
+     gdb_debug = False,
+ )
+diff -r b816b03ff502 Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py	Tue Dec 21 02:09:22 2010 -0800
++++ b/Cython/Compiler/ModuleNode.py	Fri Jan 14 13:58:48 2011 +0300
+@@ -250,7 +250,7 @@
+             rootwriter = Annotate.AnnotationCCodeWriter()
+         else:
+             emit_linenums = options.emit_linenums
+-            rootwriter = Code.CCodeWriter(emit_linenums=emit_linenums)
++            rootwriter = Code.CCodeWriter(emit_linenums=emit_linenums, c_line_in_traceback=options.c_line_in_traceback)
+         globalstate = Code.GlobalState(rootwriter, emit_linenums)
+         globalstate.initialize_main_c_code()
+         h_code = globalstate['h_code']
+diff -r b816b03ff502 Cython/Compiler/Options.py
+--- a/Cython/Compiler/Options.py	Tue Dec 21 02:09:22 2010 -0800
++++ b/Cython/Compiler/Options.py	Fri Jan 14 13:58:48 2011 +0300
+@@ -43,9 +43,6 @@
+ # WARNING: This is a work in progress, may currently segfault.
+ init_local_none = 1
+ 
+-# Append the c file and line number to the traceback for exceptions.
+-c_line_in_traceback = 1
+-
+ # Whether or not to embed the Python interpreter, for use in making a
+ # standalone executable. This will provide a main() method which simply
+ # executes the body of this module.
+diff -r b816b03ff502 Cython/Distutils/build_ext.py
+--- a/Cython/Distutils/build_ext.py	Tue Dec 21 02:09:22 2010 -0800
++++ b/Cython/Distutils/build_ext.py	Fri Jan 14 13:58:48 2011 +0300
+@@ -110,6 +110,7 @@
+         self.pyrex_c_in_temp = 0
+         self.pyrex_gen_pxi = 0
+         self.pyrex_gdb = False
++        self.no_c_in_traceback = 0
+ 
+     def finalize_options (self):
+         _build_ext.build_ext.finalize_options(self)
+@@ -185,6 +186,8 @@
+             getattr(extension, 'pyrex_create_listing', 0)
+         line_directives = self.pyrex_line_directives or \
+             getattr(extension, 'pyrex_line_directives', 0)
++        no_c_in_traceback = self.no_c_in_traceback or \
++            getattr(extension, 'no_c_in_traceback', 0)
+         cplus = self.pyrex_cplus or getattr(extension, 'pyrex_cplus', 0) or \
+                 (extension.language and extension.language.lower() == 'c++')
+         pyrex_gen_pxi = self.pyrex_gen_pxi or getattr(extension, 'pyrex_gen_pxi', 0)
+@@ -272,6 +275,7 @@
+                     output_file = target,
+                     cplus = cplus,
+                     emit_linenums = line_directives,
++                    c_line_in_traceback = not no_c_in_traceback,
+                     generate_pxi = pyrex_gen_pxi,
+                     output_dir = output_dir,
+                     gdb_debug = pyrex_gdb)
+diff -r b816b03ff502 Cython/Distutils/extension.py
+--- a/Cython/Distutils/extension.py	Tue Dec 21 02:09:22 2010 -0800
++++ b/Cython/Distutils/extension.py	Fri Jan 14 13:58:48 2011 +0300
+@@ -33,6 +33,8 @@
+         generate .pxi file for public declarations
+     pyrex_gdb : boolean
+         generate Cython debug information for this extension for cygdb
++    no_c_in_traceback : boolean
++        emit the c file and line number from the traceback for exceptions
+     """
+ 
+     # When adding arguments to this constructor, be sure to update
+@@ -59,6 +61,7 @@
+             pyrex_c_in_temp = 0,
+             pyrex_gen_pxi = 0,
+             pyrex_gdb = False,
++            no_c_in_traceback = False,
+             **kw):
+ 
+         _Extension.Extension.__init__(self, name, sources,
+@@ -85,6 +88,7 @@
+         self.pyrex_c_in_temp = pyrex_c_in_temp
+         self.pyrex_gen_pxi = pyrex_gen_pxi
+         self.pyrex_gdb = pyrex_gdb
++        self.no_c_in_traceback = no_c_in_traceback
+ 
+ # class Extension
+ 

@@ -1,0 +1,26 @@
+diff -r 5a7f83a639f7 Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py	Tue Oct 14 09:08:43 2008 +0200
++++ b/Cython/Compiler/ModuleNode.py	Wed Oct 15 19:00:21 2008 +0200
+@@ -1735,7 +1735,10 @@ class ModuleNode(Nodes.Node, Nodes.Block
+         for entry in env.var_entries:
+             if entry.visibility != 'extern':
+                 if entry.type.is_pyobject:
+-                    code.put_init_var_to_py_none(entry)
++                    if entry.init_to_none:
++                        code.put_init_var_to_py_none(entry)
++                    else:
++                        code.putln("%s = %s;" % (entry.cname, entry.init))
+ 
+     def generate_c_function_export_code(self, env, code):
+         # Generate code to create PyCFunction wrappers for exported C functions.
+diff -r 5a7f83a639f7 Cython/Compiler/Symtab.py
+--- a/Cython/Compiler/Symtab.py	Tue Oct 14 09:08:43 2008 +0200
++++ b/Cython/Compiler/Symtab.py	Wed Oct 15 19:00:21 2008 +0200
+@@ -934,6 +934,7 @@ class ModuleScope(Scope):
+             entry.is_pyglobal = 1
+         else:
+             entry.is_cglobal = 1
++            entry.init_to_none = type.is_pyobject
+             self.var_entries.append(entry)
+         return entry
+     

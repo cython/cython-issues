@@ -1,0 +1,103 @@
+exporting patch:
+# HG changeset patch
+# User Vitja Makarov <vitja.makarov@gmail.com>
+# Date 1291382643 -10800
+# Node ID 0ef73c8819725c55c662574507623dd52a91fe0a
+# Parent  427f8e3097f998c5e68c88ef6e354d1a4f85fd5b
+Support lambda in class and cclass scope, ticket #605.
+
+diff -r 427f8e3097f9 -r 0ef73c881972 Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py	Thu Dec 02 08:03:14 2010 +0100
++++ b/Cython/Compiler/ModuleNode.py	Fri Dec 03 16:24:03 2010 +0300
+@@ -271,9 +271,7 @@
+         code = globalstate['all_the_rest']
+ 
+         self.generate_cached_builtins_decls(env, code)
+-        # generate lambda function definitions
+-        for node in env.lambda_defs:
+-            node.generate_function_definitions(env, code)
++        self.generate_lambda_definitions(env, code)
+         # generate normal function definitions
+         self.body.generate_function_definitions(env, code)
+         code.mark_pos(None)
+diff -r 427f8e3097f9 -r 0ef73c881972 Cython/Compiler/Nodes.py
+--- a/Cython/Compiler/Nodes.py	Thu Dec 02 08:03:14 2010 +0100
++++ b/Cython/Compiler/Nodes.py	Fri Dec 03 16:24:03 2010 +0300
+@@ -321,7 +321,10 @@
+         for entry in entries:
+             code.globalstate.add_cached_builtin_decl(entry)
+         del entries[:]
+-        
++
++    def generate_lambda_definitions(self, env, code):
++        for node in env.lambda_defs:
++            node.generate_function_definitions(env, code)
+ 
+ class StatListNode(Node):
+     # stats     a list of StatNode
+@@ -1211,8 +1214,7 @@
+         # Generate closure function definitions
+         self.body.generate_function_definitions(lenv, code)
+         # generate lambda function definitions
+-        for node in lenv.lambda_defs:
+-            node.generate_function_definitions(lenv, code)
++        self.generate_lambda_definitions(lenv, code)
+ 
+         is_getbuffer_slot = (self.entry.name == "__getbuffer__" and
+                              self.entry.scope.is_c_class_scope)
+@@ -3079,6 +3081,7 @@
+         self.target.analyse_target_expression(env, self.classobj)
+     
+     def generate_function_definitions(self, env, code):
++        self.generate_lambda_definitions(self.scope, code)
+         self.body.generate_function_definitions(self.scope, code)
+     
+     def generate_execution_code(self, code):
+@@ -3241,6 +3244,7 @@
+             self.body.analyse_expressions(scope)
+     
+     def generate_function_definitions(self, env, code):
++        self.generate_lambda_definitions(self.scope, code)
+         if self.body:
+             self.body.generate_function_definitions(
+                 self.entry.type.scope, code)
+diff -r 427f8e3097f9 -r 0ef73c881972 tests/run/lambda_class_T605.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/run/lambda_class_T605.pyx	Fri Dec 03 16:24:03 2010 +0300
+@@ -0,0 +1,36 @@
++cdef int cdef_CONST = 123
++CONST = 456
++
++cdef class Foo:
++    """
++    >>> obj = Foo()
++    >>> obj.id(123)
++    123
++    >>> obj.cconst_mul(1)
++    123
++    >>> obj.const_mul(1)
++    456
++    >>> obj.foo[0](1)
++    1
++    """
++    id = lambda self, x: x
++    cconst_mul = lambda self, x: x * cdef_CONST
++    const_mul = lambda self, x: x * CONST
++    foo = (lambda x:x,)
++
++class Bar:
++    """
++    >>> obj = Bar()
++    >>> obj.id(123)
++    123
++    >>> obj.cconst_mul(1)
++    123
++    >>> obj.const_mul(1)
++    456
++    >>> obj.foo[0](1)
++    1
++    """
++    id = lambda self, x: x
++    cconst_mul = lambda self, x: x * cdef_CONST
++    const_mul = lambda self, x: x * CONST
++    foo = (lambda x:x,)

@@ -1,0 +1,114 @@
+# HG changeset patch
+# User Jason Evans <jasone@canonware.com>
+# Date 1231204779 28800
+# Node ID 770102628974284c4ee1875a3c45987320a85c64
+# Parent  5547a8bb61e360d9be7f767754fc355103b980ca
+Take care to preserve cpdef method docstrings when prepending signatures.
+
+diff --git a/Cython/Compiler/AutoDocTransforms.py b/Cython/Compiler/AutoDocTransforms.py
+--- a/Cython/Compiler/AutoDocTransforms.py
++++ b/Cython/Compiler/AutoDocTransforms.py
+@@ -135,7 +135,14 @@
+                 doc_holder = self.class_node.entry.type.scope
+             else:
+                 doc_holder = node.entry
+-            new_doc  = self._embed_signature(signature, doc_holder.doc)
++
++            if doc_holder.doc is not None:
++                old_doc = doc_holder.doc
++            elif not is_constructor and getattr(node, 'py_func', None) is not None:
++                old_doc = node.py_func.entry.doc
++            else:
++                old_doc = None
++            new_doc  = self._embed_signature(signature, old_doc)
+             doc_holder.doc = EncodedString(new_doc)
+             if not is_constructor and getattr(node, 'py_func', None) is not None:
+                 node.py_func.entry.doc = EncodedString(new_doc)
+@@ -152,7 +159,13 @@
+             node.declarator.args,
+             return_type=node.return_type)
+         if signature:
+-            new_doc  = self._embed_signature(signature, node.entry.doc)
++            if node.entry.doc is not None:
++                old_doc = node.entry.doc
++            elif hasattr(node, 'py_func') and node.py_func is not None:
++                old_doc = node.py_func.entry.doc
++            else:
++                old_doc = None
++            new_doc  = self._embed_signature(signature, old_doc)
+             node.entry.doc = EncodedString(new_doc)
+             if hasattr(node, 'py_func') and node.py_func is not None:
+                 node.py_func.entry.doc = EncodedString(new_doc)
+diff --git a/tests/run/embedsignatures.pyx b/tests/run/embedsignatures.pyx
+--- a/tests/run/embedsignatures.pyx
++++ b/tests/run/embedsignatures.pyx
+@@ -32,11 +32,19 @@
+     >>> print (Ext.k.__doc__)
+     Ext.k(self, a, b, c=1, *args, d=42, e=17, f, **kwds)
+ 
++    >>> print (Ext.l.__doc__)
++    Ext.l(self, a, b, c=1, *args, d=42, e=17, f, **kwds)
++    Existing string
++
+     >>> print (Ext.get_int.__doc__)
+     Ext.get_int(self) -> int
+ 
+     >>> print (Ext.get_float.__doc__)
+     Ext.get_float(self) -> float
++
++    >>> print (Ext.get_str.__doc__)
++    Ext.get_str(self) -> str
++    Existing string
+ 
+     >>> print (Ext.clone.__doc__)
+     Ext.clone(self) -> Ext
+@@ -49,6 +57,12 @@
+ 
+     >>> with_doc_2.__doc__
+     'with_doc_2(a, b, c)\n\n    Existing string\n    '
++
++    >>> with_doc_3.__doc__
++    'with_doc_3(a, b, c)\nExisting string'
++
++    >>> with_doc_4.__doc__
++    'with_doc_4(int a, str b, list c) -> str\n\n    Existing string\n    '
+ 
+     >>> types.__doc__
+     'types(Ext a, int b, unsigned short c, float d, e)'
+@@ -146,11 +160,19 @@
+     def k(self, a, b, c=1, *args, d = 42, e = 17, f, **kwds):
+         pass
+ 
++    def l(self, a, b, c=1, *args, d = 42, e = 17, f, **kwds):
++        """Existing string"""
++        pass
++
+     cpdef int get_int(self):
+         return 0
+ 
+     cpdef float get_float(self):
+         return 0.0
++
++    cpdef str get_str(self):
++        """Existing string"""
++        return "string"
+ 
+     cpdef Ext clone(self):
+         return Ext(1,2)
+@@ -171,6 +193,16 @@
+     """
+     pass
+ 
++cpdef with_doc_3(a, b, c):
++    """Existing string"""
++    pass
++
++cpdef str with_doc_4(int a, str b, list c):
++    """
++    Existing string
++    """
++    return b
++
+ cpdef char f_c(char c):
+     return c
+ 

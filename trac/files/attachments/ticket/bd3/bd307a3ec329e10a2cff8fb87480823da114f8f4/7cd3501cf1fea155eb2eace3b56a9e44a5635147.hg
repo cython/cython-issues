@@ -1,0 +1,66 @@
+# HG changeset patch
+# User jek-cythonhg@kleckner.net
+# Date 1211578926 25200
+# Node ID f1e200ffe873e8d971f97af173f5bdd1f505d8a3
+# Parent  6461cde2de73bb328ea4edb8df8ceca0c153dd02
+Patches to make Windows port work with Python 2.6a3
+
+Cython/Compiler/Errors.py:
+    Needed the self.message removed because of deprecation in BaseException.
+
+tests/compile/food.h:
+    Converted line endings from Mac to Unix since VS2008 compiler
+    fails with Mac text files.
+
+tests/compile/belchenko1.pyx:
+    Changed cdef extern to eliminate math.h since it doesn't exist on Windoze.
+    This needs to be reviewed since it isn't clear if the test
+    needs to build the lib with math.h or whether it is just
+    testing the compiler (which wouldn't read math.h anyway).
+
+diff -r 6461cde2de73 -r f1e200ffe873 Cython/Compiler/Errors.py
+--- a/Cython/Compiler/Errors.py	Thu May 22 17:31:50 2008 -0700
++++ b/Cython/Compiler/Errors.py	Fri May 23 14:42:06 2008 -0700
+@@ -23,7 +23,8 @@ class CompileError(PyrexError):
+     
+     def __init__(self, position = None, message = ""):
+         self.position = position
+-        self.message = message
++    # Deprecated and withdrawn in 2.6:
++    #   self.message = message
+         if position:
+             pos_str = "%s:%d:%d: " % position
+             cont = context(position)
+@@ -36,7 +37,8 @@ class CompileWarning(PyrexWarning):
+     
+     def __init__(self, position = None, message = ""):
+         self.position = position
+-        self.message = message
++    # Deprecated and withdrawn in 2.6:
++    #   self.message = message
+         if position:
+             pos_str = "%s:%d:%d: " % position
+         else:
+diff -r 6461cde2de73 -r f1e200ffe873 tests/compile/belchenko1.pyx
+--- a/tests/compile/belchenko1.pyx	Thu May 22 17:31:50 2008 -0700
++++ b/tests/compile/belchenko1.pyx	Fri May 23 14:42:06 2008 -0700
+@@ -1,4 +1,4 @@ cdef extern from "stdint.h":
+-cdef extern from "stdint.h":
++cdef extern from *:
+     ctypedef int intptr_t
+ 
+ cdef int _is_aligned(void *ptr):
+diff -r 6461cde2de73 -r f1e200ffe873 tests/compile/food.h
+--- a/tests/compile/food.h	Thu May 22 17:31:50 2008 -0700
++++ b/tests/compile/food.h	Fri May 23 14:42:06 2008 -0700
+@@ -1,1 +1,8 @@ struct Tomato {	PyObject_HEAD};struc
+-struct Tomato {	PyObject_HEAD};struct Bicycle{	PyObject_HEAD};
+\ No newline at end of file
++struct Tomato {
++	PyObject_HEAD
++};
++
++struct Bicycle{
++	PyObject_HEAD
++};
++

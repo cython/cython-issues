@@ -1,0 +1,1354 @@
+# HG changeset patch
+# User Lisandro Dalcin <dalcinl@gmail.com>
+# Date 1239036684 10800
+# Node ID 25b8f0c4d4f311a61b7b670892622620292fa016
+# Parent  49523eb3abb51b4b783676dc0484b3b1f413e9f8
+better Py -> C conversion for integral types (ticket #255)
+
+diff -r 49523eb3abb5 -r 25b8f0c4d4f3 Cython/Compiler/ModuleNode.py
+--- a/Cython/Compiler/ModuleNode.py	Fri Apr 03 15:59:21 2009 -0700
++++ b/Cython/Compiler/ModuleNode.py	Mon Apr 06 13:51:24 2009 -0300
+@@ -564,6 +564,12 @@
+ 
+         env.use_utility_code(streq_utility_code)
+ 
++        # XXX this is a mess
++        for utility_code in PyrexTypes.c_int_from_py_function.specialize_list:
++            env.use_utility_code(utility_code)
++        for utility_code in PyrexTypes.c_long_from_py_function.specialize_list:
++            env.use_utility_code(utility_code)
++
+     def generate_extern_c_macro_definition(self, code):
+         name = Naming.extern_c_macro
+         code.putln("#ifdef __cplusplus")
+diff -r 49523eb3abb5 -r 25b8f0c4d4f3 Cython/Compiler/PyrexTypes.py
+--- a/Cython/Compiler/PyrexTypes.py	Fri Apr 03 15:59:21 2009 -0700
++++ b/Cython/Compiler/PyrexTypes.py	Mon Apr 06 13:51:24 2009 -0300
+@@ -228,6 +228,11 @@
+     def __repr__(self):
+         return "<BufferType %r>" % self.base
+ 
++def public_decl(base, dll_linkage):
++    if dll_linkage:
++        return "%s(%s)" % (dll_linkage, base)
++    else:
++        return base
+     
+ class PyObjectType(PyrexType):
+     #
+@@ -486,57 +491,123 @@
+         return self.base_declaration_code(base,  entity_code)
+ 
+ 
+-int_conversion_list = {}
++type_conversion_predeclarations = ""
+ type_conversion_functions = ""
+-type_conversion_predeclarations = ""
++
++c_int_from_py_function = UtilityCode(
++proto="""
++static INLINE %(type)s __Pyx_PyInt_As%(SignWord)s%(TypeName)s(PyObject *);
++""",
++impl="""
++static INLINE %(type)s __Pyx_PyInt_As%(SignWord)s%(TypeName)s(PyObject* x) {
++    if (sizeof(%(type)s) < sizeof(long)) {
++        long val = __Pyx_PyInt_AsLong(x);
++        if (unlikely(val != (long)(%(type)s)val)) {
++            if (unlikely(val == -1 && PyErr_Occurred()))
++                return (%(type)s)-1;""" + \
++           "%(IntValSignTest)s" + \
++"""
++            PyErr_SetString(PyExc_OverflowError,
++                           "value too large to convert to %(type)s");
++            return (%(type)s)-1;
++        }
++        return (%(type)s)val;
++    }
++    return (%(type)s)__Pyx_PyInt_As%(SignWord)sLong(x);
++}
++""")
++intval_signtest = """
++            if (unlikely(%(var)s < 0)) {
++                PyErr_SetString(PyExc_OverflowError,
++                                "can't convert negative value to %(type)s");
++                return (%(type)s)-1;
++            }"""
++
++c_long_from_py_function = UtilityCode(
++proto="""
++static INLINE %(type)s __Pyx_PyInt_As%(SignWord)s%(TypeName)s(PyObject *);
++""",
++impl="""
++static INLINE %(type)s __Pyx_PyInt_As%(SignWord)s%(TypeName)s(PyObject* x) {
++#if PY_VERSION_HEX < 0x03000000
++    if (likely(PyInt_CheckExact(x) || PyInt_Check(x))) {
++        long val = PyInt_AS_LONG(x);""" + \
++       "%(IntValSignTest)s" + \
++"""
++        return (%(type)s)val;
++    } else
++#endif
++    if (likely(PyLong_CheckExact(x) || PyLong_Check(x))) {""" +\
++       "%(PyLongSignTest)s" + \
++"""
++        return %(PyLongConvert)s(x);
++    } else {
++        %(type)s val;
++        PyObject *tmp = __Pyx_PyNumber_Int(x);
++        if (!tmp) return (%(type)s)-1;
++        val = __Pyx_PyInt_As%(SignWord)s%(TypeName)s(tmp);
++        Py_DECREF(tmp);
++        return val;
++    }
++}
++""")
++pylong_signtest = """
++        if (unlikely(Py_SIZE(%(var)s) < 0)) {
++            PyErr_SetString(PyExc_OverflowError,
++                            "can't convert negative value to %(type)s");
++            return (%(type)s)-1;
++        }"""
++
++
+ 
+ class CIntType(CNumericType):
+-    
++
+     is_int = 1
+     typedef_flag = 0
+     to_py_function = "PyInt_FromLong"
+-    from_py_function = "__pyx_PyInt_AsLong"
++    from_py_function = "__Pyx_PyInt_AsInt"
+     exception_value = -1
+ 
+     def __init__(self, rank, signed, pymemberdef_typecode = None, is_returncode = 0):
+         CNumericType.__init__(self, rank, signed, pymemberdef_typecode)
+         self.is_returncode = is_returncode
+-        if self.from_py_function == '__pyx_PyInt_AsLong':
++        if self.from_py_function == "__Pyx_PyInt_AsInt":
+             self.from_py_function = self.get_type_conversion()
+ 
+     def get_type_conversion(self):
+-        # error on overflow
+-        c_type = self.sign_and_name()
+-        c_name = c_type.replace(' ', '_');
+-        func_name = "__pyx_PyInt_%s" % c_name;
+-        if func_name not in int_conversion_list:
+-            # no env to add utility code to
+-            global type_conversion_predeclarations, type_conversion_functions
+-            if self.signed:
+-                neg_test = ""
+-            else:
+-                neg_test = " || (long_val < 0)"
+-            type_conversion_predeclarations += """
+-static INLINE %(c_type)s %(func_name)s(PyObject* x);""" % {'c_type': c_type, 'c_name': c_name, 'func_name': func_name }
+-            type_conversion_functions +=  """
+-static INLINE %(c_type)s %(func_name)s(PyObject* x) {
+-    if (sizeof(%(c_type)s) < sizeof(long)) {
+-        long long_val = __pyx_PyInt_AsLong(x);
+-        %(c_type)s val = (%(c_type)s)long_val;
+-        if (unlikely((val != long_val) %(neg_test)s)) {
+-            PyErr_SetString(PyExc_OverflowError, "value too large to convert to %(c_type)s");
+-            return (%(c_type)s)-1;
+-        }
+-        return val;
+-    }
+-    else {
+-        return __pyx_PyInt_AsLong(x);
+-    }
+-}
+-""" % {'c_type': c_type, 'c_name': c_name, 'func_name': func_name, 'neg_test': neg_test }
+-            int_conversion_list[func_name] = True
++        ctype = self.declaration_code('')
++        bits = ctype.split(" ", 1)
++        if len(bits) == 1:
++            sign_word, type_name = "", bits[0]
++        else:
++            sign_word, type_name = bits
++        type_name = type_name.replace("PY_LONG_LONG","long long")
++        SignWord  = sign_word.title()
++        TypeName  = type_name.title().replace(" ", "")
++        data = {'IntValSignTest' : "",
++                'PyLongSignTest' : "",
++                'PyLongConvert'  : "",
++                }
++        if not self.signed:
++            data['IntValSignTest'] = intval_signtest % {'var':"val", 'type':ctype}
++            data['PyLongSignTest'] = pylong_signtest % {'var':"x",   'type':ctype}
++        if "Long" in TypeName:
++            data['PyLongConvert'] = \
++                "PyLong_As" + SignWord.replace("Signed", "") + TypeName
++            # the replaces below are just for generating well indented C code
++            data['IntValSignTest'] = "\n".join(
++                [ln.replace(" "*4, "", 1) for ln in data['IntValSignTest'].split('\n')]
++                )
++            utility_code = c_long_from_py_function
++        else:
++            utility_code = c_int_from_py_function
++        utility_code.specialize(self,
++                                SignWord=SignWord,
++                                TypeName=TypeName,
++                                **data)
++        func_name = "__Pyx_PyInt_As%s%s" % (SignWord, TypeName)
+         return func_name
+-    
++
+     def assignable_from_resolved_type(self, src_type):
+         return src_type.is_int or src_type.is_enum or src_type is error_type
+ 
+@@ -550,40 +621,44 @@
+ 
+ class CAnonEnumType(CIntType):
+ 
+-    is_enum = 1    
++    is_enum = 1
++
++    def sign_and_name(self):
++        return 'int'
+ 
+ 
+ class CUIntType(CIntType):
+ 
+     to_py_function = "PyLong_FromUnsignedLong"
+-    from_py_function = "PyInt_AsUnsignedLongMask"
+     exception_value = -1
+ 
+ 
++class CLongType(CIntType):
++
++    to_py_function = "PyInt_FromLong"
++
++
+ class CULongType(CUIntType):
+ 
+     to_py_function = "PyLong_FromUnsignedLong"
+-    from_py_function = "PyInt_AsUnsignedLongMask"
+ 
+ 
+ class CLongLongType(CIntType):
+ 
+     is_longlong = 1
+     to_py_function = "PyLong_FromLongLong"
+-    from_py_function = "__pyx_PyInt_AsLongLong"
+ 
+ 
+ class CULongLongType(CUIntType):
+ 
+     is_longlong = 1
+     to_py_function = "PyLong_FromUnsignedLongLong"
+-    from_py_function = "__pyx_PyInt_AsUnsignedLongLong"
+ 
+ 
+ class CPySSizeTType(CIntType):
+ 
+     to_py_function = "PyInt_FromSsize_t"
+-    from_py_function = "__pyx_PyIndex_AsSsize_t"
++    from_py_function = "__Pyx_PyIndex_AsSsize_t"
+ 
+     def sign_and_name(self):
+         return rank_to_type_name[self.rank]
+@@ -591,8 +666,8 @@
+ 
+ class CSizeTType(CUIntType):
+ 
+-    to_py_function = "__pyx_PyInt_FromSize_t"
+-    from_py_function = "__pyx_PyInt_AsSize_t"
++    to_py_function = "__Pyx_PyInt_FromSize_t"
++    from_py_function = "__Pyx_PyInt_AsSize_t"
+ 
+     def sign_and_name(self):
+         return rank_to_type_name[self.rank]
+@@ -1184,14 +1259,14 @@
+ c_char_type =        CIntType(0, 1, "T_CHAR")
+ c_short_type =       CIntType(1, 1, "T_SHORT")
+ c_int_type =         CIntType(2, 1, "T_INT")
+-c_long_type =        CIntType(3, 1, "T_LONG")
++c_long_type =        CLongType(3, 1, "T_LONG")
+ c_longlong_type =    CLongLongType(6, 1, "T_LONGLONG")
+ c_bint_type =        CBIntType(2, 1, "T_INT")
+ 
+ c_schar_type =       CIntType(0, 2, "T_CHAR")
+ c_sshort_type =      CIntType(1, 2, "T_SHORT")
+ c_sint_type =        CIntType(2, 2, "T_INT")
+-c_slong_type =       CIntType(3, 2, "T_LONG")
++c_slong_type =       CLongType(3, 2, "T_LONG")
+ c_slonglong_type =   CLongLongType(6, 2, "T_LONGLONG")
+ 
+ c_py_ssize_t_type =  CPySSizeTType(4, 2, "T_PYSSIZET")
+@@ -1223,23 +1298,23 @@
+ 
+ sign_and_rank_to_type = {
+     #(signed, rank)
+-    (0, 0): c_uchar_type, 
+-    (0, 1): c_ushort_type, 
+-    (0, 2): c_uint_type, 
++    (0, 0): c_uchar_type,
++    (0, 1): c_ushort_type,
++    (0, 2): c_uint_type,
+     (0, 3): c_ulong_type,
+     (0, 6): c_ulonglong_type,
+ 
+-    (1, 0): c_char_type, 
+-    (1, 1): c_short_type, 
+-    (1, 2): c_int_type, 
++    (1, 0): c_char_type,
++    (1, 1): c_short_type,
++    (1, 2): c_int_type,
+     (1, 3): c_long_type,
+     (1, 6): c_longlong_type,
+ 
+-    (2, 0): c_schar_type, 
+-    (2, 1): c_sshort_type, 
+-    (2, 2): c_sint_type, 
++    (2, 0): c_schar_type,
++    (2, 1): c_sshort_type,
++    (2, 2): c_sint_type,
+     (2, 3): c_slong_type,
+-    (2, 6): c_slonglong_type, 
++    (2, 6): c_slonglong_type,
+ 
+     (0, 4): c_py_ssize_t_type,
+     (1, 4): c_py_ssize_t_type,
+@@ -1248,36 +1323,36 @@
+     (1, 5): c_size_t_type,
+     (2, 5): c_size_t_type,
+ 
+-    (1, 7): c_float_type, 
++    (1, 7): c_float_type,
+     (1, 8): c_double_type,
+     (1, 9): c_longdouble_type,
+ # In case we're mixing unsigned ints and floats...
+-    (0, 7): c_float_type, 
++    (0, 7): c_float_type,
+     (0, 8): c_double_type,
+     (0, 9): c_longdouble_type,
+ }
+ 
+ modifiers_and_name_to_type = {
+     #(signed, longness, name)
+-    (0, 0, "char"): c_uchar_type, 
+-    (0, -1, "int"): c_ushort_type, 
+-    (0, 0, "int"): c_uint_type, 
++    (0, 0, "char"): c_uchar_type,
++    (0, -1, "int"): c_ushort_type,
++    (0, 0, "int"): c_uint_type,
+     (0, 1, "int"): c_ulong_type,
+     (0, 2, "int"): c_ulonglong_type,
+     (1, 0, "void"): c_void_type,
+-    (1, 0, "char"): c_char_type, 
+-    (1, -1, "int"): c_short_type, 
+-    (1, 0, "int"): c_int_type, 
++    (1, 0, "char"): c_char_type,
++    (1, -1, "int"): c_short_type,
++    (1, 0, "int"): c_int_type,
+     (1, 1, "int"): c_long_type,
+     (1, 2, "int"): c_longlong_type,
+-    (1, 0, "float"): c_float_type, 
++    (1, 0, "float"): c_float_type,
+     (1, 0, "double"): c_double_type,
+     (1, 1, "double"): c_longdouble_type,
+     (1, 0, "object"): py_object_type,
+-    (1, 0, "bint"): c_bint_type, 
+-    (2, 0, "char"): c_schar_type, 
+-    (2, -1, "int"): c_sshort_type, 
+-    (2, 0, "int"): c_sint_type, 
++    (1, 0, "bint"): c_bint_type,
++    (2, 0, "char"): c_schar_type,
++    (2, -1, "int"): c_sshort_type,
++    (2, 0, "int"): c_sint_type,
+     (2, 1, "int"): c_slong_type,
+     (2, 2, "int"): c_slonglong_type,
+ 
+@@ -1357,12 +1432,6 @@
+     else:
+         error(node.pos, "Bad type")
+ 
+-def public_decl(base, dll_linkage):
+-    if dll_linkage:
+-        return "%s(%s)" % (dll_linkage, base)
+-    else:
+-        return base
+-
+ def same_type(type1, type2):
+     return type1.same_as(type2)
+     
+@@ -1395,9 +1464,8 @@
+ #endif
+ 
+ #define __Pyx_PyBool_FromLong(b) ((b) ? (Py_INCREF(Py_True), Py_True) : (Py_INCREF(Py_False), Py_False))
+-static INLINE int __Pyx_PyObject_IsTrue(PyObject* x);
+-static INLINE PY_LONG_LONG __pyx_PyInt_AsLongLong(PyObject* x);
+-static INLINE unsigned PY_LONG_LONG __pyx_PyInt_AsUnsignedLongLong(PyObject* x);
++static INLINE int __Pyx_PyObject_IsTrue(PyObject*);
++static INLINE PyObject* __Pyx_PyNumber_Int(PyObject* x);
+ 
+ #if !defined(T_PYSSIZET)
+ #if PY_VERSION_HEX < 0x02050000
+@@ -1427,18 +1495,70 @@
+ #endif
+ #endif
+ 
+-static INLINE Py_ssize_t __pyx_PyIndex_AsSsize_t(PyObject* b);
+-static INLINE PyObject * __pyx_PyInt_FromSize_t(size_t);
+-static INLINE size_t __pyx_PyInt_AsSize_t(PyObject*);
++static INLINE Py_ssize_t __Pyx_PyIndex_AsSsize_t(PyObject*);
++static INLINE PyObject * __Pyx_PyInt_FromSize_t(size_t);
++static INLINE size_t __Pyx_PyInt_AsSize_t(PyObject*);
+ 
+-#define __pyx_PyInt_AsLong(x) (PyInt_CheckExact(x) ? PyInt_AS_LONG(x) : PyInt_AsLong(x))
+ #define __pyx_PyFloat_AsDouble(x) (PyFloat_CheckExact(x) ? PyFloat_AS_DOUBLE(x) : PyFloat_AsDouble(x))
++
+ """ + type_conversion_predeclarations
+ 
+ type_conversion_functions = """
+ /* Type Conversion Functions */
+ 
+-static INLINE Py_ssize_t __pyx_PyIndex_AsSsize_t(PyObject* b) {
++static INLINE int __Pyx_PyObject_IsTrue(PyObject* x) {
++   if (x == Py_True) return 1;
++   else if ((x == Py_False) | (x == Py_None)) return 0;
++   else return PyObject_IsTrue(x);
++}
++
++static INLINE PyObject* __Pyx_PyNumber_Int(PyObject* x) {
++  PyNumberMethods *m;
++  const char *name = NULL;
++  PyObject *res = NULL;
++#if PY_VERSION_HEX < 0x03000000
++  if (PyInt_Check(x) || PyLong_Check(x))
++#else
++  if (PyLong_Check(x))
++#endif
++    return Py_INCREF(x), x;
++  m = Py_TYPE(x)->tp_as_number;
++#if PY_VERSION_HEX < 0x03000000
++  if (m && m->nb_long) {
++    name = "long";
++    res = PyNumber_Long(x);
++  }
++  else if (m && m->nb_int) {
++    name = "int";
++    res = PyNumber_Int(x);
++  }
++#else
++  if (m && m->nb_int) {
++    name = "int";
++    res = PyNumber_Long(x);
++  }
++#endif
++  if (res) {
++#if PY_VERSION_HEX < 0x03000000
++    if (!PyInt_Check(res) && !PyLong_Check(res)) {
++#else
++    if (!PyLong_Check(res)) {
++#endif
++      PyErr_Format(PyExc_TypeError,
++                   "__%s__ returned non-%s (type %.200s)",
++                   name, name, Py_TYPE(res)->tp_name);
++      Py_DECREF(res);
++      return NULL;
++    }
++  }
++  else if (!PyErr_Occurred()) {
++    PyErr_SetString(PyExc_TypeError,
++                    "an integer is required");
++  }
++  return res;
++}
++
++static INLINE Py_ssize_t __Pyx_PyIndex_AsSsize_t(PyObject* b) {
+   Py_ssize_t ival;
+   PyObject* x = PyNumber_Index(b);
+   if (!x) return -1;
+@@ -1447,7 +1567,7 @@
+   return ival;
+ }
+ 
+-static INLINE PyObject * __pyx_PyInt_FromSize_t(size_t ival) {
++static INLINE PyObject * __Pyx_PyInt_FromSize_t(size_t ival) {
+ #if PY_VERSION_HEX < 0x02050000
+    if (ival <= LONG_MAX)
+        return PyInt_FromLong((long)ival);
+@@ -1461,74 +1581,16 @@
+ #endif
+ }
+ 
+-static INLINE size_t __pyx_PyInt_AsSize_t(PyObject* b) {
+-   unsigned PY_LONG_LONG val = __pyx_PyInt_AsUnsignedLongLong(b);
++static INLINE size_t __Pyx_PyInt_AsSize_t(PyObject* x) {
++   unsigned PY_LONG_LONG val = __Pyx_PyInt_AsUnsignedLongLong(x);
+    if (unlikely(val == (unsigned PY_LONG_LONG)-1 && PyErr_Occurred())) {
+        return (size_t)-1;
+    } else if (unlikely(val != (unsigned PY_LONG_LONG)(size_t)val)) {
+-       PyErr_SetString(PyExc_OverflowError, "value too large to convert to size_t");
++       PyErr_SetString(PyExc_OverflowError,
++                       "value too large to convert to size_t");
+        return (size_t)-1;
+    }
+-   return val;
+-}
+-
+-static INLINE int __Pyx_PyObject_IsTrue(PyObject* x) {
+-   if (x == Py_True) return 1;
+-   else if ((x == Py_False) | (x == Py_None)) return 0;
+-   else return PyObject_IsTrue(x);
+-}
+-
+-static INLINE PY_LONG_LONG __pyx_PyInt_AsLongLong(PyObject* x) {
+-#if PY_VERSION_HEX < 0x03000000
+-    if (PyInt_CheckExact(x)) {
+-        return PyInt_AS_LONG(x);
+-    }
+-    else
+-#endif
+-    if (PyLong_CheckExact(x)) {
+-        return PyLong_AsLongLong(x);
+-    }
+-    else {
+-        PY_LONG_LONG val;
+-#if PY_VERSION_HEX < 0x03000000
+-        PyObject* tmp = PyNumber_Int(x);  if (!tmp) return (PY_LONG_LONG)-1;
+-        val = __pyx_PyInt_AsLongLong(tmp);
+-#else
+-        PyObject* tmp = PyNumber_Long(x); if (!tmp) return (PY_LONG_LONG)-1;
+-        val = PyLong_AsLongLong(tmp);
+-#endif
+-        Py_DECREF(tmp);
+-        return val;
+-    }
+-}
+-
+-static INLINE unsigned PY_LONG_LONG __pyx_PyInt_AsUnsignedLongLong(PyObject* x) {
+-#if PY_VERSION_HEX < 0x03000000
+-    if (PyInt_CheckExact(x)) {
+-        long val = PyInt_AS_LONG(x);
+-        if (unlikely(val < 0)) {
+-            PyErr_SetString(PyExc_OverflowError, "can't convert negative value to unsigned long long");
+-            return (unsigned PY_LONG_LONG)-1;
+-        }
+-        return val;
+-    }
+-    else
+-#endif
+-    if (PyLong_CheckExact(x)) {
+-        return PyLong_AsUnsignedLongLong(x);
+-    }
+-    else {
+-        unsigned PY_LONG_LONG val;
+-#if PY_VERSION_HEX < 0x03000000
+-        PyObject* tmp = PyNumber_Int(x);  if (!tmp) return (PY_LONG_LONG)-1;
+-        val = __pyx_PyInt_AsUnsignedLongLong(tmp);
+-#else
+-        PyObject* tmp = PyNumber_Long(x); if (!tmp) return (PY_LONG_LONG)-1;
+-        val = PyLong_AsUnsignedLongLong(tmp);
+-#endif
+-        Py_DECREF(tmp);
+-        return val;
+-    }
++   return (size_t)val;
+ }
+ 
+ """ + type_conversion_functions
+diff -r 49523eb3abb5 -r 25b8f0c4d4f3 Cython/Utils.py
+--- a/Cython/Utils.py	Fri Apr 03 15:59:21 2009 -0700
++++ b/Cython/Utils.py	Mon Apr 06 13:51:24 2009 -0300
+@@ -105,6 +105,7 @@
+         self.cleanup = cleanup
+         self.requires = requires
+         self._cache = {}
++        self.specialize_list = []
+ 
+     def write_init_code(self, writer, pos):
+         if not self.init:
+@@ -141,4 +142,5 @@
+                                         none_or_sub(self.init, data),
+                                         none_or_sub(self.cleanup, data),
+                                         requires)
++            self.specialize_list.append(s)
+             return s
+diff -r 49523eb3abb5 -r 25b8f0c4d4f3 tests/bugs/c_int_types_T255.pyx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/tests/bugs/c_int_types_T255.pyx	Mon Apr 06 13:51:24 2009 -0300
+@@ -0,0 +1,782 @@
++__doc__ = u""
++
++# -------------------------------------------------------------------
++
++CHAR_MAX = <char>((<unsigned char>-1)>>1)
++CHAR_MIN = (-CHAR_MAX-1)
++
++def test_char(char x):
++   u"""
++   >>> test_char(CHAR_MIN-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_char(CHAR_MIN) == CHAR_MIN
++   True
++   >>> test_char(-1)
++   -1
++   >>> test_char(0)
++   0
++   >>> test_char(1)
++   1
++   >>> test_char(CHAR_MAX) == CHAR_MAX
++   True
++   >>> test_char(CHAR_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_char(x, y):
++   u"""
++   >>> test_add_char(CHAR_MIN, -1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_add_char(CHAR_MIN, 0) == CHAR_MIN
++   True
++   >>> test_add_char(CHAR_MIN, 1) == CHAR_MIN+1
++   True
++   >>> test_add_char(CHAR_MAX, -1) == CHAR_MAX-1
++   True
++   >>> test_add_char(CHAR_MAX, 0) == CHAR_MAX
++   True
++   >>> test_add_char(CHAR_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef char r = x + y
++   return r
++
++
++SCHAR_MAX = <signed char>((<unsigned char>-1)>>1)
++SCHAR_MIN = (-SCHAR_MAX-1)
++
++def test_schar(signed char x):
++   u"""
++   >>> test_schar(-129) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_schar(-128)
++   -128
++   >>> test_schar(0)
++   0
++   >>> test_schar(127)
++   127
++   >>> test_schar(128) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_schar(x, y):
++   u"""
++   >>> test_add_schar(SCHAR_MIN, -1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_add_schar(SCHAR_MIN, 0) == SCHAR_MIN
++   True
++   >>> test_add_schar(SCHAR_MIN, 1) == SCHAR_MIN+1
++   True
++   >>> test_add_schar(SCHAR_MAX, -1) == SCHAR_MAX-1
++   True
++   >>> test_add_schar(SCHAR_MAX, 0) == SCHAR_MAX
++   True
++   >>> test_add_schar(SCHAR_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef signed char r = x + y
++   return r
++
++UCHAR_MAX = <unsigned char>((<unsigned char>-1))
++
++def test_uchar(unsigned char x):
++   u"""
++   >>> test_uchar(-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_uchar(0)
++   0
++   >>> test_uchar(1)
++   1
++   >>> test_uchar(UCHAR_MAX) == UCHAR_MAX
++   True
++   >>> test_uchar(UCHAR_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_uchar(x, y):
++   u"""
++   >>> test_add_uchar(UCHAR_MAX, 0) == UCHAR_MAX
++   True
++   >>> test_add_uchar(UCHAR_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef unsigned char r = x + y
++   return r
++
++# -------------------------------------------------------------------
++
++SHORT_MAX = <short>((<unsigned short>-1)>>1)
++SHORT_MIN = (-SHORT_MAX-1)
++
++def test_short(short x):
++   u"""
++   >>> test_short(SHORT_MIN-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_short(SHORT_MIN) == SHORT_MIN
++   True
++   >>> test_short(-1)
++   -1
++   >>> test_short(0)
++   0
++   >>> test_short(1)
++   1
++   >>> test_short(SHORT_MAX) == SHORT_MAX
++   True
++   >>> test_short(SHORT_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_short(x, y):
++   u"""
++   >>> test_add_short(SHORT_MIN, -1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_add_short(SHORT_MIN, 0) == SHORT_MIN
++   True
++   >>> test_add_short(SHORT_MIN, 1) == SHORT_MIN+1
++   True
++   >>> test_add_short(SHORT_MAX, -1) == SHORT_MAX-1
++   True
++   >>> test_add_short(SHORT_MAX, 0) == SHORT_MAX
++   True
++   >>> test_add_short(SHORT_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef short r = x + y
++   return r
++
++SSHORT_MAX = <signed short>((<unsigned short>-1)>>1)
++SSHORT_MIN = (-SSHORT_MAX-1)
++
++def test_sshort(short x):
++   u"""
++   >>> test_sshort(SSHORT_MIN-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_sshort(SSHORT_MIN) == SSHORT_MIN
++   True
++   >>> test_sshort(-1)
++   -1
++   >>> test_sshort(0)
++   0
++   >>> test_sshort(1)
++   1
++   >>> test_sshort(SSHORT_MAX) == SSHORT_MAX
++   True
++   >>> test_short(SSHORT_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_sshort(x, y):
++   u"""
++   >>> test_add_sshort(SSHORT_MIN, -1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_add_sshort(SSHORT_MIN, 0) == SSHORT_MIN
++   True
++   >>> test_add_sshort(SSHORT_MIN, 1) == SSHORT_MIN+1
++   True
++   >>> test_add_sshort(SSHORT_MAX, -1) == SSHORT_MAX-1
++   True
++   >>> test_add_sshort(SSHORT_MAX, 0) == SSHORT_MAX
++   True
++   >>> test_add_sshort(SSHORT_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef signed short r = x + y
++   return r
++
++USHORT_MAX = <unsigned short>((<unsigned short>-1))
++
++def test_ushort(unsigned short x):
++   u"""
++   >>> test_ushort(-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_ushort(0)
++   0
++   >>> test_ushort(1)
++   1
++   >>> test_ushort(USHORT_MAX) == USHORT_MAX
++   True
++   >>> test_ushort(USHORT_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_ushort(x, y):
++   u"""
++   >>> test_add_ushort(USHORT_MAX, 0) == USHORT_MAX
++   True
++   >>> test_add_ushort(USHORT_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef unsigned short r = x + y
++   return r
++
++# -------------------------------------------------------------------
++
++INT_MAX = <int>((<unsigned int>-1)>>1)
++INT_MIN = (-INT_MAX-1)
++
++def test_int(int x):
++   u"""
++   >>> test_int(INT_MIN-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_int(INT_MIN) == INT_MIN
++   True
++   >>> test_int(-1)
++   -1
++   >>> test_int(0)
++   0
++   >>> test_int(1)
++   1
++   >>> test_int(INT_MAX) == INT_MAX
++   True
++   >>> test_int(INT_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_int(x, y):
++   u"""
++   >>> test_add_int(INT_MIN, -1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_add_int(INT_MIN, 0) == INT_MIN
++   True
++   >>> test_add_int(INT_MIN, 1) == INT_MIN+1
++   True
++   >>> test_add_int(INT_MAX, -1) == INT_MAX-1
++   True
++   >>> test_add_int(INT_MAX, 0) == INT_MAX
++   True
++   >>> test_add_int(INT_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef int r = x + y
++   return r
++
++SINT_MAX = <signed int>((<unsigned int>-1)>>1)
++SINT_MIN = (-SINT_MAX-1)
++
++def test_sint(int x):
++   u"""
++   >>> test_sint(SINT_MIN-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_sint(SINT_MIN) == SINT_MIN
++   True
++   >>> test_sint(-1)
++   -1
++   >>> test_sint(0)
++   0
++   >>> test_sint(1)
++   1
++   >>> test_sint(SINT_MAX) == SINT_MAX
++   True
++   >>> test_sint(SINT_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_sint(x, y):
++   u"""
++   >>> test_add_sint(SINT_MIN, -1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_add_sint(SINT_MIN, 0) == SINT_MIN
++   True
++   >>> test_add_sint(SINT_MIN, 1) == SINT_MIN+1
++   True
++   >>> test_add_sint(SINT_MAX, -1) == SINT_MAX-1
++   True
++   >>> test_add_sint(SINT_MAX, 0) == SINT_MAX
++   True
++   >>> test_add_sint(SINT_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef signed int r = x + y
++   return r
++
++UINT_MAX = <unsigned int>(<unsigned int>-1)
++
++def test_uint(unsigned int x):
++   u"""
++   >>> test_uint(-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> print(test_uint(0))
++   0
++   >>> print(test_uint(1))
++   1
++   >>> test_uint(UINT_MAX) == UINT_MAX
++   True
++   >>> test_uint(UINT_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_uint(x, y):
++   u"""
++   >>> test_add_uint(UINT_MAX, 0) == UINT_MAX
++   True
++   >>> test_add_uint(UINT_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef unsigned int r = x + y
++   return r
++
++# -------------------------------------------------------------------
++
++LONG_MAX = <long>((<unsigned long>-1)>>1)
++LONG_MIN = (-LONG_MAX-1)
++
++def test_long(long x):
++   u"""
++   >>> test_long(LONG_MIN-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_long(LONG_MIN) == LONG_MIN
++   True
++   >>> test_long(-1)
++   -1
++   >>> test_long(0)
++   0
++   >>> test_long(1)
++   1
++   >>> test_long(LONG_MAX) == LONG_MAX
++   True
++   >>> test_long(LONG_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_long(x, y):
++   u"""
++   >>> test_add_long(LONG_MIN, -1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_add_long(LONG_MIN, 0) == LONG_MIN
++   True
++   >>> test_add_long(LONG_MIN, 1) == LONG_MIN+1
++   True
++   >>> test_add_long(LONG_MAX, -1) == LONG_MAX-1
++   True
++   >>> test_add_long(LONG_MAX, 0) == LONG_MAX
++   True
++   >>> test_add_long(LONG_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef long r = x + y
++   return r
++
++SLONG_MAX = <signed long>((<unsigned long>-1)>>1)
++SLONG_MIN = (-SLONG_MAX-1)
++
++def test_slong(long x):
++   u"""
++   >>> test_slong(SLONG_MIN-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_slong(SLONG_MIN) == SLONG_MIN
++   True
++   >>> test_slong(-1)
++   -1
++   >>> test_slong(0)
++   0
++   >>> test_slong(1)
++   1
++   >>> test_slong(SLONG_MAX) == SLONG_MAX
++   True
++   >>> test_slong(SLONG_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_slong(x, y):
++   u"""
++   >>> test_add_slong(SLONG_MIN, -1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_add_slong(SLONG_MIN, 0) == SLONG_MIN
++   True
++   >>> test_add_slong(SLONG_MIN, 1) == SLONG_MIN+1
++   True
++   >>> test_add_slong(SLONG_MAX, -1) == SLONG_MAX-1
++   True
++   >>> test_add_slong(SLONG_MAX, 0) == SLONG_MAX
++   True
++   >>> test_add_slong(SLONG_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef signed long r = x + y
++   return r
++
++ULONG_MAX = <unsigned long>(<unsigned long>-1)
++
++def test_ulong(unsigned long x):
++   u"""
++   >>> test_ulong(-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> print(test_ulong(0))
++   0
++   >>> print(test_ulong(1))
++   1
++   >>> test_ulong(ULONG_MAX) == ULONG_MAX
++   True
++   >>> test_ulong(ULONG_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_ulong(x, y):
++   u"""
++   >>> test_add_ulong(ULONG_MAX, 0) == ULONG_MAX
++   True
++   >>> test_add_ulong(ULONG_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef unsigned long r = x + y
++   return r
++
++# -------------------------------------------------------------------
++
++LONGLONG_MAX = <long long>((<unsigned long long>-1)>>1)
++LONGLONG_MIN = (-LONGLONG_MAX-1)
++
++def test_longlong(long long x):
++   u"""
++   >>> test_longlong(LONGLONG_MIN-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_longlong(LONGLONG_MIN) == LONGLONG_MIN
++   True
++   >>> print(test_longlong(-1))
++   -1
++   >>> print(test_longlong(0))
++   0
++   >>> print(test_longlong(1))
++   1
++   >>> test_longlong(LONGLONG_MAX) == LONGLONG_MAX
++   True
++   >>> test_longlong(LONGLONG_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_longlong(x, y):
++   u"""
++   >>> test_add_longlong(LONGLONG_MIN, -1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_add_longlong(LONGLONG_MIN, 0) == LONGLONG_MIN
++   True
++   >>> test_add_longlong(LONGLONG_MIN, 1) == LONGLONG_MIN+1
++   True
++   >>> test_add_longlong(LONGLONG_MAX, -1) == LONGLONG_MAX-1
++   True
++   >>> test_add_longlong(LONGLONG_MAX, 0) == LONGLONG_MAX
++   True
++   >>> test_add_longlong(LONGLONG_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef long long r = x + y
++   return r
++
++SLONGLONG_MAX = <signed long long>((<unsigned long long>-1)>>1)
++SLONGLONG_MIN = (-SLONGLONG_MAX-1)
++
++def test_slonglong(long long x):
++   u"""
++   >>> test_slonglong(SLONGLONG_MIN-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_slonglong(SLONGLONG_MIN) == SLONGLONG_MIN
++   True
++   >>> print(test_slonglong(-1))
++   -1
++   >>> print(test_slonglong(0))
++   0
++   >>> print(test_slonglong(1))
++   1
++   >>> test_slonglong(SLONGLONG_MAX) == SLONGLONG_MAX
++   True
++   >>> test_slonglong(SLONGLONG_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_slonglong(x, y):
++   u"""
++   >>> test_add_slonglong(SLONGLONG_MIN, -1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> test_add_slonglong(SLONGLONG_MIN, 0) == SLONGLONG_MIN
++   True
++   >>> test_add_slonglong(SLONGLONG_MIN, 1) == SLONGLONG_MIN+1
++   True
++   >>> test_add_slonglong(SLONGLONG_MAX, -1) == SLONGLONG_MAX-1
++   True
++   >>> test_add_slonglong(SLONGLONG_MAX, 0) == SLONGLONG_MAX
++   True
++   >>> test_add_slonglong(SLONGLONG_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef signed long long r = x + y
++   return r
++
++ULONGLONG_MAX = <unsigned long long>(<unsigned long long>-1)
++
++def test_ulonglong(unsigned long long x):
++   u"""
++   >>> test_ulonglong(-1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   >>> print(test_ulonglong(0))
++   0
++   >>> print(test_ulonglong(1))
++   1
++   >>> test_ulonglong(ULONGLONG_MAX) == ULONGLONG_MAX
++   True
++   >>> test_ulonglong(ULONGLONG_MAX+1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   return x
++
++def test_add_ulonglong(x, y):
++   u"""
++   >>> test_add_ulonglong(ULONGLONG_MAX, 0) == ULONGLONG_MAX
++   True
++   >>> test_add_ulonglong(ULONGLONG_MAX, 1) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   OverflowError: ...
++   """
++   cdef unsigned long long r = x + y
++   return r
++
++# -------------------------------------------------------------------
++import sys
++
++class MyInt(object):
++   def __init__(self, value):
++      self.value = value
++   def __int__(self):
++      print(u"MyInt.__int__()")
++      return self.value
++
++class MyBadInt(MyInt):
++   def __int__(self):
++      return u"%s" % self.value
++
++def test_convert_pyint(x):
++   u"""
++   >>> test_convert_pyint(None)
++   Traceback (most recent call last):
++       ...
++   TypeError: an integer is required
++   >>> test_convert_pyint("123")
++   Traceback (most recent call last):
++       ...
++   TypeError: an integer is required
++   >>> test_convert_pyint(MyBadInt(0)) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   TypeError: ... returned non-... (type ...)
++
++   >>> test_convert_pyint(False) == 0
++   True
++   >>> test_convert_pyint(True) == 1
++   True
++   >>> test_convert_pyint(3.14) == 3
++   True
++
++   >>> test_convert_pyint(MyInt(LONG_MIN)) == LONG_MIN
++   MyInt.__int__()
++   True
++   >>> test_convert_pyint(MyInt(0)) == 0
++   MyInt.__int__()
++   True
++   >>> test_convert_pyint(MyInt(LONG_MAX)) == LONG_MAX
++   MyInt.__int__()
++   True
++   """
++   cdef long r = x
++   return r
++
++class MyLong(object):
++   def __init__(self, value):
++      self.value = value
++   def __int__(self): # Python 3
++      return self.__long__()
++   def __long__(self):
++      print(u"MyInt.__long__()")
++      return self.value
++
++class MyBadLong(MyLong):
++   def __long__(self):
++      return u"%s" % self.value
++
++def test_convert_pylong(x):
++   u"""
++   >>> test_convert_pylong(None)
++   Traceback (most recent call last):
++       ...
++   TypeError: an integer is required
++   >>> test_convert_pylong("123")
++   Traceback (most recent call last):
++       ...
++   TypeError: an integer is required
++   >>> test_convert_pylong(MyBadLong(0)) #doctest: +ELLIPSIS
++   Traceback (most recent call last):
++       ...
++   TypeError: ... returned non-... (type ...)
++
++   >>> test_convert_pylong(False) == 0
++   True
++   >>> test_convert_pylong(True) == 1
++   True
++   >>> test_convert_pylong(3.14) == 3
++   True
++
++   >>> test_convert_pylong(MyLong(LONGLONG_MIN)) == LONGLONG_MIN
++   MyInt.__long__()
++   True
++   >>> test_convert_pylong(MyLong(0)) == 0
++   MyInt.__long__()
++   True
++   >>> test_convert_pylong(MyLong(LONGLONG_MAX)) == LONGLONG_MAX
++   MyInt.__long__()
++   True
++   """
++   cdef long long r = x
++   return r
++
++# -------------------------------------------------------------------
++
++__doc__ = u"".join([
++      f.__doc__ for f in (
++         #
++         test_char,  test_add_char,
++         test_schar, test_add_schar,
++         test_uchar, test_add_uchar,
++         #
++         test_short,  test_add_short,
++         test_sshort, test_add_sshort,
++         test_ushort, test_add_ushort,
++         #
++         test_int,  test_add_int,
++         test_sint, test_add_sint,
++         test_uint, test_add_uint,
++         #
++         test_long,  test_add_long,
++         test_slong, test_add_slong,
++         test_ulong, test_add_ulong,
++         #
++         test_longlong,  test_add_longlong,
++         test_slonglong, test_add_slonglong,
++         test_ulonglong, test_add_ulonglong,
++         #
++         test_convert_pyint,
++         test_convert_pylong,
++         )
++    ])
++
++# -------------------------------------------------------------------
