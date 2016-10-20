@@ -87,9 +87,65 @@
                 "type": "User",
                 "url": "https://api.github.com/users/robertwb"
             }
+        },
+        {
+            "body": "Hello again,\r\nI just read the [CHANGES.rst](https://github.com/cython/cython/blob/master/CHANGES.rst) file, and I think it's great that `cppclass` will be able to have `typedef` members now!\r\n\r\nHowever, I was refering to defining types that were inside a template.\r\nSnippets say more than 10000 words, sorry here it goes.\r\nNow I have two questions (but very similar), one for typenames and another for typedefs.\r\n\r\n---\r\n# typenames\r\n\r\nSo I have these c++ definitions (*):\r\n```c++\r\n// defs_1.h\r\nstruct StepperBS{\r\n   typedef double Dtype; // define a type\r\n   int k;\r\n   // more members...\r\n}\r\n```\r\n\r\nand, for example, I could use `StepperBS` as template in another C++ `.h` file:\r\n```c++\r\n// defs_2.h\r\ntemplate<class Stp>\r\nstruct Odeint {\r\n   \tint nok;\r\n   \ttypename Stp::Dtype my_Dtype; // catch a type from `Stp`\r\n}\r\n```\r\n\r\nSo far, all legal. But if I tried to write an analog of `defs_2.h` in Cython, I tried:\r\n\r\n```cython\r\n# defs_2.pxd\r\ncdef extern from \"defs_1.h\":\r\n    cdef cppclass Odeint[Stp]:\r\n        int nok\r\n        cdef typename Stp.Dtype my_Dtype # trying to catch `Dtype`\r\n```\r\nwhich did not compile. But then I thought that since Cython translates .pyx to .cpp, this templated-class-type `Dtype` is well defined, so in principle it could/should be implemented in the Cython compiler?\r\n\r\n---\r\n\r\n# typedefs\r\n\r\n(*) a more general version of `defs_1.h` would be:\r\n```c++\r\n# defs_1.h\r\ntemplate <class D>\r\nstruct StepperBS{\r\n   typedef D Dtype; // define a type, catching it from `D`\r\n   int k;\r\n```\r\nwhich also tries to catch a type from `D`. As the `0.25` version will allow `cppclass` to have `typedef` members, the question would be if it will grab the types in this fashion:\r\n```cython\r\ncdef extern from \"odeintt.h\":\r\n    cdef cppclass Odeint[Stepper]:\r\n        Odeint()\r\n        cdef typename Stepper.Dtype my_Dtype # trying to catch `Dtype`\r\n```\r\nor something like that?\r\n\r\nI hope I was clear with these snippets. Thanks!",
+            "created_at": "2016-10-13T22:02:09Z",
+            "html_url": "https://github.com/cython/cython/issues/1481#issuecomment-253651870",
+            "id": 253651870,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1481",
+            "updated_at": "2016-10-13T22:02:09Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/253651870",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/12090706?v=3",
+                "events_url": "https://api.github.com/users/jimsrc/events{/privacy}",
+                "followers_url": "https://api.github.com/users/jimsrc/followers",
+                "following_url": "https://api.github.com/users/jimsrc/following{/other_user}",
+                "gists_url": "https://api.github.com/users/jimsrc/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/jimsrc",
+                "id": 12090706,
+                "login": "jimsrc",
+                "organizations_url": "https://api.github.com/users/jimsrc/orgs",
+                "received_events_url": "https://api.github.com/users/jimsrc/received_events",
+                "repos_url": "https://api.github.com/users/jimsrc/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/jimsrc/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/jimsrc/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/jimsrc"
+            }
+        },
+        {
+            "body": "These snippets make things much clearer, thanks. \r\n\r\nWe don't really have the ability to defer attribute lookups until template instantiation time, which is what this would require. If you now the type is going to be some kind of int, you could write, e.g.\r\n```\r\n    cdef cppclass Odeint[Stepper]:\r\n        typedef int my_Dtype\r\n```\r\nand Odeint::my_Dtype will be used in the generated code.",
+            "created_at": "2016-10-18T20:11:26Z",
+            "html_url": "https://github.com/cython/cython/issues/1481#issuecomment-254624918",
+            "id": 254624918,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1481",
+            "updated_at": "2016-10-18T20:11:26Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/254624918",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            }
         }
     ],
-    "comments": 3,
+    "comments": 5,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1481/comments",
     "created_at": "2016-10-09T04:52:57Z",
     "event_data": [
@@ -196,7 +252,7 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "closed",
     "title": "exposing c++ typename to cython",
-    "updated_at": "2016-10-12T18:30:56Z",
+    "updated_at": "2016-10-18T20:11:26Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1481",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/12090706?v=3",
