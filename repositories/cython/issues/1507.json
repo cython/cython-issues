@@ -2,7 +2,7 @@
     "assignee": null,
     "assignees": [],
     "body": "Calling `cythonize` with an instance of `setuptools.extension.Extension` raises an `AttributeError`.\nThe cause is that `setuptools.extension.Extension` subclasses [`distutils.extension.Extension`](https://github.com/python/cpython/blob/ee324a8f516318e84914ebd18f3e8068faec14f9/Lib/distutils/extension.py#L26), which is defined as an old-style class. These types can be [confirmed](http://stackoverflow.com/a/2654781/1959808) with:\n\n``` python\nimport distutils.core.Extension\nimport types\nimport setuptools.extension.Extension\n\nassert type(distutils.core.Extension) != types.TypeType\nassert type(setuptools.extension.Extension) != types.TypeType\n```\n\nThis behavior arises with:\n- `setuptools == 28.7.0`\n- `cython == 0.25.1`\n\nThis issue did not exist with earlier `cython` versions.\nCloser examination of the [docstring](https://github.com/cython/cython/blob/278a567621d586af74a1c845de0a1426b686c72e/Cython/Build/Dependencies.py#L768) of function `cythonize` reveals that one should pass a list of `Extension` objects:\n\n```\nAs module list, pass either a glob pattern, a list of glob patterns or a list of\n    Extension objects.  The latter allows you to configure the extensions separately\n    through the normal distutils options.\n```\n\nSo, my usage was wrong. Indeed, passing a `list` of `Extension` objects avoids the error. Since this error did not exist in the past, and because I believe that I followed some example when I initially wrote the code to pass an extension itself, I wonder whether this case is supposed to be supported, or if not, whether it should be emphasized in the docstring. Tracing the cause took a long time, especially because I assumed that `cythonize` was already properly called.\n\nOne workaround is to [create a new-style subclass](https://github.com/johnyf/dd/blob/af59d90a893c27d3070d6584297f671eb4fe2c20/download.py#L79):\n\n``` python\nclass Extension(setuptools.extension.Extension,object):\n    pass\n```\n\nThis works fine. Traceback from [`dd/download.py`](https://github.com/johnyf/dd/blob/af59d90a893c27d3070d6584297f671eb4fe2c20/download.py#L118) when `object` is removed from the above subclass definition:\n\n``` python\ndd:python setup.py install --cudd --linetrace\ncompile Cython extensions with line tracing\nTraceback (most recent call last):\n  File \"setup.py\", line 136, in <module>\n    run_setup()\n  File \"setup.py\", line 93, in run_setup\n    extensions = download.extensions(directives)\n  File \"/path/dd/download.py\", line 119, in extensions\n    v, compiler_directives=directives)\n  File \"~/.virtualenvs/dev/lib/python2.7/site-packages/Cython/Build/Dependencies.py\", line 809, in cythonize\n    aliases=aliases)\n  File \"~/.virtualenvs/dev/lib/python2.7/site-packages/Cython/Build/Dependencies.py\", line 648, in create_extension_list\n    elif isinstance(patterns, basestring) or not isinstance(patterns, collections.Iterable):\n  File \"~/.virtualenvs/dev/lib/python2.7/abc.py\", line 144, in __instancecheck__\n    return cls.__subclasscheck__(subtype)\n  File \"~/.virtualenvs/dev/lib/python2.7/abc.py\", line 180, in __subclasscheck__\n    if issubclass(subclass, scls):\n  File \"~/.virtualenvs/dev/lib/python2.7/abc.py\", line 180, in __subclasscheck__\n    if issubclass(subclass, scls):\n  File \"/home/ioannis/.virtualenvs/dev/lib/python2.7/abc.py\", line 161, in __subclasscheck__\n    ok = cls.__subclasshook__(subclass)\n  File \"~/.virtualenvs/dev/lib/python2.7/site-packages/backports_abc.py\", line 66, in __subclasshook__\n    mro = C.__mro__\nAttributeError: class Extension has no attribute '__mro__'\n```\n\nThe failure is due to the `isinstance(patterns, collections.Iterable)`. It can be reproduced as follows:\n\n``` python\nimport collections\n\nfrom Cython.Build import cythonize\nfrom setuptools.extension import Extension\n\na = Extension('foo', sources=['foo.pyx'])\n\nisinstance([a], collections.Iterable)  # works fine\nisinstance(a, collections.Iterable)  # raises `AttributeError`\n```\n\nI will report this issue also to `setuptools`, though it seems to me that defining an old-style class is intentional there.\n",
-    "closed_at": null,
+    "closed_at": "2016-11-15T23:59:27Z",
     "comment_data": [
         {
             "body": "Exactly seeing this error in my travis tests after update to 0.25.1. \r\n\r\n(updated since I see the workaround)",
@@ -199,9 +199,65 @@
                 "type": "User",
                 "url": "https://api.github.com/users/johnyf"
             }
+        },
+        {
+            "body": "Fixed there: https://github.com/cython/backports_abc/issues/7",
+            "created_at": "2016-11-15T23:59:27Z",
+            "html_url": "https://github.com/cython/cython/issues/1507#issuecomment-260809975",
+            "id": 260809975,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1507",
+            "updated_at": "2016-11-15T23:59:27Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/260809975",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            }
+        },
+        {
+            "body": "Thanks for fixing this issue.",
+            "created_at": "2016-11-16T00:40:25Z",
+            "html_url": "https://github.com/cython/cython/issues/1507#issuecomment-260817357",
+            "id": 260817357,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1507",
+            "updated_at": "2016-11-16T00:40:25Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/260817357",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/3135273?v=3",
+                "events_url": "https://api.github.com/users/johnyf/events{/privacy}",
+                "followers_url": "https://api.github.com/users/johnyf/followers",
+                "following_url": "https://api.github.com/users/johnyf/following{/other_user}",
+                "gists_url": "https://api.github.com/users/johnyf/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/johnyf",
+                "id": 3135273,
+                "login": "johnyf",
+                "organizations_url": "https://api.github.com/users/johnyf/orgs",
+                "received_events_url": "https://api.github.com/users/johnyf/received_events",
+                "repos_url": "https://api.github.com/users/johnyf/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/johnyf/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/johnyf/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/johnyf"
+            }
         }
     ],
-    "comments": 7,
+    "comments": 9,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1507/comments",
     "created_at": "2016-10-29T03:06:54Z",
     "event_data": [
@@ -343,6 +399,33 @@
             "event": "subscribed",
             "id": 848719925,
             "url": "https://api.github.com/repos/cython/cython/issues/events/848719925"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2016-11-15T23:59:27Z",
+            "event": "closed",
+            "id": 860286716,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/860286716"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/1507/events",
@@ -354,9 +437,9 @@
     "milestone": null,
     "number": 1507,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "title": "cythonize fails when given `setuptools.extension.Extension`",
-    "updated_at": "2016-11-05T06:18:13Z",
+    "updated_at": "2016-11-16T00:40:25Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1507",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/3135273?v=3",
