@@ -1,11 +1,11 @@
 {
     "assignee": null,
     "assignees": [],
-    "body": "The [docs](http://cython.readthedocs.io/en/latest/src/userguide/wrapping_CPlusPlus.html) say that C++ containers may be iterated over \"Pythonically\" using \"for .. in\" syntax.\r\n\r\nThis works, but only sometimes.  The code that Cython generates is not const-correct.  Further, the code generated differs depending on the type of C++ container, affecting whether or not a function can be marked \"nogil\".\r\n\r\nFully-worked out examples are in this [git repo](https://github.com/molpopgen/CythonCpp), but here is a copy/paste of some Cython code with comments to document the issue:\r\n\r\n~~~{.py}\r\nfrom libcpp.map cimport map\r\nfrom libcpp.vector cimport vector\r\n\r\n#The map cannot be passed in as const,\r\n#otherwise will fail to compile.\r\n#Looking at the generated .cpp\r\n#shows that Cython will declare\r\n#iterator instead of const_iterator\r\n#if foo is passed in as const:\r\n#static unsigned int __pyx_f_10auto_like1_iterate_map(std::map<unsigned int,unsigned int>  const &__pyx_v_foo) {\r\n#  unsigned int __pyx_v_sum1;\r\n#  std::pair<unsigned int,unsigned int>  __pyx_v_i;\r\n#  unsigned int __pyx_r;\r\n#  std::map<unsigned int,unsigned int> ::iterator __pyx_t_1;\r\n#  std::pair<unsigned int,unsigned int>  __pyx_t_2;\r\ncdef unsigned iterate_map(map[unsigned,unsigned] & foo) nogil:\r\n\r\n    cdef unsigned sum1=0\r\n    for i in foo:\r\n        sum1+=i.second\r\n\r\n    return sum1\r\n\r\n#When used with a vector, \r\n#and modeling after the iterate_map function,\r\n#the function must NOT be nogil, else Cython will\r\n#fail to generate a .cpp file...\r\ncdef unsigned iterate_vector(vector[unsigned] & foo):\r\n\r\n    cdef unsigned sum1=0\r\n    #This code is generating PyObject temporaries,\r\n    #but the iterate_map function above correctly \r\n    #generated the pair as the temporary:\r\n    #static unsigned int __pyx_f_10auto_like1_iterate_vector(std::vector<unsigned int>  &__pyx_v_foo) {\r\n    #unsigned int __pyx_v_sum1;\r\n    #PyObject *__pyx_v_i = NULL;\r\n    #unsigned int __pyx_r;\r\n    #__Pyx_RefNannyDeclarations\r\n    #std::vector<unsigned int> ::iterator __pyx_t_1;\r\n    #unsigned int __pyx_t_2;\r\n    #PyObject *__pyx_t_3 = NULL;\r\n    #PyObject *__pyx_t_4 = NULL;\r\n    for i in foo:\r\n        sum1+=i\r\n\r\n    return sum1\r\n\r\n#...unless i gets declared as a cdef variable:\r\ncdef unsigned iterate_vector2(vector[unsigned] & foo) nogil:\r\n\r\n    cdef unsigned sum1=0\r\n    cdef unsigned i\r\n    for i in foo:\r\n        sum1+=i\r\n\r\n    return sum1\r\n~~~\r\n",
+    "body": "The [docs](http://cython.readthedocs.io/en/latest/src/userguide/wrapping_CPlusPlus.html) say that C++ containers may be iterated over \"Pythonically\" using \"for .. in\" syntax.\n\nThis works, but only sometimes.  The code that Cython generates is not const-correct.  Further, the code generated differs depending on the type of C++ container, affecting whether or not a function can be marked \"nogil\".\n\nFully-worked out examples are in this [git repo](https://github.com/molpopgen/CythonCpp), but here is a copy/paste of some Cython code with comments to document the issue:\n\n``` .py\nfrom libcpp.map cimport map\nfrom libcpp.vector cimport vector\n\n#The map cannot be passed in as const,\n#otherwise will fail to compile.\n#Looking at the generated .cpp\n#shows that Cython will declare\n#iterator instead of const_iterator\n#if foo is passed in as const:\n#static unsigned int __pyx_f_10auto_like1_iterate_map(std::map<unsigned int,unsigned int>  const &__pyx_v_foo) {\n#  unsigned int __pyx_v_sum1;\n#  std::pair<unsigned int,unsigned int>  __pyx_v_i;\n#  unsigned int __pyx_r;\n#  std::map<unsigned int,unsigned int> ::iterator __pyx_t_1;\n#  std::pair<unsigned int,unsigned int>  __pyx_t_2;\ncdef unsigned iterate_map(map[unsigned,unsigned] & foo) nogil:\n\n    cdef unsigned sum1=0\n    for i in foo:\n        sum1+=i.second\n\n    return sum1\n\n#When used with a vector, \n#and modeling after the iterate_map function,\n#the function must NOT be nogil, else Cython will\n#fail to generate a .cpp file...\ncdef unsigned iterate_vector(vector[unsigned] & foo):\n\n    cdef unsigned sum1=0\n    #This code is generating PyObject temporaries,\n    #but the iterate_map function above correctly \n    #generated the pair as the temporary:\n    #static unsigned int __pyx_f_10auto_like1_iterate_vector(std::vector<unsigned int>  &__pyx_v_foo) {\n    #unsigned int __pyx_v_sum1;\n    #PyObject *__pyx_v_i = NULL;\n    #unsigned int __pyx_r;\n    #__Pyx_RefNannyDeclarations\n    #std::vector<unsigned int> ::iterator __pyx_t_1;\n    #unsigned int __pyx_t_2;\n    #PyObject *__pyx_t_3 = NULL;\n    #PyObject *__pyx_t_4 = NULL;\n    for i in foo:\n        sum1+=i\n\n    return sum1\n\n#...unless i gets declared as a cdef variable:\ncdef unsigned iterate_vector2(vector[unsigned] & foo) nogil:\n\n    cdef unsigned sum1=0\n    cdef unsigned i\n    for i in foo:\n        sum1+=i\n\n    return sum1\n```\n",
     "closed_at": null,
     "comment_data": [
         {
-            "body": "Whether the code can be declared \"nogil\" depends solely on the type of the target (loop) variable (which, for integer expressions involving arithmetic, is object to handle potential overflow). \r\n\r\nHowever, `const_iterator` (and hence const overload support) do need to be added to the language to make this work though, might as well [jump into the tar pit](http://yosefk.com/c++fqa/const.html#fqa-18.3). Until then I suppose a const cast is the way to go. ",
+            "body": "Whether the code can be declared \"nogil\" depends solely on the type of the target (loop) variable (which, for integer expressions involving arithmetic, is object to handle potential overflow). \n\nHowever, `const_iterator` (and hence const overload support) do need to be added to the language to make this work though, might as well [jump into the tar pit](http://yosefk.com/c++fqa/const.html#fqa-18.3). Until then I suppose a const cast is the way to go. \n",
             "created_at": "2016-08-28T06:57:29Z",
             "html_url": "https://github.com/cython/cython/issues/1451#issuecomment-242959802",
             "id": 242959802,
@@ -33,7 +33,7 @@
             }
         },
         {
-            "body": "The \"nogil\" thing is weird to me, because I see no reason why Cython should auto-generate a C++ type for the temporary container in one case and a Python type in another.   The case of overflow doesn't seem relevant here, as we are talking about the value_type of an iterator as a temporary variable.   When writing a function in Cython, I'm free to user larger-width variables for arithmetic, but that should be up to me.  For example, I can sum my vector<integer> into a std::uint64_t, etc. And if I want my function to be not-nogil, I can use the Python int type myself.\r\n\r\nThese iterations all have the same common form:\r\n\r\n~~~{.cpp}\r\ncontainer_type::const_iterator i\r\ncontainer_type::const_iterator::value_type temp;\r\nfor(i = foo.begin();i!=foo.end();++i) {\r\n     //not idiomatic, but it'll do.\r\n     const_cast<container_type::iterator::value_type>(temp) = *i;\r\n}\r\n~~~\r\n\r\nDoing different things for different container types, or value_types, seems like it could have weird side-effects.   Change a ctypedef somewhere and suddenly nogil functions will no longer compile.\r\n\r\nSo, I still think that outputting a C++ type for one type of container, and a Python type in a different contest, is an issue.  At the very least, the inconsistency should be documented.  It took a while to work out what was going on and why.\r\n\r\n",
+            "body": "The \"nogil\" thing is weird to me, because I see no reason why Cython should auto-generate a C++ type for the temporary container in one case and a Python type in another.   The case of overflow doesn't seem relevant here, as we are talking about the value_type of an iterator as a temporary variable.   When writing a function in Cython, I'm free to user larger-width variables for arithmetic, but that should be up to me.  For example, I can sum my vector<integer> into a std::uint64_t, etc. And if I want my function to be not-nogil, I can use the Python int type myself.\n\nThese iterations all have the same common form:\n\n``` .cpp\ncontainer_type::const_iterator i\ncontainer_type::const_iterator::value_type temp;\nfor(i = foo.begin();i!=foo.end();++i) {\n     //not idiomatic, but it'll do.\n     const_cast<container_type::iterator::value_type>(temp) = *i;\n}\n```\n\nDoing different things for different container types, or value_types, seems like it could have weird side-effects.   Change a ctypedef somewhere and suddenly nogil functions will no longer compile.\n\nSo, I still think that outputting a C++ type for one type of container, and a Python type in a different contest, is an issue.  At the very least, the inconsistency should be documented.  It took a while to work out what was going on and why.\n",
             "created_at": "2016-08-28T16:12:59Z",
             "html_url": "https://github.com/cython/cython/issues/1451#issuecomment-242983135",
             "id": 242983135,
@@ -61,7 +61,7 @@
             }
         },
         {
-            "body": "I think you're still misunderstanding; the code compiles down to\r\n\r\n```\r\nwhile iter != foo.end():\r\n  i = *iter\r\n  sum1 += i\r\n  ++iter\r\n  ...\r\n```\r\n\r\nThe type of ``i`` is inferred from the type of ``*iter``, the same as if one wrote\r\n\r\n```\r\ni = 3  # or an int-returning function\r\nsum1 += i\r\n```\r\n\r\nThe variable ``i`` may have assignments elsewhere, but for variables used in arithmetic expressions it is unsafe to infer the type to be a C int (due to possible overflow). Any container, even an ``int[]``, whose elements are integers has this property. \r\n\r\nI committed https://github.com/cython/cython/commit/4420cb6eda700ab721b83b843cb0da85e9e6fd3b which should help somewhat. If there's still confusion, or you have better suggestions, it'd be helpful to send an email to cython-users@ which is more suitable for this kind of discussion. ",
+            "body": "I think you're still misunderstanding; the code compiles down to\n\n```\nwhile iter != foo.end():\n  i = *iter\n  sum1 += i\n  ++iter\n  ...\n```\n\nThe type of `i` is inferred from the type of `*iter`, the same as if one wrote\n\n```\ni = 3  # or an int-returning function\nsum1 += i\n```\n\nThe variable `i` may have assignments elsewhere, but for variables used in arithmetic expressions it is unsafe to infer the type to be a C int (due to possible overflow). Any container, even an `int[]`, whose elements are integers has this property. \n\nI committed https://github.com/cython/cython/commit/4420cb6eda700ab721b83b843cb0da85e9e6fd3b which should help somewhat. If there's still confusion, or you have better suggestions, it'd be helpful to send an email to cython-users@ which is more suitable for this kind of discussion. \n",
             "created_at": "2016-08-29T17:47:10Z",
             "html_url": "https://github.com/cython/cython/issues/1451#issuecomment-243198581",
             "id": 243198581,
@@ -87,9 +87,65 @@
                 "type": "User",
                 "url": "https://api.github.com/users/robertwb"
             }
+        },
+        {
+            "body": "If I'm not wrong we do have `const_iterators` now, so it should be possible that a function like\r\n\r\n``` cython\r\ncdef vec_decode(const vector[string]& items) with gil:\r\n    return [item.decode() for item in items]\r\n```\r\n\r\ncan be compiled const-correctly? With `0.25.2`, code is generated but does not compile.\r\n\r\n<details>\r\n<summary>This is as the vector returns a const_iterator with its begin() function but the iterator variable is for storing the non-const iterator. Click here for details.\r\n</summary>\r\n\r\n<pre>\r\n[  1%] Building CXX object openage/util/fslike/CMakeFiles/openage_util_fslike_cpp.dir/cpp.cpp.o\r\n/home/jj/devel/openage/openage/util/fslike/cpp.cpp: In function ‘PyObject* __pyx_f_7openage_4util_6fslike_3cpp_vec_decode(const std::vector<std::__cxx11::basic_string<char> >&)’:\r\n/home/jj/devel/openage/openage/util/fslike/cpp.cpp:1010:13: error: no match for ‘operator=’ (operand types are ‘std::vector<std::__cxx11::basic_string<char> >::iterator {aka __gnu_cxx::__normal_iterator<std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >}’ and ‘std::vector<std::__cxx11::basic_string<char> >::const_iterator {aka __gnu_cxx::__normal_iterator<const std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >}’)\r\n   __pyx_t_2 = __pyx_v_items.begin();\r\n             ^\r\nIn file included from /usr/lib/gcc/x86_64-pc-linux-gnu/5.4.0/include/g++-v5/bits/stl_algobase.h:67:0,\r\n                 from /usr/lib/gcc/x86_64-pc-linux-gnu/5.4.0/include/g++-v5/bits/char_traits.h:39,\r\n                 from /usr/lib/gcc/x86_64-pc-linux-gnu/5.4.0/include/g++-v5/ios:40,\r\n                 from /usr/lib/gcc/x86_64-pc-linux-gnu/5.4.0/include/g++-v5/ostream:38,\r\n                 from /usr/lib/gcc/x86_64-pc-linux-gnu/5.4.0/include/g++-v5/iostream:39,\r\n                 from /home/jj/devel/openage/libopenage/pyinterface/../error/error.h:5,\r\n                 from /home/jj/devel/openage/libopenage/pyinterface/exctranslate.h:19,\r\n                 from /home/jj/devel/openage/libopenage/pyinterface/hacks.h:21,\r\n                 from <command-line>:0:\r\n/usr/lib/gcc/x86_64-pc-linux-gnu/5.4.0/include/g++-v5/bits/stl_iterator.h:721:11: note: candidate: constexpr __gnu_cxx::__normal_iterator<std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >& __gnu_cxx::__normal_iterator<std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >::operator=(const __gnu_cxx::__normal_iterator<std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >&)\r\n     class __normal_iterator\r\n           ^\r\n/usr/lib/gcc/x86_64-pc-linux-gnu/5.4.0/include/g++-v5/bits/stl_iterator.h:721:11: note:   no known conversion for argument 1 from ‘std::vector<std::__cxx11::basic_string<char> >::const_iterator {aka __gnu_cxx::__normal_iterator<const std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >}’ to ‘const __gnu_cxx::__normal_iterator<std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >&’\r\n/usr/lib/gcc/x86_64-pc-linux-gnu/5.4.0/include/g++-v5/bits/stl_iterator.h:721:11: note: candidate: constexpr __gnu_cxx::__normal_iterator<std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >& __gnu_cxx::__normal_iterator<std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >::operator=(__gnu_cxx::__normal_iterator<std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >&&)\r\n/usr/lib/gcc/x86_64-pc-linux-gnu/5.4.0/include/g++-v5/bits/stl_iterator.h:721:11: note:   no known conversion for argument 1 from ‘std::vector<std::__cxx11::basic_string<char> >::const_iterator {aka __gnu_cxx::__normal_iterator<const std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >}’ to ‘__gnu_cxx::__normal_iterator<std::__cxx11::basic_string<char>*, std::vector<std::__cxx11::basic_string<char> > >&&’\r\n</pre>\r\n</details>\r\n<br/>\r\n\r\n\r\nThis may be easy to fix now, I imagine that it might be enough to change the iterator type (in the compiled code it's `__pyx_t_2`) the const iterator type if the container is marked const.",
+            "created_at": "2017-02-02T00:43:46Z",
+            "html_url": "https://github.com/cython/cython/issues/1451#issuecomment-276831086",
+            "id": 276831086,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1451",
+            "updated_at": "2017-02-02T00:43:46Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/276831086",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/673543?v=3",
+                "events_url": "https://api.github.com/users/TheJJ/events{/privacy}",
+                "followers_url": "https://api.github.com/users/TheJJ/followers",
+                "following_url": "https://api.github.com/users/TheJJ/following{/other_user}",
+                "gists_url": "https://api.github.com/users/TheJJ/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/TheJJ",
+                "id": 673543,
+                "login": "TheJJ",
+                "organizations_url": "https://api.github.com/users/TheJJ/orgs",
+                "received_events_url": "https://api.github.com/users/TheJJ/received_events",
+                "repos_url": "https://api.github.com/users/TheJJ/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/TheJJ/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/TheJJ/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/TheJJ"
+            }
+        },
+        {
+            "body": "Vector is defined at \r\n\r\nhttps://github.com/cython/cython/blob/master/Cython/Includes/libcpp/vector.pxd\r\n\r\nits `begin` method (from which `__pyx_t_2` gets its type) is defined as returning a (non-const) `iterator`\r\n\r\nhttps://github.com/cython/cython/blob/0.25.2/Cython/Includes/libcpp/vector.pxd#L50\r\n\r\nwhich is what is used in the \"for..in\" loop. Cython's understanding of const is fairly shallow, it doesn't have the notion of the type `const T` having a different set of methods than those of `T`. Which is why this bug remains open.",
+            "created_at": "2017-02-02T04:36:31Z",
+            "html_url": "https://github.com/cython/cython/issues/1451#issuecomment-276866399",
+            "id": 276866399,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1451",
+            "updated_at": "2017-02-02T04:36:31Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/276866399",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            }
         }
     ],
-    "comments": 3,
+    "comments": 5,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1451/comments",
     "created_at": "2016-08-26T21:30:58Z",
     "event_data": [
@@ -136,7 +192,7 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "Iterating over const C++ containers with \"for .. in\" syntax not const correct.",
-    "updated_at": "2016-08-29T17:47:10Z",
+    "updated_at": "2017-02-02T04:36:31Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1451",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/6416159?v=3",
