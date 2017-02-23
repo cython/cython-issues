@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/1607"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/dd775d02b04334bb5c89b718f56008739aa12219"
+            "href": "https://api.github.com/repos/cython/cython/statuses/ec2986da3a78678edad5058f2fe1473194080947"
         }
     },
     "assignee": null,
@@ -49,8 +49,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 486,
-            "forks_count": 486,
+            "forks": 485,
+            "forks_count": 485,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -77,8 +77,8 @@
             "mirror_url": null,
             "name": "cython",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 348,
-            "open_issues_count": 348,
+            "open_issues": 350,
+            "open_issues_count": 350,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=3",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -100,11 +100,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2017-02-15T21:15:09Z",
+            "pushed_at": "2017-02-17T00:03:32Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
             "size": 47416,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 2105,
+            "stargazers_count": 2114,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -113,10 +113,10 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2017-02-16T11:06:20Z",
+            "updated_at": "2017-02-21T09:32:43Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 2105,
-            "watchers_count": 2105
+            "watchers": 2114,
+            "watchers_count": 2114
         },
         "sha": "299ad1163ac8e72c1910da3e03013e7634a94b91",
         "user": {
@@ -141,7 +141,652 @@
     },
     "body": "I've been working for quite some time on the usage of Pythran as a backend for\r\nthe Numpy operations that Cython can generate. The associated PR on github can\r\nbe found here: . This work has been sponsored by the OpenDreamKit project\r\n(https://github.com/OpenDreamKit/OpenDreamKit/).\r\n\r\nFirst of all, the Pythran project\r\n(https://github.com/serge-sans-paille/pythran) is a (subset of) Python to C++\r\ncompiler, that aims at optimizing \"scientific\" Python code.  It also provides a\r\nfull C++ implementation of a major set of the Numpy API.  Some of the advantage\r\nof this implementation is that it supports expression templates and SIMD\r\ninstructions (partially thanks to Boost.SIMD [1]).\r\n\r\nOne of the limitation of the current Numpy support of Cython is that it relies\r\non the original Numpy Python module for a lot of computations. The overall idea\r\nis to replace these calls by the Numpy implementation provided within the\r\nPythran project.\r\n\r\nI'll discuss in this mail the various choices that have been made, why and some\r\nimplementation details. Then we'll also show some benchmark to see the\r\npotential improvements, which is the point of all this in the end :)\r\n\r\nPythran limitations\r\n-------------------\r\n\r\nThe Pythran Numpy implementation has some limitations:\r\n\r\n* array \"views\" are not supported. That means that arrays must be stored in\r\n  contiguous memory. Fortran and C-style format are supported.\r\n* the endianness of the integers must be the same that the one of the targeted\r\n  architecture (note that Cython has the same limitation)\r\n\r\nThat's why we did two things:\r\n\r\n* the usage of the Pythran backend needs to be explicitly asked by the user by\r\n  providing the --np-pythran flag to the Cython compiler, or by using the\r\n  \"np_pythran\" flag to the cythonize call (for distutils)\r\n* in function arguments, Numpy buffers are replaced by fused types to be able\r\n  to fall back in case of unsupported buffers. More on this below.\r\n\r\nImplementation choices and details within Cython\r\n------------------------------------------------\r\n\r\na) PythranExpr\r\n\r\nWe defined a new type in PyrexTypes.py, which defines a Pythran buffer or\r\nexpression. A Pythran expression is associated to a Pythran expression\r\ntemplate, whose C++ type can be something like \"decltype(a+b)\". We thus compose\r\nevery expression/function call like this, which allows us to use Pythran's\r\nexpression template mechanism.\r\n\r\nWe also choose to let the C++ compiler deduced the final type of every\r\nexpression, and emit errors if something goes wrong. This choice allows not to\r\nhave to rewrite in Python all the (potentially implicit) conversion rules that\r\ncan apply in a C/C++ program, which could be error prone. The disadvantage is\r\nthat it may generate not that trivial error messages for the end-user.\r\n\r\nb) Fused types for function arguments\r\n\r\nAs Pythran has some limitations about the Numpy buffers it can support, we\r\nchose to replace Numpy buffer arguments by a fused type that can be either a\r\nPythran buffer or the original Numpy buffer. The decision is made to use one\r\ntype or another according to the limitations described above.\r\n\r\nThis allows a fallback to the original Cython implementation in case of an\r\nunsupported buffer type.\r\n\r\nTests\r\n-----\r\n\r\nA flag has been added to the runtests.py script. If provided with a path to a\r\nPythran installation, it will run the C++ tests in \"Pythran\" mode. This allows\r\nto reuse the whole test suite of Cython.\r\n\r\nBenchmark\r\n---------\r\n\r\nThe whole idea of this is to get better performances.\r\n\r\nHere is a simple benchmark of what this mode can achieve, using this cython code:\r\n\r\ndef sqrt_sum(numpy.ndarray[numpy.float_t, ndim=1] a, numpy.ndarray[numpy.float_t, ndim=1] b):\r\n    return numpy.sqrt(numpy.sqrt(a*a+b*b))\r\n\r\nOn my computer (Core i7-6700HQ), this gives there results, with an array of\r\n100000000 32-bit floats as input:\r\n\r\n- for the classical Cython version: 960ms\r\n- for the Cython version using the Pythran backend: 761ms\r\n- for the Cython version using the Pythran backend using SIMD instructions: 243ms\r\n\r\nwhich makes a speedup of ~3.9x using SIMD instructions.\r\n\r\nDocumentation\r\n-------------\r\n\r\nI put an example of how to use this with distutils in the documentation. It\r\ncould be put elsewhere if needed, or formatted differently.",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101920692"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101920692"
+                }
+            },
+            "body": "We track (c)imports of the special \"cython\" module in a tree transform. We could do the same for the numpy module, that would make this test safer.",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T15:32:36Z",
+            "diff_hunk": "@@ -6561,6 +6711,11 @@ def analyse_as_python_attribute(self, env, obj_type=None, immutable_obj=False):\n         self.member = self.attribute\n         self.type = py_object_type\n         self.is_py_attr = 1\n+        # Check for numpy calls\n+        # TODO: this is a very weak test, but how to make it better?\n+        if self.obj.is_name and self.obj.name == \"numpy\":",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101920692",
+            "id": 101920692,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 348,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 348,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101920692",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101920736"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101920736"
+                }
+            },
+            "body": "There should be a space after the \",\" (as in a couple of other places).",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T15:34:58Z",
+            "diff_hunk": "@@ -10482,10 +10653,15 @@ def analyse_types(self, env):\n         return self\n \n     def analyse_operation(self, env):\n-        if self.is_py_operation():\n+        if self.is_pythran_operation(env):\n+            self.type = self.result_type(self.operand1.type,\n+                                         self.operand2.type,env)",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101920736",
+            "id": 101920736,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 411,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 411,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101920736",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101920944"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101920944"
+                }
+            },
+            "body": "I think a union is a better way to do this.\r\nhttps://stackoverflow.com/questions/1001307/detecting-endianness-programmatically-in-a-c-program/1001373#1001373",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T15:44:36Z",
+            "diff_hunk": "@@ -458,6 +483,12 @@ def _buffer_declarations(self, pyx_code, decl_code, all_buffer_types):\n                 except (ImportError, AttributeError, TypeError):\n                     ndarray = None\n             \"\"\")\n+        pyx_code.func_defs.put_chunk(\n+            u\"\"\"\n+                def __is_little_endian():\n+                    cdef int endian_detector = 1\n+                    return (<char*>&endian_detector)[0] != 0",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101920944",
+            "id": 101920944,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 110,
+            "path": "Cython/Compiler/FusedNode.py",
+            "position": 110,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101920944",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101921030"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101921030"
+                }
+            },
+            "body": "Yes, it's good to warn about this.",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T15:48:10Z",
+            "diff_hunk": "@@ -569,6 +570,10 @@ def __init__(self, defaults=None, **kw):\n         if options['cache'] is True:\n             options['cache'] = os.path.expanduser(\"~/.cycache\")\n \n+        if options['np_pythran'] and not options['cplus']:\n+            import warnings\n+            warnings.warn(\"C++ mode forced when in Pythran mode!\")",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101921030",
+            "id": 101921030,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 14,
+            "path": "Cython/Compiler/Main.py",
+            "position": 14,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101921030",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101921085"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101921085"
+                }
+            },
+            "body": "Static code like this should go into an external utility code file. I'd propose `CppSupport.cpp` in this case.",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T15:51:06Z",
+            "diff_hunk": "@@ -2841,6 +2851,26 @@ def generate_typeptr_assignment_code(self, entry, code):\n                 \"%s = &%s;\" % (\n                     type.typeptr_cname, type.typeobj_cname))\n \n+    def generate_pythran_conversion_code(self, env, code):\n+        code.putln('''\n+template <class T>\n+auto to_python_from_expr(T &&value) -> decltype(to_python(\n+      typename pythonic::returnable<typename std::remove_cv<typename std::remove_reference<T>::type>::type>::type{std::forward<T>(value)}))\n+{\n+  using returnable_type = typename pythonic::returnable<typename std::remove_cv<typename std::remove_reference<T>::type>::type>::type;\n+  return to_python(returnable_type{std::forward<T>(value)});\n+}\n+        ''')\n+\n+    def generate_cpp_inplace_object_destructor(self, env, code):\n+        code.putln('''\n+template <class T>\n+inline static void __cython_destructor(T& o)\n+{\n+  o.~T();\n+}\n+\t''')",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101921085",
+            "id": 101921085,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 68,
+            "path": "Cython/Compiler/ModuleNode.py",
+            "position": 68,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101921085",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101921204"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101921204"
+                }
+            },
+            "body": "PEP8 says: two empty lines between top-level constructs.",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T15:56:26Z",
+            "diff_hunk": "@@ -1058,7 +1063,6 @@ def same_as(self, other_type, compare_base=True):\n                 self.cast == other_type.cast and\n                 (not compare_base or self.base.same_as(other_type.base)))\n \n-",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101921204",
+            "id": 101921204,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 30,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 30,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101921204",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101921273"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101921273"
+                }
+            },
+            "body": "\"scope\" does not seem to be used below. Going straight for \"global_scope\" seems correct.",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T15:59:06Z",
+            "diff_hunk": "@@ -0,0 +1,154 @@\n+from .PyrexTypes import BufferType, CType, CTypedefType, CStructOrUnionType\n+\n+_pythran_var_prefix = \"__pythran__\"\n+# Pythran/Numpy specific operations\n+def has_np_pythran(env):\n+    scope = env.outer_scope\n+    while scope != None:\n+        scope = scope.outer_scope",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101921273",
+            "id": 101921273,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 8,
+            "path": "Cython/Compiler/Pythran.py",
+            "position": 8,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101921273",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101921332"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101921332"
+                }
+            },
+            "body": "I'd like to avoid hasattr() here and rather make sure that all types have it.",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T16:01:16Z",
+            "diff_hunk": "@@ -0,0 +1,154 @@\n+from .PyrexTypes import BufferType, CType, CTypedefType, CStructOrUnionType\n+\n+_pythran_var_prefix = \"__pythran__\"\n+# Pythran/Numpy specific operations\n+def has_np_pythran(env):\n+    scope = env.outer_scope\n+    while scope != None:\n+        scope = scope.outer_scope\n+    ctx = env.global_scope().context\n+    if ctx is None:\n+        return False\n+    options = ctx.options\n+    return options is not None and options.np_pythran\n+\n+def is_pythran_supported_dtype(type_):\n+    if isinstance(type_, CTypedefType):\n+        return is_pythran_supported_type(type_.typedef_base_type)\n+    return hasattr(type_,\"is_numeric\") and type_.is_numeric",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101921332",
+            "id": 101921332,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 18,
+            "path": "Cython/Compiler/Pythran.py",
+            "position": 18,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101921332",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101921382"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101921382"
+                }
+            },
+            "body": "Same as for \"is_numeric\" above, avoid hasattr().",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T16:03:08Z",
+            "diff_hunk": "@@ -0,0 +1,154 @@\n+from .PyrexTypes import BufferType, CType, CTypedefType, CStructOrUnionType\n+\n+_pythran_var_prefix = \"__pythran__\"\n+# Pythran/Numpy specific operations\n+def has_np_pythran(env):\n+    scope = env.outer_scope\n+    while scope != None:\n+        scope = scope.outer_scope\n+    ctx = env.global_scope().context\n+    if ctx is None:\n+        return False\n+    options = ctx.options\n+    return options is not None and options.np_pythran\n+\n+def is_pythran_supported_dtype(type_):\n+    if isinstance(type_, CTypedefType):\n+        return is_pythran_supported_type(type_.typedef_base_type)\n+    return hasattr(type_,\"is_numeric\") and type_.is_numeric\n+\n+def pythran_type(Ty,ptype=\"ndarray\"):\n+    if Ty.is_buffer:\n+        ndim,dtype = Ty.ndim, Ty.dtype\n+        if isinstance(dtype, CStructOrUnionType):\n+            ctype = dtype.cname\n+        elif isinstance(dtype, CType):\n+            ctype = dtype.sign_and_name()\n+        elif isinstance(dtype, CTypedefType):\n+            ctype = dtype.typedef_cname\n+        else:\n+            raise ValueError(\"unsupported type %s!\" % str(dtype))\n+        return \"pythonic::types::%s<%s,%d>\" % (ptype,ctype, ndim)\n+    from .PyrexTypes import PythranExpr\n+    if Ty.is_pythran_expr:\n+        return Ty.pythran_type\n+    if hasattr(Ty,\"is_none\") and Ty.is_none:",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101921382",
+            "id": 101921382,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 35,
+            "path": "Cython/Compiler/Pythran.py",
+            "position": 35,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101921382",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101921394"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101921394"
+                }
+            },
+            "body": "No need to call str() here, that's what \"%s\" does.",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T16:03:38Z",
+            "diff_hunk": "@@ -0,0 +1,154 @@\n+from .PyrexTypes import BufferType, CType, CTypedefType, CStructOrUnionType\n+\n+_pythran_var_prefix = \"__pythran__\"\n+# Pythran/Numpy specific operations\n+def has_np_pythran(env):\n+    scope = env.outer_scope\n+    while scope != None:\n+        scope = scope.outer_scope\n+    ctx = env.global_scope().context\n+    if ctx is None:\n+        return False\n+    options = ctx.options\n+    return options is not None and options.np_pythran\n+\n+def is_pythran_supported_dtype(type_):\n+    if isinstance(type_, CTypedefType):\n+        return is_pythran_supported_type(type_.typedef_base_type)\n+    return hasattr(type_,\"is_numeric\") and type_.is_numeric\n+\n+def pythran_type(Ty,ptype=\"ndarray\"):\n+    if Ty.is_buffer:\n+        ndim,dtype = Ty.ndim, Ty.dtype\n+        if isinstance(dtype, CStructOrUnionType):\n+            ctype = dtype.cname\n+        elif isinstance(dtype, CType):\n+            ctype = dtype.sign_and_name()\n+        elif isinstance(dtype, CTypedefType):\n+            ctype = dtype.typedef_cname\n+        else:\n+            raise ValueError(\"unsupported type %s!\" % str(dtype))\n+        return \"pythonic::types::%s<%s,%d>\" % (ptype,ctype, ndim)\n+    from .PyrexTypes import PythranExpr\n+    if Ty.is_pythran_expr:\n+        return Ty.pythran_type\n+    if hasattr(Ty,\"is_none\") and Ty.is_none:\n+        return \"decltype(pythonic::__builtin__::None)\"\n+    if Ty.is_numeric:\n+        return Ty.sign_and_name()\n+    raise ValueError(\"unsupported pythran type %s (%s)\" % (str(Ty), str(type(Ty))))",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101921394",
+            "id": 101921394,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 39,
+            "path": "Cython/Compiler/Pythran.py",
+            "position": 39,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101921394",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101921453"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101921453"
+                }
+            },
+            "body": "Minor code style nit: you can avoid the ugly trailing line continuation by starting the tuple in the first line and breaking it after the opening parenthesis.",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T16:05:30Z",
+            "diff_hunk": "@@ -0,0 +1,154 @@\n+from .PyrexTypes import BufferType, CType, CTypedefType, CStructOrUnionType\n+\n+_pythran_var_prefix = \"__pythran__\"\n+# Pythran/Numpy specific operations\n+def has_np_pythran(env):\n+    scope = env.outer_scope\n+    while scope != None:\n+        scope = scope.outer_scope\n+    ctx = env.global_scope().context\n+    if ctx is None:\n+        return False\n+    options = ctx.options\n+    return options is not None and options.np_pythran\n+\n+def is_pythran_supported_dtype(type_):\n+    if isinstance(type_, CTypedefType):\n+        return is_pythran_supported_type(type_.typedef_base_type)\n+    return hasattr(type_,\"is_numeric\") and type_.is_numeric\n+\n+def pythran_type(Ty,ptype=\"ndarray\"):\n+    if Ty.is_buffer:\n+        ndim,dtype = Ty.ndim, Ty.dtype\n+        if isinstance(dtype, CStructOrUnionType):\n+            ctype = dtype.cname\n+        elif isinstance(dtype, CType):\n+            ctype = dtype.sign_and_name()\n+        elif isinstance(dtype, CTypedefType):\n+            ctype = dtype.typedef_cname\n+        else:\n+            raise ValueError(\"unsupported type %s!\" % str(dtype))\n+        return \"pythonic::types::%s<%s,%d>\" % (ptype,ctype, ndim)\n+    from .PyrexTypes import PythranExpr\n+    if Ty.is_pythran_expr:\n+        return Ty.pythran_type\n+    if hasattr(Ty,\"is_none\") and Ty.is_none:\n+        return \"decltype(pythonic::__builtin__::None)\"\n+    if Ty.is_numeric:\n+        return Ty.sign_and_name()\n+    raise ValueError(\"unsupported pythran type %s (%s)\" % (str(Ty), str(type(Ty))))\n+    return None\n+\n+def type_remove_ref(ty):\n+    return \"typename std::remove_reference<%s>::type\" % ty\n+\n+def pythran_binop_type(op, tA, tB):\n+    return \"decltype(std::declval<%s>() %s std::declval<%s>())\" % \\\n+        (pythran_type(tA), op, pythran_type(tB))\n+\n+def pythran_unaryop_type(op, type_):\n+    return \"decltype(%sstd::declval<%s>())\" % \\\n+        (op, pythran_type(type_))",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101921453",
+            "id": 101921453,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 51,
+            "path": "Cython/Compiler/Pythran.py",
+            "position": 51,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101921453",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101921487"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101921487"
+                }
+            },
+            "body": "3-args getattr() is enough here, no need for hasattr().",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T16:06:58Z",
+            "diff_hunk": "@@ -0,0 +1,154 @@\n+from .PyrexTypes import BufferType, CType, CTypedefType, CStructOrUnionType\n+\n+_pythran_var_prefix = \"__pythran__\"\n+# Pythran/Numpy specific operations\n+def has_np_pythran(env):\n+    scope = env.outer_scope\n+    while scope != None:\n+        scope = scope.outer_scope\n+    ctx = env.global_scope().context\n+    if ctx is None:\n+        return False\n+    options = ctx.options\n+    return options is not None and options.np_pythran\n+\n+def is_pythran_supported_dtype(type_):\n+    if isinstance(type_, CTypedefType):\n+        return is_pythran_supported_type(type_.typedef_base_type)\n+    return hasattr(type_,\"is_numeric\") and type_.is_numeric\n+\n+def pythran_type(Ty,ptype=\"ndarray\"):\n+    if Ty.is_buffer:\n+        ndim,dtype = Ty.ndim, Ty.dtype\n+        if isinstance(dtype, CStructOrUnionType):\n+            ctype = dtype.cname\n+        elif isinstance(dtype, CType):\n+            ctype = dtype.sign_and_name()\n+        elif isinstance(dtype, CTypedefType):\n+            ctype = dtype.typedef_cname\n+        else:\n+            raise ValueError(\"unsupported type %s!\" % str(dtype))\n+        return \"pythonic::types::%s<%s,%d>\" % (ptype,ctype, ndim)\n+    from .PyrexTypes import PythranExpr\n+    if Ty.is_pythran_expr:\n+        return Ty.pythran_type\n+    if hasattr(Ty,\"is_none\") and Ty.is_none:\n+        return \"decltype(pythonic::__builtin__::None)\"\n+    if Ty.is_numeric:\n+        return Ty.sign_and_name()\n+    raise ValueError(\"unsupported pythran type %s (%s)\" % (str(Ty), str(type(Ty))))\n+    return None\n+\n+def type_remove_ref(ty):\n+    return \"typename std::remove_reference<%s>::type\" % ty\n+\n+def pythran_binop_type(op, tA, tB):\n+    return \"decltype(std::declval<%s>() %s std::declval<%s>())\" % \\\n+        (pythran_type(tA), op, pythran_type(tB))\n+\n+def pythran_unaryop_type(op, type_):\n+    return \"decltype(%sstd::declval<%s>())\" % \\\n+        (op, pythran_type(type_))\n+\n+def pythran_indexing_type(type_, indices):\n+    def index_code(idx):\n+        if idx.is_slice:\n+            if idx.step.is_none:\n+                func = \"contiguous_slice\"\n+                n = 2\n+            else:\n+                func = \"slice\"\n+                n = 3\n+            return \"pythonic::types::%s(%s)\" % (func,\",\".join([\"0\"]*n))\n+        elif idx.type.is_int:\n+            return \"std::declval<long>()\"\n+        elif idx.type.is_pythran_expr:\n+            return \"std::declval<%s>()\" % idx.type.pythran_type\n+        raise ValueError(\"unsupported indice type %s!\" % str(idx.type))\n+    indexing = \",\".join(index_code(idx) for idx in indices)\n+    return type_remove_ref(\"decltype(std::declval<%s>()(%s))\" % (pythran_type(type_), indexing))\n+\n+def pythran_indexing_code(indices):\n+    def index_code(idx):\n+        if idx.is_slice:\n+            values = idx.start, idx.stop, idx.step\n+            if idx.step.is_none:\n+                func = \"contiguous_slice\"\n+                values = values[:2]\n+            else:\n+                func = \"slice\"\n+            return \"pythonic::types::%s(%s)\" % (func,\",\".join((v.pythran_result() for v in values)))\n+        elif idx.type.is_int:\n+            return idx.result()\n+        elif idx.type.is_pythran_expr:\n+            return idx.pythran_result()\n+        raise ValueError(\"unsupported indice type %s!\" % str(idx.type))\n+    return \",\".join(index_code(idx) for idx in indices)\n+\n+def pythran_func_type(func, args):\n+    args = \",\".join((\"std::declval<%s>()\" % pythran_type(a.type) for a in args))\n+    return \"decltype(pythonic::numpy::functor::%s{}(%s))\" % (func, args)\n+\n+def to_pythran(op,ptype=None):\n+    #if hasattr(op,\"entry\") and hasattr(op.entry, \"pythran_buf\") and op.entry.pythran_buf is not None:\n+    #    return op.entry.pythran_buf.cname\n+    op_type = op.type\n+    if is_type(op_type,[\"is_pythran_expr\",\"is_int\",\"is_numeric\",\"is_float\",\"is_complex\"]):\n+        return op.result()\n+    if op.is_none:\n+        return \"pythonic::__builtin__::None\"\n+    if ptype is None:\n+        ptype = pythran_type(op_type)\n+    assert(op.type.is_pyobject)\n+    return \"from_python<%s>(%s)\" % (ptype, op.py_result())\n+\n+def from_pythran():\n+    return \"to_python\"\n+\n+def is_type(type_, types):\n+    for attr in types:\n+        if hasattr(type_, attr) and getattr(type_, attr):",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101921487",
+            "id": 101921487,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 110,
+            "path": "Cython/Compiler/Pythran.py",
+            "position": 110,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101921487",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101921500"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101921500"
+                }
+            },
+            "body": "As before, spaces make this list more readable.",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T16:07:47Z",
+            "diff_hunk": "@@ -0,0 +1,154 @@\n+from .PyrexTypes import BufferType, CType, CTypedefType, CStructOrUnionType\n+\n+_pythran_var_prefix = \"__pythran__\"\n+# Pythran/Numpy specific operations\n+def has_np_pythran(env):\n+    scope = env.outer_scope\n+    while scope != None:\n+        scope = scope.outer_scope\n+    ctx = env.global_scope().context\n+    if ctx is None:\n+        return False\n+    options = ctx.options\n+    return options is not None and options.np_pythran\n+\n+def is_pythran_supported_dtype(type_):\n+    if isinstance(type_, CTypedefType):\n+        return is_pythran_supported_type(type_.typedef_base_type)\n+    return hasattr(type_,\"is_numeric\") and type_.is_numeric\n+\n+def pythran_type(Ty,ptype=\"ndarray\"):\n+    if Ty.is_buffer:\n+        ndim,dtype = Ty.ndim, Ty.dtype\n+        if isinstance(dtype, CStructOrUnionType):\n+            ctype = dtype.cname\n+        elif isinstance(dtype, CType):\n+            ctype = dtype.sign_and_name()\n+        elif isinstance(dtype, CTypedefType):\n+            ctype = dtype.typedef_cname\n+        else:\n+            raise ValueError(\"unsupported type %s!\" % str(dtype))\n+        return \"pythonic::types::%s<%s,%d>\" % (ptype,ctype, ndim)\n+    from .PyrexTypes import PythranExpr\n+    if Ty.is_pythran_expr:\n+        return Ty.pythran_type\n+    if hasattr(Ty,\"is_none\") and Ty.is_none:\n+        return \"decltype(pythonic::__builtin__::None)\"\n+    if Ty.is_numeric:\n+        return Ty.sign_and_name()\n+    raise ValueError(\"unsupported pythran type %s (%s)\" % (str(Ty), str(type(Ty))))\n+    return None\n+\n+def type_remove_ref(ty):\n+    return \"typename std::remove_reference<%s>::type\" % ty\n+\n+def pythran_binop_type(op, tA, tB):\n+    return \"decltype(std::declval<%s>() %s std::declval<%s>())\" % \\\n+        (pythran_type(tA), op, pythran_type(tB))\n+\n+def pythran_unaryop_type(op, type_):\n+    return \"decltype(%sstd::declval<%s>())\" % \\\n+        (op, pythran_type(type_))\n+\n+def pythran_indexing_type(type_, indices):\n+    def index_code(idx):\n+        if idx.is_slice:\n+            if idx.step.is_none:\n+                func = \"contiguous_slice\"\n+                n = 2\n+            else:\n+                func = \"slice\"\n+                n = 3\n+            return \"pythonic::types::%s(%s)\" % (func,\",\".join([\"0\"]*n))\n+        elif idx.type.is_int:\n+            return \"std::declval<long>()\"\n+        elif idx.type.is_pythran_expr:\n+            return \"std::declval<%s>()\" % idx.type.pythran_type\n+        raise ValueError(\"unsupported indice type %s!\" % str(idx.type))\n+    indexing = \",\".join(index_code(idx) for idx in indices)\n+    return type_remove_ref(\"decltype(std::declval<%s>()(%s))\" % (pythran_type(type_), indexing))\n+\n+def pythran_indexing_code(indices):\n+    def index_code(idx):\n+        if idx.is_slice:\n+            values = idx.start, idx.stop, idx.step\n+            if idx.step.is_none:\n+                func = \"contiguous_slice\"\n+                values = values[:2]\n+            else:\n+                func = \"slice\"\n+            return \"pythonic::types::%s(%s)\" % (func,\",\".join((v.pythran_result() for v in values)))\n+        elif idx.type.is_int:\n+            return idx.result()\n+        elif idx.type.is_pythran_expr:\n+            return idx.pythran_result()\n+        raise ValueError(\"unsupported indice type %s!\" % str(idx.type))\n+    return \",\".join(index_code(idx) for idx in indices)\n+\n+def pythran_func_type(func, args):\n+    args = \",\".join((\"std::declval<%s>()\" % pythran_type(a.type) for a in args))\n+    return \"decltype(pythonic::numpy::functor::%s{}(%s))\" % (func, args)\n+\n+def to_pythran(op,ptype=None):\n+    #if hasattr(op,\"entry\") and hasattr(op.entry, \"pythran_buf\") and op.entry.pythran_buf is not None:\n+    #    return op.entry.pythran_buf.cname\n+    op_type = op.type\n+    if is_type(op_type,[\"is_pythran_expr\",\"is_int\",\"is_numeric\",\"is_float\",\"is_complex\"]):",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101921500",
+            "id": 101921500,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 96,
+            "path": "Cython/Compiler/Pythran.py",
+            "position": 96,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101921500",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r101921712"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/101921712"
+                }
+            },
+            "body": "I'd rather have people use a directive here (i.e. put `# cython: np_pythran=True` at the top of your file), rather than a cythonize() option.",
+            "commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "created_at": "2017-02-19T16:16:14Z",
+            "diff_hunk": "@@ -0,0 +1,41 @@\n+.. highlight:: python\n+\n+.. _numpy-pythran:\n+\n+**************************\n+Pythran as a Numpy backend\n+**************************\n+\n+Using the flag ``--np-pythran``, it is possible to use the `Pythran`_ numpy\n+implementation for numpy related operations. One advantage to use this backend\n+is that the Pythran implementation uses C++ expression templates to save memory\n+transfers and can benefit from SIMD instructions of modern CPU.\n+\n+This can lead to really interesting speedup in some cases, going from 2 up to\n+16, depending on the targeted CPU architecture and the original algorithm.\n+\n+Please note that this feature is experimental.\n+\n+Usage example with distutils\n+----------------------------\n+\n+You first need to install Pythran. See its `documentation\n+<https://pythonhosted.org/pythran/MANUAL.html>`_ for more information.\n+\n+Then, simply add ``np_pythran=True`` to the ``cythonize`` call in the related\n+setup.py.\n+\n+Here is an example:\n+\n+.. code::\n+\n+  from distutils.core import setup\n+  from Cython.Build import cythonize\n+  \n+  setup(\n+      name = \"My hello app\",\n+      ext_modules = cythonize('hello_pythran.pyx', np_pythran=True)",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r101921712",
+            "id": 101921712,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 37,
+            "path": "docs/src/userguide/numpy_pythran.rst",
+            "position": 37,
+            "pull_request_review_id": 22662154,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-02-19T16:18:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/101921712",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1607/comments",
     "commit_data": [
         {
@@ -164,7 +809,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/aguinet"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/dd775d02b04334bb5c89b718f56008739aa12219/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/ec2986da3a78678edad5058f2fe1473194080947/comments",
             "commit": {
                 "author": {
                     "date": "2017-01-15T10:22:37Z",
@@ -173,16 +818,16 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2017-02-15T20:34:57Z",
+                    "date": "2017-02-17T00:02:55Z",
                     "email": "aguinet@quarkslab.com",
                     "name": "Adrien Guinet"
                 },
                 "message": "Add a Pythran backend for Numpy operation\n\nWhen the user asked for it (thanks to the --np-pythran flag), use\nPythran's Numpy implementation as a backend for numpy operation. This\nflag forces the C++ mode, as the Pythran implementation is written in\nC++. Distutils integration through the 'np_pythran' flag of the\ncythonize API is also provided.\n\nThis commit also adds a Pythran mode for the tests, that can enable the\npythran mode for the C++ tests, and allows the reuse of Cython tests to\ntest for the Pythran integration.",
                 "tree": {
-                    "sha": "17a655a86ff7b27962feaed93aac4e6c74aa43e4",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/17a655a86ff7b27962feaed93aac4e6c74aa43e4"
+                    "sha": "ac36063532575c7dac869d66b8d8d304de58dc27",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/ac36063532575c7dac869d66b8d8d304de58dc27"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/dd775d02b04334bb5c89b718f56008739aa12219"
+                "url": "https://api.github.com/repos/cython/cython/git/commits/ec2986da3a78678edad5058f2fe1473194080947"
             },
             "committer": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/1874053?v=3",
@@ -203,7 +848,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/aguinet"
             },
-            "html_url": "https://github.com/cython/cython/commit/dd775d02b04334bb5c89b718f56008739aa12219",
+            "html_url": "https://github.com/cython/cython/commit/ec2986da3a78678edad5058f2fe1473194080947",
             "parents": [
                 {
                     "html_url": "https://github.com/cython/cython/commit/299ad1163ac8e72c1910da3e03013e7634a94b91",
@@ -211,8 +856,8 @@
                     "url": "https://api.github.com/repos/cython/cython/commits/299ad1163ac8e72c1910da3e03013e7634a94b91"
                 }
             ],
-            "sha": "dd775d02b04334bb5c89b718f56008739aa12219",
-            "url": "https://api.github.com/repos/cython/cython/commits/dd775d02b04334bb5c89b718f56008739aa12219"
+            "sha": "ec2986da3a78678edad5058f2fe1473194080947",
+            "url": "https://api.github.com/repos/cython/cython/commits/ec2986da3a78678edad5058f2fe1473194080947"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/1607/commits",
@@ -291,9 +936,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/aguinet/cython/pulls{/number}",
-            "pushed_at": "2017-02-15T20:35:49Z",
+            "pushed_at": "2017-02-17T00:03:30Z",
             "releases_url": "https://api.github.com/repos/aguinet/cython/releases{/id}",
-            "size": 47681,
+            "size": 47679,
             "ssh_url": "git@github.com:aguinet/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/aguinet/cython/stargazers",
@@ -309,7 +954,7 @@
             "watchers": 0,
             "watchers_count": 0
         },
-        "sha": "dd775d02b04334bb5c89b718f56008739aa12219",
+        "sha": "ec2986da3a78678edad5058f2fe1473194080947",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/1874053?v=3",
             "events_url": "https://api.github.com/users/aguinet/events{/privacy}",
@@ -334,7 +979,7 @@
     "id": 106400624,
     "issue_url": "https://api.github.com/repos/cython/cython/issues/1607",
     "locked": false,
-    "merge_commit_sha": "4f7bbe2122e996d7a94cbef5f312dbdeb1a5dbd0",
+    "merge_commit_sha": "3d94a6448a408f659f70daaf06de55913c521034",
     "merged_at": null,
     "milestone": null,
     "number": 1607,
@@ -342,9 +987,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/1607/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/dd775d02b04334bb5c89b718f56008739aa12219",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/ec2986da3a78678edad5058f2fe1473194080947",
     "title": "Add a Pythran backend for Numpy operation",
-    "updated_at": "2017-02-15T21:15:08Z",
+    "updated_at": "2017-02-19T16:18:35Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/1607",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/1874053?v=3",
