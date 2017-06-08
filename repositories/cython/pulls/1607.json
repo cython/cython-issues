@@ -49,8 +49,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 514,
-            "forks_count": 514,
+            "forks": 522,
+            "forks_count": 522,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -78,8 +78,8 @@
             "mirror_url": null,
             "name": "cython",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 405,
-            "open_issues_count": 405,
+            "open_issues": 409,
+            "open_issues_count": 409,
             "owner": {
                 "avatar_url": "https://avatars0.githubusercontent.com/u/486082?v=3",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -101,11 +101,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2017-05-12T13:30:15Z",
+            "pushed_at": "2017-06-05T08:09:47Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 47282,
+            "size": 47761,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 2264,
+            "stargazers_count": 2317,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -114,10 +114,10 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2017-05-12T08:14:19Z",
+            "updated_at": "2017-06-05T12:39:07Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 2264,
-            "watchers_count": 2264
+            "watchers": 2317,
+            "watchers_count": 2317
         },
         "sha": "296e07f43d1a2e69bc5fddab09469b474b26ac20",
         "user": {
@@ -140,7 +140,7 @@
             "url": "https://api.github.com/users/cython"
         }
     },
-    "body": "I've been working for quite some time on the usage of Pythran as a backend for\r\nthe Numpy operations that Cython can generate. The associated PR on github can\r\nbe found here: . This work has been sponsored by the OpenDreamKit project\r\n(https://github.com/OpenDreamKit/OpenDreamKit/).\r\n\r\nFirst of all, the Pythran project\r\n(https://github.com/serge-sans-paille/pythran) is a (subset of) Python to C++\r\ncompiler, that aims at optimizing \"scientific\" Python code.  It also provides a\r\nfull C++ implementation of a major set of the Numpy API.  Some of the advantage\r\nof this implementation is that it supports expression templates and SIMD\r\ninstructions (partially thanks to Boost.SIMD [1]).\r\n\r\nOne of the limitation of the current Numpy support of Cython is that it relies\r\non the original Numpy Python module for a lot of computations. The overall idea\r\nis to replace these calls by the Numpy implementation provided within the\r\nPythran project.\r\n\r\nI'll discuss in this mail the various choices that have been made, why and some\r\nimplementation details. Then we'll also show some benchmark to see the\r\npotential improvements, which is the point of all this in the end :)\r\n\r\nPythran limitations\r\n-------------------\r\n\r\nThe Pythran Numpy implementation has some limitations:\r\n\r\n* array \"views\" are not supported. That means that arrays must be stored in\r\n  contiguous memory. Fortran and C-style format are supported.\r\n* the endianness of the integers must be the same that the one of the targeted\r\n  architecture (note that Cython has the same limitation)\r\n\r\nThat's why we did two things:\r\n\r\n* the usage of the Pythran backend needs to be explicitly asked by the user by\r\n  providing the --np-pythran flag to the Cython compiler, or by using the\r\n  \"np_pythran\" flag to the cythonize call (for distutils)\r\n* in function arguments, Numpy buffers are replaced by fused types to be able\r\n  to fall back in case of unsupported buffers. More on this below.\r\n\r\nImplementation choices and details within Cython\r\n------------------------------------------------\r\n\r\na) PythranExpr\r\n\r\nWe defined a new type in PyrexTypes.py, which defines a Pythran buffer or\r\nexpression. A Pythran expression is associated to a Pythran expression\r\ntemplate, whose C++ type can be something like \"decltype(a+b)\". We thus compose\r\nevery expression/function call like this, which allows us to use Pythran's\r\nexpression template mechanism.\r\n\r\nWe also choose to let the C++ compiler deduced the final type of every\r\nexpression, and emit errors if something goes wrong. This choice allows not to\r\nhave to rewrite in Python all the (potentially implicit) conversion rules that\r\ncan apply in a C/C++ program, which could be error prone. The disadvantage is\r\nthat it may generate not that trivial error messages for the end-user.\r\n\r\nb) Fused types for function arguments\r\n\r\nAs Pythran has some limitations about the Numpy buffers it can support, we\r\nchose to replace Numpy buffer arguments by a fused type that can be either a\r\nPythran buffer or the original Numpy buffer. The decision is made to use one\r\ntype or another according to the limitations described above.\r\n\r\nThis allows a fallback to the original Cython implementation in case of an\r\nunsupported buffer type.\r\n\r\nTests\r\n-----\r\n\r\nA flag has been added to the runtests.py script. If provided with a path to a\r\nPythran installation, it will run the C++ tests in \"Pythran\" mode. This allows\r\nto reuse the whole test suite of Cython.\r\n\r\nBenchmark\r\n---------\r\n\r\nThe whole idea of this is to get better performances.\r\n\r\nHere is a simple benchmark of what this mode can achieve, using this cython code:\r\n\r\ndef sqrt_sum(numpy.ndarray[numpy.float_t, ndim=1] a, numpy.ndarray[numpy.float_t, ndim=1] b):\r\n    return numpy.sqrt(numpy.sqrt(a*a+b*b))\r\n\r\nOn my computer (Core i7-6700HQ), this gives there results, with an array of\r\n100000000 32-bit floats as input:\r\n\r\n- for the classical Cython version: 960ms\r\n- for the Cython version using the Pythran backend: 761ms\r\n- for the Cython version using the Pythran backend using SIMD instructions: 243ms\r\n\r\nwhich makes a speedup of ~3.9x using SIMD instructions.\r\n\r\nDocumentation\r\n-------------\r\n\r\nI put an example of how to use this with distutils in the documentation. It\r\ncould be put elsewhere if needed, or formatted differently.",
+    "body": "I've been working for quite some time on the usage of Pythran as a backend for\r\nthe Numpy operations that Cython can generate. The associated PR on github can\r\nbe found here: . This work has been sponsored by the OpenDreamKit project\r\n(https://github.com/OpenDreamKit/OpenDreamKit/).\r\n\r\nFirst of all, the Pythran project\r\n(https://github.com/serge-sans-paille/pythran) is a (subset of) Python to C++\r\ncompiler, that aims at optimizing \"scientific\" Python code.  It also provides a\r\nfull C++ implementation of a major set of the Numpy API.  Some of the advantage\r\nof this implementation is that it supports expression templates and SIMD\r\ninstructions (partially thanks to Boost.SIMD [1]).\r\n\r\nOne of the limitation of the current Numpy support of Cython is that it relies\r\non the original Numpy Python module for a lot of computations. The overall idea\r\nis to replace these calls by the Numpy implementation provided within the\r\nPythran project.\r\n\r\nI'll discuss in this mail the various choices that have been made, why and some\r\nimplementation details. Then we'll also show some benchmark to see the\r\npotential improvements, which is the point of all this in the end :)\r\n\r\nPythran limitations\r\n-------------------\r\n\r\nThe Pythran Numpy implementation has some limitations:\r\n\r\n* array \"views\" are not supported. That means that arrays must be stored in\r\n  contiguous memory. Fortran and C-style format are supported.\r\n* the endianness of the integers must be the same that the one of the targeted\r\n  architecture (note that Cython has the same limitation)\r\n\r\nThat's why we did two things:\r\n\r\n* the usage of the Pythran backend needs to be explicitly asked by the user by\r\n  providing the --np-pythran flag to the Cython compiler, or by using the\r\n  \"np_pythran\" flag to the cythonize call (for distutils)\r\n* in function arguments, Numpy buffers are replaced by fused types to be able\r\n  to fall back in case of unsupported buffers. More on this below.\r\n\r\nImplementation choices and details within Cython\r\n------------------------------------------------\r\n\r\na) PythranExpr\r\n\r\nWe defined a new type in PyrexTypes.py, which defines a Pythran buffer or\r\nexpression. A Pythran expression is associated to a Pythran expression\r\ntemplate, whose C++ type can be something like \"decltype(a+b)\". We thus compose\r\nevery expression/function call like this, which allows us to use Pythran's\r\nexpression template mechanism.\r\n\r\nWe also choose to let the C++ compiler deduced the final type of every\r\nexpression, and emit errors if something goes wrong. This choice allows not to\r\nhave to rewrite in Python all the (potentially implicit) conversion rules that\r\ncan apply in a C/C++ program, which could be error prone. The disadvantage is\r\nthat it may generate not that trivial error messages for the end-user.\r\n\r\nb) Fused types for function arguments\r\n\r\nAs Pythran has some limitations about the Numpy buffers it can support, we\r\nchose to replace Numpy buffer arguments by a fused type that can be either a\r\nPythran buffer or the original Numpy buffer. The decision is made to use one\r\ntype or another according to the limitations described above.\r\n\r\nThis allows a fallback to the original Cython implementation in case of an\r\nunsupported buffer type.\r\n\r\nTests\r\n-----\r\n\r\nA flag has been added to the runtests.py script. If provided with a path to a\r\nPythran installation, it will run the C++ tests in \"Pythran\" mode. This allows\r\nto reuse the whole test suite of Cython.\r\n\r\nBenchmark\r\n---------\r\n\r\nThe whole idea of this is to get better performances.\r\n\r\nHere is a simple benchmark of what this mode can achieve, using this cython code:\r\n\r\n```\r\ndef sqrt_sum(numpy.ndarray[numpy.float_t, ndim=1] a, numpy.ndarray[numpy.float_t, ndim=1] b):\r\n    return numpy.sqrt(numpy.sqrt(a*a+b*b))\r\n```\r\n\r\nOn my computer (Core i7-6700HQ), this gives there results, with an array of\r\n100000000 32-bit floats as input:\r\n\r\n- for the classical Cython version: 960ms\r\n- for the Cython version using the Pythran backend: 761ms\r\n- for the Cython version using the Pythran backend using SIMD instructions: 243ms\r\n\r\nwhich makes a speedup of ~3.9x using SIMD instructions.\r\n\r\nDocumentation\r\n-------------\r\n\r\nI put an example of how to use this with distutils in the documentation. It\r\ncould be put elsewhere if needed, or formatted differently.",
     "closed_at": null,
     "comment_data": [
         {
@@ -1798,6 +1798,98 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r120012362"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/120012362"
+                }
+            },
+            "body": "This information can be read through:\r\n\r\n```\r\nfrom pythran.config import cfg\r\n cfg.get('compiler', 'cflags')\r\n```\r\n (without the ``-D__PYTHRAN__``)",
+            "commit_id": "95036cfce7beed5239c149654baed5a5d94476b1",
+            "created_at": "2017-06-04T15:10:52Z",
+            "diff_hunk": "@@ -845,7 +860,13 @@ def copy_to_build_dir(filepath, root=root):\n         for source in m.sources:\n             base, ext = os.path.splitext(source)\n             if ext in ('.pyx', '.py'):\n-                if m.language == 'c++':\n+                if np_pythran:\n+                    c_file = base + '.cpp'\n+                    options = pythran_options\n+                    m.include_dirs.append(pythran_include_dir)\n+                    m.extra_compile_args.extend(('-std=c++11','-DENABLE_PYTHON_MODULE','-D__PYTHRAN__'))",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r120012362",
+            "id": 120012362,
+            "original_commit_id": "95036cfce7beed5239c149654baed5a5d94476b1",
+            "original_position": 61,
+            "path": "Cython/Build/Dependencies.py",
+            "position": 61,
+            "pull_request_review_id": 41943541,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-06-04T15:10:52Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/120012362",
+            "user": {
+                "avatar_url": "https://avatars2.githubusercontent.com/u/863807?v=3",
+                "events_url": "https://api.github.com/users/serge-sans-paille/events{/privacy}",
+                "followers_url": "https://api.github.com/users/serge-sans-paille/followers",
+                "following_url": "https://api.github.com/users/serge-sans-paille/following{/other_user}",
+                "gists_url": "https://api.github.com/users/serge-sans-paille/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/serge-sans-paille",
+                "id": 863807,
+                "login": "serge-sans-paille",
+                "organizations_url": "https://api.github.com/users/serge-sans-paille/orgs",
+                "received_events_url": "https://api.github.com/users/serge-sans-paille/received_events",
+                "repos_url": "https://api.github.com/users/serge-sans-paille/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/serge-sans-paille/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/serge-sans-paille/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/serge-sans-paille"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1607#discussion_r120016777"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1607"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/120016777"
+                }
+            },
+            "body": "I'd be ok with adding a special case in the `DistutilsInfo` class that looks for `np_pythran` in addition to `distutils:` and does all the build setup changes right there. Basically, if you use in-module configuration for distutils (and `np_pythran`), then you need to call `cythonize()`, so `cythonize()` can rely on `DistutilsInfo` doing its job, including the setup for `np_pythran`. If `cythonize()` is not used, then the in-module config for `np_pythran` is simply not available (and can thus be made an error) and instead, the `Extension` instance must be configured manually and properly by the user, including the include directory setup.\r\nDoes that solve your problem here?",
+            "commit_id": "95036cfce7beed5239c149654baed5a5d94476b1",
+            "created_at": "2017-06-04T18:12:40Z",
+            "diff_hunk": "@@ -0,0 +1,41 @@\n+.. highlight:: python\n+\n+.. _numpy-pythran:\n+\n+**************************\n+Pythran as a Numpy backend\n+**************************\n+\n+Using the flag ``--np-pythran``, it is possible to use the `Pythran`_ numpy\n+implementation for numpy related operations. One advantage to use this backend\n+is that the Pythran implementation uses C++ expression templates to save memory\n+transfers and can benefit from SIMD instructions of modern CPU.\n+\n+This can lead to really interesting speedup in some cases, going from 2 up to\n+16, depending on the targeted CPU architecture and the original algorithm.\n+\n+Please note that this feature is experimental.\n+\n+Usage example with distutils\n+----------------------------\n+\n+You first need to install Pythran. See its `documentation\n+<https://pythonhosted.org/pythran/MANUAL.html>`_ for more information.\n+\n+Then, simply add ``np_pythran=True`` to the ``cythonize`` call in the related\n+setup.py.\n+\n+Here is an example:\n+\n+.. code::\n+\n+  from distutils.core import setup\n+  from Cython.Build import cythonize\n+  \n+  setup(\n+      name = \"My hello app\",\n+      ext_modules = cythonize('hello_pythran.pyx', np_pythran=True)",
+            "html_url": "https://github.com/cython/cython/pull/1607#discussion_r120016777",
+            "id": 120016777,
+            "original_commit_id": "ec2986da3a78678edad5058f2fe1473194080947",
+            "original_position": 37,
+            "path": "docs/src/userguide/numpy_pythran.rst",
+            "position": 37,
+            "pull_request_review_id": 41947502,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1607",
+            "updated_at": "2017-06-04T18:12:40Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/120016777",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/491659?v=3",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
         }
     ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1607/comments",
@@ -1993,7 +2085,7 @@
     "id": 106400624,
     "issue_url": "https://api.github.com/repos/cython/cython/issues/1607",
     "locked": false,
-    "merge_commit_sha": "81045ba1e04b5434af16d1a54d48c141915f5ab8",
+    "merge_commit_sha": "82ac38b47e7cc58d280b1f71a2dec509334698c7",
     "merged_at": null,
     "milestone": null,
     "number": 1607,
@@ -2004,7 +2096,7 @@
     "state": "open",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/95036cfce7beed5239c149654baed5a5d94476b1",
     "title": "Add a Pythran backend for Numpy operation",
-    "updated_at": "2017-05-12T06:23:36Z",
+    "updated_at": "2017-06-04T18:12:40Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/1607",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/1874053?v=3",
