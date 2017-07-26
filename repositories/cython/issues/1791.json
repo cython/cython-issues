@@ -1,0 +1,188 @@
+{
+    "assignee": null,
+    "assignees": [],
+    "body": "I am getting following compiler crash when trying to compile this (probably still buggy) code.\r\n\r\n```\r\n[1/1] Cythonizing sequences.pyx\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n    cdef int* lengths = <int*> calloc(n_seq, sizeof(int))\r\n    cdef int** sequences = <int**> calloc(n_seq, sizeof(int*))\r\n    for i in range(10):\r\n        lengths[i] = 20\r\n        sequences[i] = <int*> calloc(lengths[i], sizeof(int))\r\n    seqs = Sequences(n_seq, sequences, lengths)\r\n                   ^\r\n------------------------------------------------------------\r\n\r\nsequences.pyx:20:20: Compiler crash in AnalyseExpressionsTransform\r\n\r\nModuleNode.body = StatListNode(sequences.pyx:4:0)\r\nStatListNode.stats[1] = DefNode(sequences.pyx:13:0,\r\n    modifiers = [...]/0,\r\n    name = 'create_sequence',\r\n    np_args_idx = [...]/0,\r\n    py_wrapper_required = True,\r\n    reqd_kw_flags_cname = '0',\r\n    used = True)\r\nFile 'Nodes.py', line 413, in analyse_expressions: StatListNode(sequences.pyx:14:4,\r\n    is_terminator = True)\r\nFile 'Nodes.py', line 4816, in analyse_expressions: SingleAssignmentNode(sequences.pyx:20:20)\r\nFile 'Nodes.py', line 4936, in analyse_types: SingleAssignmentNode(sequences.pyx:20:20)\r\nFile 'ExprNodes.py', line 5226, in analyse_types: SimpleCallNode(sequences.pyx:20:20,\r\n    result_is_used = True,\r\n    use_managed_ref = True)\r\nFile 'ExprNodes.py', line 5160, in analyse_as_type_constructor: SimpleCallNode(sequences.pyx:20:20,\r\n    result_is_used = True,\r\n    use_managed_ref = True)\r\n\r\nCompiler crash traceback from this point on:\r\n  File \"/Users/ch/miniconda/envs/sci35/lib/python3.5/site-packages/Cython/Compiler/ExprNodes.py\", line 5160, in analyse_as_type_constructor\r\n    self.function = RawCNameExprNode(self.function.pos, constructor.type)\r\nAttributeError: 'NoneType' object has no attribute 'type'\r\nTraceback (most recent call last):\r\n  File \"setup.py\", line 19, in <module>\r\n    ext_modules=cythonize(ext_modules))\r\n  File \"/Users/ch/miniconda/envs/sci35/lib/python3.5/site-packages/Cython/Build/Dependencies.py\", line 1016, in cythonize\r\n    cythonize_one(*args)\r\n  File \"/Users/ch/miniconda/envs/sci35/lib/python3.5/site-packages/Cython/Build/Dependencies.py\", line 1138, in cythonize_one\r\n    raise CompileError(None, pyx_file)\r\nCython.Compiler.Errors.CompileError: sequences.pyx\r\n```\r\n\r\n\r\n# .pyx\r\n\r\n```\r\n# distutils: language = c++\r\n# distutils: sources = src/Sequences.cpp\r\n\r\nfrom libc.stdlib cimport calloc, free\r\n\r\ncdef extern from \"src/Sequences.h\":\r\n    cdef cppclass Sequences:\r\n        int n_seq\r\n        int** sequences\r\n        int* lengths\r\n\r\n\r\ndef create_sequence():\r\n    cdef int n_seq = 10\r\n    cdef int* lengths = <int*> calloc(n_seq, sizeof(int))\r\n    cdef int** sequences = <int**> calloc(n_seq, sizeof(int*))\r\n    for i in range(10):\r\n        lengths[i] = 20\r\n        sequences[i] = <int*> calloc(lengths[i], sizeof(int))\r\n    seqs = Sequences(n_seq, sequences, lengths)\r\n    return 1\r\n```\r\n\r\n# .h\r\n```\r\nclass Sequences {\r\npublic:\r\n        Sequences(int n_seq, int** sequences, int* lengths);\r\n        int n_seq;\r\n        int** sequences;\r\n        int* lengths;\r\n};\r\n```\r\n\r\n# .cpp\r\n```\r\n#include \"Sequences.h\"\r\n\r\nSequences::Sequences(int n_seq, int** sequences, int* lengths) : n_seq{n_seq}, sequences{sequences}, lengths{lengths} {\r\n}\r\n```\r\n\r\n",
+    "closed_at": null,
+    "comment_data": [
+        {
+            "body": "Thanks for the report. The fix on your side is to declare the C++ constructor for the `Sequences` class, but it's a bug in Cython that this crashes instead of giving an understandable error message.",
+            "created_at": "2017-07-21T11:54:32Z",
+            "html_url": "https://github.com/cython/cython/issues/1791#issuecomment-316981974",
+            "id": 316981974,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1791",
+            "updated_at": "2017-07-21T11:54:32Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/316981974",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
+    "comments": 1,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/1791/comments",
+    "created_at": "2017-07-21T11:47:07Z",
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-07-21T11:54:52Z",
+            "event": "labeled",
+            "id": 1173743632,
+            "label": {
+                "color": "f9d0c4",
+                "name": "C++"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1173743632"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-07-21T11:54:52Z",
+            "event": "labeled",
+            "id": 1173743633,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1173743633"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-07-21T11:54:52Z",
+            "event": "labeled",
+            "id": 1173743634,
+            "label": {
+                "color": "444444",
+                "name": "Type Analysis"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1173743634"
+        }
+    ],
+    "events_url": "https://api.github.com/repos/cython/cython/issues/1791/events",
+    "html_url": "https://github.com/cython/cython/issues/1791",
+    "id": 244645760,
+    "labels": [
+        {
+            "color": "f9d0c4",
+            "default": false,
+            "id": 414805136,
+            "name": "C++",
+            "url": "https://api.github.com/repos/cython/cython/labels/C++"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425553654,
+            "name": "defect",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425558824,
+            "name": "Type Analysis",
+            "url": "https://api.github.com/repos/cython/cython/labels/Type%20Analysis"
+        }
+    ],
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/1791/labels{/name}",
+    "locked": false,
+    "milestone": null,
+    "number": 1791,
+    "repository_url": "https://api.github.com/repos/cython/cython",
+    "state": "open",
+    "title": "Compiler crash in AnalyseExpressionsTransform",
+    "updated_at": "2017-07-21T11:54:52Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/1791",
+    "user": {
+        "avatar_url": "https://avatars3.githubusercontent.com/u/15384900?v=4",
+        "events_url": "https://api.github.com/users/croth1/events{/privacy}",
+        "followers_url": "https://api.github.com/users/croth1/followers",
+        "following_url": "https://api.github.com/users/croth1/following{/other_user}",
+        "gists_url": "https://api.github.com/users/croth1/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/croth1",
+        "id": 15384900,
+        "login": "croth1",
+        "organizations_url": "https://api.github.com/users/croth1/orgs",
+        "received_events_url": "https://api.github.com/users/croth1/received_events",
+        "repos_url": "https://api.github.com/users/croth1/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/croth1/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/croth1/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/croth1"
+    }
+}

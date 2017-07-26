@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/1781"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/beca4d32e73d0521f66c39990c07607529a93e29"
+            "href": "https://api.github.com/repos/cython/cython/statuses/f5dbcd6eb553c6f3c3e5ae11354429dac3986915"
         }
     },
     "assignee": null,
@@ -49,8 +49,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 539,
-            "forks_count": 539,
+            "forks": 544,
+            "forks_count": 544,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -78,8 +78,8 @@
             "mirror_url": null,
             "name": "cython",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 417,
-            "open_issues_count": 417,
+            "open_issues": 421,
+            "open_issues_count": 421,
             "owner": {
                 "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -101,11 +101,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2017-07-18T16:25:54Z",
+            "pushed_at": "2017-07-26T12:36:10Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 47946,
+            "size": 47679,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 2389,
+            "stargazers_count": 2403,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -114,12 +114,12 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2017-07-19T09:52:06Z",
+            "updated_at": "2017-07-26T08:56:18Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 2389,
-            "watchers_count": 2389
+            "watchers": 2403,
+            "watchers_count": 2403
         },
-        "sha": "19d890ecbf4d47f9114d32af646208187608e583",
+        "sha": "62f04f6766386893f5da6bee23d4de1e92a4148d",
         "user": {
             "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -142,7 +142,606 @@
     },
     "body": "This is for sure not enough, but at least it can handle \"simple\" annotations like non-compound compile-time constants and name nodes.",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128345093"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128345093"
+                }
+            },
+            "body": "This looks like there should be a default value for `precedence` in the class.",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-19T19:34:18Z",
+            "diff_hunk": "@@ -519,3 +519,276 @@ def visit_CFuncDefNode(self, node):\n \n     def visit_StatNode(self, node):\n         pass\n+\n+\n+class ExpressionWriter(TreeVisitor):\n+\n+    def __init__(self, result=None):\n+        super(ExpressionWriter, self).__init__()\n+        if result is None:\n+            result = u\"\"\n+        self.result = result\n+\n+    def write(self, tree):\n+        self.visit(tree)\n+        return self.result\n+\n+    def put(self, s):\n+        self.result += s\n+\n+    def remove(self, s):\n+        if self.result.endswith(s):\n+            self.result = self.result[:-len(s)]\n+\n+    def comma_separated_list(self, items):\n+        if len(items) > 0:\n+            for item in items[:-1]:\n+                self.visit(item)\n+                self.put(u\", \")\n+            self.visit(items[-1])\n+\n+    def visit_Node(self, node):\n+        raise AssertionError(\"Node not handled by serializer: %r\" % node)\n+\n+    def visit_NameNode(self, node):\n+        self.put(node.name)\n+\n+    def visit_NoneNode(self, node):\n+        self.put(u\"None\")\n+\n+    def visit_BoolNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ConstNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ImagNode(self, node):\n+        self.put(node.value)\n+        self.put(u\"j\")\n+\n+    def visit_BytesNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] == 'b':\n+            repr_val = repr_val[1:]\n+        self.put(u\"b%s\" % repr_val)\n+\n+    def visit_StringNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] in 'ub':\n+            repr_val = repr_val[1:]\n+        self.put(u\"%s\" % repr_val)\n+\n+    def visit_UnicodeNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] == 'u':\n+            repr_val = repr_val[1:]\n+        self.put(u\"u%s\" % repr_val)\n+\n+    def emit_sequence(self, node, parens):\n+        open_paren, close_paren = parens\n+        items = node.subexpr_nodes()\n+        self.put(open_paren)\n+        self.comma_separated_list(items)\n+        self.put(close_paren)\n+\n+    def visit_ListNode(self, node):\n+        self.emit_sequence(node, u\"[]\")\n+\n+    def visit_TupleNode(self, node):\n+        self.emit_sequence(node, u\"()\")\n+\n+    def visit_SetNode(self, node):\n+        self.emit_sequence(node, u\"{}\")\n+\n+    def visit_DictNode(self, node):\n+        self.emit_sequence(node, u\"{}\")\n+\n+    def visit_DictItemNode(self, node):\n+        self.visit(node.key)\n+        self.put(u\": \")\n+        self.visit(node.value)\n+\n+    unop_precedence = {\n+        'not': 3, '!': 3,\n+        '+': 11, '-': 11, '~': 11,\n+    }\n+    binop_precedence = {\n+        'or': 1,\n+        'and': 2,\n+        # unary: 'not': 3, '!': 3,\n+        'in': 4, 'not_in': 4, 'is': 4, 'is_not': 4, '<': 4, '<=': 4, '>': 4, '>=': 4, '!=': 4, '==': 4,\n+        '|': 5,\n+        '^': 6,\n+        '&': 7,\n+        '<<': 8, '>>': 8,\n+        '+': 9, '-': 9,\n+        '*': 10, '/': 10, '//': 10, '%': 10,\n+        # unary: '+': 11, '-': 11, '~': 11\n+        '**': 12,\n+    }\n+\n+    def operator_enter(self, new_prec):\n+        if not hasattr(self, 'precedence'):",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128345093",
+            "id": 128345093,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 113,
+            "path": "Cython/CodeWriter.py",
+            "position": null,
+            "pull_request_review_id": 51016791,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T12:52:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128345093",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128345659"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128345659"
+                }
+            },
+            "body": "This change has pros and cons. If it's really spelled that way in the source file, then it's probably nice to spell it the same way in the docs. However, the expression might stem from a compile time calculated value, which the programmer might not have wanted to leak into the docs. Unclear. I think there might be a case for collapsing the expressions of default arguments and keeping the expressions of annotations.",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-19T19:37:01Z",
+            "diff_hunk": "@@ -185,7 +188,7 @@ __doc__ = ur\"\"\"\n     f_defexpr4(int x=(Ext.CONST1 + FLAG1) * Ext.CONST2)\n \n     >>> print(funcdoc(f_defexpr5))\n-    f_defexpr5(int x=4)\n+    f_defexpr5(int x=2 + 2)",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128345659",
+            "id": 128345659,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 15,
+            "path": "tests/run/embedsignatures.pyx",
+            "position": 15,
+            "pull_request_review_id": 51016791,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T12:52:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128345659",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128346467"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128346467"
+                }
+            },
+            "body": "Wouldn't it be better if this appended to a list, and write() joined and returned it?",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-19T19:41:05Z",
+            "diff_hunk": "@@ -519,3 +519,276 @@ def visit_CFuncDefNode(self, node):\n \n     def visit_StatNode(self, node):\n         pass\n+\n+\n+class ExpressionWriter(TreeVisitor):\n+\n+    def __init__(self, result=None):\n+        super(ExpressionWriter, self).__init__()\n+        if result is None:\n+            result = u\"\"\n+        self.result = result\n+\n+    def write(self, tree):\n+        self.visit(tree)\n+        return self.result\n+\n+    def put(self, s):\n+        self.result += s",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128346467",
+            "id": 128346467,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 19,
+            "path": "Cython/CodeWriter.py",
+            "position": 20,
+            "pull_request_review_id": 51016791,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T12:52:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128346467",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128346705"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128346705"
+                }
+            },
+            "body": "Nice.",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-19T19:42:16Z",
+            "diff_hunk": "@@ -519,3 +519,276 @@ def visit_CFuncDefNode(self, node):\n \n     def visit_StatNode(self, node):\n         pass\n+\n+\n+class ExpressionWriter(TreeVisitor):\n+\n+    def __init__(self, result=None):\n+        super(ExpressionWriter, self).__init__()\n+        if result is None:\n+            result = u\"\"\n+        self.result = result\n+\n+    def write(self, tree):\n+        self.visit(tree)\n+        return self.result\n+\n+    def put(self, s):\n+        self.result += s\n+\n+    def remove(self, s):\n+        if self.result.endswith(s):\n+            self.result = self.result[:-len(s)]\n+\n+    def comma_separated_list(self, items):\n+        if len(items) > 0:\n+            for item in items[:-1]:\n+                self.visit(item)\n+                self.put(u\", \")\n+            self.visit(items[-1])\n+\n+    def visit_Node(self, node):\n+        raise AssertionError(\"Node not handled by serializer: %r\" % node)\n+\n+    def visit_NameNode(self, node):\n+        self.put(node.name)\n+\n+    def visit_NoneNode(self, node):\n+        self.put(u\"None\")\n+\n+    def visit_BoolNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ConstNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ImagNode(self, node):\n+        self.put(node.value)\n+        self.put(u\"j\")\n+\n+    def visit_BytesNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] == 'b':\n+            repr_val = repr_val[1:]\n+        self.put(u\"b%s\" % repr_val)\n+\n+    def visit_StringNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] in 'ub':\n+            repr_val = repr_val[1:]\n+        self.put(u\"%s\" % repr_val)\n+\n+    def visit_UnicodeNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] == 'u':\n+            repr_val = repr_val[1:]\n+        self.put(u\"u%s\" % repr_val)\n+\n+    def emit_sequence(self, node, parens):\n+        open_paren, close_paren = parens\n+        items = node.subexpr_nodes()\n+        self.put(open_paren)\n+        self.comma_separated_list(items)\n+        self.put(close_paren)\n+\n+    def visit_ListNode(self, node):\n+        self.emit_sequence(node, u\"[]\")\n+\n+    def visit_TupleNode(self, node):\n+        self.emit_sequence(node, u\"()\")\n+\n+    def visit_SetNode(self, node):\n+        self.emit_sequence(node, u\"{}\")\n+\n+    def visit_DictNode(self, node):\n+        self.emit_sequence(node, u\"{}\")\n+\n+    def visit_DictItemNode(self, node):\n+        self.visit(node.key)\n+        self.put(u\": \")\n+        self.visit(node.value)\n+\n+    unop_precedence = {\n+        'not': 3, '!': 3,\n+        '+': 11, '-': 11, '~': 11,\n+    }\n+    binop_precedence = {\n+        'or': 1,\n+        'and': 2,\n+        # unary: 'not': 3, '!': 3,\n+        'in': 4, 'not_in': 4, 'is': 4, 'is_not': 4, '<': 4, '<=': 4, '>': 4, '>=': 4, '!=': 4, '==': 4,\n+        '|': 5,\n+        '^': 6,\n+        '&': 7,\n+        '<<': 8, '>>': 8,\n+        '+': 9, '-': 9,\n+        '*': 10, '/': 10, '//': 10, '%': 10,\n+        # unary: '+': 11, '-': 11, '~': 11\n+        '**': 12,\n+    }\n+\n+    def operator_enter(self, new_prec):\n+        if not hasattr(self, 'precedence'):\n+            self.precedence = [0]\n+        old_prec = self.precedence[-1]\n+        if old_prec > new_prec:\n+            self.put(u\"(\")\n+        self.precedence.append(new_prec)\n+\n+    def operator_exit(self):\n+        old_prec, new_prec = self.precedence[-2:]\n+        if old_prec > new_prec:\n+            self.put(u\")\")\n+        self.precedence.pop()\n+\n+    def visit_NotNode(self, node):\n+        op = 'not'\n+        prec = self.unop_precedence[op]\n+        self.operator_enter(prec)\n+        self.put(u\"not \")\n+        self.visit(node.operand)\n+        self.operator_exit()\n+\n+    def visit_UnopNode(self, node):\n+        op = node.operator\n+        prec = self.unop_precedence[op]\n+        self.operator_enter(prec)\n+        self.put(u\"%s\" % node.operator)\n+        self.visit(node.operand)\n+        self.operator_exit()\n+\n+    def visit_BinopNode(self, node):\n+        op = node.operator\n+        prec = self.binop_precedence.get(op, 0)\n+        self.operator_enter(prec)",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128346705",
+            "id": 128346705,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 145,
+            "path": "Cython/CodeWriter.py",
+            "position": 147,
+            "pull_request_review_id": 51016791,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T12:52:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128346705",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128347074"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128347074"
+                }
+            },
+            "body": "Except for the empty `SetNode`, which can get inserted for `set()`.",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-19T19:43:49Z",
+            "diff_hunk": "@@ -519,3 +519,276 @@ def visit_CFuncDefNode(self, node):\n \n     def visit_StatNode(self, node):\n         pass\n+\n+\n+class ExpressionWriter(TreeVisitor):\n+\n+    def __init__(self, result=None):\n+        super(ExpressionWriter, self).__init__()\n+        if result is None:\n+            result = u\"\"\n+        self.result = result\n+\n+    def write(self, tree):\n+        self.visit(tree)\n+        return self.result\n+\n+    def put(self, s):\n+        self.result += s\n+\n+    def remove(self, s):\n+        if self.result.endswith(s):\n+            self.result = self.result[:-len(s)]\n+\n+    def comma_separated_list(self, items):\n+        if len(items) > 0:\n+            for item in items[:-1]:\n+                self.visit(item)\n+                self.put(u\", \")\n+            self.visit(items[-1])\n+\n+    def visit_Node(self, node):\n+        raise AssertionError(\"Node not handled by serializer: %r\" % node)\n+\n+    def visit_NameNode(self, node):\n+        self.put(node.name)\n+\n+    def visit_NoneNode(self, node):\n+        self.put(u\"None\")\n+\n+    def visit_BoolNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ConstNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ImagNode(self, node):\n+        self.put(node.value)\n+        self.put(u\"j\")\n+\n+    def visit_BytesNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] == 'b':\n+            repr_val = repr_val[1:]\n+        self.put(u\"b%s\" % repr_val)\n+\n+    def visit_StringNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] in 'ub':\n+            repr_val = repr_val[1:]\n+        self.put(u\"%s\" % repr_val)\n+\n+    def visit_UnicodeNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] == 'u':\n+            repr_val = repr_val[1:]\n+        self.put(u\"u%s\" % repr_val)\n+\n+    def emit_sequence(self, node, parens):\n+        open_paren, close_paren = parens\n+        items = node.subexpr_nodes()\n+        self.put(open_paren)\n+        self.comma_separated_list(items)\n+        self.put(close_paren)\n+\n+    def visit_ListNode(self, node):\n+        self.emit_sequence(node, u\"[]\")\n+\n+    def visit_TupleNode(self, node):\n+        self.emit_sequence(node, u\"()\")\n+\n+    def visit_SetNode(self, node):\n+        self.emit_sequence(node, u\"{}\")",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128347074",
+            "id": 128347074,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 83,
+            "path": "Cython/CodeWriter.py",
+            "position": null,
+            "pull_request_review_id": 51016791,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T12:52:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128347074",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128347582"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128347582"
+                }
+            },
+            "body": "These three could potentially be joined by always lstripping `\"ub\"`.",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-19T19:46:02Z",
+            "diff_hunk": "@@ -519,3 +519,276 @@ def visit_CFuncDefNode(self, node):\n \n     def visit_StatNode(self, node):\n         pass\n+\n+\n+class ExpressionWriter(TreeVisitor):\n+\n+    def __init__(self, result=None):\n+        super(ExpressionWriter, self).__init__()\n+        if result is None:\n+            result = u\"\"\n+        self.result = result\n+\n+    def write(self, tree):\n+        self.visit(tree)\n+        return self.result\n+\n+    def put(self, s):\n+        self.result += s\n+\n+    def remove(self, s):\n+        if self.result.endswith(s):\n+            self.result = self.result[:-len(s)]\n+\n+    def comma_separated_list(self, items):\n+        if len(items) > 0:\n+            for item in items[:-1]:\n+                self.visit(item)\n+                self.put(u\", \")\n+            self.visit(items[-1])\n+\n+    def visit_Node(self, node):\n+        raise AssertionError(\"Node not handled by serializer: %r\" % node)\n+\n+    def visit_NameNode(self, node):\n+        self.put(node.name)\n+\n+    def visit_NoneNode(self, node):\n+        self.put(u\"None\")\n+\n+    def visit_BoolNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ConstNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ImagNode(self, node):\n+        self.put(node.value)\n+        self.put(u\"j\")\n+\n+    def visit_BytesNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] == 'b':\n+            repr_val = repr_val[1:]\n+        self.put(u\"b%s\" % repr_val)\n+\n+    def visit_StringNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] in 'ub':\n+            repr_val = repr_val[1:]\n+        self.put(u\"%s\" % repr_val)\n+\n+    def visit_UnicodeNode(self, node):",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128347582",
+            "id": 128347582,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 63,
+            "path": "Cython/CodeWriter.py",
+            "position": null,
+            "pull_request_review_id": 51016791,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T12:52:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128347582",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128374141"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128374141"
+                }
+            },
+            "body": "Is that a question or a request? Are you concerned about performance?",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-19T21:36:46Z",
+            "diff_hunk": "@@ -519,3 +519,276 @@ def visit_CFuncDefNode(self, node):\n \n     def visit_StatNode(self, node):\n         pass\n+\n+\n+class ExpressionWriter(TreeVisitor):\n+\n+    def __init__(self, result=None):\n+        super(ExpressionWriter, self).__init__()\n+        if result is None:\n+            result = u\"\"\n+        self.result = result\n+\n+    def write(self, tree):\n+        self.visit(tree)\n+        return self.result\n+\n+    def put(self, s):\n+        self.result += s",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128374141",
+            "id": 128374141,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 19,
+            "path": "Cython/CodeWriter.py",
+            "position": 20,
+            "pull_request_review_id": 51048703,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T12:52:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128374141",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
+                "events_url": "https://api.github.com/users/dalcinl/events{/privacy}",
+                "followers_url": "https://api.github.com/users/dalcinl/followers",
+                "following_url": "https://api.github.com/users/dalcinl/following{/other_user}",
+                "gists_url": "https://api.github.com/users/dalcinl/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/dalcinl",
+                "id": 294981,
+                "login": "dalcinl",
+                "organizations_url": "https://api.github.com/users/dalcinl/orgs",
+                "received_events_url": "https://api.github.com/users/dalcinl/received_events",
+                "repos_url": "https://api.github.com/users/dalcinl/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/dalcinl/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/dalcinl/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/dalcinl"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128374352"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128374352"
+                }
+            },
+            "body": "Good catch!",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-19T21:37:37Z",
+            "diff_hunk": "@@ -519,3 +519,276 @@ def visit_CFuncDefNode(self, node):\n \n     def visit_StatNode(self, node):\n         pass\n+\n+\n+class ExpressionWriter(TreeVisitor):\n+\n+    def __init__(self, result=None):\n+        super(ExpressionWriter, self).__init__()\n+        if result is None:\n+            result = u\"\"\n+        self.result = result\n+\n+    def write(self, tree):\n+        self.visit(tree)\n+        return self.result\n+\n+    def put(self, s):\n+        self.result += s\n+\n+    def remove(self, s):\n+        if self.result.endswith(s):\n+            self.result = self.result[:-len(s)]\n+\n+    def comma_separated_list(self, items):\n+        if len(items) > 0:\n+            for item in items[:-1]:\n+                self.visit(item)\n+                self.put(u\", \")\n+            self.visit(items[-1])\n+\n+    def visit_Node(self, node):\n+        raise AssertionError(\"Node not handled by serializer: %r\" % node)\n+\n+    def visit_NameNode(self, node):\n+        self.put(node.name)\n+\n+    def visit_NoneNode(self, node):\n+        self.put(u\"None\")\n+\n+    def visit_BoolNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ConstNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ImagNode(self, node):\n+        self.put(node.value)\n+        self.put(u\"j\")\n+\n+    def visit_BytesNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] == 'b':\n+            repr_val = repr_val[1:]\n+        self.put(u\"b%s\" % repr_val)\n+\n+    def visit_StringNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] in 'ub':\n+            repr_val = repr_val[1:]\n+        self.put(u\"%s\" % repr_val)\n+\n+    def visit_UnicodeNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] == 'u':\n+            repr_val = repr_val[1:]\n+        self.put(u\"u%s\" % repr_val)\n+\n+    def emit_sequence(self, node, parens):\n+        open_paren, close_paren = parens\n+        items = node.subexpr_nodes()\n+        self.put(open_paren)\n+        self.comma_separated_list(items)\n+        self.put(close_paren)\n+\n+    def visit_ListNode(self, node):\n+        self.emit_sequence(node, u\"[]\")\n+\n+    def visit_TupleNode(self, node):\n+        self.emit_sequence(node, u\"()\")\n+\n+    def visit_SetNode(self, node):\n+        self.emit_sequence(node, u\"{}\")",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128374352",
+            "id": 128374352,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 83,
+            "path": "Cython/CodeWriter.py",
+            "position": null,
+            "pull_request_review_id": 51048899,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T12:52:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128374352",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
+                "events_url": "https://api.github.com/users/dalcinl/events{/privacy}",
+                "followers_url": "https://api.github.com/users/dalcinl/followers",
+                "following_url": "https://api.github.com/users/dalcinl/following{/other_user}",
+                "gists_url": "https://api.github.com/users/dalcinl/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/dalcinl",
+                "id": 294981,
+                "login": "dalcinl",
+                "organizations_url": "https://api.github.com/users/dalcinl/orgs",
+                "received_events_url": "https://api.github.com/users/dalcinl/received_events",
+                "repos_url": "https://api.github.com/users/dalcinl/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/dalcinl/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/dalcinl/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/dalcinl"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128374504"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128374504"
+                }
+            },
+            "body": "Yea, you are definitely right...",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-19T21:38:24Z",
+            "diff_hunk": "@@ -519,3 +519,276 @@ def visit_CFuncDefNode(self, node):\n \n     def visit_StatNode(self, node):\n         pass\n+\n+\n+class ExpressionWriter(TreeVisitor):\n+\n+    def __init__(self, result=None):\n+        super(ExpressionWriter, self).__init__()\n+        if result is None:\n+            result = u\"\"\n+        self.result = result\n+\n+    def write(self, tree):\n+        self.visit(tree)\n+        return self.result\n+\n+    def put(self, s):\n+        self.result += s\n+\n+    def remove(self, s):\n+        if self.result.endswith(s):\n+            self.result = self.result[:-len(s)]\n+\n+    def comma_separated_list(self, items):\n+        if len(items) > 0:\n+            for item in items[:-1]:\n+                self.visit(item)\n+                self.put(u\", \")\n+            self.visit(items[-1])\n+\n+    def visit_Node(self, node):\n+        raise AssertionError(\"Node not handled by serializer: %r\" % node)\n+\n+    def visit_NameNode(self, node):\n+        self.put(node.name)\n+\n+    def visit_NoneNode(self, node):\n+        self.put(u\"None\")\n+\n+    def visit_BoolNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ConstNode(self, node):\n+        self.put(str(node.value))\n+\n+    def visit_ImagNode(self, node):\n+        self.put(node.value)\n+        self.put(u\"j\")\n+\n+    def visit_BytesNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] == 'b':\n+            repr_val = repr_val[1:]\n+        self.put(u\"b%s\" % repr_val)\n+\n+    def visit_StringNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] in 'ub':\n+            repr_val = repr_val[1:]\n+        self.put(u\"%s\" % repr_val)\n+\n+    def visit_UnicodeNode(self, node):\n+        repr_val = repr(node.value)\n+        if repr_val[0] == 'u':\n+            repr_val = repr_val[1:]\n+        self.put(u\"u%s\" % repr_val)\n+\n+    def emit_sequence(self, node, parens):\n+        open_paren, close_paren = parens\n+        items = node.subexpr_nodes()\n+        self.put(open_paren)\n+        self.comma_separated_list(items)\n+        self.put(close_paren)\n+\n+    def visit_ListNode(self, node):\n+        self.emit_sequence(node, u\"[]\")\n+\n+    def visit_TupleNode(self, node):\n+        self.emit_sequence(node, u\"()\")\n+\n+    def visit_SetNode(self, node):\n+        self.emit_sequence(node, u\"{}\")\n+\n+    def visit_DictNode(self, node):\n+        self.emit_sequence(node, u\"{}\")\n+\n+    def visit_DictItemNode(self, node):\n+        self.visit(node.key)\n+        self.put(u\": \")\n+        self.visit(node.value)\n+\n+    unop_precedence = {\n+        'not': 3, '!': 3,\n+        '+': 11, '-': 11, '~': 11,\n+    }\n+    binop_precedence = {\n+        'or': 1,\n+        'and': 2,\n+        # unary: 'not': 3, '!': 3,\n+        'in': 4, 'not_in': 4, 'is': 4, 'is_not': 4, '<': 4, '<=': 4, '>': 4, '>=': 4, '!=': 4, '==': 4,\n+        '|': 5,\n+        '^': 6,\n+        '&': 7,\n+        '<<': 8, '>>': 8,\n+        '+': 9, '-': 9,\n+        '*': 10, '/': 10, '//': 10, '%': 10,\n+        # unary: '+': 11, '-': 11, '~': 11\n+        '**': 12,\n+    }\n+\n+    def operator_enter(self, new_prec):\n+        if not hasattr(self, 'precedence'):",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128374504",
+            "id": 128374504,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 113,
+            "path": "Cython/CodeWriter.py",
+            "position": null,
+            "pull_request_review_id": 51049083,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T12:52:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128374504",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
+                "events_url": "https://api.github.com/users/dalcinl/events{/privacy}",
+                "followers_url": "https://api.github.com/users/dalcinl/followers",
+                "following_url": "https://api.github.com/users/dalcinl/following{/other_user}",
+                "gists_url": "https://api.github.com/users/dalcinl/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/dalcinl",
+                "id": 294981,
+                "login": "dalcinl",
+                "organizations_url": "https://api.github.com/users/dalcinl/orgs",
+                "received_events_url": "https://api.github.com/users/dalcinl/received_events",
+                "repos_url": "https://api.github.com/users/dalcinl/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/dalcinl/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/dalcinl/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/dalcinl"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128374942"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128374942"
+                }
+            },
+            "body": "Well, I guess this is not a blocker for this PR. We can decide later on it, right?",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-19T21:40:32Z",
+            "diff_hunk": "@@ -185,7 +188,7 @@ __doc__ = ur\"\"\"\n     f_defexpr4(int x=(Ext.CONST1 + FLAG1) * Ext.CONST2)\n \n     >>> print(funcdoc(f_defexpr5))\n-    f_defexpr5(int x=4)\n+    f_defexpr5(int x=2 + 2)",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128374942",
+            "id": 128374942,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 15,
+            "path": "tests/run/embedsignatures.pyx",
+            "position": 15,
+            "pull_request_review_id": 51049577,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T12:52:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128374942",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
+                "events_url": "https://api.github.com/users/dalcinl/events{/privacy}",
+                "followers_url": "https://api.github.com/users/dalcinl/followers",
+                "following_url": "https://api.github.com/users/dalcinl/following{/other_user}",
+                "gists_url": "https://api.github.com/users/dalcinl/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/dalcinl",
+                "id": 294981,
+                "login": "dalcinl",
+                "organizations_url": "https://api.github.com/users/dalcinl/orgs",
+                "received_events_url": "https://api.github.com/users/dalcinl/received_events",
+                "repos_url": "https://api.github.com/users/dalcinl/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/dalcinl/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/dalcinl/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/dalcinl"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128507737"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128507737"
+                }
+            },
+            "body": "@scoder IIUC, any python expression has to be written in a single line (unless parentized). I still don't see the point of appending to a list to join at the end.",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-20T13:01:50Z",
+            "diff_hunk": "@@ -519,3 +519,276 @@ def visit_CFuncDefNode(self, node):\n \n     def visit_StatNode(self, node):\n         pass\n+\n+\n+class ExpressionWriter(TreeVisitor):\n+\n+    def __init__(self, result=None):\n+        super(ExpressionWriter, self).__init__()\n+        if result is None:\n+            result = u\"\"\n+        self.result = result\n+\n+    def write(self, tree):\n+        self.visit(tree)\n+        return self.result\n+\n+    def put(self, s):\n+        self.result += s",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128507737",
+            "id": 128507737,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 19,
+            "path": "Cython/CodeWriter.py",
+            "position": 20,
+            "pull_request_review_id": 51193165,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T13:01:50Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128507737",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
+                "events_url": "https://api.github.com/users/dalcinl/events{/privacy}",
+                "followers_url": "https://api.github.com/users/dalcinl/followers",
+                "following_url": "https://api.github.com/users/dalcinl/following{/other_user}",
+                "gists_url": "https://api.github.com/users/dalcinl/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/dalcinl",
+                "id": 294981,
+                "login": "dalcinl",
+                "organizations_url": "https://api.github.com/users/dalcinl/orgs",
+                "received_events_url": "https://api.github.com/users/dalcinl/received_events",
+                "repos_url": "https://api.github.com/users/dalcinl/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/dalcinl/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/dalcinl/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/dalcinl"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128508071"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128508071"
+                }
+            },
+            "body": "Just commenting. I guess it's ok for small stuff, but I'd always go with a list in such a case since you never know what people end up using it for.",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-20T13:03:26Z",
+            "diff_hunk": "@@ -519,3 +519,276 @@ def visit_CFuncDefNode(self, node):\n \n     def visit_StatNode(self, node):\n         pass\n+\n+\n+class ExpressionWriter(TreeVisitor):\n+\n+    def __init__(self, result=None):\n+        super(ExpressionWriter, self).__init__()\n+        if result is None:\n+            result = u\"\"\n+        self.result = result\n+\n+    def write(self, tree):\n+        self.visit(tree)\n+        return self.result\n+\n+    def put(self, s):\n+        self.result += s",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128508071",
+            "id": 128508071,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 19,
+            "path": "Cython/CodeWriter.py",
+            "position": 20,
+            "pull_request_review_id": 51193571,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T13:03:26Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128508071",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/1781#discussion_r128510680"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/1781"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/128510680"
+                }
+            },
+            "body": "Note that `DeclarationWriter` is doing basically the same for each line. I would propose to defer a final decision on this to a future refactoring of `DeclarationWriter`/`ExpressionWriter`.",
+            "commit_id": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "created_at": "2017-07-20T13:15:25Z",
+            "diff_hunk": "@@ -519,3 +519,276 @@ def visit_CFuncDefNode(self, node):\n \n     def visit_StatNode(self, node):\n         pass\n+\n+\n+class ExpressionWriter(TreeVisitor):\n+\n+    def __init__(self, result=None):\n+        super(ExpressionWriter, self).__init__()\n+        if result is None:\n+            result = u\"\"\n+        self.result = result\n+\n+    def write(self, tree):\n+        self.visit(tree)\n+        return self.result\n+\n+    def put(self, s):\n+        self.result += s",
+            "html_url": "https://github.com/cython/cython/pull/1781#discussion_r128510680",
+            "id": 128510680,
+            "original_commit_id": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "original_position": 19,
+            "path": "Cython/CodeWriter.py",
+            "position": 20,
+            "pull_request_review_id": 51196652,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/1781",
+            "updated_at": "2017-07-20T13:15:25Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/128510680",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
+                "events_url": "https://api.github.com/users/dalcinl/events{/privacy}",
+                "followers_url": "https://api.github.com/users/dalcinl/followers",
+                "following_url": "https://api.github.com/users/dalcinl/following{/other_user}",
+                "gists_url": "https://api.github.com/users/dalcinl/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/dalcinl",
+                "id": 294981,
+                "login": "dalcinl",
+                "organizations_url": "https://api.github.com/users/dalcinl/orgs",
+                "received_events_url": "https://api.github.com/users/dalcinl/received_events",
+                "repos_url": "https://api.github.com/users/dalcinl/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/dalcinl/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/dalcinl/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/dalcinl"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1781/comments",
     "commit_data": [
         {
@@ -165,25 +764,25 @@
                 "type": "User",
                 "url": "https://api.github.com/users/dalcinl"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/beca4d32e73d0521f66c39990c07607529a93e29/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/44490b49ee45b50eea3156c76b8f2ef9594d44e1/comments",
             "commit": {
                 "author": {
-                    "date": "2017-07-18T12:53:24Z",
+                    "date": "2017-07-19T19:17:29Z",
                     "email": "dalcinl@gmail.com",
                     "name": "Lisandro Dalcin"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2017-07-18T12:53:24Z",
+                    "date": "2017-07-19T19:17:29Z",
                     "email": "dalcinl@gmail.com",
                     "name": "Lisandro Dalcin"
                 },
-                "message": "Update embedsignature directive to emit function annotations",
+                "message": "Update embedsignature directive\n\n* emit function annotations\n* implement ExpressionWriter visitor",
                 "tree": {
-                    "sha": "5babeb10437a8d176d81ef803e2fdff99c272213",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/5babeb10437a8d176d81ef803e2fdff99c272213"
+                    "sha": "6d9bb9aee6e9b0d72aeb80e153e1f925a719aeab",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6d9bb9aee6e9b0d72aeb80e153e1f925a719aeab"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/beca4d32e73d0521f66c39990c07607529a93e29"
+                "url": "https://api.github.com/repos/cython/cython/git/commits/44490b49ee45b50eea3156c76b8f2ef9594d44e1"
             },
             "committer": {
                 "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
@@ -204,7 +803,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/dalcinl"
             },
-            "html_url": "https://github.com/cython/cython/commit/beca4d32e73d0521f66c39990c07607529a93e29",
+            "html_url": "https://github.com/cython/cython/commit/44490b49ee45b50eea3156c76b8f2ef9594d44e1",
             "parents": [
                 {
                     "html_url": "https://github.com/cython/cython/commit/19d890ecbf4d47f9114d32af646208187608e583",
@@ -212,8 +811,148 @@
                     "url": "https://api.github.com/repos/cython/cython/commits/19d890ecbf4d47f9114d32af646208187608e583"
                 }
             ],
-            "sha": "beca4d32e73d0521f66c39990c07607529a93e29",
-            "url": "https://api.github.com/repos/cython/cython/commits/beca4d32e73d0521f66c39990c07607529a93e29"
+            "sha": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+            "url": "https://api.github.com/repos/cython/cython/commits/44490b49ee45b50eea3156c76b8f2ef9594d44e1"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
+                "events_url": "https://api.github.com/users/dalcinl/events{/privacy}",
+                "followers_url": "https://api.github.com/users/dalcinl/followers",
+                "following_url": "https://api.github.com/users/dalcinl/following{/other_user}",
+                "gists_url": "https://api.github.com/users/dalcinl/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/dalcinl",
+                "id": 294981,
+                "login": "dalcinl",
+                "organizations_url": "https://api.github.com/users/dalcinl/orgs",
+                "received_events_url": "https://api.github.com/users/dalcinl/received_events",
+                "repos_url": "https://api.github.com/users/dalcinl/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/dalcinl/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/dalcinl/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/dalcinl"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/40a3c5c14b19be951d29799ed2deb963920d7ad8/comments",
+            "commit": {
+                "author": {
+                    "date": "2017-07-20T12:47:44Z",
+                    "email": "dalcinl@gmail.com",
+                    "name": "Lisandro Dalcin"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2017-07-20T12:47:44Z",
+                    "email": "dalcinl@gmail.com",
+                    "name": "Lisandro Dalcin"
+                },
+                "message": "ExpressionWriter: Various enhancements\n\n* Simplify string handling using common code to handle prefixes\n* Fix rendering of empty sets as `set()` instead of ``{}`\n* Add support generator expressions\n* Use common code for comprehensions and generator expressions\n* Add support for Ellipsis rendered as `...`\n* Minor refactor to handling of unop/binop precedence\n* Fix rendering of multidimensional indexing",
+                "tree": {
+                    "sha": "4bbda458b35e8d7b6c22f874bf3c93c2326428c1",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/4bbda458b35e8d7b6c22f874bf3c93c2326428c1"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/40a3c5c14b19be951d29799ed2deb963920d7ad8"
+            },
+            "committer": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
+                "events_url": "https://api.github.com/users/dalcinl/events{/privacy}",
+                "followers_url": "https://api.github.com/users/dalcinl/followers",
+                "following_url": "https://api.github.com/users/dalcinl/following{/other_user}",
+                "gists_url": "https://api.github.com/users/dalcinl/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/dalcinl",
+                "id": 294981,
+                "login": "dalcinl",
+                "organizations_url": "https://api.github.com/users/dalcinl/orgs",
+                "received_events_url": "https://api.github.com/users/dalcinl/received_events",
+                "repos_url": "https://api.github.com/users/dalcinl/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/dalcinl/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/dalcinl/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/dalcinl"
+            },
+            "html_url": "https://github.com/cython/cython/commit/40a3c5c14b19be951d29799ed2deb963920d7ad8",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+                    "sha": "44490b49ee45b50eea3156c76b8f2ef9594d44e1",
+                    "url": "https://api.github.com/repos/cython/cython/commits/44490b49ee45b50eea3156c76b8f2ef9594d44e1"
+                }
+            ],
+            "sha": "40a3c5c14b19be951d29799ed2deb963920d7ad8",
+            "url": "https://api.github.com/repos/cython/cython/commits/40a3c5c14b19be951d29799ed2deb963920d7ad8"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
+                "events_url": "https://api.github.com/users/dalcinl/events{/privacy}",
+                "followers_url": "https://api.github.com/users/dalcinl/followers",
+                "following_url": "https://api.github.com/users/dalcinl/following{/other_user}",
+                "gists_url": "https://api.github.com/users/dalcinl/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/dalcinl",
+                "id": 294981,
+                "login": "dalcinl",
+                "organizations_url": "https://api.github.com/users/dalcinl/orgs",
+                "received_events_url": "https://api.github.com/users/dalcinl/received_events",
+                "repos_url": "https://api.github.com/users/dalcinl/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/dalcinl/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/dalcinl/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/dalcinl"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/f5dbcd6eb553c6f3c3e5ae11354429dac3986915/comments",
+            "commit": {
+                "author": {
+                    "date": "2017-07-20T12:52:31Z",
+                    "email": "dalcinl@gmail.com",
+                    "name": "Lisandro Dalcin"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2017-07-20T12:52:31Z",
+                    "email": "dalcinl@gmail.com",
+                    "name": "Lisandro Dalcin"
+                },
+                "message": "test: Add tests for embedsignature with function annotations",
+                "tree": {
+                    "sha": "f7d1051a26b9da7ed88662e8db2a6803276cec8d",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/f7d1051a26b9da7ed88662e8db2a6803276cec8d"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/f5dbcd6eb553c6f3c3e5ae11354429dac3986915"
+            },
+            "committer": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
+                "events_url": "https://api.github.com/users/dalcinl/events{/privacy}",
+                "followers_url": "https://api.github.com/users/dalcinl/followers",
+                "following_url": "https://api.github.com/users/dalcinl/following{/other_user}",
+                "gists_url": "https://api.github.com/users/dalcinl/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/dalcinl",
+                "id": 294981,
+                "login": "dalcinl",
+                "organizations_url": "https://api.github.com/users/dalcinl/orgs",
+                "received_events_url": "https://api.github.com/users/dalcinl/received_events",
+                "repos_url": "https://api.github.com/users/dalcinl/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/dalcinl/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/dalcinl/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/dalcinl"
+            },
+            "html_url": "https://github.com/cython/cython/commit/f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/40a3c5c14b19be951d29799ed2deb963920d7ad8",
+                    "sha": "40a3c5c14b19be951d29799ed2deb963920d7ad8",
+                    "url": "https://api.github.com/repos/cython/cython/commits/40a3c5c14b19be951d29799ed2deb963920d7ad8"
+                }
+            ],
+            "sha": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
+            "url": "https://api.github.com/repos/cython/cython/commits/f5dbcd6eb553c6f3c3e5ae11354429dac3986915"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/1781/commits",
@@ -241,8 +980,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 539,
-            "forks_count": 539,
+            "forks": 544,
+            "forks_count": 544,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -270,8 +1009,8 @@
             "mirror_url": null,
             "name": "cython",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 417,
-            "open_issues_count": 417,
+            "open_issues": 421,
+            "open_issues_count": 421,
             "owner": {
                 "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -293,11 +1032,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2017-07-18T16:25:54Z",
+            "pushed_at": "2017-07-26T12:36:10Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 47946,
+            "size": 47679,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 2389,
+            "stargazers_count": 2403,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -306,12 +1045,12 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2017-07-19T09:52:06Z",
+            "updated_at": "2017-07-26T08:56:18Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 2389,
-            "watchers_count": 2389
+            "watchers": 2403,
+            "watchers_count": 2403
         },
-        "sha": "beca4d32e73d0521f66c39990c07607529a93e29",
+        "sha": "f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
         "user": {
             "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -336,18 +1075,52 @@
     "id": 131079873,
     "issue_url": "https://api.github.com/repos/cython/cython/issues/1781",
     "locked": false,
-    "merge_commit_sha": "c586dffc37a887961cb6989bfe97cffaef719bba",
+    "merge_commit_sha": "2b6abd50c9df7383092574f759a615b214e4ab16",
     "merged_at": null,
-    "milestone": null,
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 0,
+        "created_at": "2017-07-25T11:36:06Z",
+        "creator": {
+            "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/scoder"
+        },
+        "description": null,
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestone/45",
+        "id": 2660533,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/45/labels",
+        "number": 45,
+        "open_issues": 3,
+        "state": "open",
+        "title": "0.27",
+        "updated_at": "2017-07-26T10:37:29Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/45"
+    },
     "number": 1781,
     "patch_url": "https://github.com/cython/cython/pull/1781.patch",
     "requested_reviewers": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/1781/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/beca4d32e73d0521f66c39990c07607529a93e29",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/f5dbcd6eb553c6f3c3e5ae11354429dac3986915",
     "title": "Update embedsignature directive to emit function annotations",
-    "updated_at": "2017-07-18T17:57:28Z",
+    "updated_at": "2017-07-25T11:36:06Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/1781",
     "user": {
         "avatar_url": "https://avatars1.githubusercontent.com/u/294981?v=4",
