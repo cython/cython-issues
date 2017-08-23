@@ -1,11 +1,11 @@
 {
     "assignee": null,
     "assignees": [],
-    "body": "From cython-devel:\n\nhttp://thread.gmane.org/gmane.comp.python.cython.devel/12993\n\nI did some callgrind profiling on Cython's generators and was surprised to find that ```AddTraceback()``` represents a serious performance penalty for short running generators.\n\nI profiled a compiled Python implementation of ```itertools.groupby()```, which yields ```(key, group)``` tuples where the group is an iterator again. I ran this code in Python for benchmarking:\n\n```\nL = sorted(range(1000)*5)\n\nall(list(g) for k,g in cython_groupby(L))\n```\n\nGroups tend to be rather short in real code, often just one or a couple of items, so unpacking the group iterator into a list will usually be a quick loop and then the generator raises ```StopIteration``` on termination and builds a traceback for it. According to callgrind, the iteration during the group unpacking takes about 30% of the overall runtime of the ```all()``` loop, and the ```AddTraceback()``` call at the end of each group traversal takes up to 25% (!) on my side. That means that more than 80% of the group unpacking time goes into raising ```StopIteration``` from the generators.\n\nAbout half of the exception raising time is eaten by ```PyString_FromFormat()``` that builds the function-name + line-position string (which, I may note, is basically a convenience feature). This string is a constant for a generator's ```StopIteration``` exception, at least for each final return point in a generator, but here it is being recreated over and over again, for each exception that gets raised.\n\nEven if we keep creating a new frame instance each time (which should be ok because CPython has a frame instance cache already and we'd only create one during the generator lifetime), the whole code object could actually be cached after the first creation, preferably bound to the lifetime of the generator creator function/method. Or, more generally, one code object per generator termination point, which will be a single point in the majority of cases. For the specific code above, that should shave off almost 20% of the overall runtime of the ```all()``` loop.\n\nMigrated from http://trac.cython.org/ticket/760",
-    "closed_at": null,
+    "body": "From cython-devel:\n\nhttp://thread.gmane.org/gmane.comp.python.cython.devel/12993\n\nI did some callgrind profiling on Cython's generators and was surprised to find that `AddTraceback()` represents a serious performance penalty for short running generators.\n\nI profiled a compiled Python implementation of `itertools.groupby()`, which yields `(key, group)` tuples where the group is an iterator again. I ran this code in Python for benchmarking:\n\n```\nL = sorted(range(1000)*5)\n\nall(list(g) for k,g in cython_groupby(L))\n```\n\nGroups tend to be rather short in real code, often just one or a couple of items, so unpacking the group iterator into a list will usually be a quick loop and then the generator raises `StopIteration` on termination and builds a traceback for it. According to callgrind, the iteration during the group unpacking takes about 30% of the overall runtime of the `all()` loop, and the `AddTraceback()` call at the end of each group traversal takes up to 25% (!) on my side. That means that more than 80% of the group unpacking time goes into raising `StopIteration` from the generators.\n\nAbout half of the exception raising time is eaten by `PyString_FromFormat()` that builds the function-name + line-position string (which, I may note, is basically a convenience feature). This string is a constant for a generator's `StopIteration` exception, at least for each final return point in a generator, but here it is being recreated over and over again, for each exception that gets raised.\n\nEven if we keep creating a new frame instance each time (which should be ok because CPython has a frame instance cache already and we'd only create one during the generator lifetime), the whole code object could actually be cached after the first creation, preferably bound to the lifetime of the generator creator function/method. Or, more generally, one code object per generator termination point, which will be a single point in the majority of cases. For the specific code above, that should shave off almost 20% of the overall runtime of the `all()` loop.\n\nMigrated from http://trac.cython.org/ticket/760\n",
+    "closed_at": "2017-08-18T14:59:33Z",
     "comment_data": [
         {
-            "body": "**scoder** changed **summary** from\n\ntraceback creation slows down generators considerably\n\nto\n\ntraceback creation slows down exception propagation considerably\ncommented\n\nThis is a more general problem, not only for generators. Exception propagation could be substantially faster if code objects were cached.",
+            "body": "**scoder** changed **summary** from\n\ntraceback creation slows down generators considerably\n\nto\n\ntraceback creation slows down exception propagation considerably\ncommented\n\nThis is a more general problem, not only for generators. Exception propagation could be substantially faster if code objects were cached.\n",
             "created_at": "2012-01-27T08:12:01Z",
             "html_url": "https://github.com/cython/cython/issues/1315#issuecomment-240051675",
             "id": 240051675,
@@ -13,7 +13,7 @@
             "updated_at": "2016-08-16T09:27:07Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/240051675",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -31,15 +31,43 @@
                 "type": "User",
                 "url": "https://api.github.com/users/robertwb"
             }
+        },
+        {
+            "body": "There is a cache for code objects now, so I think this can be closed.",
+            "created_at": "2017-08-18T14:59:33Z",
+            "html_url": "https://github.com/cython/cython/issues/1315#issuecomment-323377177",
+            "id": 323377177,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1315",
+            "updated_at": "2017-08-18T14:59:33Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/323377177",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
         }
     ],
-    "comments": 1,
+    "comments": 2,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1315/comments",
     "created_at": "2012-01-26T20:01:47Z",
     "event_data": [
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -70,7 +98,7 @@
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -101,7 +129,7 @@
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -128,6 +156,33 @@
                 "title": "wishlist"
             },
             "url": "https://api.github.com/repos/cython/cython/issues/events/756781961"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-08-18T14:59:33Z",
+            "event": "closed",
+            "id": 1212042657,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1212042657"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/1315/events",
@@ -136,11 +191,15 @@
     "labels": [
         {
             "color": "444444",
+            "default": false,
+            "id": 425553654,
             "name": "defect",
             "url": "https://api.github.com/repos/cython/cython/labels/defect"
         },
         {
             "color": "444444",
+            "default": false,
+            "id": 425556272,
             "name": "Optimization",
             "url": "https://api.github.com/repos/cython/cython/labels/Optimization"
         }
@@ -149,10 +208,10 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 25,
+        "closed_issues": 30,
         "created_at": "2016-08-16T08:38:52Z",
         "creator": {
-            "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+            "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
             "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
             "followers_url": "https://api.github.com/users/robertwb/followers",
             "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -172,24 +231,24 @@
         },
         "description": "",
         "due_on": null,
-        "html_url": "https://github.com/cython/cython/milestones/wishlist",
+        "html_url": "https://github.com/cython/cython/milestone/6",
         "id": 1944442,
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/6/labels",
         "number": 6,
-        "open_issues": 196,
+        "open_issues": 190,
         "state": "open",
         "title": "wishlist",
-        "updated_at": "2016-08-17T04:27:14Z",
+        "updated_at": "2017-08-18T15:03:32Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/6"
     },
     "number": 1315,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "title": "traceback creation slows down exception propagation considerably",
-    "updated_at": "2012-01-27T08:12:01Z",
+    "updated_at": "2017-08-18T14:59:33Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1315",
     "user": {
-        "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+        "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
         "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
         "followers_url": "https://api.github.com/users/robertwb/followers",
         "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
