@@ -1,10 +1,12 @@
 {
     "assignee": null,
     "assignees": [],
+    "author_association": "NONE",
     "body": "I was trying to use a \"cleaver trick\" in my very first attempt to write a Cython module, the code which failed to compile boils down to something like this:\r\n\r\n```\r\ncdef int[1] arr\r\ncdef int *ptr = arr\r\n\r\nfor ptr[0] in range(100):\r\n    pass\r\n```\r\n\r\nWhile this form doesn't make sense in pure Python, in C it's an equivalent of using *ptr which is fine, so I was wondering if it would be possible to support it in Cython as well, at the very least it would be nice to have a more helpful error message. \r\n",
-    "closed_at": null,
+    "closed_at": "2017-09-02T06:42:14Z",
     "comment_data": [
         {
+            "author_association": "OWNER",
             "body": "It's not clear to me what this code is supposed to do. Could you explain?",
             "created_at": "2017-08-19T22:08:06Z",
             "html_url": "https://github.com/cython/cython/issues/1831#issuecomment-323550433",
@@ -33,6 +35,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "This is just an example of syntax which can be compiled and run, if you want a concrete example - I was trying to use it in asn.1 parser like this:\r\n```\r\nfor oid[0] in range(0, 3):\r\n    if oid[1] < 40:\r\n        break\r\n    else:\r\n        oid[1] -= 40\r\n```\r\nThe first time I tried to cythonize file containing this piece of code I got an AttributeError and I had to comment out various parts to find what was causing it. So it would be nice to improve that part (error reporting) but if this gets be supported it would be even better.",
             "created_at": "2017-08-20T00:50:36Z",
             "html_url": "https://github.com/cython/cython/issues/1831#issuecomment-323556283",
@@ -61,6 +64,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "Sorry, but I still don't understand it. Your example assigns to array index 0 as loop variable, and then uses array index 1 inside of the loop. What is the intention here? Do you really want to avoid the single code line that it would take to write this:\r\n```\r\nfor i in range(0, 3):\r\n    oid[0] = i\r\n    if oid[1] < 40:\r\n        ...\r\n```\r\n",
             "created_at": "2017-08-20T04:25:08Z",
             "html_url": "https://github.com/cython/cython/issues/1831#issuecomment-323562813",
@@ -89,6 +93,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "I can reproduce the `AttributeError`, BTW:\r\n```\r\n  File \"Cython/Compiler/Nodes.py\", line 425, in generate_execution_code                                                                                                                                                           \r\n    stat.generate_execution_code(code)                                                                                                                                                                                                                                         \r\n  File \"Cython/Compiler/Nodes.py\", line 6462, in generate_execution_code                                                                                                                                                          \r\n    self.target.result(),                                                                                                                                                                                                                                                      \r\n  File \"Cython/Compiler/ExprNodes.py\", line 443, in result                                                                                                                                                                        \r\n    return self.calculate_result_code()                                                                                                                                                                                                                                        \r\n  File \"Cython/Compiler/ExprNodes.py\", line 3804, in calculate_result_code                                                                                                                                                        \r\n    return index_code % (self.base.result(), self.index.result())                                                                                                                                                                                                              \r\n  File \"Cython/Compiler/ExprNodes.py\", line 443, in result                                                                                                                                                                        \r\n    return self.calculate_result_code()                                                                                                                                                                                                                                        \r\n  File \"Cython/Compiler/ExprNodes.py\", line 1305, in calculate_result_code                                                                                                                                                        \r\n    return self.result_code                                                                                                                                                                                                                                                    \r\nAttributeError: 'IntNode' object has no attribute 'result_code'                                                                                                                                                                                                                \r\n```\r\nI was using this code:\r\n```\r\ncdef int[2] oid\r\nfor oid[0] in range(0, 3):\r\n    if oid[1] < 40:\r\n        break\r\n```\r\n",
             "created_at": "2017-08-20T04:31:03Z",
             "html_url": "https://github.com/cython/cython/issues/1831#issuecomment-323562979",
@@ -117,6 +122,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "Oh, and Python does allow this:\r\n```\r\n>>> l = [0,1]\r\n>>> for l[0] in range(3): pass\r\n>>> l\r\n[2, 1]\r\n```\r\nThis also compiles correctly in Cython, so this is really just a bug.",
             "created_at": "2017-08-20T04:39:57Z",
             "html_url": "https://github.com/cython/cython/issues/1831#issuecomment-323563201",
@@ -145,6 +151,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "We should probably allow any lvalue as the loop target, as in Python, and we should produce better errors. I don't, however, understand setting `old[0]` and testing `old[1]` unless there's more to this loop that meets the eye. (Perhaps the intended C code would help?)",
             "created_at": "2017-08-20T05:02:36Z",
             "html_url": "https://github.com/cython/cython/issues/1831#issuecomment-323563828",
@@ -173,6 +180,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "`oid` points to an array of integers (function output), however in order to save space over the wire (function input, variable length encoded), the first two sub IDs are encoded according to formula `(x * 40) + y`, where x is in range 0..2. So my decoder first parsed the whole byte string, dumping values into array starting at index 1, then \"unpacked\" the first two sub IDs. Obviously I could've used a bit of arithmetic or nested if's but I choose to be \"creative\". \r\n\r\nSo.. yes, scoder is right, I did that just to avoid using additional temporary variable, at least that is what I would have done in C code, where abusing pointers is morally acceptable behaviour. \r\n\r\nConsider following example (which works as intended):\r\n### spam.pyx\r\n```\r\n#cython: language_level=3\r\n\r\ncdef struct Buffer:\r\n    unsigned char *data\r\n    int pos\r\n    int len\r\n\r\ncdef int parse_int(Buffer *buf) except *:\r\n    cdef int intlen = buf.data[buf.pos]\r\n    cdef unsigned ret = 0\r\n\r\n    if intlen > 4:\r\n        raise ValueError\r\n\r\n    if buf.pos + intlen > buf.len:\r\n        raise IndexError\r\n\r\n    buf.pos += 1\r\n    for buf.pos in range(buf.pos, buf.pos + intlen):\r\n        ret = (ret << 8) | buf.data[buf.pos]\r\n\r\n    return <int>ret\r\n\r\ndef parse(data):\r\n    cdef Buffer b\r\n    \r\n    b.data = data\r\n    b.pos = 0\r\n    b.len = len(data)\r\n\r\n    if b.len < 1:\r\n        raise ValueError\r\n\r\n    print('Before call', b.pos)\r\n    ret = parse_int(&b)\r\n    print('After call', b.pos)\r\n    \r\n    return ret\r\n```\r\n### test.py\r\n```\r\nimport spam\r\n\r\na = 123456789\r\nb = a.to_bytes(4, 'big')\r\nc = len(b).to_bytes(1, 'big')\r\nd = c + b\r\n\r\nprint(spam.parse(d))\r\n```\r\n### Output:\r\n```\r\npython3.6 test.py \r\nBefore call 0\r\nAfter call 4\r\n123456789\r\n```\r\nOne might want to rewrite this function, remove struct and pass the pointers directly: `cdef int parse_int(unsigned char *data, int *pos, int len)` but this would fail on `pos[0]`. ",
             "created_at": "2017-08-20T14:24:35Z",
             "html_url": "https://github.com/cython/cython/issues/1831#issuecomment-323588147",
@@ -201,6 +209,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "> but this would fail on pos[0].\r\n\r\nAs I said, that's a bug. Thanks for reporting it and thanks for the clarifications.\r\n\r\n> ... just to avoid using additional temporary variable\r\n> ... One might want to rewrite this function ...\r\n\r\nDon't forget that there's a C compiler cleaning up after you. Aliasing it something that compilers learned decades ago.",
             "created_at": "2017-08-20T14:38:51Z",
             "html_url": "https://github.com/cython/cython/issues/1831#issuecomment-323589119",
@@ -356,6 +365,63 @@
                 "to": "AttributeError on pointer dereferencing in loop target"
             },
             "url": "https://api.github.com/repos/cython/cython/issues/events/1213131395"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": "5ccc9e46ea455cf3bd4d1c913cc4bc9328f82e03",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/5ccc9e46ea455cf3bd4d1c913cc4bc9328f82e03",
+            "created_at": "2017-09-02T06:42:14Z",
+            "event": "closed",
+            "id": 1232253178,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1232253178"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-09-02T06:42:19Z",
+            "event": "milestoned",
+            "id": 1232253195,
+            "milestone": {
+                "title": "0.27"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1232253195"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/1831/events",
@@ -386,12 +452,46 @@
     ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/1831/labels{/name}",
     "locked": false,
-    "milestone": null,
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 17,
+        "created_at": "2017-07-25T11:36:06Z",
+        "creator": {
+            "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/scoder"
+        },
+        "description": null,
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestone/45",
+        "id": 2660533,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/45/labels",
+        "number": 45,
+        "open_issues": 2,
+        "state": "open",
+        "title": "0.27",
+        "updated_at": "2017-09-02T16:36:04Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/45"
+    },
     "number": 1831,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "title": "AttributeError on pointer dereferencing in loop target",
-    "updated_at": "2017-08-20T14:38:51Z",
+    "updated_at": "2017-09-02T06:42:19Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1831",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/133806?v=4",

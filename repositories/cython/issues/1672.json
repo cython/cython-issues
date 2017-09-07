@@ -1,10 +1,12 @@
 {
     "assignee": null,
     "assignees": [],
+    "author_association": "NONE",
     "body": "Python already has static typing via the typing module. It should be possible to use this rather than cdef. ",
     "closed_at": null,
     "comment_data": [
         {
+            "author_association": "OWNER",
             "body": "Though I (and others) have thought about doing this, the implementation wouldn't be as straightforward as it seems. For example, would a type of `int` be a C int or a Python int? PEP 484-style types are supposed to have no runtime effects; would a .py file compiled with Cython that has type annotations violate this? Cython's type system is neither a subset of superset of the typing module's system, and it's not clear the best way to extend it. (E.g. would List[str] require runtime checks on getting and setting items?) Also, cdef declares more than just type, it's also used to declare scope (e.g. cdef, cpdef, and def functions cannot be inferred from the argument/return types, and we need modifiers on class attribute visibility). \r\n\r\nThat being said, I would like to see this fleshed out into a full proposal (maybe on the wiki) that addresses these issues. ",
             "created_at": "2017-04-12T03:24:05Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-293461891",
@@ -33,6 +35,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "Type definitions for functions should remain the same. I hadn't thought of this initially, but using decorators for the functions rather than the cdef would probably be better as well. I'll start a wiki page on this sometime soon.",
             "created_at": "2017-04-12T04:08:14Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-293468864",
@@ -61,6 +64,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "That'd be great. See also http://cython.readthedocs.io/en/latest/src/tutorial/pure.html",
             "created_at": "2017-04-12T04:18:19Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-293469925",
@@ -89,6 +93,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "Wiki page: https://github.com/cython/cython/wiki/Python-Typing-Proposal (WIP)",
             "created_at": "2017-04-14T17:00:24Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-294191335",
@@ -117,6 +122,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "@jukkal and @ilevkivskyi had similiar ideas.",
             "created_at": "2017-04-19T13:52:23Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-295277728",
@@ -145,6 +151,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "Note that PEP 526 syntax for variable annotation (works in Python 3.6) will be also useful.\r\n\r\nConcerning Python ``int`` vs C ``int``, my idea was to create an additional module (maybe ``ctyping``?) that will contain more precise low-level types for annotations, plus few special constructs that will be interpreted specially, e.g.\r\n```python\r\nfrom ctyping import int_8, float_32, Struct\r\n\r\nclass Data(Struct):\r\n    number: int_8\r\n    value: float_32\r\n```\r\n(compare this to how ``typing.NamedTuple`` is implemented and interpret by tools like ``mypy``)",
             "created_at": "2017-04-19T14:04:41Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-295281642",
@@ -173,6 +180,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "Thanks. I expanded the wiki some. \r\n\r\nIdeally variables like int_8 could be (c)imported from their definitions in libc.stdint, so we only need the fundamental C types to come from somewhere. \r\n\r\nInteresting idea inheriting from Struct (and by analogy Union, Enum). I had thought of using decorators to annotate classes like this instead. I wonder if cdef extern blocks could be phrased as Python-valid blocks as well (with statements? If they lived in a namespace, a class would be natural).",
             "created_at": "2017-04-20T05:13:47Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-295583593",
@@ -201,6 +209,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "The proposal that I had suggested using ctypes for type annotations. There's no need to bring in a custom module when python already has all of the c types builtin.",
             "created_at": "2017-04-20T15:58:16Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-295790818",
@@ -229,6 +238,7 @@
             }
         },
         {
+            "author_association": "CONTRIBUTOR",
             "body": "Cython's pure mode already has objects to represent some C types. Could we just use that E.g.\r\n\r\n```python\r\n@cython.func\r\ndef c_compare(a:cython.int, b:cython.int) -> cython.int:\r\n    return a == b\r\n\r\nMyStruct = cython.struct(x=cython.int, y=cython.int, data=cython.double)\r\n\r\n@cython.func\r\ndef get_sum(s: MyStruct) -> cython.int:\r\n   return s.x + s.y\r\n```\r\n\r\nCython already works with these types, so only the method of annotation changes.\r\n\r\n> PEP 484-style types are supposed to have no runtime effects; would a .py file compiled with Cython that has type annotations violate this? \r\n\r\nI think in general this principle shouldn't be violated. However if the functions are wrapped with a decorator as above, then it is clear that the function is being transformed, and the expectation is not violated IMO.\r\n\r\n\r\n",
             "created_at": "2017-04-20T21:22:04Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-295919502",
@@ -257,6 +267,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "> PEP 484-style types are supposed to have no runtime effects; would a .py file compiled with Cython that has type annotations violate this?\r\n\r\nThis part of the PEP only applies to default behaviour of Python implementations. There are already runtime type checkers that use decorators, import hooks, etc. to enforce type hints.\r\nI think it is perfectly OK if Cython will \"enforce\" annotations provided there is control over this, like a compilation flag, per-file import, or per-function decorator.",
             "created_at": "2017-04-20T22:08:07Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-295937164",
@@ -285,6 +296,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "This is a great idea and will provide more concistency for using python and cython together",
             "created_at": "2017-05-05T18:32:52Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-299542015",
@@ -313,6 +325,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "@ilevkivskyi has a very important point. Cython, especially when compiling rather than interpreting, which is already a non-standard way of running python. Should be free to use the type annotations as necessary to get the most value for Cython. The only qualification I can see is that it would be best to make sure that how the type hints are used, is designed so that it provides maximum compatibility with non-cython use. ",
             "created_at": "2017-06-28T06:41:54Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-311570987",
@@ -341,6 +354,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "It appears that `typing` has some support for user defined types, which should allow redeclaring Cython's type system using the `typing` module. Basically, it would mean rewriting most of what the Cython `Shadow.py` module defines for pure Python mode, based on the type classes exported by `typing`.\r\n\r\nPull requests for that are welcome. Mapping that to the corresponding Cython types during compilation should then be rather straight forward.",
             "created_at": "2017-08-09T13:40:16Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-321258192",
@@ -369,6 +383,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "I just remembered that I had disabled the annotation typing by default since it was unclear at the time how it would interact with the `typing` annotations. With the stubs in #1826 and the directive `annotation_typing=True`, I think it should be possible to write Python code with static Cython annotations in PEP 484 syntax, pretty much as in https://github.com/cython/cython/issues/1672#issuecomment-295919502\r\n\r\nHere's how I originally intended it to be used:\r\nhttps://github.com/cython/cython/blob/0.26/tests/run/annotation_typing.pyx\r\nIt seems that we should now rather strip that down to what PEP 484 actually allows, i.e. remove the dict and string expression support.",
             "created_at": "2017-08-21T21:37:10Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-323859787",
@@ -397,6 +412,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "FYI, I tried using types like `cython.int` or `SomeStruct` through annotations and the compiler picks them up but then fails with a type lookup error afterwards. Should be fixable, though. I'll take a look, but it doesn't have a high priority for me currently.",
             "created_at": "2017-08-22T18:55:44Z",
             "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-324119532",
@@ -423,9 +439,154 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             }
+        },
+        {
+            "author_association": "OWNER",
+            "body": "Implemented in latest master as of 1504019782b491c0d4384759d433185d0005b787. Please give it a try and comment.",
+            "created_at": "2017-09-02T16:34:17Z",
+            "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-326754919",
+            "id": 326754919,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1672",
+            "updated_at": "2017-09-02T16:34:17Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/326754919",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "Perfect! Thanks for this. This is a great first step.\r\n\r\nIn 1504019782b491c0d4384759d433185d0005b787:\r\n\r\n> Only Cython types (e.g. ``cython.int``) and Python builtin types are\r\n currently considered as type declarations.  Everything else is ignored  [...]\r\n\r\nIs there support for `np.ndararay` too?",
+            "created_at": "2017-09-02T16:41:43Z",
+            "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-326755349",
+            "id": 326755349,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1672",
+            "updated_at": "2017-09-02T18:22:41Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/326755349",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/1320475?v=4",
+                "events_url": "https://api.github.com/users/stsievert/events{/privacy}",
+                "followers_url": "https://api.github.com/users/stsievert/followers",
+                "following_url": "https://api.github.com/users/stsievert/following{/other_user}",
+                "gists_url": "https://api.github.com/users/stsievert/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/stsievert",
+                "id": 1320475,
+                "login": "stsievert",
+                "organizations_url": "https://api.github.com/users/stsievert/orgs",
+                "received_events_url": "https://api.github.com/users/stsievert/received_events",
+                "repos_url": "https://api.github.com/users/stsievert/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/stsievert/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/stsievert/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/stsievert"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "> Implemented in latest master as of 1504019. Please give it a try and comment.\r\n\r\nGreat! I don't have time right now, will try later. But the first impression is similar, it would be great to support some basic generics like ``List[int]`` and ``numpy.ndarray``. (There are actually some basic stubs for the latter, see https://github.com/machinalis/mypy-data/tree/master/numpy-mypy, so that mypy partially works with it, more support is planned later for fixed size/shape arrays, see https://github.com/python/mypy/issues/3345 and https://github.com/python/mypy/issues/3540.)",
+            "created_at": "2017-09-02T16:57:49Z",
+            "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-326756372",
+            "id": 326756372,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1672",
+            "updated_at": "2017-09-02T16:57:49Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/326756372",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/12005495?v=4",
+                "events_url": "https://api.github.com/users/ilevkivskyi/events{/privacy}",
+                "followers_url": "https://api.github.com/users/ilevkivskyi/followers",
+                "following_url": "https://api.github.com/users/ilevkivskyi/following{/other_user}",
+                "gists_url": "https://api.github.com/users/ilevkivskyi/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/ilevkivskyi",
+                "id": 12005495,
+                "login": "ilevkivskyi",
+                "organizations_url": "https://api.github.com/users/ilevkivskyi/orgs",
+                "received_events_url": "https://api.github.com/users/ilevkivskyi/received_events",
+                "repos_url": "https://api.github.com/users/ilevkivskyi/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/ilevkivskyi/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/ilevkivskyi/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/ilevkivskyi"
+            }
+        },
+        {
+            "author_association": "OWNER",
+            "body": "Supporting ndarray in pure mode feels like a separate ticket to me. The crux there is to support it in both Python interpreted and Cython compiled code. It has nothing to do with the annotation syntax specifically.\r\n\r\nWhen I wrote that \"everything else is ignored\", I meant the typing expressions like `List[int]` or `Optional[Tuple[...]]`. While some of them could be used as Cython type declarations, supporting them can happy come later. They are not critical and most of them are not even useful (especially the standard container types aren't).",
+            "created_at": "2017-09-02T18:56:27Z",
+            "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-326763231",
+            "id": 326763231,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1672",
+            "updated_at": "2017-09-02T18:56:27Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/326763231",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "author_association": "OWNER",
+            "body": "I also got structs working now:\r\n```\r\nMyStruct = cython.struct(x=cython.int, y=cython.int, data=cython.double)\r\n\r\ndef struct_io(s : MyStruct) -> MyStruct:\r\n    \"\"\"\r\n    >>> d = struct_io(dict(x=1, y=2, data=3))\r\n    >>> sorted(d.items())\r\n    [('data', 3.0), ('x', 2), ('y', 1)]\r\n    \"\"\"\r\n    t = s\r\n    t.x, t.y = s.y, s.x\r\n    return t\r\n```\r\nThere are probably other issues with other kinds of type declarations hidden here and there. Testing is really the only way to uncover them. Pull requests welcome for more tests in the `pep526_variable_annotations.pyx` and `annotation_typing.pyx` files.",
+            "created_at": "2017-09-02T21:21:31Z",
+            "html_url": "https://github.com/cython/cython/issues/1672#issuecomment-326770064",
+            "id": 326770064,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1672",
+            "updated_at": "2017-09-02T21:21:31Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/326770064",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
         }
     ],
-    "comments": 15,
+    "comments": 20,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1672/comments",
     "created_at": "2017-04-11T16:58:04Z",
     "event_data": [
@@ -714,6 +875,98 @@
                 "name": "Type Analysis"
             },
             "url": "https://api.github.com/repos/cython/cython/issues/events/1221953737"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-09-02T16:34:26Z",
+            "event": "unlabeled",
+            "id": 1232380604,
+            "label": {
+                "color": "0e8a16",
+                "name": "patch wanted"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1232380604"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-09-02T16:34:50Z",
+            "event": "labeled",
+            "id": 1232380697,
+            "label": {
+                "color": "444444",
+                "name": "Python3 Semantics"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1232380697"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-09-02T16:36:04Z",
+            "event": "milestoned",
+            "id": 1232380987,
+            "milestone": {
+                "title": "0.27"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1232380987"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/1672/events",
@@ -728,18 +981,18 @@
             "url": "https://api.github.com/repos/cython/cython/labels/enhancement"
         },
         {
-            "color": "0e8a16",
-            "default": false,
-            "id": 414800879,
-            "name": "patch wanted",
-            "url": "https://api.github.com/repos/cython/cython/labels/patch%20wanted"
-        },
-        {
             "color": "444444",
             "default": false,
             "id": 425558499,
             "name": "Pure Python Mode",
             "url": "https://api.github.com/repos/cython/cython/labels/Pure%20Python%20Mode"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425564666,
+            "name": "Python3 Semantics",
+            "url": "https://api.github.com/repos/cython/cython/labels/Python3%20Semantics"
         },
         {
             "color": "444444",
@@ -751,12 +1004,46 @@
     ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/1672/labels{/name}",
     "locked": false,
-    "milestone": null,
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 17,
+        "created_at": "2017-07-25T11:36:06Z",
+        "creator": {
+            "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/scoder"
+        },
+        "description": null,
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestone/45",
+        "id": 2660533,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/45/labels",
+        "number": 45,
+        "open_issues": 2,
+        "state": "open",
+        "title": "0.27",
+        "updated_at": "2017-09-02T16:36:04Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/45"
+    },
     "number": 1672,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "Possible to use Python static typing?",
-    "updated_at": "2017-08-25T18:33:47Z",
+    "updated_at": "2017-09-02T21:21:31Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1672",
     "user": {
         "avatar_url": "https://avatars1.githubusercontent.com/u/15351036?v=4",

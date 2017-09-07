@@ -1,10 +1,12 @@
 {
     "assignee": null,
     "assignees": [],
+    "author_association": "NONE",
     "body": "Typed memoryviews don't work with read-only buffers. A banal example:\r\n```cython\r\ncpdef getmax(double[:] x):\r\n    cdef double max = -float('inf')\r\n    for val in x:\r\n        if val > max:\r\n            max = val\r\n    return max\r\n```\r\nExample session:\r\n```py\r\n>>> import numpy as np\r\n>>> values = np.random.random(8)\r\n>>> values \r\narray([ 0.4574,  0.8468,  0.744 ,  0.3764,  0.7581,  0.8123,  0.8783,  0.9341])\r\n\r\n>>> import getmax\r\n>>> getmax.getmax(values)\r\n0.9341213061235054\r\n\r\n>>> values.setflags(write=False)\r\n>>> assert values.flags.writeable == False\r\n>>> getmax.getmax(values)\r\n---------------------------------------------------------------------------\r\nValueError                                Traceback (most recent call last)\r\n<ipython-input-8-669165de7389> in <module>()\r\n----> 1 getmax.getmax(values)\r\n\r\n/tmp/getmax.pyx in getmax.getmax (getmax.c:1617)()\r\n----> 1 cpdef getmax(double[:] x):\r\n      2     cdef:\r\n      3         double max = -float('inf')\r\n      4 \r\n      5     for val in x:\r\n\r\n/tmp/getmax.so in View.MemoryView.memoryview_cwrapper (getmax.c:7403)()\r\n/tmp/getmax.so in View.MemoryView.memoryview.__cinit__ (getmax.c:3678)()\r\n\r\nValueError: buffer source array is read-only\r\n```\r\nThere is no evident reason why above simple function wouldn't work with a read-only buffer. About two years ago, this issue was raised on the mailing list along with a RFC patch:\r\nhttps://mail.python.org/pipermail/cython-devel/2015-February/004316.html\r\nSome discussion about a possible use for a `const` keyword:\r\nhttps://groups.google.com/forum/#!topic/cython-users/32CMgaLrNhc",
     "closed_at": null,
     "comment_data": [
         {
+            "author_association": "NONE",
             "body": "Hi, I also ran into this issue today. ",
             "created_at": "2017-07-16T04:26:54Z",
             "html_url": "https://github.com/cython/cython/issues/1605#issuecomment-315584715",
@@ -33,6 +35,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "I really liked the const keyword approach. What are the show stoppers?",
             "created_at": "2017-07-16T04:33:01Z",
             "html_url": "https://github.com/cython/cython/issues/1605#issuecomment-315584886",
@@ -61,6 +64,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "Currently, adding const to a fused type memory view gives a compiler crash in 0.25.2. Thus it appears to need some work on the parser to get this working.\r\n\r\nIs a pull request welcomed? @robertwb  @scoder \r\n\r\n```\r\n-----------------------------------------------------------\r\n...\r\n        self.painter.canvas_dtype_elsize = 0\r\n\r\n        pmesh_painter_init(self.painter)\r\n        self.support = self.painter.support\r\n\r\n    def paint(self, numpy.ndarray real, const postype [:, :] pos, const masstype [:] mass, order,\r\n   ^\r\n------------------------------------------------------------\r\n\r\npmesh/_window.pyx:86:4: Compiler crash in AnalyseExpressionsTransform\r\n\r\nFile 'Nodes.py', line 430, in analyse_expressions: StatListNode(_window.pyx:1:0)\r\nFile 'Nodes.py', line 430, in analyse_expressions: StatListNode(_window.pyx:50:5)\r\nFile 'Nodes.py', line 4636, in analyse_expressions: CClassDefNode(_window.pyx:50:5,\r\n    as_name = 'ResampleWindow',\r\n    class_name = 'ResampleWindow',\r\n    module_name = '',\r\n    visibility = 'private')\r\nFile 'Nodes.py', line 430, in analyse_expressions: StatListNode(_window.pyx:51:4)\r\nFile 'Nodes.py', line 3029, in analyse_expressions: DefNode(_window.pyx:86:4,\r\n    modifiers = [...]/0,\r\n    name = 'paint',\r\n    num_required_args = 8,\r\n    py_wrapper_required = True,\r\n    reqd_kw_flags_cname = '0',\r\n    used = True)\r\nFile 'Nodes.py', line 3164, in prepare_argument_coercion: DefNodeWrapper(_window.pyx:86:4,\r\n    args = [...]/8,\r\n    modifiers = [...]/0,\r\n    name = 'paint',\r\n    num_required_args = 8)\r\n\r\nCompiler crash traceback from this point on:\r\n  File \"/home/yfeng1/anaconda3/install/lib/python3.5/site-packages/Cython/Compiler/Nodes.py\", line 3164, in prepare_argument_coercion\r\n    if not arg.type.create_from_py_utility_code(env):\r\n  File \"/home/yfeng1/anaconda3/install/lib/python3.5/site-packages/Cython/Compiler/PyrexTypes.py\", line 856, in create_from_py_utility_code\r\n    suffix = self.specialization_suffix()\r\n  File \"/home/yfeng1/anaconda3/install/lib/python3.5/site-packages/Cython/Compiler/PyrexTypes.py\", line 828, in specialization_suffix\r\n    return \"%s_%s\" % (self.axes_to_name(), self.dtype_name)\r\nAttributeError: 'MemoryViewSliceType' object has no attribute 'dtype_name'\r\n\r\n```",
             "created_at": "2017-07-16T04:40:26Z",
             "html_url": "https://github.com/cython/cython/issues/1605#issuecomment-315585089",
@@ -89,6 +93,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "It appears this bug is keeping people away from the memoryview to use the older ndarray interface. for example, see this workaround in pandas https://github.com/pandas-dev/pandas/pull/12013 ",
             "created_at": "2017-07-16T05:43:38Z",
             "html_url": "https://github.com/cython/cython/issues/1605#issuecomment-315587381",
@@ -117,6 +122,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "Yes we've also avoided typed memoryviews in python for this reason, land up using pointers, resulting in hard-to-find bugs that could have easily been caught with a boundscheck were we using memoryviews.",
             "created_at": "2017-08-07T22:56:35Z",
             "html_url": "https://github.com/cython/cython/issues/1605#issuecomment-320802851",
@@ -145,6 +151,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "I have been surprised that this has not been addressed since I knew of the RFC patch two years ago. But perhaps the Cython team isn't aware that it should be a priority because the non-support deters users from Cython best practices, particularly where read only memory maps are a key feature of parallelism as in @joblib",
             "created_at": "2017-08-07T23:00:46Z",
             "html_url": "https://github.com/cython/cython/issues/1605#issuecomment-320803591",
@@ -173,6 +180,7 @@
             }
         },
         {
+            "author_association": "CONTRIBUTOR",
             "body": "This also caused to use sub-optimal hacks in pandas and scikit-learn for instance:\r\n\r\n- https://github.com/pandas-dev/pandas/pull/10070\r\n- https://github.com/scikit-learn/scikit-learn/pull/9507\r\n\r\nAnother related open bug in pandas:\r\n\r\n- https://github.com/pandas-dev/pandas/issues/17192",
             "created_at": "2017-08-08T08:20:02Z",
             "html_url": "https://github.com/cython/cython/issues/1605#issuecomment-320886308",
@@ -201,6 +209,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "From a quick glance, the patch seems to lack support for `nogil` sections, at least, because it cannot just raise an exception in them. Also, doing a buffer type check at every access seems costly, so I'd rather do the check once, when acquiring the buffer. Thus the preference for an explicit syntax. That would also cover cases where the user knows that a write-buffer is needed due to C-level operations that Cython cannot see.\r\n\r\nGiven that there is general support for `const` now, it might be easier than before to implement this nicely. Which still means that someone has to do the work.\r\n\r\nI understand that this is a problem for users, so we should try to find a solution that fixes the problem without waiting another two years.",
             "created_at": "2017-08-08T09:36:12Z",
             "html_url": "https://github.com/cython/cython/issues/1605#issuecomment-320904701",
@@ -227,9 +236,67 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             }
+        },
+        {
+            "author_association": "OWNER",
+            "body": "I have an initial implementation up at https://github.com/scoder/cython/tree/readonly_buffers that automatically determines the need for a writable buffer, and otherwise sticks to a read-only one. It has some bugs and fails to detect some \"read-only\" vs. \"needs writable\" cases at compile time, but it mostly works.\r\n\r\nIt also implements explicit `const` memory views, e.g. `cdef const int[:] a`, which should always request a read-only view.\r\n\r\nFeedback welcome.",
+            "created_at": "2017-09-06T19:07:39Z",
+            "html_url": "https://github.com/cython/cython/issues/1605#issuecomment-327583722",
+            "id": 327583722,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1605",
+            "updated_at": "2017-09-06T19:10:50Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/327583722",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "Compare at https://github.com/cython/cython/compare/master...scoder:readonly_buffers",
+            "created_at": "2017-09-07T01:07:01Z",
+            "html_url": "https://github.com/cython/cython/issues/1605#issuecomment-327653474",
+            "id": 327653474,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1605",
+            "updated_at": "2017-09-07T01:07:01Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/327653474",
+            "user": {
+                "avatar_url": "https://avatars2.githubusercontent.com/u/78827?v=4",
+                "events_url": "https://api.github.com/users/jnothman/events{/privacy}",
+                "followers_url": "https://api.github.com/users/jnothman/followers",
+                "following_url": "https://api.github.com/users/jnothman/following{/other_user}",
+                "gists_url": "https://api.github.com/users/jnothman/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/jnothman",
+                "id": 78827,
+                "login": "jnothman",
+                "organizations_url": "https://api.github.com/users/jnothman/orgs",
+                "received_events_url": "https://api.github.com/users/jnothman/received_events",
+                "repos_url": "https://api.github.com/users/jnothman/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/jnothman/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/jnothman/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/jnothman"
+            }
         }
     ],
-    "comments": 8,
+    "comments": 10,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1605/comments",
     "created_at": "2017-02-14T15:58:30Z",
     "event_data": [
@@ -549,6 +616,63 @@
                 "name": "patch wanted"
             },
             "url": "https://api.github.com/repos/cython/cython/issues/events/1199951592"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": "c230e585d2e6cab0a3284e8a37abf78eceee64f9",
+            "commit_url": "https://api.github.com/repos/scoder/cython/commits/c230e585d2e6cab0a3284e8a37abf78eceee64f9",
+            "created_at": "2017-09-06T19:00:41Z",
+            "event": "referenced",
+            "id": 1237460316,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1237460316"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-09-06T19:07:35Z",
+            "event": "milestoned",
+            "id": 1237474263,
+            "milestone": {
+                "title": "0.27"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1237474263"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/1605/events",
@@ -593,12 +717,46 @@
     ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/1605/labels{/name}",
     "locked": false,
-    "milestone": null,
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 19,
+        "created_at": "2017-07-25T11:36:06Z",
+        "creator": {
+            "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/scoder"
+        },
+        "description": null,
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestone/45",
+        "id": 2660533,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/45/labels",
+        "number": 45,
+        "open_issues": 3,
+        "state": "open",
+        "title": "0.27",
+        "updated_at": "2017-09-06T19:07:35Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/45"
+    },
     "number": 1605,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "Typed memoryview doesn't work with read-only buffers",
-    "updated_at": "2017-08-09T22:03:01Z",
+    "updated_at": "2017-09-07T01:07:01Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1605",
     "user": {
         "avatar_url": "https://avatars2.githubusercontent.com/u/684364?v=4",
