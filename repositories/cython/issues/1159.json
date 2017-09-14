@@ -1,11 +1,13 @@
 {
     "assignee": null,
     "assignees": [],
-    "body": "In Python, this works:\n```\nit = (1,2,3)\nl = list(it for it in it)\n```\nIn current Cython, this raises an error at runtime as the iterable inside of the generator expression refers to the loop target variable, not the name in the outer scope. (So the iterable happens to be None.)\n\nThe name of the iterable (or rather the entire iterable expression) must be evaluated in the outer scope.\n\nMigrated from http://trac.cython.org/ticket/600",
+    "author_association": "OWNER",
+    "body": "In Python, this works:\r\n\r\n```\r\nit = (1,2,3)\r\nl = list(it for it in it)\r\n```\r\n\r\nIn current Cython, this raises an error at runtime as the iterable inside of the generator expression refers to the loop target variable, not the name in the outer scope. (So the iterable happens to be None.)\r\n\r\nThe name of the iterable (or rather the entire iterable expression) must be evaluated in the outer scope.\r\n\r\nActually, it's even different - CPython simply pre-evaluates the outermost iterable when creating the generator. Example (Py3.2):\r\n\r\n```\r\n>>> x = [range(10)]\r\n>>> g = (i for x in x for i in x)\r\n>>> list(g)\r\n[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]\r\n\r\n>>> x = [range(10)]\r\n>>> g = (i for i in range(5) for x in x)\r\n>>> list(g)\r\nTraceback (most recent call last):\r\n  File \"<stdin>\", line 1, in <module>\r\n  File \"<stdin>\", line 1, in <genexpr>\r\nUnboundLocalError: local variable 'x' referenced before assignment\r\n```\r\n\r\nSo, basically, the outermost iterable should be evaluated into a closure variable of the generator, instead of letting the generator evaluate it itself. This:\r\n\r\n```\r\n>>> x = [range(10)]\r\n>>> g = (i for x in x for i in x)\r\n```\r\n\r\nshould be transformed into\r\n\r\n```\r\nx = [range(10)]\r\n\r\ndef _gen(_outer_it):\r\n    for x in _outer_it:\r\n        for i in x:\r\n            yield i\r\n\r\ng = _gen(x)\r\n```\r\n\r\nNote that this also applies to list comprehensions with `language_level=3`.\r\n\r\nMigrated from http://trac.cython.org/ticket/600\r\n",
     "closed_at": null,
     "comment_data": [
         {
-            "body": "**scoder** changed **description** from\n\nIn Python, this works:\n```\nit = (1,2,3)\nl = list(it for it in it)\n```\nIn current Cython, this raises an error at runtime as the iterable inside of the generator expression refers to the loop target variable, not the name in the outer scope. (So the iterable happens to be None.)\n\nThe name of the iterable must be looked up before creating the entry of the target variable in the inner scope.\n\n\nto\n\nIn Python, this works:\n```\nit = (1,2,3)\nl = list(it for it in it)\n```\nIn current Cython, this raises an error at runtime as the iterable inside of the generator expression refers to the loop target variable, not the name in the outer scope. (So the iterable happens to be None.)\n\nThe name of the iterable (or rather the entire iterable expression) must be evaluated in the outer scope.\ncommented",
+            "author_association": "OWNER",
+            "body": "**scoder** changed **description** from\n\nIn Python, this works:\n\n```\nit = (1,2,3)\nl = list(it for it in it)\n```\n\nIn current Cython, this raises an error at runtime as the iterable inside of the generator expression refers to the loop target variable, not the name in the outer scope. (So the iterable happens to be None.)\n\nThe name of the iterable must be looked up before creating the entry of the target variable in the inner scope.\n\nto\n\nIn Python, this works:\n\n```\nit = (1,2,3)\nl = list(it for it in it)\n```\n\nIn current Cython, this raises an error at runtime as the iterable inside of the generator expression refers to the loop target variable, not the name in the outer scope. (So the iterable happens to be None.)\n\nThe name of the iterable (or rather the entire iterable expression) must be evaluated in the outer scope.\ncommented\n",
             "created_at": "2011-05-20T08:17:21Z",
             "html_url": "https://github.com/cython/cython/issues/1159#issuecomment-240047871",
             "id": 240047871,
@@ -13,7 +15,7 @@
             "updated_at": "2016-08-16T09:10:54Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/240047871",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -33,7 +35,8 @@
             }
         },
         {
-            "body": "**scoder** changed **cc** to `vitja`\n**description** from\n\nIn Python, this works:\n```\nit = (1,2,3)\nl = list(it for it in it)\n```\nIn current Cython, this raises an error at runtime as the iterable inside of the generator expression refers to the loop target variable, not the name in the outer scope. (So the iterable happens to be None.)\n\nThe name of the iterable (or rather the entire iterable expression) must be evaluated in the outer scope.\n\n\nto\n\nIn Python, this works:\n```\nit = (1,2,3)\nl = list(it for it in it)\n```\nIn current Cython, this raises an error at runtime as the iterable inside of the generator expression refers to the loop target variable, not the name in the outer scope. (So the iterable happens to be None.)\n\nThe name of the iterable (or rather the entire iterable expression) must be evaluated in the outer scope.\ncommented\n\nActually, it's even different - CPython simply pre-evaluates the outermost iterable when creating the generator. Example (Py3.2):\n\n```\n>>> x = [g = (i for x in x for i in x)\n>>> list(g)\n[0, 1, 2, 3, 4, 5, 6, 7, 8, 9](range(10)]\n>>>)\n\n>>> x = [g = (i for i in range(5) for x in x)\n>>> list(g)\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\n  File \"<stdin>\", line 1, in <genexpr>\nUnboundLocalError: local variable 'x' referenced before assignment\n```\nSo, basically, the outermost iterable should be evaluated into a closure variable of the generator, instead of letting the generator evaluate it itself. This:\n```\nx = [range(10)](range(10)]\n>>>)\ng = (i for x in x for i in x)\n```\nshould be transformed into\n```\nx = [range(10)]\n\ndef _gen(_outer_it):\n    for x in _outer_it:\n        for i in x:\n            yield i\n\ng = _gen(x)\n```",
+            "author_association": "OWNER",
+            "body": "**scoder** changed **cc** to `vitja`\n**description** from\n\nIn Python, this works:\n\n```\nit = (1,2,3)\nl = list(it for it in it)\n```\n\nIn current Cython, this raises an error at runtime as the iterable inside of the generator expression refers to the loop target variable, not the name in the outer scope. (So the iterable happens to be None.)\n\nThe name of the iterable (or rather the entire iterable expression) must be evaluated in the outer scope.\n\nto\n\nIn Python, this works:\n\n```\nit = (1,2,3)\nl = list(it for it in it)\n```\n\nIn current Cython, this raises an error at runtime as the iterable inside of the generator expression refers to the loop target variable, not the name in the outer scope. (So the iterable happens to be None.)\n\nThe name of the iterable (or rather the entire iterable expression) must be evaluated in the outer scope.\ncommented\n\nActually, it's even different - CPython simply pre-evaluates the outermost iterable when creating the generator. Example (Py3.2):\n\n```\n>>> x = [g = (i for x in x for i in x)\n>>> list(g)\n[0, 1, 2, 3, 4, 5, 6, 7, 8, 9](range(10)]\n>>>)\n\n>>> x = [g = (i for i in range(5) for x in x)\n>>> list(g)\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\n  File \"<stdin>\", line 1, in <genexpr>\nUnboundLocalError: local variable 'x' referenced before assignment\n```\n\nSo, basically, the outermost iterable should be evaluated into a closure variable of the generator, instead of letting the generator evaluate it itself. This:\n\n```\nx = [range(10)](range(10)]\n>>>)\ng = (i for x in x for i in x)\n```\n\nshould be transformed into\n\n```\nx = [range(10)]\n\ndef _gen(_outer_it):\n    for x in _outer_it:\n        for i in x:\n            yield i\n\ng = _gen(x)\n```\n",
             "created_at": "2012-11-10T13:39:44Z",
             "html_url": "https://github.com/cython/cython/issues/1159#issuecomment-240047872",
             "id": 240047872,
@@ -41,7 +44,7 @@
             "updated_at": "2016-08-16T09:10:54Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/240047872",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -61,7 +64,8 @@
             }
         },
         {
-            "body": "**scoder** commented\n\nAnother test that currently works differently in Python than in Cython:\n```\n>>> def seff():\n...     print(\"TEST\")\n...     return range(10)\n... \n>>> g = (i for i in seff())\nTEST\n>>> list(g)\n[1, 2, 3, 4, 5, 6, 7, 8, 9](0,)\n>>> g = (i for i in (v for v in seff()))\nTEST\n```",
+            "author_association": "OWNER",
+            "body": "**scoder** commented\n\nAnother test that currently works differently in Python than in Cython:\n\n```\n>>> def seff():\n...     print(\"TEST\")\n...     return range(10)\n... \n>>> g = (i for i in seff())\nTEST\n>>> list(g)\n[1, 2, 3, 4, 5, 6, 7, 8, 9](0,)\n>>> g = (i for i in (v for v in seff()))\nTEST\n```\n",
             "created_at": "2012-11-15T17:00:04Z",
             "html_url": "https://github.com/cython/cython/issues/1159#issuecomment-240047873",
             "id": 240047873,
@@ -69,7 +73,7 @@
             "updated_at": "2016-08-16T09:10:54Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/240047873",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -89,7 +93,8 @@
             }
         },
         {
-            "body": "**scoder** changed **priority** from `major` to `critical`\ncommented",
+            "author_association": "OWNER",
+            "body": "**scoder** changed **priority** from `major` to `critical`\ncommented\n",
             "created_at": "2013-10-02T06:26:27Z",
             "html_url": "https://github.com/cython/cython/issues/1159#issuecomment-240047874",
             "id": 240047874,
@@ -97,7 +102,7 @@
             "updated_at": "2016-08-16T09:10:54Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/240047874",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -117,7 +122,8 @@
             }
         },
         {
-            "body": "**scoder** changed **milestone** from `wishlist` to `0.20`\n**owner** to `scoder`\n**priority** from `critical` to `major`\n**status** from `new` to `assigned`\ncommented\n\nFixed here:\n\nhttps://github.com/cython/cython/commit/87a9bc293838913af976802a63a495b3a3fe4794",
+            "author_association": "OWNER",
+            "body": "**scoder** changed **milestone** from `wishlist` to `0.20`\n**owner** to `scoder`\n**priority** from `critical` to `major`\n**status** from `new` to `assigned`\ncommented\n\nFixed here:\n\nhttps://github.com/cython/cython/commit/87a9bc293838913af976802a63a495b3a3fe4794\n",
             "created_at": "2013-11-17T11:41:29Z",
             "html_url": "https://github.com/cython/cython/issues/1159#issuecomment-240047875",
             "id": 240047875,
@@ -125,7 +131,7 @@
             "updated_at": "2016-08-16T09:10:54Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/240047875",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -145,7 +151,8 @@
             }
         },
         {
-            "body": "**scoder** changed **priority** from `major` to `critical`\n**resolution** to `fixed`\n**status** from `assigned` to `closed`\ncommented",
+            "author_association": "OWNER",
+            "body": "**scoder** changed **priority** from `major` to `critical`\n**resolution** to `fixed`\n**status** from `assigned` to `closed`\ncommented\n",
             "created_at": "2013-11-17T11:48:23Z",
             "html_url": "https://github.com/cython/cython/issues/1159#issuecomment-240047877",
             "id": 240047877,
@@ -153,7 +160,7 @@
             "updated_at": "2016-08-16T09:10:54Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/240047877",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -173,7 +180,8 @@
             }
         },
         {
-            "body": "**scoder** changed **milestone** from `0.20` to `wishlist`\n**resolution** from `fixed` to empty\n**status** from `closed` to `reopened`\ncommented",
+            "author_association": "OWNER",
+            "body": "**scoder** changed **milestone** from `0.20` to `wishlist`\n**resolution** from `fixed` to empty\n**status** from `closed` to `reopened`\ncommented\n",
             "created_at": "2013-11-22T06:57:16Z",
             "html_url": "https://github.com/cython/cython/issues/1159#issuecomment-240047878",
             "id": 240047878,
@@ -181,7 +189,7 @@
             "updated_at": "2016-08-16T09:10:54Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/240047878",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -199,15 +207,131 @@
                 "type": "User",
                 "url": "https://api.github.com/users/robertwb"
             }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "@scoder thanks for the cleanup--I see now how the bug described in this ticket is still a problem too.  I'll see if I can do something about it...",
+            "created_at": "2017-09-07T15:09:31Z",
+            "html_url": "https://github.com/cython/cython/issues/1159#issuecomment-327829438",
+            "id": 327829438,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1159",
+            "updated_at": "2017-09-07T15:09:31Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/327829438",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/676149?v=4",
+                "events_url": "https://api.github.com/users/embray/events{/privacy}",
+                "followers_url": "https://api.github.com/users/embray/followers",
+                "following_url": "https://api.github.com/users/embray/following{/other_user}",
+                "gists_url": "https://api.github.com/users/embray/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/embray",
+                "id": 676149,
+                "login": "embray",
+                "organizations_url": "https://api.github.com/users/embray/orgs",
+                "received_events_url": "https://api.github.com/users/embray/received_events",
+                "repos_url": "https://api.github.com/users/embray/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/embray/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/embray/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/embray"
+            }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "Apparently the original attempt to fix this was also reverted in a3d4461252315caeef3477399c49b4e9843cd479, which is part of my confusion as well.",
+            "created_at": "2017-09-07T15:15:36Z",
+            "html_url": "https://github.com/cython/cython/issues/1159#issuecomment-327831247",
+            "id": 327831247,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1159",
+            "updated_at": "2017-09-07T15:15:36Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/327831247",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/676149?v=4",
+                "events_url": "https://api.github.com/users/embray/events{/privacy}",
+                "followers_url": "https://api.github.com/users/embray/followers",
+                "following_url": "https://api.github.com/users/embray/following{/other_user}",
+                "gists_url": "https://api.github.com/users/embray/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/embray",
+                "id": 676149,
+                "login": "embray",
+                "organizations_url": "https://api.github.com/users/embray/orgs",
+                "received_events_url": "https://api.github.com/users/embray/received_events",
+                "repos_url": "https://api.github.com/users/embray/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/embray/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/embray/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/embray"
+            }
+        },
+        {
+            "author_association": "OWNER",
+            "body": "I'd be happy to have more people look into this, but be \"warned\", it's not entirely trivial. Cython looks at the iterable in several places in order to optimise loops. Moving the iterable out of the generator too early will prevent these optimisations. Moving it out too late will lead to incorrect declarations inside and/or outside of the generator. This is one of the bugs that have been languishing for a bit of a reason.",
+            "created_at": "2017-09-07T15:17:18Z",
+            "html_url": "https://github.com/cython/cython/issues/1159#issuecomment-327831811",
+            "id": 327831811,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1159",
+            "updated_at": "2017-09-07T15:17:18Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/327831811",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "Thanks for the admonition.  That will help me understand better what the problem is.",
+            "created_at": "2017-09-07T15:46:22Z",
+            "html_url": "https://github.com/cython/cython/issues/1159#issuecomment-327840527",
+            "id": 327840527,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1159",
+            "updated_at": "2017-09-07T15:46:22Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/327840527",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/676149?v=4",
+                "events_url": "https://api.github.com/users/embray/events{/privacy}",
+                "followers_url": "https://api.github.com/users/embray/followers",
+                "following_url": "https://api.github.com/users/embray/following{/other_user}",
+                "gists_url": "https://api.github.com/users/embray/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/embray",
+                "id": 676149,
+                "login": "embray",
+                "organizations_url": "https://api.github.com/users/embray/orgs",
+                "received_events_url": "https://api.github.com/users/embray/received_events",
+                "repos_url": "https://api.github.com/users/embray/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/embray/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/embray/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/embray"
+            }
         }
     ],
-    "comments": 7,
+    "comments": 11,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1159/comments",
     "created_at": "2010-11-25T18:02:54Z",
     "event_data": [
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -238,7 +362,7 @@
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -269,7 +393,7 @@
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -300,7 +424,7 @@
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -327,6 +451,91 @@
                 "title": "wishlist"
             },
             "url": "https://api.github.com/repos/cython/cython/issues/events/756762996"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-09-07T14:54:52Z",
+            "event": "renamed",
+            "id": 1238963317,
+            "rename": {
+                "from": "lookup of iterables in genexpr uses wrong scope",
+                "to": "Evaluation of iterables in generator expressions uses wrong scope"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1238963317"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-09-07T15:09:31Z",
+            "event": "mentioned",
+            "id": 1238994075,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1238994075"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-09-07T15:09:31Z",
+            "event": "subscribed",
+            "id": 1238994077,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1238994077"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/1159/events",
@@ -335,16 +544,22 @@
     "labels": [
         {
             "color": "444444",
+            "default": false,
+            "id": 425553654,
             "name": "defect",
             "url": "https://api.github.com/repos/cython/cython/labels/defect"
         },
         {
             "color": "444444",
+            "default": false,
+            "id": 425556916,
             "name": "P: critical",
             "url": "https://api.github.com/repos/cython/cython/labels/P:%20critical"
         },
         {
             "color": "444444",
+            "default": false,
+            "id": 425556315,
             "name": "Python Semantics",
             "url": "https://api.github.com/repos/cython/cython/labels/Python%20Semantics"
         }
@@ -353,10 +568,10 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 25,
+        "closed_issues": 30,
         "created_at": "2016-08-16T08:38:52Z",
         "creator": {
-            "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+            "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
             "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
             "followers_url": "https://api.github.com/users/robertwb/followers",
             "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -376,24 +591,24 @@
         },
         "description": "",
         "due_on": null,
-        "html_url": "https://github.com/cython/cython/milestones/wishlist",
+        "html_url": "https://github.com/cython/cython/milestone/6",
         "id": 1944442,
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/6/labels",
         "number": 6,
-        "open_issues": 196,
+        "open_issues": 188,
         "state": "open",
         "title": "wishlist",
-        "updated_at": "2016-08-17T04:27:14Z",
+        "updated_at": "2017-09-05T15:20:08Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/6"
     },
     "number": 1159,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
-    "title": "lookup of iterables in genexpr uses wrong scope",
-    "updated_at": "2013-11-22T06:57:16Z",
+    "title": "Evaluation of iterables in generator expressions uses wrong scope",
+    "updated_at": "2017-09-07T15:46:22Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1159",
     "user": {
-        "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+        "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
         "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
         "followers_url": "https://api.github.com/users/robertwb/followers",
         "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
