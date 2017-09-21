@@ -1,10 +1,12 @@
 {
     "assignee": null,
     "assignees": [],
+    "author_association": "NONE",
     "body": "```cython\r\ncdef void c_encode_by_bits(const npy_intp n, const npy_intp m, const long * a, \r\n                           const long bitshift, integer * out) nogil:\r\n    cdef npy_intp i, j \r\n    cdef long shift\r\n    cdef integer value\r\n\r\n    for i in range(n):\r\n        value = 0\r\n        shift = 0\r\n        for j in range(m):\r\n            value += a[i * m + j] << shift\r\n            shift += bitshift\r\n        out[i] = value\r\n            \r\ncdef void c_decode_by_bits(const npy_intp n, const npy_intp m, \r\n                           const integer * a, const long bitshift, \r\n                           long * out) nogil:\r\n    cdef npy_intp i, j, k\r\n    cdef long shift, mask = (1 << bitshift) - 1\r\n    \r\n    for i in range(n):\r\n        shift = 0\r\n        for j in range(m):\r\n            out[i * m + j] = (<long> a[i] >> shift) & mask \r\n            shift += bitshift\r\n```\r\n\r\n```cython\r\nctypedef fused integer:\r\n    char\r\n    unsigned char\r\n    short\r\n    unsigned short\r\n    int\r\n    unsigned int\r\n    long\r\n    unsigned long\r\n```\r\n```\r\n[1/1] Cythonizing locality/helpers/encode.pyx\r\nTraceback (most recent call last):\r\n  File \"build.py\", line 99, in <module>\r\n    ext_modules = cythonize(cy_extensions) + c_extensions,\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Build/Dependencies.py\", line 934, in cythonize\r\n    cythonize_one(*args)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Build/Dependencies.py\", line 1039, in cythonize_one\r\n    result = compile([pyx_file], options)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/Main.py\", line 686, in compile\r\n    return compile_multiple(source, options)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/Main.py\", line 664, in compile_multiple\r\n    result = run_pipeline(source, options, context=context)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/Main.py\", line 494, in run_pipeline\r\n    err, enddata = Pipeline.run_pipeline(pipeline, source)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/Pipeline.py\", line 340, in run_pipeline\r\n    data = phase(data)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/Pipeline.py\", line 53, in generate_pyx_code_stage\r\n    module_node.process_implementation(options, result)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/ModuleNode.py\", line 137, in process_implementation\r\n    self.generate_c_code(env, options, result)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/ModuleNode.py\", line 365, in generate_c_code\r\n    self.body.generate_function_definitions(env, code)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/Nodes.py\", line 436, in generate_function_definitions\r\n    stat.generate_function_definitions(env, code)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/Nodes.py\", line 436, in generate_function_definitions\r\n    stat.generate_function_definitions(env, code)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/Nodes.py\", line 1754, in generate_function_definitions\r\n    self.generate_function_header(code, with_pymethdef=with_pymethdef)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/Nodes.py\", line 2466, in generate_function_header\r\n    arg_decl = arg.declaration_code()\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/PyrexTypes.py\", line 3050, in declaration_code\r\n    return self.type.declaration_code(self.cname, for_display)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/PyrexTypes.py\", line 2372, in declaration_code\r\n    for_display, dll_linkage, pyrex)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/PyrexTypes.py\", line 1475, in declaration_code\r\n    return self.const_base_type.declaration_code(\"const %s\" % entity_code, for_display, dll_linkage, pyrex)\r\n  File \"/usr/lib/python3.6/site-packages/Cython/Compiler/PyrexTypes.py\", line 1533, in declaration_code\r\n    raise Exception(\"This may never happen, please report a bug\")\r\n```\r\n\r\nReplacing \"integer\" with \"long\" stops the exception.",
     "closed_at": null,
     "comment_data": [
         {
+            "author_association": "OWNER",
             "body": "I think the problem is the `const integer`. Declaring fused types as `const` after the fact seems unsupported. I would consider that a bug, constifying a fused type usage seems reasonable to me.",
             "created_at": "2017-07-18T17:34:27Z",
             "html_url": "https://github.com/cython/cython/issues/1772#issuecomment-316138653",
@@ -33,6 +35,7 @@
             }
         },
         {
+            "author_association": "OWNER",
             "body": "Here is a (non-minimal) test that fails to compile for me but should probably be allowed (can go into `tests/run/fused_types.pyx`):\r\n```\r\ncdef fused ints_t:\r\n    int\r\n    long\r\n\r\ncdef ints_t cdef_const_fused(const ints_t *i):\r\n    return i[0] + 2\r\n\r\ndef const_fused(const ints_t i):\r\n    \"\"\"\r\n    >>> const_fused(5)\r\n    12\r\n    \"\"\"\r\n    return i + cdef_const_fused(&i)\r\n```\r\n",
             "created_at": "2017-07-18T17:39:14Z",
             "html_url": "https://github.com/cython/cython/issues/1772#issuecomment-316139973",
@@ -157,6 +160,37 @@
                 "to": "Support \"const\" modifier on fused types"
             },
             "url": "https://api.github.com/repos/cython/cython/issues/events/1173313287"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-09-19T10:12:58Z",
+            "event": "labeled",
+            "id": 1255130460,
+            "label": {
+                "color": "0e8a16",
+                "name": "patch wanted"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1255130460"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/1772/events",
@@ -169,6 +203,13 @@
             "id": 425556243,
             "name": "enhancement",
             "url": "https://api.github.com/repos/cython/cython/labels/enhancement"
+        },
+        {
+            "color": "0e8a16",
+            "default": false,
+            "id": 414800879,
+            "name": "patch wanted",
+            "url": "https://api.github.com/repos/cython/cython/labels/patch%20wanted"
         },
         {
             "color": "444444",
@@ -185,7 +226,7 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "Support \"const\" modifier on fused types",
-    "updated_at": "2017-07-21T05:55:10Z",
+    "updated_at": "2017-09-19T10:12:58Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1772",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/3468977?v=4",
