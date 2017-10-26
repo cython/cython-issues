@@ -1,10 +1,12 @@
 {
     "assignee": null,
     "assignees": [],
+    "author_association": "NONE",
     "body": "Environment : \r\n\r\n- Windows 10\r\n- Python3.6\r\n- compiler msvc （Visual Studio 15）\r\n\r\nA minimal example to reproduce the problem is shown as below,\r\n\r\nClass B1 inherits from Class A which has a virtual destructor.  The constructor of B1 is defined in a source file. The classes were compiled into a  dynamic library A.dll in Debug mode for later use.\r\n\r\nBoth classes A and B1 are wrapped with Cython successfuly. \r\nThe problem is,     \r\n\r\n> An instance of  class B1 can be created, but a \"Debug Assertion Failed\" exception is raised when it is deleted.\r\n\r\nBut I found, \r\n\r\n> if put the constructor of B1 in the header file directly, the exception is gone !\r\n\r\n\r\nC++ header file A.h:\r\n\r\n```\r\n#include <iostream>\r\n\r\nusing namespace std;\r\n\r\n#define DLL_EXPORT_CLASS_DECL __declspec(dllexport)\r\n\r\nnamespace test{\r\n\tclass DLL_EXPORT_CLASS_DECL A\r\n\t{\r\n\tpublic:\r\n\t\tA() {};\r\n\t\tvirtual ~A() {};\r\n\t};\r\n\r\n\tclass DLL_EXPORT_CLASS_DECL B1 : public A\r\n\t{\r\n\tpublic:\r\n\t\tB1();\r\n\t};\r\n\r\n\tclass DLL_EXPORT_CLASS_DECL B2 : public A\r\n\t{\r\n\tpublic:\r\n\t\tB2()\r\n\t\t\t:A()\r\n\t\t{\r\n\t\t    std::cout << \"B2 created\" << std::endl;\r\n\t\t}\r\n\t};\r\n}\r\n```\r\n\r\nC++ source file A.cpp:\r\n\r\n```\r\nnamespace test {\r\n     B1::B1():A()\r\n\t{\r\n\t\tstd::cout << \"B1 created\" << std::endl;\r\n\t}\r\n}\r\n```\r\n\r\nThe pxd file test.pxd\r\n\r\n```\r\ncdef extern from \"A.h\" namespace \"test\" nogil:       \r\n    cdef cppclass A:\r\n        pass      \r\n    cdef cppclass B1(A):\r\n        B1()     \r\n    cdef cppclass B2(A):\r\n        B2()\r\n```\r\n\r\nThe Cython functions for test\r\n```\r\ncimport test\r\n\r\ncpdef void debug_B1():\r\n    cdef test.A* ptr = new test.B1()\r\n    print(\"delete test\")\r\n    del ptr   #program aborts here\r\n    print(\"delete test passed\")\r\n\r\ncpdef void debug_B2():\r\n    cdef test.A* ptr = new test.B2()\r\n    print(\"delete test\")\r\n    del ptr \r\n    print(\"delete test passed\")\r\n```\r\n\r\nP.S.\r\n\r\nadd a DeleteA function in the A.cpp file, then call this function instead of using the del is also not working.\r\n ```\r\n    void DeleteA(A* ptr)\r\n    {\r\n        std::cout << \"Delete A\" << std::endl;\r\n        delete ptr;\r\n        std::cout << \"Deleted A passed\" << std::endl;\r\n    }\r\n```\r\n",
-    "closed_at": null,
+    "closed_at": "2017-10-23T06:07:30Z",
     "comment_data": [
         {
+            "author_association": "NONE",
             "body": "If compile the dynamic library A.dll in Release mode, the exception is gone.",
             "created_at": "2017-08-13T13:37:45Z",
             "html_url": "https://github.com/cython/cython/issues/1819#issuecomment-322042698",
@@ -67,6 +69,33 @@
                 "to": "Strange Exception when delete an C++ object"
             },
             "url": "https://api.github.com/repos/cython/cython/issues/events/1203873351"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/13247575?v=4",
+                "events_url": "https://api.github.com/users/yagweb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/yagweb/followers",
+                "following_url": "https://api.github.com/users/yagweb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/yagweb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/yagweb",
+                "id": 13247575,
+                "login": "yagweb",
+                "organizations_url": "https://api.github.com/users/yagweb/orgs",
+                "received_events_url": "https://api.github.com/users/yagweb/received_events",
+                "repos_url": "https://api.github.com/users/yagweb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/yagweb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/yagweb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/yagweb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-10-23T06:07:30Z",
+            "event": "closed",
+            "id": 1304938301,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1304938301"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/1819/events",
@@ -78,9 +107,9 @@
     "milestone": null,
     "number": 1819,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "title": "Strange Exception when delete an C++ object",
-    "updated_at": "2017-08-13T13:37:45Z",
+    "updated_at": "2017-10-23T06:07:30Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1819",
     "user": {
         "avatar_url": "https://avatars1.githubusercontent.com/u/13247575?v=4",
