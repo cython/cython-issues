@@ -1,19 +1,19 @@
 {
     "assignee": null,
     "assignees": [],
-    "author_association": "OWNER",
-    "body": "CPython 3.5 introduced a new module initialisation scheme in multiple phases:\r\nhttps://www.python.org/dev/peps/pep-0489/\r\n\r\nThis improves the support for extension module reloading and could also allow running extension modules as main module (`python -m`) in the future (probably Py3.7).\r\n\r\nWorth implementing. It requires splitting up the `generate_module_init_func()` method in https://github.com/cython/cython/blob/master/Cython/Compiler/ModuleNode.py to generate separate functions for the separate phases, and then also to find a compatible fallback way to execute them in older Python versions.\r\n\r\nThe proposed CPython support for runnable extension modules is tracked here: https://bugs.python.org/issue30403",
-    "closed_at": null,
+    "author_association": "NONE",
+    "body": "Consider the following, derived from your collatz example in your tests:\r\n\r\ncollatz.pyx\r\n```\r\n# cython: linetrace=True\r\n\r\ncimport cython\r\n\r\n@cython.binding(True)\r\ndef cy_generator(int num):\r\n   x = 1\r\n   for i in range(num):\r\n       yield x + 2\r\n```\r\n\r\ntest_profile.py\r\n```\r\ntry:\r\n    import line_profiler\r\nexcept ImportError:\r\n    print(\"No line profiler, skipping test.\")\r\n    import sys\r\n    sys.exit(0)\r\n\r\n\r\ndef assert_stats(profile, name):\r\n    profile.print_stats()\r\n    stats = profile.get_stats()\r\n    assert len(stats.timings) > 0, \"No profile stats.\"\r\n    for key, timings in stats.timings.items():\r\n        if key[-1] == name:\r\n            assert len(timings) > 0\r\n            break\r\n    else:\r\n        raise ValueError(\"No stats for %s.\" % name)\r\n\r\n\r\nfrom collatz import cy_generator\r\nfunc = cy_generator\r\nprofile = line_profiler.LineProfiler(func)\r\nprofile.runcall(func, 10)\r\nassert_stats(profile, func.__name__)\r\n```\r\n\r\nAnd the usual setup.py (included for completeness):\r\n```\r\nfrom distutils.extension import Extension\r\nfrom distutils.core import setup\r\nfrom Cython.Build import cythonize\r\n\r\nextensions = [\r\n    Extension(\"collatz\", [\"collatz.pyx\"], define_macros=[('CYTHON_TRACE', '1')])\r\n]\r\n\r\nsetup(\r\n    ext_modules = cythonize(extensions)\r\n)\r\n```\r\n\r\nThe test fails:\r\n```\r\nbash-4.2$ python setup.py build_ext --inplace\r\nCompiling collatz.pyx because it changed.\r\n[1/1] Cythonizing collatz.pyx\r\nrunning build_ext\r\nbuilding 'collatz' extension\r\ngcc -pthread -fno-strict-aliasing -g -O2 -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DCYTHON_TRACE=1 -I/home/broot/scratch/miniconda/include/python2.7 -c collatz.c -o build/temp.linux-x86_64-2.7/collatz.o\r\ngcc -pthread -shared -L/home/broot/scratch/miniconda/lib -Wl,-rpath=/home/broot/scratch/miniconda/lib,--no-as-needed build/temp.linux-x86_64-2.7/collatz.o -L/home/broot/scratch/miniconda/lib -lpython2.7 -o /home/broot/Programs/tools/foobar/collatz.so\r\nbash-4.2$ python test_profile.py \r\nTimer unit: 1e-06 s\r\n\r\nTotal time: 0 s\r\nFile: /home/broot/Programs/tools/foobar/collatz.pyx\r\nFunction: cy_generator at line 6\r\n\r\nLine #      Hits         Time  Per Hit   % Time  Line Contents\r\n==============================================================\r\n     6                                           def cy_generator(int num):\r\n     7                                              x = 1\r\n     8                                              for i in range(num):\r\n     9                                                  yield x + 2\r\n\r\nTraceback (most recent call last):\r\n  File \"test_profile.py\", line 25, in <module>\r\n    assert_stats(profile, func.__name__)\r\n  File \"test_profile.py\", line 15, in assert_stats\r\n    assert len(timings) > 0\r\nAssertionError\r\n```",
+    "closed_at": "2017-10-31T10:27:22Z",
     "comment_data": [
         {
             "author_association": "OWNER",
-            "body": "Implemented in #1794",
-            "created_at": "2017-07-22T14:58:31Z",
-            "html_url": "https://github.com/cython/cython/issues/1715#issuecomment-317188978",
-            "id": 317188978,
-            "issue_url": "https://api.github.com/repos/cython/cython/issues/1715",
-            "updated_at": "2017-07-22T14:58:31Z",
-            "url": "https://api.github.com/repos/cython/cython/issues/comments/317188978",
+            "body": "Confirmed. Generators do not currently contain line tracing hooks, but there seems to be a bit more than just that to fix.",
+            "created_at": "2017-10-29T19:33:57Z",
+            "html_url": "https://github.com/cython/cython/issues/1949#issuecomment-340287871",
+            "id": 340287871,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1949",
+            "updated_at": "2017-10-29T19:33:57Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/340287871",
             "user": {
                 "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
@@ -35,38 +35,38 @@
             }
         },
         {
-            "author_association": "OWNER",
-            "body": "Reopening since the implementation in 0.27.0 is not complete and was disabled in 0.27.1. It requires proper reloading support, which is not trivial.",
-            "created_at": "2017-10-29T19:31:19Z",
-            "html_url": "https://github.com/cython/cython/issues/1715#issuecomment-340287686",
-            "id": 340287686,
-            "issue_url": "https://api.github.com/repos/cython/cython/issues/1715",
-            "updated_at": "2017-10-29T19:31:19Z",
-            "url": "https://api.github.com/repos/cython/cython/issues/comments/340287686",
+            "author_association": "NONE",
+            "body": "Thank you!",
+            "created_at": "2017-10-31T13:44:50Z",
+            "html_url": "https://github.com/cython/cython/issues/1949#issuecomment-340766374",
+            "id": 340766374,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1949",
+            "updated_at": "2017-10-31T13:44:50Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/340766374",
             "user": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "avatar_url": "https://avatars0.githubusercontent.com/u/291576?v=4",
+                "events_url": "https://api.github.com/users/WeatherGod/events{/privacy}",
+                "followers_url": "https://api.github.com/users/WeatherGod/followers",
+                "following_url": "https://api.github.com/users/WeatherGod/following{/other_user}",
+                "gists_url": "https://api.github.com/users/WeatherGod/gists{/gist_id}",
                 "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
+                "html_url": "https://github.com/WeatherGod",
+                "id": 291576,
+                "login": "WeatherGod",
+                "organizations_url": "https://api.github.com/users/WeatherGod/orgs",
+                "received_events_url": "https://api.github.com/users/WeatherGod/received_events",
+                "repos_url": "https://api.github.com/users/WeatherGod/repos",
                 "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "starred_url": "https://api.github.com/users/WeatherGod/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/WeatherGod/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/WeatherGod"
             }
         }
     ],
     "comments": 2,
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/1715/comments",
-    "created_at": "2017-05-25T10:06:57Z",
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/1949/comments",
+    "created_at": "2017-10-26T17:24:29Z",
     "event_data": [
         {
             "actor": {
@@ -90,14 +90,14 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2017-05-25T10:06:57Z",
+            "created_at": "2017-10-29T19:32:49Z",
             "event": "labeled",
-            "id": 1097060231,
+            "id": 1315669079,
             "label": {
                 "color": "444444",
-                "name": "Code Generation"
+                "name": "defect"
             },
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1097060231"
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1315669079"
         },
         {
             "actor": {
@@ -121,14 +121,14 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2017-05-25T10:06:57Z",
+            "created_at": "2017-10-29T19:34:08Z",
             "event": "labeled",
-            "id": 1097060232,
+            "id": 1315669497,
             "label": {
-                "color": "444444",
-                "name": "enhancement"
+                "color": "0e8a16",
+                "name": "patch wanted"
             },
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1097060232"
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1315669497"
         },
         {
             "actor": {
@@ -152,13 +152,13 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2017-08-09T13:26:38Z",
+            "created_at": "2017-10-31T10:26:23Z",
             "event": "milestoned",
-            "id": 1199075633,
+            "id": 1318445013,
             "milestone": {
-                "title": "0.27"
+                "title": "0.28"
             },
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1199075633"
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1318445013"
         },
         {
             "actor": {
@@ -182,64 +182,61 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2017-08-09T13:26:44Z",
+            "created_at": "2017-10-31T10:26:39Z",
+            "event": "unlabeled",
+            "id": 1318445423,
+            "label": {
+                "color": "0e8a16",
+                "name": "patch wanted"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1318445423"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": "aeeef39da6a9a136c6880974589fa5bdb277e8d6",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/aeeef39da6a9a136c6880974589fa5bdb277e8d6",
+            "created_at": "2017-10-31T10:27:22Z",
             "event": "closed",
-            "id": 1199075841,
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1199075841"
-        },
-        {
-            "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            },
-            "commit_id": null,
-            "commit_url": null,
-            "created_at": "2017-10-29T19:31:19Z",
-            "event": "reopened",
-            "id": 1315667766,
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1315667766"
+            "id": 1318446527,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1318446527"
         }
     ],
-    "events_url": "https://api.github.com/repos/cython/cython/issues/1715/events",
-    "html_url": "https://github.com/cython/cython/issues/1715",
-    "id": 231297029,
+    "events_url": "https://api.github.com/repos/cython/cython/issues/1949/events",
+    "html_url": "https://github.com/cython/cython/issues/1949",
+    "id": 268844587,
     "labels": [
         {
             "color": "444444",
             "default": false,
-            "id": 425556330,
-            "name": "Code Generation",
-            "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
-        },
-        {
-            "color": "444444",
-            "default": true,
-            "id": 425556243,
-            "name": "enhancement",
-            "url": "https://api.github.com/repos/cython/cython/labels/enhancement"
+            "id": 425553654,
+            "name": "defect",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
         }
     ],
-    "labels_url": "https://api.github.com/repos/cython/cython/issues/1715/labels{/name}",
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/1949/labels{/name}",
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 25,
-        "created_at": "2017-07-25T11:36:06Z",
+        "closed_issues": 7,
+        "created_at": "2017-10-13T20:20:37Z",
         "creator": {
             "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
             "events_url": "https://api.github.com/users/scoder/events{/privacy}",
@@ -261,39 +258,39 @@
         },
         "description": null,
         "due_on": null,
-        "html_url": "https://github.com/cython/cython/milestone/45",
-        "id": 2660533,
-        "labels_url": "https://api.github.com/repos/cython/cython/milestones/45/labels",
-        "number": 45,
+        "html_url": "https://github.com/cython/cython/milestone/49",
+        "id": 2836705,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/49/labels",
+        "number": 49,
         "open_issues": 1,
         "state": "open",
-        "title": "0.27",
-        "updated_at": "2017-10-29T19:31:19Z",
-        "url": "https://api.github.com/repos/cython/cython/milestones/45"
+        "title": "0.28",
+        "updated_at": "2017-10-31T13:12:15Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/49"
     },
-    "number": 1715,
+    "number": 1949,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
-    "title": "Multi-phase module initialisation (PEP 489)",
-    "updated_at": "2017-10-29T19:31:19Z",
-    "url": "https://api.github.com/repos/cython/cython/issues/1715",
+    "state": "closed",
+    "title": "line profiling of a cythonized generator doesn't work",
+    "updated_at": "2017-10-31T13:44:50Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/1949",
     "user": {
-        "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-        "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-        "followers_url": "https://api.github.com/users/scoder/followers",
-        "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-        "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+        "avatar_url": "https://avatars0.githubusercontent.com/u/291576?v=4",
+        "events_url": "https://api.github.com/users/WeatherGod/events{/privacy}",
+        "followers_url": "https://api.github.com/users/WeatherGod/followers",
+        "following_url": "https://api.github.com/users/WeatherGod/following{/other_user}",
+        "gists_url": "https://api.github.com/users/WeatherGod/gists{/gist_id}",
         "gravatar_id": "",
-        "html_url": "https://github.com/scoder",
-        "id": 491659,
-        "login": "scoder",
-        "organizations_url": "https://api.github.com/users/scoder/orgs",
-        "received_events_url": "https://api.github.com/users/scoder/received_events",
-        "repos_url": "https://api.github.com/users/scoder/repos",
+        "html_url": "https://github.com/WeatherGod",
+        "id": 291576,
+        "login": "WeatherGod",
+        "organizations_url": "https://api.github.com/users/WeatherGod/orgs",
+        "received_events_url": "https://api.github.com/users/WeatherGod/received_events",
+        "repos_url": "https://api.github.com/users/WeatherGod/repos",
         "site_admin": false,
-        "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-        "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+        "starred_url": "https://api.github.com/users/WeatherGod/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/WeatherGod/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/scoder"
+        "url": "https://api.github.com/users/WeatherGod"
     }
 }

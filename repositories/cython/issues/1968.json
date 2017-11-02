@@ -1,19 +1,19 @@
 {
     "assignee": null,
     "assignees": [],
-    "author_association": "OWNER",
-    "body": "CPython 3.5 introduced a new module initialisation scheme in multiple phases:\r\nhttps://www.python.org/dev/peps/pep-0489/\r\n\r\nThis improves the support for extension module reloading and could also allow running extension modules as main module (`python -m`) in the future (probably Py3.7).\r\n\r\nWorth implementing. It requires splitting up the `generate_module_init_func()` method in https://github.com/cython/cython/blob/master/Cython/Compiler/ModuleNode.py to generate separate functions for the separate phases, and then also to find a compatible fallback way to execute them in older Python versions.\r\n\r\nThe proposed CPython support for runnable extension modules is tracked here: https://bugs.python.org/issue30403",
-    "closed_at": null,
+    "author_association": "NONE",
+    "body": "* GCC from `mingwpy-0.1.0b3`\r\n* Python `3.4.4`\r\n* Cython `0.27.2`\r\n\r\nI think it was introduced in `0.27`, our build reports the issue for Python 3.4 versions. See this commit - https://github.com/cython/cython/commit/72acc2cdcbb6fd738fcffe7d193bfc44aefc6474 and https://github.com/cython/cython/blob/94acc16165949becb94ad900c01c63fa1ae80368/Cython/Utility/Coroutine.c#L787\r\n\r\nAlso notice 3.3+ referenced here and not in the rest of the lines:\r\nhttps://github.com/cython/cython/blob/94acc16165949becb94ad900c01c63fa1ae80368/Cython/Utility/Coroutine.c#L786\r\n\r\n[`build`](https://ci.appveyor.com/project/KivyOrg/kivy/build/1.0.1757/job/3wgpdb8a94cssbh2#L496) ↓\r\n\r\n```\r\nwriting build\\temp.win32-3.4\\Release\\kivy\\_event.def\r\nC:\\Python34\\Scripts\\gcc.exe -shared -s build\\temp.win32-3.4\\Release\\kivy\\_event.o build\\temp.win32-3.4\\Release\\kivy\\_event.def -LC:\\Python34\\libs -LC:\\Python34\\libs -LC:\\Python34\\PCbuild -lpython34 -lmsvcr100 -o C:\\projects\\kivy\\kivy\\_event.pyd -lm\r\nbuild\r\n\\temp.win32-3.4\\Release\\kivy\\_event.o:_event.c:(.text+0x45da): undefined reference to `_PyGen_Send'\r\nbuild\\temp.win32-3.4\\Release\\kivy\\_event.o:_event.c:(.text+0x9290): undefined reference to `_PyGen_Send\r\n'\r\ncollect2.exe: error: ld returned 1 exit status\r\n error: command 'C:\\\\Python34\\\\Scripts\\\\gcc.exe' failed with exit status 1\r\nFailed with exit code 1\r\n```\r\n\r\nThe file [`_event.pxd`](https://github.com/kivy/kivy/blob/master/kivy/_event.pxd) hasn't changed for quite a while + the build worked fine with `<0.27`.\r\n\r\nAny ideas how to fix it without downgrading to 0.26?",
+    "closed_at": "2017-10-31T07:12:25Z",
     "comment_data": [
         {
             "author_association": "OWNER",
-            "body": "Implemented in #1794",
-            "created_at": "2017-07-22T14:58:31Z",
-            "html_url": "https://github.com/cython/cython/issues/1715#issuecomment-317188978",
-            "id": 317188978,
-            "issue_url": "https://api.github.com/repos/cython/cython/issues/1715",
-            "updated_at": "2017-07-22T14:58:31Z",
-            "url": "https://api.github.com/repos/cython/cython/issues/comments/317188978",
+            "body": "MinGW probably doesn't set `_MSC_VER` (because, why should it?), so the guard doesn't apply and opens up the special case for Python < 3.6. Problem is, it shouldn't guard against MSVC since this is a platform issue, not a compiler thing. The `_PyGen_Send()` function is not properly exported before https://github.com/python/cpython/commit/833c626, and the fact that Linux systems do not care is not a good excuse for blaming it on Windows (let alone MSVC, although that is always a good target for blaming). I'll change the guard to `defined(__linux__)` for 0.27.3.",
+            "created_at": "2017-10-31T06:35:40Z",
+            "html_url": "https://github.com/cython/cython/issues/1968#issuecomment-340673510",
+            "id": 340673510,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1968",
+            "updated_at": "2017-10-31T06:36:04Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/340673510",
             "user": {
                 "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
@@ -35,38 +35,38 @@
             }
         },
         {
-            "author_association": "OWNER",
-            "body": "Reopening since the implementation in 0.27.0 is not complete and was disabled in 0.27.1. It requires proper reloading support, which is not trivial.",
-            "created_at": "2017-10-29T19:31:19Z",
-            "html_url": "https://github.com/cython/cython/issues/1715#issuecomment-340287686",
-            "id": 340287686,
-            "issue_url": "https://api.github.com/repos/cython/cython/issues/1715",
-            "updated_at": "2017-10-29T19:31:19Z",
-            "url": "https://api.github.com/repos/cython/cython/issues/comments/340287686",
+            "author_association": "NONE",
+            "body": "@scoder Thanks for such a quick response and for the fix! :) Any ETA for `0.27.3`?",
+            "created_at": "2017-10-31T20:39:57Z",
+            "html_url": "https://github.com/cython/cython/issues/1968#issuecomment-340899804",
+            "id": 340899804,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1968",
+            "updated_at": "2017-10-31T20:39:57Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/340899804",
             "user": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "avatar_url": "https://avatars0.githubusercontent.com/u/8825439?v=4",
+                "events_url": "https://api.github.com/users/KeyWeeUsr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/KeyWeeUsr/followers",
+                "following_url": "https://api.github.com/users/KeyWeeUsr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/KeyWeeUsr/gists{/gist_id}",
                 "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
+                "html_url": "https://github.com/KeyWeeUsr",
+                "id": 8825439,
+                "login": "KeyWeeUsr",
+                "organizations_url": "https://api.github.com/users/KeyWeeUsr/orgs",
+                "received_events_url": "https://api.github.com/users/KeyWeeUsr/received_events",
+                "repos_url": "https://api.github.com/users/KeyWeeUsr/repos",
                 "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "starred_url": "https://api.github.com/users/KeyWeeUsr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/KeyWeeUsr/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/KeyWeeUsr"
             }
         }
     ],
     "comments": 2,
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/1715/comments",
-    "created_at": "2017-05-25T10:06:57Z",
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/1968/comments",
+    "created_at": "2017-10-30T22:00:01Z",
     "event_data": [
         {
             "actor": {
@@ -90,14 +90,75 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2017-05-25T10:06:57Z",
+            "created_at": "2017-10-31T06:23:33Z",
+            "event": "milestoned",
+            "id": 1318114358,
+            "milestone": {
+                "title": "0.27.3"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1318114358"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-10-31T06:23:39Z",
             "event": "labeled",
-            "id": 1097060231,
+            "id": 1318114451,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1318114451"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-10-31T06:23:47Z",
+            "event": "labeled",
+            "id": 1318114590,
             "label": {
                 "color": "444444",
                 "name": "Code Generation"
             },
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1097060231"
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1318114590"
         },
         {
             "actor": {
@@ -119,16 +180,12 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             },
-            "commit_id": null,
-            "commit_url": null,
-            "created_at": "2017-05-25T10:06:57Z",
-            "event": "labeled",
-            "id": 1097060232,
-            "label": {
-                "color": "444444",
-                "name": "enhancement"
-            },
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1097060232"
+            "commit_id": "cd3e189794d82f2e577cfad21f40ff72880e8273",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/cd3e189794d82f2e577cfad21f40ff72880e8273",
+            "created_at": "2017-10-31T07:10:47Z",
+            "event": "referenced",
+            "id": 1318161867,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1318161867"
         },
         {
             "actor": {
@@ -150,42 +207,12 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             },
-            "commit_id": null,
-            "commit_url": null,
-            "created_at": "2017-08-09T13:26:38Z",
-            "event": "milestoned",
-            "id": 1199075633,
-            "milestone": {
-                "title": "0.27"
-            },
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1199075633"
-        },
-        {
-            "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            },
-            "commit_id": null,
-            "commit_url": null,
-            "created_at": "2017-08-09T13:26:44Z",
+            "commit_id": "cd3e189794d82f2e577cfad21f40ff72880e8273",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/cd3e189794d82f2e577cfad21f40ff72880e8273",
+            "created_at": "2017-10-31T07:12:25Z",
             "event": "closed",
-            "id": 1199075841,
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1199075841"
+            "id": 1318163544,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1318163544"
         },
         {
             "actor": {
@@ -209,15 +236,42 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2017-10-29T19:31:19Z",
-            "event": "reopened",
-            "id": 1315667766,
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1315667766"
+            "created_at": "2017-10-31T20:39:57Z",
+            "event": "mentioned",
+            "id": 1319684859,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1319684859"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-10-31T20:39:57Z",
+            "event": "subscribed",
+            "id": 1319684860,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1319684860"
         }
     ],
-    "events_url": "https://api.github.com/repos/cython/cython/issues/1715/events",
-    "html_url": "https://github.com/cython/cython/issues/1715",
-    "id": 231297029,
+    "events_url": "https://api.github.com/repos/cython/cython/issues/1968/events",
+    "html_url": "https://github.com/cython/cython/issues/1968",
+    "id": 269768673,
     "labels": [
         {
             "color": "444444",
@@ -228,18 +282,18 @@
         },
         {
             "color": "444444",
-            "default": true,
-            "id": 425556243,
-            "name": "enhancement",
-            "url": "https://api.github.com/repos/cython/cython/labels/enhancement"
+            "default": false,
+            "id": 425553654,
+            "name": "defect",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
         }
     ],
-    "labels_url": "https://api.github.com/repos/cython/cython/issues/1715/labels{/name}",
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/1968/labels{/name}",
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 25,
-        "created_at": "2017-07-25T11:36:06Z",
+        "closed_issues": 8,
+        "created_at": "2017-10-24T19:50:28Z",
         "creator": {
             "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
             "events_url": "https://api.github.com/users/scoder/events{/privacy}",
@@ -261,39 +315,39 @@
         },
         "description": null,
         "due_on": null,
-        "html_url": "https://github.com/cython/cython/milestone/45",
-        "id": 2660533,
-        "labels_url": "https://api.github.com/repos/cython/cython/milestones/45/labels",
-        "number": 45,
-        "open_issues": 1,
+        "html_url": "https://github.com/cython/cython/milestone/50",
+        "id": 2863145,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/50/labels",
+        "number": 50,
+        "open_issues": 0,
         "state": "open",
-        "title": "0.27",
-        "updated_at": "2017-10-29T19:31:19Z",
-        "url": "https://api.github.com/repos/cython/cython/milestones/45"
+        "title": "0.27.3",
+        "updated_at": "2017-10-31T15:21:24Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/50"
     },
-    "number": 1715,
+    "number": 1968,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
-    "title": "Multi-phase module initialisation (PEP 489)",
-    "updated_at": "2017-10-29T19:31:19Z",
-    "url": "https://api.github.com/repos/cython/cython/issues/1715",
+    "state": "closed",
+    "title": "Python 3.4 & undefined reference to `_PyGen_Send'",
+    "updated_at": "2017-10-31T20:39:57Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/1968",
     "user": {
-        "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-        "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-        "followers_url": "https://api.github.com/users/scoder/followers",
-        "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-        "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+        "avatar_url": "https://avatars0.githubusercontent.com/u/8825439?v=4",
+        "events_url": "https://api.github.com/users/KeyWeeUsr/events{/privacy}",
+        "followers_url": "https://api.github.com/users/KeyWeeUsr/followers",
+        "following_url": "https://api.github.com/users/KeyWeeUsr/following{/other_user}",
+        "gists_url": "https://api.github.com/users/KeyWeeUsr/gists{/gist_id}",
         "gravatar_id": "",
-        "html_url": "https://github.com/scoder",
-        "id": 491659,
-        "login": "scoder",
-        "organizations_url": "https://api.github.com/users/scoder/orgs",
-        "received_events_url": "https://api.github.com/users/scoder/received_events",
-        "repos_url": "https://api.github.com/users/scoder/repos",
+        "html_url": "https://github.com/KeyWeeUsr",
+        "id": 8825439,
+        "login": "KeyWeeUsr",
+        "organizations_url": "https://api.github.com/users/KeyWeeUsr/orgs",
+        "received_events_url": "https://api.github.com/users/KeyWeeUsr/received_events",
+        "repos_url": "https://api.github.com/users/KeyWeeUsr/repos",
         "site_admin": false,
-        "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-        "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+        "starred_url": "https://api.github.com/users/KeyWeeUsr/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/KeyWeeUsr/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/scoder"
+        "url": "https://api.github.com/users/KeyWeeUsr"
     }
 }
