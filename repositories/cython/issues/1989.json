@@ -2,18 +2,18 @@
     "assignee": null,
     "assignees": [],
     "author_association": "NONE",
-    "body": "Cython-0.27.2.tar.gz would build, but not Cython-0.27.3.tar.gz.\r\n\r\nThe errors end with:\r\n    /tmp/pip-build-0qsfp3vo/cython/Cython/Compiler/Pythran.c:9616:11: error: 'PyThreadState {aka struct _ts}' has no member named 'exc_state'\r\n         tstate->exc_state.exc_traceback = *tb;\r\n               ^\r\n    error: command 'gcc' failed with exit status 1\r\n\r\n    ----------------------------------------\r\n^[[31mCommand \"/usr/local/cpython-3.7/bin/python3.7 -u -c \"import setuptools, tokenize;__file__='/tmp/pip-build-0qsfp3vo/cython/setup.py';f=getattr(tokenize, 'open', open)(__file__);code=f.read().replace('\\r\\n', '\\n');f.close();exec(compile(code, __file__, 'exec'))\" install --record /tmp/pip-whjoc62z-record/install-record.txt --single-version-externally-managed --compile\" failed with error code 1 in /tmp/pip-build-0qsfp3vo/cython/^[[0m\r\n",
-    "closed_at": "2017-11-10T07:30:28Z",
+    "body": "Was rather surprised to see that Cython requires the GIL to use things like `npy_isnan`. Given the function/macro is pure C, not really sure what good the GIL would do. Also would have figured the [`nogil` in `cdef extern`]( https://github.com/cython/cython/blob/0.27.3/Cython/Includes/numpy/math.pxd#L20 ) would have ensured that all functions in that block did not require the GIL. Regardless it appears to be needed. Here is a test file demonstrating the problem below and the compilation error.\r\n\r\n<details>\r\n<summary>Test file</summary>\r\n\r\n```cython\r\n#filename: test.pyx\r\n\r\ncimport numpy\r\ncimport numpy.math\r\n\r\ncdef bint test(double a) nogil:\r\n    return numpy.math.npy_isnan(a)\r\n```\r\n\r\n</details>\r\n\r\n<br>\r\n\r\nUsing version\r\n\r\n<details>\r\n<summary>Compilation error</summary>\r\n\r\n```\r\n$ cython --version\r\nCython version 0.27.3\r\n\r\n$ cython test.pyx\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\ncimport numpy\r\ncimport numpy.math\r\n\r\ncdef bint test(double a) nogil:\r\n    return numpy.math.npy_isnan(a)\r\n                    ^\r\n------------------------------------------------------------\r\n\r\ntest.pyx:5:21: cimported module has no attribute 'npy_isnan'\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\ncimport numpy\r\ncimport numpy.math\r\n\r\ncdef bint test(double a) nogil:\r\n    return numpy.math.npy_isnan(a)\r\n                              ^\r\n------------------------------------------------------------\r\n\r\ntest.pyx:5:31: Calling gil-requiring function not allowed without gil\r\n```\r\n\r\n</details>",
+    "closed_at": "2017-11-10T07:29:27Z",
     "comment_data": [
         {
             "author_association": "OWNER",
-            "body": "Yeah, well... Just wait for alpha-3.\n",
-            "created_at": "2017-11-09T15:41:12Z",
-            "html_url": "https://github.com/cython/cython/issues/1988#issuecomment-343193837",
-            "id": 343193837,
-            "issue_url": "https://api.github.com/repos/cython/cython/issues/1988",
-            "updated_at": "2017-11-09T15:41:12Z",
-            "url": "https://api.github.com/repos/cython/cython/issues/comments/343193837",
+            "body": "The name of that function in the Cython declaration is `isnan()`. As the error says, `npy_isnan()` is not defined.",
+            "created_at": "2017-11-10T07:29:26Z",
+            "html_url": "https://github.com/cython/cython/issues/1989#issuecomment-343395582",
+            "id": 343395582,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1989",
+            "updated_at": "2017-11-10T07:29:26Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/343395582",
             "user": {
                 "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
@@ -36,8 +36,8 @@
         }
     ],
     "comments": 1,
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/1988/comments",
-    "created_at": "2017-11-09T15:12:36Z",
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/1989/comments",
+    "created_at": "2017-11-10T03:34:42Z",
     "event_data": [
         {
             "actor": {
@@ -61,14 +61,14 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2017-11-10T07:30:20Z",
+            "created_at": "2017-11-10T07:28:12Z",
             "event": "labeled",
-            "id": 1335539346,
+            "id": 1335536926,
             "label": {
                 "color": "444444",
                 "name": "R: invalid"
             },
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1335539346"
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1335536926"
         },
         {
             "actor": {
@@ -92,15 +92,15 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2017-11-10T07:30:28Z",
+            "created_at": "2017-11-10T07:29:27Z",
             "event": "closed",
-            "id": 1335539507,
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1335539507"
+            "id": 1335538292,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1335538292"
         }
     ],
-    "events_url": "https://api.github.com/repos/cython/cython/issues/1988/events",
-    "html_url": "https://github.com/cython/cython/issues/1988",
-    "id": 272598977,
+    "events_url": "https://api.github.com/repos/cython/cython/issues/1989/events",
+    "html_url": "https://github.com/cython/cython/issues/1989",
+    "id": 272809654,
     "labels": [
         {
             "color": "444444",
@@ -110,32 +110,32 @@
             "url": "https://api.github.com/repos/cython/cython/labels/R:%20invalid"
         }
     ],
-    "labels_url": "https://api.github.com/repos/cython/cython/issues/1988/labels{/name}",
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/1989/labels{/name}",
     "locked": false,
     "milestone": null,
-    "number": 1988,
+    "number": 1989,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "closed",
-    "title": "Cython-0.27.3.tar.gz fails to build on CPython 3.7 alpha 2",
-    "updated_at": "2017-11-10T07:30:28Z",
-    "url": "https://api.github.com/repos/cython/cython/issues/1988",
+    "title": "npy_isnan requires GIL",
+    "updated_at": "2017-11-10T07:29:27Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/1989",
     "user": {
-        "avatar_url": "https://avatars1.githubusercontent.com/u/864794?v=4",
-        "events_url": "https://api.github.com/users/dstromberg/events{/privacy}",
-        "followers_url": "https://api.github.com/users/dstromberg/followers",
-        "following_url": "https://api.github.com/users/dstromberg/following{/other_user}",
-        "gists_url": "https://api.github.com/users/dstromberg/gists{/gist_id}",
+        "avatar_url": "https://avatars1.githubusercontent.com/u/3019665?v=4",
+        "events_url": "https://api.github.com/users/jakirkham/events{/privacy}",
+        "followers_url": "https://api.github.com/users/jakirkham/followers",
+        "following_url": "https://api.github.com/users/jakirkham/following{/other_user}",
+        "gists_url": "https://api.github.com/users/jakirkham/gists{/gist_id}",
         "gravatar_id": "",
-        "html_url": "https://github.com/dstromberg",
-        "id": 864794,
-        "login": "dstromberg",
-        "organizations_url": "https://api.github.com/users/dstromberg/orgs",
-        "received_events_url": "https://api.github.com/users/dstromberg/received_events",
-        "repos_url": "https://api.github.com/users/dstromberg/repos",
+        "html_url": "https://github.com/jakirkham",
+        "id": 3019665,
+        "login": "jakirkham",
+        "organizations_url": "https://api.github.com/users/jakirkham/orgs",
+        "received_events_url": "https://api.github.com/users/jakirkham/received_events",
+        "repos_url": "https://api.github.com/users/jakirkham/repos",
         "site_admin": false,
-        "starred_url": "https://api.github.com/users/dstromberg/starred{/owner}{/repo}",
-        "subscriptions_url": "https://api.github.com/users/dstromberg/subscriptions",
+        "starred_url": "https://api.github.com/users/jakirkham/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/jakirkham/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/dstromberg"
+        "url": "https://api.github.com/users/jakirkham"
     }
 }
