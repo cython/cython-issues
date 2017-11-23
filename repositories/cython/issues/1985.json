@@ -1,7 +1,7 @@
 {
     "assignee": null,
     "assignees": [],
-    "author_association": "NONE",
+    "author_association": "CONTRIBUTOR",
     "body": "Measuring and reporting the coverage of the Cython module does not appear to be working correctly in the case of this package ( https://github.com/jakirkham/cyminmax/commit/675f86170ac89891a3fd56f169fa9003eb50102c ). In particular, an error is seen when reporting the coverage and trying to submit it. This occurs on both Python 2 and Python 3. Details from the report and submission failures are included below. Links to relevant CI logs are included in the details. While the errors may initially appear to be unrelated, both issues share the same cause on local inspection. On the surface, the problem seems to share a similar cause to issue ( https://github.com/cython/cython/issues/1898 ). However this is not limited to Windows and upgrading `cython` to `0.27.1+` does not seem to affect the issue.\r\n\r\n<details>\r\n<summary>Coverage Report Error:</summary>\r\n\r\n```python\r\n$ coverage report -m\r\nsrc/cyminmax.pyx   TypeError: 'NoneType' object is not iterable\r\nName       Stmts   Miss Branch BrPart  Cover   Missing\r\n------------------------------------------------------\r\nsetup.py      54      0     11      0   100%\r\n```\r\n\r\nxref: https://travis-ci.org/jakirkham/cyminmax/jobs/298596443#L883-L887\r\n\r\n</details>\r\n\r\n<br>\r\n\r\n<details>\r\n<summary>Coveralls Submission Error:</summary>\r\n\r\n```python\r\n$ coveralls\r\n...\r\nTraceback (most recent call last):\r\n  File \"/home/travis/miniconda/envs/dplenv/bin/coveralls\", line 6, in <module>\r\n    sys.exit(coveralls.wear())\r\n  File \"/home/travis/miniconda/envs/dplenv/lib/python3.5/site-packages/coveralls/__init__.py\", line 94, in wear\r\n    source_files=coverage.coveralls(args.base_dir, ignore_errors=args.ignore_errors, merge_file=args.merge_file),\r\n  File \"/home/travis/miniconda/envs/dplenv/lib/python3.5/site-packages/coveralls/control.py\", line 9, in coveralls\r\n    return reporter.report(base_dir, ignore_errors=ignore_errors, merge_file=merge_file)\r\n  File \"/home/travis/miniconda/envs/dplenv/lib/python3.5/site-packages/coveralls/report.py\", line 20, in report\r\n    analysis = self.coverage._analyze(fr)\r\n  File \"/home/travis/miniconda/envs/dplenv/lib/python3.5/site-packages/coverage/control.py\", line 891, in _analyze\r\n    return Analysis(self.data, it)\r\n  File \"/home/travis/miniconda/envs/dplenv/lib/python3.5/site-packages/coverage/results.py\", line 19, in __init__\r\n    self.statements = self.file_reporter.lines()\r\n  File \"/home/travis/miniconda/envs/dplenv/lib/python3.5/site-packages/Cython/Coverage.py\", line 276, in lines\r\n    return set(self._code)\r\nTypeError: 'NoneType' object is not iterable\r\n```\r\n\r\nxref: https://travis-ci.org/jakirkham/cyminmax/jobs/298596443#L1003-L1018\r\n\r\n</details>",
     "closed_at": null,
     "comment_data": [
@@ -35,7 +35,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "Sure. Thanks for giving it a try. Installed from [`master`]( https://github.com/cython/cython/commit/630f0124414c591315840e5ffa9c8b0df90a235b ) and ran the following using commit ( https://github.com/jakirkham/cyminmax/commit/2553a8e7f43501beb7e343f5fec7ac3712edc4f3 ) of my library.\r\n\r\n```\r\n$ coverage run --source . setup.py test\r\n$ coverage report\r\n```\r\n\r\nThe first line built it from source with all the recommended options I could find enabled. That passed. The second line failed with exit code `1` and emitted the following message. There is only one spot in the coverage codebase that matches, which points to this [block]( https://github.com/nedbat/coveragepy/blob/coverage-4.4.2/coverage/control.py#L978-L983 ).\r\n\r\n```\r\nPlugin 'Cython.Coverage.Plugin' did not provide a file reporter for '/Users/kirkhamj/Developer/PyCharmCE/cyminmax/src/cyminmax.pyx'.\r\n```\r\n\r\nAlso saw some weird warnings when compiling the code. They are shown below. These are weird in the sense that I don't have a `TestClass` object at all and don't have any variables matching the names listed. That said, I doubt this is relevant to the coverage problem. Just seemed worth noting.\r\n\r\n```\r\nwarning: TestClass:20:10: 'cpdef_method' redeclared \r\nwarning: TestClass:31:10: 'cpdef_cname_method' redeclared \r\n```",
             "created_at": "2017-11-10T23:12:49Z",
             "html_url": "https://github.com/cython/cython/issues/1985#issuecomment-343611428",
@@ -64,7 +64,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "Going back to the released version, would add that the `.coverage` file contains contents that look something like this (below).\r\n\r\nFWICT it seems to be measuring coverage of the Cython files. So it seems the reporting step maybe needs some help finding those files. Seems strange as the filename with full path is included in `.coverage`.\r\n\r\nWould add that it also picks up a file called `stringsource`. Not entirely sure where it thinks it finds this as I don't see it anywhere.\r\n\r\n<details>\r\n<summary><code>.coverage</code> file:</summary>\r\n<code white-space=\"pre-wrap\">\r\n!coverage.py: This is a private format, don't read it directly!{\"arcs\":{\"/Users/kirkhamj/Developer/PyCharmCE/cyminmax/setup.py\":[[-4,4],[4,5],[5,6],[6,8],[8,9],[9,10],[10,11],[11,13],[13,15],[15,18],[-18,18],[18,19],[19,-18],[18,27],[-27,27],[27,28],[28,30],[30,35],[35,-27],[27,40],[40,42],[42,43],[43,47],[47,48],[48,52],[52,56],[56,59],[59,60],[60,61],[61,62],[62,64],[64,70],[70,71],[71,72],[72,76],[76,77],[77,78],[78,84],[84,85],[85,87],[87,88],[88,89],[-88,88],[88,-88],[89,92],[92,93],[93,94],[94,95],[95,96],[96,97],[97,98],[98,101],[101,102],[102,103],[103,104],[104,105],[105,106],[106,107],[107,108],[108,109],[109,114],[114,115],[115,116],[116,117],[117,118],[118,119],[119,120],[120,121],[121,122],[122,125],[125,126],[126,127],[127,125],[125,130],[130,131],[131,132],[132,133],[133,134],[134,135],[135,136],[136,137],[137,138],[138,139],[139,140],[140,141],[141,142],[142,143],[143,144],[144,145],[145,146],[146,147],[147,149],[149,150],[150,151],[151,152],[152,153],[153,154],[154,155],[155,156],[156,157],[157,158],[158,160],[-19,20],[20,22],[22,23],[23,24],[24,-19],[-30,31],[31,32],[32,33],[33,-30],[-35,36],[36,37],[37,-35],[160,-4]],\"/Users/kirkhamj/Developer/PyCharmCE/cyminmax/src/cyminmax.pyx\":[[-1,3],[3,1],[1,9],[9,1],[1,207],[207,284],[284,285],[285,286],[286,289],[289,290],[290,314],[314,315],[315,537],[537,983],[983,1],[1,-1],[-9,23],[23,25],[25,31],[31,32],[32,34],[34,35],[35,62],[62,-9],[35,38],[38,64],[64,-9],[35,40],[40,64],[35,42],[42,64],[35,44],[44,64],[35,48],[48,64],[35,50],[50,64],[35,52],[52,64],[35,54],[54,64],[35,58],[58,64],[35,60],[60,64]],\"/Users/kirkhamj/Developer/PyCharmCE/cyminmax/stringsource\":[[-279,280],[280,-279],[-651,652],[652,-651],[-645,646],[-343,344],[344,345],[345,346],[346,347],[347,348],[348,353],[353,354],[354,355],[355,356],[356,361],[361,362],[362,366],[-296,298],[298,304],[304,307],[307,-296],[366,368],[368,-343],[646,647],[647,648],[648,-645],[-370,371],[371,372],[372,376],[376,377],[377,378],[378,379],[379,380],[380,382],[382,381],[381,383],[383,-370],[380,383]],\"/Users/kirkhamj/Developer/PyCharmCE/cyminmax/src/cyminmax.pxd\":[[-26,27],[27,28],[28,33],[33,38],[38,40],[40,57],[57,65],[65,66],[66,-26],[57,58],[58,60],[60,61],[61,65],[60,62],[62,63],[63,65],[40,41],[41,42],[42,44],[44,45],[45,46],[46,47],[47,55],[55,57],[44,50],[50,51],[51,52],[52,53],[53,55],[52,55],[62,65],[55,41],[50,52],[45,47],[47,48],[48,55]]},\"file_tracers\":{\"/Users/kirkhamj/Developer/PyCharmCE/cyminmax/src/cyminmax.pyx\":\"Cython.Coverage.Plugin\",\"/Users/kirkhamj/Developer/PyCharmCE/cyminmax/src/cyminmax.pxd\":\"Cython.Coverage.Plugin\"}}\r\n</code>\r\n</details>\r\n\r\n<br>\r\n\r\n**Edit:** After looking a little closer (i.e. adding `print` statements before the change made in `master`) can confirm it is able to find the Cython files and C files fine. However it returns the parsed code as `None`. So it looks like the code parsing is failing for some reason.",
             "created_at": "2017-11-10T23:55:36Z",
             "html_url": "https://github.com/cython/cython/issues/1985#issuecomment-343617687",
@@ -93,7 +93,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "Alright I think I'm starting to see what is going on. It looks like [`_find_dep_file_path`]( https://github.com/cython/cython/blob/0.27.3/Cython/Coverage.py#L33 ) is munging the paths improperly somehow. Namely it is taking paths that look like this `<dir>/src/cyminmax.pyx` and turning them into `<dir>/cyminmax.pyx` instead. This happens [inside `_parse_lines`]( https://github.com/cython/cython/blob/0.27.3/Cython/Coverage.py#L223 ). The result is paths that would have been the same [mismatch here]( https://github.com/cython/cython/blob/0.27.3/Cython/Coverage.py#L226 ) kicking out a `None` for all the files seen.",
             "created_at": "2017-11-11T00:17:21Z",
             "html_url": "https://github.com/cython/cython/issues/1985#issuecomment-343620752",
@@ -181,12 +181,89 @@
             "event": "referenced",
             "id": 1335581574,
             "url": "https://api.github.com/repos/cython/cython/issues/events/1335581574"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-11-19T10:18:46Z",
+            "event": "labeled",
+            "id": 1348710155,
+            "label": {
+                "color": "1d76db",
+                "name": "easy"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1348710155"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-11-19T10:18:46Z",
+            "event": "labeled",
+            "id": 1348710156,
+            "label": {
+                "color": "0e8a16",
+                "name": "patch wanted"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1348710156"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/1985/events",
     "html_url": "https://github.com/cython/cython/issues/1985",
     "id": 271998740,
-    "labels": [],
+    "labels": [
+        {
+            "color": "1d76db",
+            "default": false,
+            "id": 414805682,
+            "name": "easy",
+            "url": "https://api.github.com/repos/cython/cython/labels/easy"
+        },
+        {
+            "color": "0e8a16",
+            "default": false,
+            "id": 414800879,
+            "name": "patch wanted",
+            "url": "https://api.github.com/repos/cython/cython/labels/patch%20wanted"
+        }
+    ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/1985/labels{/name}",
     "locked": false,
     "milestone": null,
@@ -194,7 +271,7 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "Cython coverage fails on trivial module",
-    "updated_at": "2017-11-11T06:43:27Z",
+    "updated_at": "2017-11-19T10:18:46Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1985",
     "user": {
         "avatar_url": "https://avatars1.githubusercontent.com/u/3019665?v=4",
