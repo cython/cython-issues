@@ -1,10 +1,12 @@
 {
     "assignee": null,
     "assignees": [],
+    "author_association": "NONE",
     "body": "See for example the following test pyx file:\r\n\r\n```\r\n# test.pyx\r\n\r\ncimport numpy as np\r\n\r\nprint(np.pi)\r\n```\r\n\r\nCompiling this file with cython 0.25.2 produces no error. Compiling it with the current master branch of cython (specifically 0ef812567) produces the following error:\r\n\r\n```\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\ncimport numpy as np\r\n\r\nprint(np.pi)\r\n       ^\r\n------------------------------------------------------------\r\n\r\ntest.pyx:3:8: cimported module has no attribute 'pi'\r\n```\r\n\r\nI guess this is an improvement in correctness, however I bet there's a lot of code out there that was unintentionally depending on the old behavior (there are a few in yt I've found so far).",
     "closed_at": "2017-06-16T00:04:37Z",
     "comment_data": [
         {
+            "author_association": "OWNER",
             "body": "Cimported modules were never implicitly imported; this change simply turns what would have been a runtime error into a compile-time error. \r\n\r\nWe could consider changing the behavior such that cimporting caused importing, but not all pxd files correspond to actual modules (and even if they do, one may not want to actually import them) and it's unclear what the behavior should be in that case. ",
             "created_at": "2017-06-15T23:46:01Z",
             "html_url": "https://github.com/cython/cython/issues/1738#issuecomment-308894925",
@@ -13,7 +15,7 @@
             "updated_at": "2017-06-15T23:46:01Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/308894925",
             "user": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -33,6 +35,7 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "Ah, good to know. I guess we're catching real bugs in yt then. Thanks for the info!",
             "created_at": "2017-06-16T00:04:37Z",
             "html_url": "https://github.com/cython/cython/issues/1738#issuecomment-308897378",
@@ -41,7 +44,7 @@
             "updated_at": "2017-06-16T00:04:37Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/308897378",
             "user": {
-                "avatar_url": "https://avatars1.githubusercontent.com/u/3126246?v=3",
+                "avatar_url": "https://avatars2.githubusercontent.com/u/3126246?v=4",
                 "events_url": "https://api.github.com/users/ngoldbaum/events{/privacy}",
                 "followers_url": "https://api.github.com/users/ngoldbaum/followers",
                 "following_url": "https://api.github.com/users/ngoldbaum/following{/other_user}",
@@ -59,15 +62,44 @@
                 "type": "User",
                 "url": "https://api.github.com/users/ngoldbaum"
             }
+        },
+        {
+            "author_association": "NONE",
+            "body": "Hi, I'm seeing the same issue with hdbscan module (issue opened here: https://github.com/scikit-learn-contrib/hdbscan/issues/153), but they seem to have both cimports and imports in place, strange.\r\n\r\nHave tested with:\r\n\r\n```\r\n# test.pyx\r\n\r\ncimport numpy as np\r\nimport numpy as np\r\n\r\nprint(np.pi)\r\n```\r\n\r\nand\r\n\r\n```\r\n# setup.py\r\n\r\ntry:\r\n    from setuptools import setup\r\n    from setuptools import Extension\r\nexcept ImportError:\r\n    from distutils.core import setup\r\n    from distutils.extension import Extension\r\n\r\nfrom Cython.Build import cythonize\r\nimport numpy\r\n\r\nsetup(\r\n    name = \"My test app\",\r\n    ext_modules = cythonize('test.pyx'),  # accepts a glob pattern\r\n    include_dirs=[numpy.get_include()]\r\n)\r\n```\r\n\r\nand can confirm that the errors occur when the `import numpy as np` is missing.",
+            "created_at": "2017-12-13T13:17:08Z",
+            "html_url": "https://github.com/cython/cython/issues/1738#issuecomment-351388024",
+            "id": 351388024,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1738",
+            "updated_at": "2017-12-13T13:17:08Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/351388024",
+            "user": {
+                "avatar_url": "https://avatars2.githubusercontent.com/u/15376817?v=4",
+                "events_url": "https://api.github.com/users/m-dz/events{/privacy}",
+                "followers_url": "https://api.github.com/users/m-dz/followers",
+                "following_url": "https://api.github.com/users/m-dz/following{/other_user}",
+                "gists_url": "https://api.github.com/users/m-dz/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/m-dz",
+                "id": 15376817,
+                "login": "m-dz",
+                "organizations_url": "https://api.github.com/users/m-dz/orgs",
+                "received_events_url": "https://api.github.com/users/m-dz/received_events",
+                "repos_url": "https://api.github.com/users/m-dz/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/m-dz/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/m-dz/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/m-dz"
+            }
         }
     ],
-    "comments": 2,
+    "comments": 3,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1738/comments",
     "created_at": "2017-06-15T22:12:22Z",
     "event_data": [
         {
             "actor": {
-                "avatar_url": "https://avatars1.githubusercontent.com/u/3126246?v=3",
+                "avatar_url": "https://avatars2.githubusercontent.com/u/3126246?v=4",
                 "events_url": "https://api.github.com/users/ngoldbaum/events{/privacy}",
                 "followers_url": "https://api.github.com/users/ngoldbaum/followers",
                 "following_url": "https://api.github.com/users/ngoldbaum/following{/other_user}",
@@ -104,10 +136,10 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "closed",
     "title": "cimported modules used to be implicitly imported",
-    "updated_at": "2017-06-16T00:04:37Z",
+    "updated_at": "2017-12-13T13:17:08Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1738",
     "user": {
-        "avatar_url": "https://avatars1.githubusercontent.com/u/3126246?v=3",
+        "avatar_url": "https://avatars2.githubusercontent.com/u/3126246?v=4",
         "events_url": "https://api.github.com/users/ngoldbaum/events{/privacy}",
         "followers_url": "https://api.github.com/users/ngoldbaum/followers",
         "following_url": "https://api.github.com/users/ngoldbaum/following{/other_user}",
