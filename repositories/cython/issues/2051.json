@@ -1,0 +1,212 @@
+{
+    "assignee": null,
+    "assignees": [],
+    "author_association": "CONTRIBUTOR",
+    "body": "still working out the details, glad to hear any comments and note my analysis of the interaction between cython and PyPy may be mistaken.\r\n\r\nPandas recently added this line in changeset  [pandas-dev/pandas@f7f33a](https://github.com/pandas-dev/pandas/commit/f7f33a797e59ed069b27aa4507491cdf417d2937#diff-34803c8cb529c2eca84cad6277e45ef6):\r\n```\r\nfrom cpython.datetime cimport PyTZInfo_Check\r\n```\r\nwhich seemed to be enough to cause cython to emit code from cython's ``datetime.pxd`` that PyPy does not support. It seems ``PyDateTime_Time`` and friends are opaque structures on PyPy. PyPy does not even implement the ``hastzinfo`` and ``tzinfo`` fields, which is probably wrong. But could cython use the macros ``PyDateTime_DATE_GET_MICROSECOND`` and friends instead of directly accessing fields in the structs?\r\n\r\nThe errors look like\r\n```\r\npandas/_libs/tslib.c: In function ‘__pyx_f_7cpython_8datetime_time_tzinfo’:\r\npandas/_libs/tslib.c:71199:46: error: ‘PyDateTime_Time {aka struct <anonymous>}’ has no member named ‘hastzinfo’\r\n   __pyx_t_1 = (((PyDateTime_Time *)__pyx_v_o)->hastzinfo != 0);\r\n                                              ^\r\nIn file included from /home/matti/pypy_stuff/pypy2-v5.10/include/Python.h:81:0,\r\n                 from pandas/_libs/tslib.c:4:\r\npandas/_libs/tslib.c:71210:61: error: ‘PyDateTime_Time {aka struct <anonymous>}’ has no member named ‘tzinfo’\r\n     __Pyx_INCREF(((PyObject *)((PyDateTime_Time *)__pyx_v_o)->tzinfo));\r\n                                                             ^\r\npandas/_libs/tslib.c: In function ‘__pyx_f_7cpython_8datetime_timedelta_days’:\r\npandas/_libs/tslib.c:71864:44: error: ‘PyDateTime_Delta {aka struct <anonymous>}’ has no member named ‘days’\r\n   __pyx_r = ((PyDateTime_Delta *)__pyx_v_o)->days;\r\n                                            ^\r\npandas/_libs/tslib.c: In function ‘__pyx_f_7cpython_8datetime_timedelta_seconds’:\r\npandas/_libs/tslib.c:71901:44: error: ‘PyDateTime_Delta {aka struct <anonymous>}’ has no member named ‘seconds’\r\n   __pyx_r = ((PyDateTime_Delta *)__pyx_v_o)->seconds;\r\n                                            ^\r\npandas/_libs/tslib.c: In function ‘__pyx_f_7cpython_8datetime_timedelta_microseconds’:\r\npandas/_libs/tslib.c:71935:44: error: ‘PyDateTime_Delta {aka struct <anonymous>}’ has no member named ‘microseconds’\r\n   __pyx_r = ((PyDateTime_Delta *)__pyx_v_o)->microseconds;\r\n```",
+    "closed_at": null,
+    "comment_data": [
+        {
+            "author_association": "OWNER",
+            "body": "Those come from inline functions. I think we should try to exclude inline functions that are defined in .pxd files but not used anywhere.\r\n\r\nI'll rename the ticket accordingly since this is the main issue here. For declarations that are actually used, it's up to the users to care about compatibility (if Cython cannot easily cover it up in a non-ambiguous way).",
+            "created_at": "2017-12-21T21:35:18Z",
+            "html_url": "https://github.com/cython/cython/issues/2051#issuecomment-353463421",
+            "id": 353463421,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2051",
+            "updated_at": "2017-12-21T21:35:18Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/353463421",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "FWIW, both PyPy2 and PyPy3 as well as CPython3 have ``PyDateTime_DELTA_GET_*`` macros. The ``tzinfo part seems like a PyPy bug",
+            "created_at": "2017-12-22T08:48:51Z",
+            "html_url": "https://github.com/cython/cython/issues/2051#issuecomment-353551782",
+            "id": 353551782,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2051",
+            "updated_at": "2017-12-22T08:48:51Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/353551782",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+                "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+                "followers_url": "https://api.github.com/users/mattip/followers",
+                "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+                "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/mattip",
+                "id": 823911,
+                "login": "mattip",
+                "organizations_url": "https://api.github.com/users/mattip/orgs",
+                "received_events_url": "https://api.github.com/users/mattip/received_events",
+                "repos_url": "https://api.github.com/users/mattip/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/mattip"
+            }
+        }
+    ],
+    "comments": 2,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/2051/comments",
+    "created_at": "2017-12-21T20:19:41Z",
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-12-21T21:35:46Z",
+            "event": "renamed",
+            "id": 1398733893,
+            "rename": {
+                "from": "pypy does not have fields in its DateTime structs",
+                "to": "Ignore .pxd inline functions that are not used"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1398733893"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-12-21T21:36:40Z",
+            "event": "labeled",
+            "id": 1398735056,
+            "label": {
+                "color": "444444",
+                "name": "Code Generation"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1398735056"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-12-21T21:36:40Z",
+            "event": "labeled",
+            "id": 1398735057,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1398735057"
+        }
+    ],
+    "events_url": "https://api.github.com/repos/cython/cython/issues/2051/events",
+    "html_url": "https://github.com/cython/cython/issues/2051",
+    "id": 283993298,
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425556330,
+            "name": "Code Generation",
+            "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425553654,
+            "name": "defect",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        }
+    ],
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/2051/labels{/name}",
+    "locked": false,
+    "milestone": null,
+    "number": 2051,
+    "repository_url": "https://api.github.com/repos/cython/cython",
+    "state": "open",
+    "title": "Ignore .pxd inline functions that are not used",
+    "updated_at": "2017-12-22T08:48:51Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/2051",
+    "user": {
+        "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+        "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+        "followers_url": "https://api.github.com/users/mattip/followers",
+        "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+        "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/mattip",
+        "id": 823911,
+        "login": "mattip",
+        "organizations_url": "https://api.github.com/users/mattip/orgs",
+        "received_events_url": "https://api.github.com/users/mattip/received_events",
+        "repos_url": "https://api.github.com/users/mattip/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/mattip"
+    }
+}

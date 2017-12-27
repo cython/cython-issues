@@ -22,16 +22,18 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/1842"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/d106dbf3a8a1fed83cdab33f4d238cc9aef1c1dc"
+            "href": "https://api.github.com/repos/cython/cython/statuses/5a4371e8b7500e8af01cf9331c131e65a5a1941a"
         }
     },
     "assignee": null,
     "assignees": [],
+    "author_association": "FIRST_TIME_CONTRIBUTOR",
     "base": {
         "label": "cython:master",
         "ref": "master",
         "repo": {
             "archive_url": "https://api.github.com/repos/cython/cython/{archive_format}{/ref}",
+            "archived": false,
             "assignees_url": "https://api.github.com/repos/cython/cython/assignees{/user}",
             "blobs_url": "https://api.github.com/repos/cython/cython/git/blobs{/sha}",
             "branches_url": "https://api.github.com/repos/cython/cython/branches{/branch}",
@@ -49,8 +51,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 557,
-            "forks_count": 557,
+            "forks": 614,
+            "forks_count": 614,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -73,13 +75,14 @@
             "labels_url": "https://api.github.com/repos/cython/cython/labels{/name}",
             "language": "Python",
             "languages_url": "https://api.github.com/repos/cython/cython/languages",
+            "license": null,
             "merges_url": "https://api.github.com/repos/cython/cython/merges",
             "milestones_url": "https://api.github.com/repos/cython/cython/milestones{/number}",
             "mirror_url": null,
             "name": "cython",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 428,
-            "open_issues_count": 428,
+            "open_issues": 463,
+            "open_issues_count": 463,
             "owner": {
                 "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -101,11 +104,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2017-08-25T08:24:06Z",
+            "pushed_at": "2017-12-23T10:03:28Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 48096,
+            "size": 49940,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 2459,
+            "stargazers_count": 2740,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -114,12 +117,12 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2017-08-25T00:46:10Z",
+            "updated_at": "2017-12-23T11:04:23Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 2459,
-            "watchers_count": 2459
+            "watchers": 2740,
+            "watchers_count": 2740
         },
-        "sha": "f0bc37688464646a85ea1ba49ad944c2b4096937",
+        "sha": "9c14c2671adb56cca70e050ac683e545aaf704ea",
         "user": {
             "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -140,7 +143,7 @@
             "url": "https://api.github.com/users/cython"
         }
     },
-    "body": "",
+    "body": "I am working on generic hybrid data structures, where memory is managed in Python and pointers are fed to C++ via Cython.\r\nSimple example: a variable-length array, where \"length\" contains the current length and \"storage\" holds the memory.\r\nAfter experimenting with various data representations, the following seems the cleanest to me:\r\n\r\n**Python side:**\r\n\r\n```python\r\nVarArray = np.dtype([(\"length\",\"int32\"), (\"storage\", object)], align=True)\r\nstorage1, storage2 = np.zeros(10000), np.zeros(10000)\r\nlength1 = 10\r\nstorage1[:10] = 5\r\nlength2 = 3\r\nstorage2[:3] = 1,2,3\r\nvararrays = np.array([(length1, storage1), (length2, storage2)], dtype=VarArray)\r\n```\r\n\r\n**Cython side:**\r\n\r\n```cython\r\nfrom cpython.ref cimport PyObject\r\ncimport numpy as np\r\nimport numpy as np\r\n\r\ncdef struct VarArray:\r\n    int length\r\n    PyObject *storage\r\n\r\ncdef test(VarArray *va):\r\n    cdef int length = va.length\r\n    cdef double[:] storage = <np.ndarray[double,ndim=1]?><object?> va.storage\r\n    print(np.asarray(storage[:length]))\r\n\r\ndef test1(np.ndarray[VarArray,ndim=1] vararrays):\r\n    cdef VarArray *vararray\r\n    for n in range(len(vararrays)):\r\n        vararray = &vararrays[n]\r\n        test(vararray)\r\n\r\ndef test2(VarArray[:] vararrays):\r\n    cdef VarArray *vararray\r\n    for n in range(len(vararrays)):\r\n        vararray = &vararrays[n]\r\n        test(vararray)\r\n```\r\n\r\nThe problem is, Cython allows structs with PyObject* neither as NumPy dtypes nor as memory slices.\r\nI created a minimal Cython patch that disables these restrictions. Would this be OK as a PR? Or are there major safety concerns against this?",
     "closed_at": null,
     "comment_data": [],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1842/comments",
@@ -165,25 +168,31 @@
                 "type": "User",
                 "url": "https://api.github.com/users/sjdv1982"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/d106dbf3a8a1fed83cdab33f4d238cc9aef1c1dc/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/5a4371e8b7500e8af01cf9331c131e65a5a1941a/comments",
             "commit": {
                 "author": {
-                    "date": "2017-08-24T12:50:30Z",
+                    "date": "2017-12-23T09:53:04Z",
                     "email": "sjdv1982@gmail.com",
                     "name": "Sjoerd de Vries"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2017-08-24T12:50:30Z",
+                    "date": "2017-12-23T09:53:04Z",
                     "email": "sjdv1982@gmail.com",
                     "name": "Sjoerd de Vries"
                 },
-                "message": "patch for issue #1841",
+                "message": "allow Cython structs with \"PyObject *\", both as typed NumPy structured arrays, and as typed memoryviews",
                 "tree": {
-                    "sha": "7dce3eace4d59ad32f0f8e626e2f1f7332218ad9",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/7dce3eace4d59ad32f0f8e626e2f1f7332218ad9"
+                    "sha": "93233a269bae4777fc4beb23af34c6224706cc5e",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/93233a269bae4777fc4beb23af34c6224706cc5e"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/d106dbf3a8a1fed83cdab33f4d238cc9aef1c1dc"
+                "url": "https://api.github.com/repos/cython/cython/git/commits/5a4371e8b7500e8af01cf9331c131e65a5a1941a",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
             },
             "committer": {
                 "avatar_url": "https://avatars1.githubusercontent.com/u/8017841?v=4",
@@ -204,16 +213,16 @@
                 "type": "User",
                 "url": "https://api.github.com/users/sjdv1982"
             },
-            "html_url": "https://github.com/cython/cython/commit/d106dbf3a8a1fed83cdab33f4d238cc9aef1c1dc",
+            "html_url": "https://github.com/cython/cython/commit/5a4371e8b7500e8af01cf9331c131e65a5a1941a",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/f0bc37688464646a85ea1ba49ad944c2b4096937",
-                    "sha": "f0bc37688464646a85ea1ba49ad944c2b4096937",
-                    "url": "https://api.github.com/repos/cython/cython/commits/f0bc37688464646a85ea1ba49ad944c2b4096937"
+                    "html_url": "https://github.com/cython/cython/commit/e2a703134a763afb2fc76980806ae73333241508",
+                    "sha": "e2a703134a763afb2fc76980806ae73333241508",
+                    "url": "https://api.github.com/repos/cython/cython/commits/e2a703134a763afb2fc76980806ae73333241508"
                 }
             ],
-            "sha": "d106dbf3a8a1fed83cdab33f4d238cc9aef1c1dc",
-            "url": "https://api.github.com/repos/cython/cython/commits/d106dbf3a8a1fed83cdab33f4d238cc9aef1c1dc"
+            "sha": "5a4371e8b7500e8af01cf9331c131e65a5a1941a",
+            "url": "https://api.github.com/repos/cython/cython/commits/5a4371e8b7500e8af01cf9331c131e65a5a1941a"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/1842/commits",
@@ -224,6 +233,7 @@
         "ref": "master",
         "repo": {
             "archive_url": "https://api.github.com/repos/sjdv1982/cython/{archive_format}{/ref}",
+            "archived": false,
             "assignees_url": "https://api.github.com/repos/sjdv1982/cython/assignees{/user}",
             "blobs_url": "https://api.github.com/repos/sjdv1982/cython/git/blobs{/sha}",
             "branches_url": "https://api.github.com/repos/sjdv1982/cython/branches{/branch}",
@@ -265,6 +275,7 @@
             "labels_url": "https://api.github.com/repos/sjdv1982/cython/labels{/name}",
             "language": "Python",
             "languages_url": "https://api.github.com/repos/sjdv1982/cython/languages",
+            "license": null,
             "merges_url": "https://api.github.com/repos/sjdv1982/cython/merges",
             "milestones_url": "https://api.github.com/repos/sjdv1982/cython/milestones{/number}",
             "mirror_url": null,
@@ -293,9 +304,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/sjdv1982/cython/pulls{/number}",
-            "pushed_at": "2017-08-24T12:51:22Z",
+            "pushed_at": "2017-12-23T10:03:25Z",
             "releases_url": "https://api.github.com/repos/sjdv1982/cython/releases{/id}",
-            "size": 48376,
+            "size": 49364,
             "ssh_url": "git@github.com:sjdv1982/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/sjdv1982/cython/stargazers",
@@ -311,7 +322,7 @@
             "watchers": 0,
             "watchers_count": 0
         },
-        "sha": "d106dbf3a8a1fed83cdab33f4d238cc9aef1c1dc",
+        "sha": "5a4371e8b7500e8af01cf9331c131e65a5a1941a",
         "user": {
             "avatar_url": "https://avatars1.githubusercontent.com/u/8017841?v=4",
             "events_url": "https://api.github.com/users/sjdv1982/events{/privacy}",
@@ -336,7 +347,7 @@
     "id": 137446749,
     "issue_url": "https://api.github.com/repos/cython/cython/issues/1842",
     "locked": false,
-    "merge_commit_sha": "864f217a59a5f741cd8b7bb23888817c0a5a5a1b",
+    "merge_commit_sha": "1f8850a3e28b0ce82a3ea3e5e933cb8a9ee4e072",
     "merged_at": null,
     "milestone": null,
     "number": 1842,
@@ -345,9 +356,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/1842/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/d106dbf3a8a1fed83cdab33f4d238cc9aef1c1dc",
-    "title": "patch for issue #1841",
-    "updated_at": "2017-08-24T12:52:36Z",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/5a4371e8b7500e8af01cf9331c131e65a5a1941a",
+    "title": "Hybrid structs with PyObject *",
+    "updated_at": "2017-12-23T10:09:13Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/1842",
     "user": {
         "avatar_url": "https://avatars1.githubusercontent.com/u/8017841?v=4",
