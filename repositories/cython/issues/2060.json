@@ -1,0 +1,141 @@
+{
+    "assignee": null,
+    "assignees": [],
+    "author_association": "NONE",
+    "body": "I have written a class in **cython**, which uses the `vector` in **c++** to create a two-dimensional array. My current issue is that, I would like to `write` and `read` the content of my *array*/*matrix* into and from a *text file*. I'd like to have each row of the matrix be written in the same line. I am also wondering how I can give each written value a `format`?\r\n\r\n**matrix.pyx**\r\n```\r\nfrom libcpp.vector cimport vector\r\nimport cython\r\nimport numpy as np\r\nimport ctypes\r\ncimport numpy as np\r\ncimport cython                                                                                       \r\nfrom libc.stdint cimport *\r\nfrom libcpp.string cimport string\r\n\r\ncdef extern from \"<iostream>\" namespace \"std\" nogil:\r\n     cdef cppclass ostream:\r\n          ostream& write(const char*, int) except +\r\n     cdef cppclass istream:\r\n          istream& read(const char*, int) except +\r\n     cdef cppclass ifstream(istream):\r\n          ifstream(const char *) except +\r\n          \r\ncdef extern from \"<fstream>\" namespace \"std\" nogil:          \r\n     cdef cppclass filebuf:\r\n          pass\r\n        \r\n     cdef cppclass fstream:\r\n          void close()\r\n          bint is_open()\r\n          void open(const char*, open_mode)\r\n          void open(const char&, open_mode)\r\n          filebuf* rdbuf() const\r\n          filebuf* rdbuf(filebuf* sb)\r\n          \r\n     cdef cppclass ofstream(ostream):\r\n          ofstream(const char*) except +\r\n          ofstream(const char*, open_mode) except+\r\n     cdef cppclass ifstream(istream):\r\n          ifstream(const char*) except +\r\n          ifstream(const char*, open_mode) except+\r\n\r\ncdef extern from \"<iostream>\" namespace \"std::ios_base\" nogil:\r\n     cdef cppclass open_mode:\r\n          pass\r\n     cdef open_mode binary\r\n         \r\ncdef extern from \"<iterator>\" namespace \"std\" nogil:\r\n    #http://www.cplusplus.com/reference/iterator/ostream_iterator/\r\n    cdef cppclass ostream_iterator[T,charT,traits](iterator[output_iterator_tag, void, void, void, void]):\r\n         basic_ostream[charT,traits]* out_stream\r\n         ctypedef charT char_type\r\n         ctypedef traits traits_type\r\n         ctypedef basic_ostream[charT,traits] ostream_type\r\n         ostream_iterator (ostream_type& )\r\n         ostream_iterator (ostream_type& , const charT* )\r\ncdef extern from \"<algorithm>\" namespace \"std\" nogil:    \r\n     OutputIter copy[InputIter,OutputIter](InputIter,InputIter,OutputIter)\r\n\r\ncdef class Matrix:\r\n     def __cinit__(self, int rows=0, int columns=0):\r\n         self._rows=rows\r\n         self._columns=columns\r\n         self.matrix=new vector[double]()\r\n         self.matrix.resize(rows*columns)\r\n     def __dealloc__(self):\r\n         del self.matrix\r\n     @cython.boundscheck(False)\r\n     @cython.wraparound(False)\r\n     cpdef double getVal(self, int r, int c):\r\n           return self.matrix[0][r*self._columns+c]    \r\n     @cython.boundscheck(False)\r\n     @cython.wraparound(False)\r\n     cpdef void setVal(self, int r, int c, double v): \r\n           self.matrix[0][r*self._columns+c] = v\r\n     @cython.boundscheck(False)\r\n     @cython.wraparound(False)\r\n     cpdef void _write(self, char *filename):\r\n           cdef ofstream* outputter\r\n           outputter = new ofstream(filename, binary)\r\n           cdef int j\r\n           cdef ostream_iterator[double] os (outputter,\" \")\r\n           cdef ostream_iterator[double] oi (outputter,\"\\n\")\r\n           for j from 0 <= j < self._rows:\r\n               copy(self.matrix.begin()+ j*self._columns,self.matrix.begin()+ (j+1)*self._columns, os)\r\n               copy(self.matrix.begin(),self.matrix.begin(),oi)\r\n           del outputter\r\n     \r\n```\r\n**matrix.pxd**\r\n       \r\n```\r\nfrom libcpp.vector cimport vector\r\ncdef class Matrix:\r\n     cdef vector[double] *matrix   \r\n     cdef int _rows\r\n     cdef int _columns\r\n     cpdef double getVal(self, int r, int c)\r\n     cpdef void setVal(self, int r, int c, double v)\r\n     cpdef void _write(self, char *filename)\r\n\r\n```\r\nWhen I compile my code, I get this error message:\r\n```\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n           cdef ofstream* outputter\r\n           outputter = new ofstream(filename, binary)\r\n           cdef int j\r\n           cdef ostream_iterator[double] os (outputter,\" \")\r\n                                                      ^\r\n------------------------------------------------------------\r\n\r\nmatrix.pyx:: Expected an identifier, found 'BEGIN_STRING'\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n           cdef ofstream* outputter\r\n           outputter = new ofstream(filename, binary)\r\n           cdef int j\r\n           cdef ostream_iterator[double] os (outputter,\" \")\r\n                                                       ^\r\n------------------------------------------------------------\r\n\r\nmatrix.pyx:: Expected ')', found 'CHARS'\r\n\r\n\r\n```\r\n    \r\n\r\nAny suggestion about how to read and write a huge vector in **cython** in the fastest way and making this code work will be appreciated.\r\n\r\n\r\n\r\n  ",
+    "closed_at": "2018-01-05T21:04:37Z",
+    "comment_data": [
+        {
+            "author_association": "OWNER",
+            "body": "Support requests are best sent to the users mailing list (as you already did), not the bug tracker.",
+            "created_at": "2018-01-05T21:04:37Z",
+            "html_url": "https://github.com/cython/cython/issues/2060#issuecomment-355665074",
+            "id": 355665074,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2060",
+            "updated_at": "2018-01-05T21:04:37Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/355665074",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
+    "comments": 1,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/2060/comments",
+    "created_at": "2018-01-05T14:11:50Z",
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2018-01-05T21:03:15Z",
+            "event": "labeled",
+            "id": 1411977356,
+            "label": {
+                "color": "fef2c0",
+                "name": "support question"
+            },
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1411977356"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2018-01-05T21:04:37Z",
+            "event": "closed",
+            "id": 1411979330,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1411979330"
+        }
+    ],
+    "events_url": "https://api.github.com/repos/cython/cython/issues/2060/events",
+    "html_url": "https://github.com/cython/cython/issues/2060",
+    "id": 286299220,
+    "labels": [
+        {
+            "color": "fef2c0",
+            "default": false,
+            "id": 414800623,
+            "name": "support question",
+            "url": "https://api.github.com/repos/cython/cython/labels/support%20question"
+        }
+    ],
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/2060/labels{/name}",
+    "locked": false,
+    "milestone": null,
+    "number": 2060,
+    "repository_url": "https://api.github.com/repos/cython/cython",
+    "state": "closed",
+    "title": "using ofstream to write down a 2-D vector in cython",
+    "updated_at": "2018-01-05T21:04:37Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/2060",
+    "user": {
+        "avatar_url": "https://avatars1.githubusercontent.com/u/6558617?v=4",
+        "events_url": "https://api.github.com/users/neuronphysics/events{/privacy}",
+        "followers_url": "https://api.github.com/users/neuronphysics/followers",
+        "following_url": "https://api.github.com/users/neuronphysics/following{/other_user}",
+        "gists_url": "https://api.github.com/users/neuronphysics/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/neuronphysics",
+        "id": 6558617,
+        "login": "neuronphysics",
+        "organizations_url": "https://api.github.com/users/neuronphysics/orgs",
+        "received_events_url": "https://api.github.com/users/neuronphysics/received_events",
+        "repos_url": "https://api.github.com/users/neuronphysics/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/neuronphysics/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/neuronphysics/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/neuronphysics"
+    }
+}
