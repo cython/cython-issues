@@ -1,28 +1,28 @@
 {
     "_links": {
         "comments": {
-            "href": "https://api.github.com/repos/cython/cython/issues/2033/comments"
+            "href": "https://api.github.com/repos/cython/cython/issues/2076/comments"
         },
         "commits": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/2033/commits"
+            "href": "https://api.github.com/repos/cython/cython/pulls/2076/commits"
         },
         "html": {
-            "href": "https://github.com/cython/cython/pull/2033"
+            "href": "https://github.com/cython/cython/pull/2076"
         },
         "issue": {
-            "href": "https://api.github.com/repos/cython/cython/issues/2033"
+            "href": "https://api.github.com/repos/cython/cython/issues/2076"
         },
         "review_comment": {
             "href": "https://api.github.com/repos/cython/cython/pulls/comments{/number}"
         },
         "review_comments": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/2033/comments"
+            "href": "https://api.github.com/repos/cython/cython/pulls/2076/comments"
         },
         "self": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/2033"
+            "href": "https://api.github.com/repos/cython/cython/pulls/2076"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/88071a2b344e6b8aacac512d31c28cfa36469861"
+            "href": "https://api.github.com/repos/cython/cython/statuses/176b1cc438aef069c8af6417e51652d442db23e1"
         }
     },
     "assignee": null,
@@ -122,7 +122,7 @@
             "watchers": 2782,
             "watchers_count": 2782
         },
-        "sha": "f9d1114696ff3a6eda20b64b3604d5839d64d3d4",
+        "sha": "5d3a13461667f41ed33e59981e0db357f03e3c8c",
         "user": {
             "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -143,105 +143,10 @@
             "url": "https://api.github.com/users/cython"
         }
     },
-    "body": "If none of the base classes has a `__dict__` slot (i.e. `tp_dictoffset` is 0), then it is safe to inherit from those with a `cdef class` without a `__dict__`. Unfortunately, we cannot check this condition at compile-time so it must be done at run-time.\r\n\r\nSince we are adding run-time checks anyway, we also verify that the base types are actually heap types.",
-    "closed_at": "2018-01-16T19:41:27Z",
-    "comment_data": [
-        {
-            "_links": {
-                "html": {
-                    "href": "https://github.com/cython/cython/pull/2033#discussion_r161747045"
-                },
-                "pull_request": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/2033"
-                },
-                "self": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/161747045"
-                }
-            },
-            "author_association": "OWNER",
-            "body": "I think you meant \"through\".",
-            "commit_id": "88071a2b344e6b8aacac512d31c28cfa36469861",
-            "created_at": "2018-01-16T12:50:24Z",
-            "diff_hunk": "@@ -1,3 +1,65 @@\n+/////////////// PyType_Ready.proto ///////////////\n+\n+static int __Pyx_PyType_Ready(PyTypeObject *t);\n+\n+/////////////// PyType_Ready ///////////////\n+\n+// Wrapper around PyType_Ready() with some runtime checks and fixes\n+// to deal with multiple inheritance.\n+static int __Pyx_PyType_Ready(PyTypeObject *t) {\n+    /* Loop over all bases (except the first) and check that those\n+     * really are heap types. Otherwise, it would not be safe to\n+     * subclass them.\n+     *\n+     * We also check tp_dictoffset: it is unsafe to inherit\n+     * tp_dictoffset from a base class because the object structures\n+     * would not be compatible. So, if our extension type doesn't set\n+     * tp_dictoffset (i.e. there is no __dict__ attribute in the object\n+     * structure), we need to check that none of the base classes sets\n+     * it either. */\n+    PyObject *bases = t->tp_bases;\n+    if (bases)\n+    {\n+        Py_ssize_t i, n = PyTuple_GET_SIZE(bases);\n+        for (i = 1; i < n; i++)  /* Skip first base */\n+        {\n+            PyTypeObject *b = (PyTypeObject*)PyTuple_GET_ITEM(bases, i);\n+            if (!PyType_HasFeature(b, Py_TPFLAGS_HEAPTYPE))\n+            {\n+                PyErr_Format(PyExc_TypeError, \"base class '%.200s' is not a heap type\",\n+                             b->tp_name);\n+                return -1;\n+            }\n+            if (t->tp_dictoffset == 0 && b->tp_dictoffset)\n+            {\n+                PyErr_Format(PyExc_TypeError,\n+                    \"extension type '%.200s' has no __dict__ slot, but base type '%.200s' has: \"\n+                    \"either add 'cdef dict __dict__' to the extension type \"\n+                    \"or add '__slots__ = [...]' to the base type\",\n+                    t->tp_name, b->tp_name);\n+                return -1;\n+            }\n+        }\n+    }\n+\n+#if PY_VERSION_HEX >= 0x03050000\n+    /* As of https://bugs.python.org/issue22079\n+     * PyType_Ready enforces that all bases of a non-heap type\n+     * are non-heap.  We know this is the case for the solid base,\n+     * but other bases may be heap allocated and are kept alive\n+     * though the bases reference.",
-            "html_url": "https://github.com/cython/cython/pull/2033#discussion_r161747045",
-            "id": 161747045,
-            "original_commit_id": "0573090af63ace3a166720be526c2d6fa74f148f",
-            "original_position": 50,
-            "path": "Cython/Utility/ExtensionTypes.c",
-            "position": null,
-            "pull_request_review_id": 89084122,
-            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2033",
-            "updated_at": "2018-01-16T14:23:56Z",
-            "url": "https://api.github.com/repos/cython/cython/pulls/comments/161747045",
-            "user": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            }
-        },
-        {
-            "_links": {
-                "html": {
-                    "href": "https://github.com/cython/cython/pull/2033#discussion_r161747393"
-                },
-                "pull_request": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/2033"
-                },
-                "self": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/161747393"
-                }
-            },
-            "author_association": "OWNER",
-            "body": "Could you please use line comments here? Multi-line C comments do not get discarded, and there is not much use in copying this into the generated .c files.",
-            "commit_id": "88071a2b344e6b8aacac512d31c28cfa36469861",
-            "created_at": "2018-01-16T12:52:01Z",
-            "diff_hunk": "@@ -1,3 +1,65 @@\n+/////////////// PyType_Ready.proto ///////////////\n+\n+static int __Pyx_PyType_Ready(PyTypeObject *t);\n+\n+/////////////// PyType_Ready ///////////////\n+\n+// Wrapper around PyType_Ready() with some runtime checks and fixes\n+// to deal with multiple inheritance.\n+static int __Pyx_PyType_Ready(PyTypeObject *t) {\n+    /* Loop over all bases (except the first) and check that those\n+     * really are heap types. Otherwise, it would not be safe to\n+     * subclass them.\n+     *\n+     * We also check tp_dictoffset: it is unsafe to inherit\n+     * tp_dictoffset from a base class because the object structures\n+     * would not be compatible. So, if our extension type doesn't set\n+     * tp_dictoffset (i.e. there is no __dict__ attribute in the object\n+     * structure), we need to check that none of the base classes sets\n+     * it either. */",
-            "html_url": "https://github.com/cython/cython/pull/2033#discussion_r161747393",
-            "id": 161747393,
-            "original_commit_id": "0573090af63ace3a166720be526c2d6fa74f148f",
-            "original_position": 19,
-            "path": "Cython/Utility/ExtensionTypes.c",
-            "position": null,
-            "pull_request_review_id": 89084533,
-            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2033",
-            "updated_at": "2018-01-16T14:23:56Z",
-            "url": "https://api.github.com/repos/cython/cython/pulls/comments/161747393",
-            "user": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            }
-        }
-    ],
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/2033/comments",
+    "body": "This fixes some `-Wstrict-prototypes` warnings",
+    "closed_at": "2018-01-17T05:47:43Z",
+    "comment_data": [],
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/2076/comments",
     "commit_data": [
         {
             "author": {
@@ -263,25 +168,25 @@
                 "type": "User",
                 "url": "https://api.github.com/users/jdemeyer"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/88071a2b344e6b8aacac512d31c28cfa36469861/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/176b1cc438aef069c8af6417e51652d442db23e1/comments",
             "commit": {
                 "author": {
-                    "date": "2017-12-08T11:08:17Z",
+                    "date": "2018-01-16T22:43:15Z",
                     "email": "jdemeyer@cage.ugent.be",
                     "name": "Jeroen Demeyer"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2018-01-16T14:22:20Z",
+                    "date": "2018-01-16T22:51:27Z",
                     "email": "jdemeyer@cage.ugent.be",
                     "name": "Jeroen Demeyer"
                 },
-                "message": "Add runtime checks for multiple inheritance",
+                "message": "C functions without args should be declared as f(void)",
                 "tree": {
-                    "sha": "5fe4d934ffbf4ea583d43c18fa4361f1e6d4314c",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/5fe4d934ffbf4ea583d43c18fa4361f1e6d4314c"
+                    "sha": "c1a940e712ad1c3d2969995b506ade47d9c71571",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/c1a940e712ad1c3d2969995b506ade47d9c71571"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/88071a2b344e6b8aacac512d31c28cfa36469861",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/176b1cc438aef069c8af6417e51652d442db23e1",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -308,24 +213,24 @@
                 "type": "User",
                 "url": "https://api.github.com/users/jdemeyer"
             },
-            "html_url": "https://github.com/cython/cython/commit/88071a2b344e6b8aacac512d31c28cfa36469861",
+            "html_url": "https://github.com/cython/cython/commit/176b1cc438aef069c8af6417e51652d442db23e1",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/f9d1114696ff3a6eda20b64b3604d5839d64d3d4",
-                    "sha": "f9d1114696ff3a6eda20b64b3604d5839d64d3d4",
-                    "url": "https://api.github.com/repos/cython/cython/commits/f9d1114696ff3a6eda20b64b3604d5839d64d3d4"
+                    "html_url": "https://github.com/cython/cython/commit/5d3a13461667f41ed33e59981e0db357f03e3c8c",
+                    "sha": "5d3a13461667f41ed33e59981e0db357f03e3c8c",
+                    "url": "https://api.github.com/repos/cython/cython/commits/5d3a13461667f41ed33e59981e0db357f03e3c8c"
                 }
             ],
-            "sha": "88071a2b344e6b8aacac512d31c28cfa36469861",
-            "url": "https://api.github.com/repos/cython/cython/commits/88071a2b344e6b8aacac512d31c28cfa36469861"
+            "sha": "176b1cc438aef069c8af6417e51652d442db23e1",
+            "url": "https://api.github.com/repos/cython/cython/commits/176b1cc438aef069c8af6417e51652d442db23e1"
         }
     ],
-    "commits_url": "https://api.github.com/repos/cython/cython/pulls/2033/commits",
-    "created_at": "2017-12-08T11:46:38Z",
-    "diff_url": "https://github.com/cython/cython/pull/2033.diff",
+    "commits_url": "https://api.github.com/repos/cython/cython/pulls/2076/commits",
+    "created_at": "2018-01-16T22:46:34Z",
+    "diff_url": "https://github.com/cython/cython/pull/2076.diff",
     "head": {
-        "label": "jdemeyer:multiple_inheritance_no_dict",
-        "ref": "multiple_inheritance_no_dict",
+        "label": "jdemeyer:voidproto",
+        "ref": "voidproto",
         "repo": {
             "archive_url": "https://api.github.com/repos/jdemeyer/cython/{archive_format}{/ref}",
             "archived": false,
@@ -422,7 +327,7 @@
             "watchers": 0,
             "watchers_count": 0
         },
-        "sha": "88071a2b344e6b8aacac512d31c28cfa36469861",
+        "sha": "176b1cc438aef069c8af6417e51652d442db23e1",
         "user": {
             "avatar_url": "https://avatars0.githubusercontent.com/u/3625785?v=4",
             "events_url": "https://api.github.com/users/jdemeyer/events{/privacy}",
@@ -443,57 +348,23 @@
             "url": "https://api.github.com/users/jdemeyer"
         }
     },
-    "html_url": "https://github.com/cython/cython/pull/2033",
-    "id": 157224789,
-    "issue_url": "https://api.github.com/repos/cython/cython/issues/2033",
+    "html_url": "https://github.com/cython/cython/pull/2076",
+    "id": 163307179,
+    "issue_url": "https://api.github.com/repos/cython/cython/issues/2076",
     "locked": false,
-    "merge_commit_sha": "5d3a13461667f41ed33e59981e0db357f03e3c8c",
-    "merged_at": "2018-01-16T19:41:27Z",
-    "milestone": {
-        "closed_at": null,
-        "closed_issues": 33,
-        "created_at": "2017-10-13T20:20:37Z",
-        "creator": {
-            "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-            "followers_url": "https://api.github.com/users/scoder/followers",
-            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-            "gravatar_id": "",
-            "html_url": "https://github.com/scoder",
-            "id": 491659,
-            "login": "scoder",
-            "organizations_url": "https://api.github.com/users/scoder/orgs",
-            "received_events_url": "https://api.github.com/users/scoder/received_events",
-            "repos_url": "https://api.github.com/users/scoder/repos",
-            "site_admin": false,
-            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-            "type": "User",
-            "url": "https://api.github.com/users/scoder"
-        },
-        "description": null,
-        "due_on": null,
-        "html_url": "https://github.com/cython/cython/milestone/49",
-        "id": 2836705,
-        "labels_url": "https://api.github.com/repos/cython/cython/milestones/49/labels",
-        "number": 49,
-        "open_issues": 0,
-        "state": "open",
-        "title": "0.28",
-        "updated_at": "2018-01-16T19:41:28Z",
-        "url": "https://api.github.com/repos/cython/cython/milestones/49"
-    },
-    "number": 2033,
-    "patch_url": "https://github.com/cython/cython/pull/2033.patch",
+    "merge_commit_sha": "fee5e49033b46687a4e481ea9d74ba61330dbaa9",
+    "merged_at": "2018-01-17T05:47:43Z",
+    "milestone": null,
+    "number": 2076,
+    "patch_url": "https://github.com/cython/cython/pull/2076.patch",
     "requested_reviewers": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
-    "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/2033/comments",
+    "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/2076/comments",
     "state": "closed",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/88071a2b344e6b8aacac512d31c28cfa36469861",
-    "title": "Allow multiple inheritance without __dict__",
-    "updated_at": "2018-01-16T19:41:28Z",
-    "url": "https://api.github.com/repos/cython/cython/pulls/2033",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/176b1cc438aef069c8af6417e51652d442db23e1",
+    "title": "C functions without args should be declared as f(void)",
+    "updated_at": "2018-01-17T05:47:43Z",
+    "url": "https://api.github.com/repos/cython/cython/pulls/2076",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/3625785?v=4",
         "events_url": "https://api.github.com/users/jdemeyer/events{/privacy}",
