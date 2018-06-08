@@ -1,19 +1,22 @@
 {
     "assignee": null,
     "assignees": [],
+    "author_association": "NONE",
     "body": "I observed a compilation error from clang-800.0.38 on a MacBook when using a c enum and a Cython cpdef enum. I could reproduce the issue using gcc version 4.9.2 (Raspbian 4.9.2-10). In both cases, Cython version 0.25.1 was used.\r\n\r\n**The code I ran was:**\r\n```\r\n#lib.h\r\ntypedef enum { A, B, C, D} foo;\r\n```\r\n\r\n```\r\n#lib.pyx\r\ncdef extern from \"./lib.h\":\r\n    cpdef enum foo:\r\n        A, B, C, D\r\n\r\ndef t1():\r\n    for e in foo: print(e.name)\r\n```\r\n\r\nWhen trying to compile, clang throws a lot of errors which all seem to correlate with the \"enum foo\".\r\nA solution is to declare the enum in the .h file as following `typedef enum foo { A, B, C, D} foo;`or as `typedef enum foo { A, B, C, D};`. When changed, the code is compiled and linked to a .so file and is working as intended.\r\n\r\nIs this intended behaviour or bug?",
     "closed_at": null,
     "comment_data": [
         {
+            "author_association": "NONE",
             "body": "@adippel I observed the same issue with Cython 0.25.2.  Using the foo example above,  the errors that were generated looked as follows:\r\n\r\n`lib.hpp:XXX: note: foo has a previous declaration here`\r\n\r\nwhen I changed the `typedef enum {A, B, C, D} foo;` to `typedef enum foo {A, B, C, D} foo;` the error went away.  Is this intended behavior?\r\n\r\n@robertwb is this a simple fix considering the work done on issue #531 ?",
             "created_at": "2017-01-08T18:49:00Z",
             "html_url": "https://github.com/cython/cython/issues/1529#issuecomment-271170330",
             "id": 271170330,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/1529",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDI3MTE3MDMzMA==",
             "updated_at": "2017-01-08T19:21:17Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/271170330",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/5514755?v=3",
+                "avatar_url": "https://avatars1.githubusercontent.com/u/5514755?v=4",
                 "events_url": "https://api.github.com/users/bradstimpson/events{/privacy}",
                 "followers_url": "https://api.github.com/users/bradstimpson/followers",
                 "following_url": "https://api.github.com/users/bradstimpson/following{/other_user}",
@@ -22,6 +25,7 @@
                 "html_url": "https://github.com/bradstimpson",
                 "id": 5514755,
                 "login": "bradstimpson",
+                "node_id": "MDQ6VXNlcjU1MTQ3NTU=",
                 "organizations_url": "https://api.github.com/users/bradstimpson/orgs",
                 "received_events_url": "https://api.github.com/users/bradstimpson/received_events",
                 "repos_url": "https://api.github.com/users/bradstimpson/repos",
@@ -33,15 +37,17 @@
             }
         },
         {
+            "author_association": "MEMBER",
             "body": "That is because `cpdef enum` is a variant of `cdef enum` which declares a non-typedef'd enum. If you declare a typedef'ed enum as a \"plain\" enum or vice versa it'll generate the wrong code. There's no typedef variant of cpdef enums (would that be cptypedef)? \r\n\r\nhttp://cython.readthedocs.io/en/latest/src/userguide/external_C_code.html#styles-of-struct-union-and-enum-declaration ",
             "created_at": "2017-01-18T05:27:46Z",
             "html_url": "https://github.com/cython/cython/issues/1529#issuecomment-273386751",
             "id": 273386751,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/1529",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDI3MzM4Njc1MQ==",
             "updated_at": "2017-01-18T05:27:46Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/273386751",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -50,6 +56,7 @@
                 "html_url": "https://github.com/robertwb",
                 "id": 486017,
                 "login": "robertwb",
+                "node_id": "MDQ6VXNlcjQ4NjAxNw==",
                 "organizations_url": "https://api.github.com/users/robertwb/orgs",
                 "received_events_url": "https://api.github.com/users/robertwb/received_events",
                 "repos_url": "https://api.github.com/users/robertwb/repos",
@@ -61,15 +68,17 @@
             }
         },
         {
+            "author_association": "NONE",
             "body": "Is `cptypedef` something that we can add?\r\n\r\nMy current workaround is rather verbose, especially when there are a lot of enums values. It looks something like this:\r\n```cython\r\ncdef extern from './lib.h':\r\n    ctypedef enum _foo 'foo':\r\n        _A 'A'\r\n        _B 'B'\r\n        _C 'C'\r\n        _D 'D'\r\n\r\ncpdef enum foo:\r\n    A = _A\r\n    B = _B\r\n    C = _C\r\n    D = _D\r\n```\r\nMy actual code is even more verbose because I prefix the ctypedef enum names so they don't pollute the global namespace.",
             "created_at": "2017-02-01T18:36:16Z",
             "html_url": "https://github.com/cython/cython/issues/1529#issuecomment-276741284",
             "id": 276741284,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/1529",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDI3Njc0MTI4NA==",
             "updated_at": "2017-02-01T18:38:11Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/276741284",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/51099?v=3",
+                "avatar_url": "https://avatars2.githubusercontent.com/u/51099?v=4",
                 "events_url": "https://api.github.com/users/llchan/events{/privacy}",
                 "followers_url": "https://api.github.com/users/llchan/followers",
                 "following_url": "https://api.github.com/users/llchan/following{/other_user}",
@@ -78,6 +87,7 @@
                 "html_url": "https://github.com/llchan",
                 "id": 51099,
                 "login": "llchan",
+                "node_id": "MDQ6VXNlcjUxMDk5",
                 "organizations_url": "https://api.github.com/users/llchan/orgs",
                 "received_events_url": "https://api.github.com/users/llchan/received_events",
                 "repos_url": "https://api.github.com/users/llchan/repos",
@@ -87,15 +97,46 @@
                 "type": "User",
                 "url": "https://api.github.com/users/llchan"
             }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "+1 for some kind of \"cptypedef\".  Kinda ugly but I don't see a better way...",
+            "created_at": "2018-03-19T09:18:40Z",
+            "html_url": "https://github.com/cython/cython/issues/1529#issuecomment-374147234",
+            "id": 374147234,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1529",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDM3NDE0NzIzNA==",
+            "updated_at": "2018-03-19T09:18:40Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/374147234",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/676149?v=4",
+                "events_url": "https://api.github.com/users/embray/events{/privacy}",
+                "followers_url": "https://api.github.com/users/embray/followers",
+                "following_url": "https://api.github.com/users/embray/following{/other_user}",
+                "gists_url": "https://api.github.com/users/embray/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/embray",
+                "id": 676149,
+                "login": "embray",
+                "node_id": "MDQ6VXNlcjY3NjE0OQ==",
+                "organizations_url": "https://api.github.com/users/embray/orgs",
+                "received_events_url": "https://api.github.com/users/embray/received_events",
+                "repos_url": "https://api.github.com/users/embray/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/embray/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/embray/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/embray"
+            }
         }
     ],
-    "comments": 3,
+    "comments": 4,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1529/comments",
     "created_at": "2016-11-18T21:25:26Z",
     "event_data": [
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/12671856?v=3",
+                "avatar_url": "https://avatars2.githubusercontent.com/u/12671856?v=4",
                 "events_url": "https://api.github.com/users/adippel/events{/privacy}",
                 "followers_url": "https://api.github.com/users/adippel/followers",
                 "following_url": "https://api.github.com/users/adippel/following{/other_user}",
@@ -104,6 +145,7 @@
                 "html_url": "https://github.com/adippel",
                 "id": 12671856,
                 "login": "adippel",
+                "node_id": "MDQ6VXNlcjEyNjcxODU2",
                 "organizations_url": "https://api.github.com/users/adippel/orgs",
                 "received_events_url": "https://api.github.com/users/adippel/received_events",
                 "repos_url": "https://api.github.com/users/adippel/repos",
@@ -118,11 +160,12 @@
             "created_at": "2017-01-08T18:49:00Z",
             "event": "mentioned",
             "id": 915302703,
+            "node_id": "MDE0Ok1lbnRpb25lZEV2ZW50OTE1MzAyNzAz",
             "url": "https://api.github.com/repos/cython/cython/issues/events/915302703"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/12671856?v=3",
+                "avatar_url": "https://avatars2.githubusercontent.com/u/12671856?v=4",
                 "events_url": "https://api.github.com/users/adippel/events{/privacy}",
                 "followers_url": "https://api.github.com/users/adippel/followers",
                 "following_url": "https://api.github.com/users/adippel/following{/other_user}",
@@ -131,6 +174,7 @@
                 "html_url": "https://github.com/adippel",
                 "id": 12671856,
                 "login": "adippel",
+                "node_id": "MDQ6VXNlcjEyNjcxODU2",
                 "organizations_url": "https://api.github.com/users/adippel/orgs",
                 "received_events_url": "https://api.github.com/users/adippel/received_events",
                 "repos_url": "https://api.github.com/users/adippel/repos",
@@ -145,11 +189,12 @@
             "created_at": "2017-01-08T18:49:00Z",
             "event": "subscribed",
             "id": 915302704,
+            "node_id": "MDE1OlN1YnNjcmliZWRFdmVudDkxNTMwMjcwNA==",
             "url": "https://api.github.com/repos/cython/cython/issues/events/915302704"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -158,6 +203,7 @@
                 "html_url": "https://github.com/robertwb",
                 "id": 486017,
                 "login": "robertwb",
+                "node_id": "MDQ6VXNlcjQ4NjAxNw==",
                 "organizations_url": "https://api.github.com/users/robertwb/orgs",
                 "received_events_url": "https://api.github.com/users/robertwb/received_events",
                 "repos_url": "https://api.github.com/users/robertwb/repos",
@@ -172,11 +218,12 @@
             "created_at": "2017-01-08T19:21:17Z",
             "event": "mentioned",
             "id": 915310845,
+            "node_id": "MDE0Ok1lbnRpb25lZEV2ZW50OTE1MzEwODQ1",
             "url": "https://api.github.com/repos/cython/cython/issues/events/915310845"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -185,6 +232,7 @@
                 "html_url": "https://github.com/robertwb",
                 "id": 486017,
                 "login": "robertwb",
+                "node_id": "MDQ6VXNlcjQ4NjAxNw==",
                 "organizations_url": "https://api.github.com/users/robertwb/orgs",
                 "received_events_url": "https://api.github.com/users/robertwb/received_events",
                 "repos_url": "https://api.github.com/users/robertwb/repos",
@@ -199,6 +247,7 @@
             "created_at": "2017-01-08T19:21:17Z",
             "event": "subscribed",
             "id": 915310846,
+            "node_id": "MDE1OlN1YnNjcmliZWRFdmVudDkxNTMxMDg0Ng==",
             "url": "https://api.github.com/repos/cython/cython/issues/events/915310846"
         }
     ],
@@ -209,14 +258,15 @@
     "labels_url": "https://api.github.com/repos/cython/cython/issues/1529/labels{/name}",
     "locked": false,
     "milestone": null,
+    "node_id": "MDU6SXNzdWUxOTA0MjU0NzM=",
     "number": 1529,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "Compile error: using cpdef enum and typedef enum",
-    "updated_at": "2017-02-01T18:38:11Z",
+    "updated_at": "2018-03-19T09:18:40Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1529",
     "user": {
-        "avatar_url": "https://avatars.githubusercontent.com/u/12671856?v=3",
+        "avatar_url": "https://avatars2.githubusercontent.com/u/12671856?v=4",
         "events_url": "https://api.github.com/users/adippel/events{/privacy}",
         "followers_url": "https://api.github.com/users/adippel/followers",
         "following_url": "https://api.github.com/users/adippel/following{/other_user}",
@@ -225,6 +275,7 @@
         "html_url": "https://github.com/adippel",
         "id": 12671856,
         "login": "adippel",
+        "node_id": "MDQ6VXNlcjEyNjcxODU2",
         "organizations_url": "https://api.github.com/users/adippel/orgs",
         "received_events_url": "https://api.github.com/users/adippel/received_events",
         "repos_url": "https://api.github.com/users/adippel/repos",
