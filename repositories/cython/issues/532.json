@@ -1,19 +1,22 @@
 {
     "assignee": null,
     "assignees": [],
-    "body": "I've noticed that using `range(start, stop, step)` performs much more poorly then `range(start, stop)`, even with `step=1`. This surprised us, since it seems that `range()` should map just fine to a C for-loop, even with a `step` parameter.\r\n\r\ncc @JDWarner",
+    "author_association": "NONE",
+    "body": "I've noticed that using `range(start, stop, step)` performs much more poorly then `range(start, stop)`, even with `step=1`. This surprised us, since it seems that `range()` should map just fine to a C for-loop, even with a `step` parameter.\n\ncc @JDWarner\n",
     "closed_at": null,
     "comment_data": [
         {
-            "body": "I guess you're referring to this change here: https://github.com/scikit-image/scikit-image/pull/2052/commits/645140cadc10c349d30431ded30d7156b3739dcc\r\n\r\nI agree that this is an awful change that shouldn't be necessary. The problem here is that Cython cannot determine the direction of the for-loop since it doesn't know the sign of the \"st\" step value at compile time. So it needs to generate code that determines the step at runtime and allows the loop to run in both directions, which can easily lead to a performance degradation by preventing the C compiler from applying the usual integer loop optimisations. The difference should be quite visible in the generated C code.\r\n\r\nThe while-loop variant actually has tighter semantics than the original for-loop implementation as it explicitly states in which direction the counter is running.",
+            "author_association": "MEMBER",
+            "body": "I guess you're referring to this change here: https://github.com/scikit-image/scikit-image/pull/2052/commits/645140cadc10c349d30431ded30d7156b3739dcc\n\nI agree that this is an awful change that shouldn't be necessary. The problem here is that Cython cannot determine the direction of the for-loop since it doesn't know the sign of the \"st\" step value at compile time. So it needs to generate code that determines the step at runtime and allows the loop to run in both directions, which can easily lead to a performance degradation by preventing the C compiler from applying the usual integer loop optimisations. The difference should be quite visible in the generated C code.\n\nThe while-loop variant actually has tighter semantics than the original for-loop implementation as it explicitly states in which direction the counter is running.\n",
             "created_at": "2016-07-24T11:05:02Z",
             "html_url": "https://github.com/cython/cython/issues/532#issuecomment-234771170",
             "id": 234771170,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/532",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDIzNDc3MTE3MA==",
             "updated_at": "2016-07-24T11:05:02Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/234771170",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -22,6 +25,7 @@
                 "html_url": "https://github.com/scoder",
                 "id": 491659,
                 "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
                 "organizations_url": "https://api.github.com/users/scoder/orgs",
                 "received_events_url": "https://api.github.com/users/scoder/received_events",
                 "repos_url": "https://api.github.com/users/scoder/repos",
@@ -33,15 +37,17 @@
             }
         },
         {
-            "body": "> I guess you're referring to this change here: scikit-image/scikit-image@645140c\r\n\r\nYes, moving from duplicating the loop and switching based on whether the step is 1, to an approach based on while loops. I dislike both approaches :)\r\n\r\n> So it needs to generate code that determines the step at runtime and allows the loop to run in both directions,\r\n\r\nRight. That makes sense. Thanks for the explanation.\r\n\r\nWould it be possible to somehow annotate the step as being `>0`? Or to mark the `range` as increasing/decreasing?",
+            "author_association": "NONE",
+            "body": "> I guess you're referring to this change here: scikit-image/scikit-image@645140c\n\nYes, moving from duplicating the loop and switching based on whether the step is 1, to an approach based on while loops. I dislike both approaches :)\n\n> So it needs to generate code that determines the step at runtime and allows the loop to run in both directions,\n\nRight. That makes sense. Thanks for the explanation.\n\nWould it be possible to somehow annotate the step as being `>0`? Or to mark the `range` as increasing/decreasing?\n",
             "created_at": "2016-07-24T11:30:22Z",
             "html_url": "https://github.com/cython/cython/issues/532#issuecomment-234772148",
             "id": 234772148,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/532",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDIzNDc3MjE0OA==",
             "updated_at": "2016-07-24T11:30:22Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/234772148",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/3015475?v=3",
+                "avatar_url": "https://avatars2.githubusercontent.com/u/3015475?v=4",
                 "events_url": "https://api.github.com/users/almarklein/events{/privacy}",
                 "followers_url": "https://api.github.com/users/almarklein/followers",
                 "following_url": "https://api.github.com/users/almarklein/following{/other_user}",
@@ -50,6 +56,7 @@
                 "html_url": "https://github.com/almarklein",
                 "id": 3015475,
                 "login": "almarklein",
+                "node_id": "MDQ6VXNlcjMwMTU0NzU=",
                 "organizations_url": "https://api.github.com/users/almarklein/orgs",
                 "received_events_url": "https://api.github.com/users/almarklein/received_events",
                 "repos_url": "https://api.github.com/users/almarklein/repos",
@@ -61,15 +68,17 @@
             }
         },
         {
-            "body": "Consider typing your loop variable as unsigned, and maybe also the step.",
+            "author_association": "MEMBER",
+            "body": "Consider typing your loop variable as unsigned, and maybe also the step.\n",
             "created_at": "2016-07-24T11:32:16Z",
             "html_url": "https://github.com/cython/cython/issues/532#issuecomment-234772209",
             "id": 234772209,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/532",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDIzNDc3MjIwOQ==",
             "updated_at": "2016-07-24T11:32:16Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/234772209",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -78,6 +87,7 @@
                 "html_url": "https://github.com/scoder",
                 "id": 491659,
                 "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
                 "organizations_url": "https://api.github.com/users/scoder/orgs",
                 "received_events_url": "https://api.github.com/users/scoder/received_events",
                 "repos_url": "https://api.github.com/users/scoder/repos",
@@ -89,15 +99,17 @@
             }
         },
         {
-            "body": "Just tried. Unfortunately, it does not help. Would be nice if it did though ;)",
+            "author_association": "NONE",
+            "body": "Just tried. Unfortunately, it does not help. Would be nice if it did though ;)\n",
             "created_at": "2016-07-24T21:47:33Z",
             "html_url": "https://github.com/cython/cython/issues/532#issuecomment-234804567",
             "id": 234804567,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/532",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDIzNDgwNDU2Nw==",
             "updated_at": "2016-07-24T21:47:33Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/234804567",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/3015475?v=3",
+                "avatar_url": "https://avatars2.githubusercontent.com/u/3015475?v=4",
                 "events_url": "https://api.github.com/users/almarklein/events{/privacy}",
                 "followers_url": "https://api.github.com/users/almarklein/followers",
                 "following_url": "https://api.github.com/users/almarklein/following{/other_user}",
@@ -106,6 +118,7 @@
                 "html_url": "https://github.com/almarklein",
                 "id": 3015475,
                 "login": "almarklein",
+                "node_id": "MDQ6VXNlcjMwMTU0NzU=",
                 "organizations_url": "https://api.github.com/users/almarklein/orgs",
                 "received_events_url": "https://api.github.com/users/almarklein/received_events",
                 "repos_url": "https://api.github.com/users/almarklein/repos",
@@ -115,15 +128,46 @@
                 "type": "User",
                 "url": "https://api.github.com/users/almarklein"
             }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "Any ideas where Cython could be improved to handle this better?",
+            "created_at": "2018-07-25T18:18:53Z",
+            "html_url": "https://github.com/cython/cython/issues/532#issuecomment-407848472",
+            "id": 407848472,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/532",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDQwNzg0ODQ3Mg==",
+            "updated_at": "2018-07-25T18:18:53Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/407848472",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/3019665?v=4",
+                "events_url": "https://api.github.com/users/jakirkham/events{/privacy}",
+                "followers_url": "https://api.github.com/users/jakirkham/followers",
+                "following_url": "https://api.github.com/users/jakirkham/following{/other_user}",
+                "gists_url": "https://api.github.com/users/jakirkham/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/jakirkham",
+                "id": 3019665,
+                "login": "jakirkham",
+                "node_id": "MDQ6VXNlcjMwMTk2NjU=",
+                "organizations_url": "https://api.github.com/users/jakirkham/orgs",
+                "received_events_url": "https://api.github.com/users/jakirkham/received_events",
+                "repos_url": "https://api.github.com/users/jakirkham/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/jakirkham/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/jakirkham/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/jakirkham"
+            }
         }
     ],
-    "comments": 4,
+    "comments": 5,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/532/comments",
     "created_at": "2016-07-24T10:43:58Z",
     "event_data": [
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/2184487?v=3",
+                "avatar_url": "https://avatars0.githubusercontent.com/u/2184487?v=4",
                 "events_url": "https://api.github.com/users/JDWarner/events{/privacy}",
                 "followers_url": "https://api.github.com/users/JDWarner/followers",
                 "following_url": "https://api.github.com/users/JDWarner/following{/other_user}",
@@ -132,6 +176,7 @@
                 "html_url": "https://github.com/JDWarner",
                 "id": 2184487,
                 "login": "JDWarner",
+                "node_id": "MDQ6VXNlcjIxODQ0ODc=",
                 "organizations_url": "https://api.github.com/users/JDWarner/orgs",
                 "received_events_url": "https://api.github.com/users/JDWarner/received_events",
                 "repos_url": "https://api.github.com/users/JDWarner/repos",
@@ -146,11 +191,12 @@
             "created_at": "2016-07-24T10:43:58Z",
             "event": "mentioned",
             "id": 732765073,
+            "node_id": "MDE0Ok1lbnRpb25lZEV2ZW50NzMyNzY1MDcz",
             "url": "https://api.github.com/repos/cython/cython/issues/events/732765073"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/2184487?v=3",
+                "avatar_url": "https://avatars0.githubusercontent.com/u/2184487?v=4",
                 "events_url": "https://api.github.com/users/JDWarner/events{/privacy}",
                 "followers_url": "https://api.github.com/users/JDWarner/followers",
                 "following_url": "https://api.github.com/users/JDWarner/following{/other_user}",
@@ -159,6 +205,7 @@
                 "html_url": "https://github.com/JDWarner",
                 "id": 2184487,
                 "login": "JDWarner",
+                "node_id": "MDQ6VXNlcjIxODQ0ODc=",
                 "organizations_url": "https://api.github.com/users/JDWarner/orgs",
                 "received_events_url": "https://api.github.com/users/JDWarner/received_events",
                 "repos_url": "https://api.github.com/users/JDWarner/repos",
@@ -173,11 +220,12 @@
             "created_at": "2016-07-24T10:43:58Z",
             "event": "subscribed",
             "id": 732765074,
+            "node_id": "MDE1OlN1YnNjcmliZWRFdmVudDczMjc2NTA3NA==",
             "url": "https://api.github.com/repos/cython/cython/issues/events/732765074"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -186,6 +234,7 @@
                 "html_url": "https://github.com/scoder",
                 "id": 491659,
                 "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
                 "organizations_url": "https://api.github.com/users/scoder/orgs",
                 "received_events_url": "https://api.github.com/users/scoder/received_events",
                 "repos_url": "https://api.github.com/users/scoder/repos",
@@ -204,11 +253,12 @@
                 "color": "0e8a16",
                 "name": "patch wanted"
             },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDczNTkzNzk2OA==",
             "url": "https://api.github.com/repos/cython/cython/issues/events/735937968"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -217,6 +267,7 @@
                 "html_url": "https://github.com/scoder",
                 "id": 491659,
                 "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
                 "organizations_url": "https://api.github.com/users/scoder/orgs",
                 "received_events_url": "https://api.github.com/users/scoder/received_events",
                 "repos_url": "https://api.github.com/users/scoder/repos",
@@ -235,6 +286,7 @@
                 "color": "f9d0c4",
                 "name": "performance"
             },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDczNTkzNzk2OQ==",
             "url": "https://api.github.com/repos/cython/cython/issues/events/735937969"
         }
     ],
@@ -244,26 +296,33 @@
     "labels": [
         {
             "color": "0e8a16",
-            "name": "patch wanted",
-            "url": "https://api.github.com/repos/cython/cython/labels/patch%20wanted"
+            "default": true,
+            "id": 414800879,
+            "name": "help wanted",
+            "node_id": "MDU6TGFiZWw0MTQ4MDA4Nzk=",
+            "url": "https://api.github.com/repos/cython/cython/labels/help%20wanted"
         },
         {
             "color": "f9d0c4",
+            "default": false,
+            "id": 414805151,
             "name": "performance",
+            "node_id": "MDU6TGFiZWw0MTQ4MDUxNTE=",
             "url": "https://api.github.com/repos/cython/cython/labels/performance"
         }
     ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/532/labels{/name}",
     "locked": false,
     "milestone": null,
+    "node_id": "MDU6SXNzdWUxNjcyMjc4MDk=",
     "number": 532,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "Using step in range() result in poor performance",
-    "updated_at": "2016-07-27T05:13:51Z",
+    "updated_at": "2018-07-25T18:18:53Z",
     "url": "https://api.github.com/repos/cython/cython/issues/532",
     "user": {
-        "avatar_url": "https://avatars.githubusercontent.com/u/3015475?v=3",
+        "avatar_url": "https://avatars2.githubusercontent.com/u/3015475?v=4",
         "events_url": "https://api.github.com/users/almarklein/events{/privacy}",
         "followers_url": "https://api.github.com/users/almarklein/followers",
         "following_url": "https://api.github.com/users/almarklein/following{/other_user}",
@@ -272,6 +331,7 @@
         "html_url": "https://github.com/almarklein",
         "id": 3015475,
         "login": "almarklein",
+        "node_id": "MDQ6VXNlcjMwMTU0NzU=",
         "organizations_url": "https://api.github.com/users/almarklein/orgs",
         "received_events_url": "https://api.github.com/users/almarklein/received_events",
         "repos_url": "https://api.github.com/users/almarklein/repos",
