@@ -1,15 +1,18 @@
 {
     "assignee": null,
     "assignees": [],
+    "author_association": "NONE",
     "body": "When I use terminal commands, I can produce the desired module with the name of my choice, that is to match the name of my `.pyx` and `.c` files.\r\n\r\nWhen I use the `setup.py` though, I get a module with `cpython-36m-x86_64-linux-gnu` appended as a suffix.\r\n\r\nIs there a way to tell `setup.py` to generate a shared object with the same name as my generated `.c` file?",
     "closed_at": "2017-07-24T21:10:35Z",
     "comment_data": [
         {
+            "author_association": "NONE",
             "body": "Finally, after an intensive investigation for a while now around this peculiarity, I have managed to produce the desired results!\r\n\r\nSpecial thanks to https://stackoverflow.com/a/40193040 for sharing this custom code.\r\n\r\nHere's a full working `setup.py` sample code:\r\n\r\n```python\r\nimport os\r\nimport sysconfig\r\n\r\nfrom distutils.core import setup\r\nfrom Cython.Build import cythonize\r\nfrom Cython.Distutils import build_ext\r\n\r\n\r\ndef get_ext_filename_without_platform_suffix(filename):\r\n    name, ext = os.path.splitext(filename)\r\n    ext_suffix = sysconfig.get_config_var('EXT_SUFFIX')\r\n\r\n    if ext_suffix == ext:\r\n        return filename\r\n\r\n    ext_suffix = ext_suffix.replace(ext, '')\r\n    idx = name.find(ext_suffix)\r\n\r\n    if idx == -1:\r\n        return filename\r\n    else:\r\n        return name[:idx] + ext\r\n\r\n\r\nclass BuildExtWithoutPlatformSuffix(build_ext):\r\n    def get_ext_filename(self, ext_name):\r\n        filename = super().get_ext_filename(ext_name)\r\n        return get_ext_filename_without_platform_suffix(filename)\r\n\r\n\r\nsetup(\r\n    name=\"foo\",\r\n    cmdclass={'build_ext': BuildExtWithoutPlatformSuffix},\r\n    ext_modules=cythonize(\"foo.pyx\")\r\n)\r\n```\r\n\r\nEnjoy people!",
             "created_at": "2017-07-24T21:10:35Z",
             "html_url": "https://github.com/cython/cython/issues/1740#issuecomment-317556084",
             "id": 317556084,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/1740",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDMxNzU1NjA4NA==",
             "updated_at": "2017-07-24T21:10:35Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/317556084",
             "user": {
@@ -22,6 +25,7 @@
                 "html_url": "https://github.com/stefanos82",
                 "id": 1777466,
                 "login": "stefanos82",
+                "node_id": "MDQ6VXNlcjE3Nzc0NjY=",
                 "organizations_url": "https://api.github.com/users/stefanos82/orgs",
                 "received_events_url": "https://api.github.com/users/stefanos82/received_events",
                 "repos_url": "https://api.github.com/users/stefanos82/repos",
@@ -31,9 +35,40 @@
                 "type": "User",
                 "url": "https://api.github.com/users/stefanos82"
             }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "For who is also curious about the **rationale** of the suffix like `cpython-36m-x86_64-linux-gnu`, please see [PEP3149](https://www.python.org/dev/peps/pep-3149/).\r\n\r\nIt's actually something determined by Python instead of Cython. \r\nDon't worry about it, as Python would search for the following file names when extension module `foo` is imported (in this order):\r\n```\r\nfoo.cpython-XYm.so\r\nfoo.abi3.so\r\nfoo.so\r\n```",
+            "created_at": "2018-08-09T04:53:00Z",
+            "html_url": "https://github.com/cython/cython/issues/1740#issuecomment-411636104",
+            "id": 411636104,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1740",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDQxMTYzNjEwNA==",
+            "updated_at": "2018-08-09T04:56:12Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/411636104",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/7038335?v=4",
+                "events_url": "https://api.github.com/users/syrte/events{/privacy}",
+                "followers_url": "https://api.github.com/users/syrte/followers",
+                "following_url": "https://api.github.com/users/syrte/following{/other_user}",
+                "gists_url": "https://api.github.com/users/syrte/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/syrte",
+                "id": 7038335,
+                "login": "syrte",
+                "node_id": "MDQ6VXNlcjcwMzgzMzU=",
+                "organizations_url": "https://api.github.com/users/syrte/orgs",
+                "received_events_url": "https://api.github.com/users/syrte/received_events",
+                "repos_url": "https://api.github.com/users/syrte/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/syrte/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/syrte/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/syrte"
+            }
         }
     ],
-    "comments": 1,
+    "comments": 2,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1740/comments",
     "created_at": "2017-06-16T20:05:54Z",
     "event_data": [
@@ -48,6 +83,7 @@
                 "html_url": "https://github.com/stefanos82",
                 "id": 1777466,
                 "login": "stefanos82",
+                "node_id": "MDQ6VXNlcjE3Nzc0NjY=",
                 "organizations_url": "https://api.github.com/users/stefanos82/orgs",
                 "received_events_url": "https://api.github.com/users/stefanos82/received_events",
                 "repos_url": "https://api.github.com/users/stefanos82/repos",
@@ -62,6 +98,7 @@
             "created_at": "2017-07-24T21:10:35Z",
             "event": "closed",
             "id": 1176908438,
+            "node_id": "MDExOkNsb3NlZEV2ZW50MTE3NjkwODQzOA==",
             "url": "https://api.github.com/repos/cython/cython/issues/events/1176908438"
         }
     ],
@@ -72,11 +109,12 @@
     "labels_url": "https://api.github.com/repos/cython/cython/issues/1740/labels{/name}",
     "locked": false,
     "milestone": null,
+    "node_id": "MDU6SXNzdWUyMzY1ODA5NDE=",
     "number": 1740,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "closed",
     "title": "Question: Is it possible to avoiding cpython-36m-x86_64-linux-gnu from generated module?",
-    "updated_at": "2017-07-24T21:10:35Z",
+    "updated_at": "2018-08-09T04:56:12Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1740",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/1777466?v=4",
@@ -88,6 +126,7 @@
         "html_url": "https://github.com/stefanos82",
         "id": 1777466,
         "login": "stefanos82",
+        "node_id": "MDQ6VXNlcjE3Nzc0NjY=",
         "organizations_url": "https://api.github.com/users/stefanos82/orgs",
         "received_events_url": "https://api.github.com/users/stefanos82/received_events",
         "repos_url": "https://api.github.com/users/stefanos82/repos",
