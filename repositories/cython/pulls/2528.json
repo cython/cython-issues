@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/2528"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/ecf1fda81261bbe5f17e855fcca126ed3a909ce6"
+            "href": "https://api.github.com/repos/cython/cython/statuses/b8c4fc58cd15429ea09395fc9ea232d85879f7b5"
         }
     },
     "assignee": null,
@@ -51,8 +51,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 704,
-            "forks_count": 704,
+            "forks": 707,
+            "forks_count": 707,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -88,8 +88,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 565,
-            "open_issues_count": 565,
+            "open_issues": 558,
+            "open_issues_count": 558,
             "owner": {
                 "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -112,11 +112,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2018-08-07T21:03:11Z",
+            "pushed_at": "2018-08-11T14:05:42Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 51638,
+            "size": 51834,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 3349,
+            "stargazers_count": 3360,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -125,12 +125,12 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2018-08-09T11:13:26Z",
+            "updated_at": "2018-08-11T14:05:49Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 3349,
-            "watchers_count": 3349
+            "watchers": 3360,
+            "watchers_count": 3360
         },
-        "sha": "ad6493a42068fa90011d6702564d0a7d250ff96b",
+        "sha": "e3736398ba3e9e05694cda7aae69d2a4265ca668",
         "user": {
             "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -153,8 +153,503 @@
         }
     },
     "body": "In the discussion of issue #2498, it seems cython uses direct access of ndarray structure base attribute in `set_array_base` and `get_array_base`. This bypasses much of the NumPy error checks, and can lead to violating assumptions NumPy makes as to the correctness of the base attribute.\r\n\r\nThis PR refactors the functions to use NumPy APIs. I am not sure it is correct, I could find no tests for the functionality, and truthfully struggle to see when these functions could be properly used. I would prefer to deprecate them.\r\n\r\nNumPy uses the base attribute internally when \r\n- creating a view by sharing the data attribute of both self and base, or \r\n- in creating temporary buffer data in ufuncs via writeback semantics. \r\n\r\nThe simple code in these functions does none of the data attribute manipulations done by those two internal uses.",
-    "closed_at": null,
-    "comment_data": [],
+    "closed_at": "2018-08-10T17:05:04Z",
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2528#discussion_r209016436"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2528"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/209016436"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "No need to cast here, since this is clearly using Python object access, which returns an … object! :)\r\nBut why isn't this using `PyArray_BASE()`? (Probably not expected to occur in performance critical code …)",
+            "commit_id": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "created_at": "2018-08-09T17:34:42Z",
+            "diff_hunk": "@@ -973,22 +974,12 @@ cdef extern from \"numpy/ufuncobject.h\":\n \n     int _import_umath() except -1\n \n+cdef inline void set_array_base(object arr, object base):\n+    Py_INCREF(base)\n+    PyArray_SetBaseObject(arr, base)\n \n-cdef inline void set_array_base(ndarray arr, object base):\n-     cdef PyObject* baseptr\n-     if base is None:\n-         baseptr = NULL\n-     else:\n-         Py_INCREF(base) # important to do this before decref below!\n-         baseptr = <PyObject*>base\n-     Py_XDECREF(arr.base)\n-     arr.base = baseptr\n-\n-cdef inline object get_array_base(ndarray arr):\n-    if arr.base is NULL:\n-        return None\n-    else:\n-        return <object>arr.base\n+cdef inline object get_array_base(object arr):\n+    return <object>arr.base",
+            "html_url": "https://github.com/cython/cython/pull/2528#discussion_r209016436",
+            "id": 209016436,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIwOTAxNjQzNg==",
+            "original_commit_id": "ecf1fda81261bbe5f17e855fcca126ed3a909ce6",
+            "original_position": 32,
+            "path": "Cython/Includes/numpy/__init__.pxd",
+            "position": null,
+            "pull_request_review_id": 144948161,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2528",
+            "updated_at": "2018-08-10T16:58:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/209016436",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2528#discussion_r209018845"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2528"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/209018845"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "The first argument is an `ndarray`.",
+            "commit_id": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "created_at": "2018-08-09T17:42:26Z",
+            "diff_hunk": "@@ -719,6 +719,7 @@ cdef extern from \"numpy/arrayobject.h\":\n     object PyArray_CheckAxis (ndarray, int *, int)\n     npy_intp PyArray_OverflowMultiplyList (npy_intp *, int)\n     int PyArray_CompareString (char *, char *, size_t)\n+    int PyArray_SetBaseObject(object, object)",
+            "html_url": "https://github.com/cython/cython/pull/2528#discussion_r209018845",
+            "id": 209018845,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIwOTAxODg0NQ==",
+            "original_commit_id": "ecf1fda81261bbe5f17e855fcca126ed3a909ce6",
+            "original_position": 4,
+            "path": "Cython/Includes/numpy/__init__.pxd",
+            "position": null,
+            "pull_request_review_id": 144948161,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2528",
+            "updated_at": "2018-08-10T16:58:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/209018845",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2528#discussion_r209019230"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2528"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/209019230"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Just keep `ndarray arr` in the function signature of `set_array_base()`. That's what the signature was, and that's also what's needed for this call.",
+            "commit_id": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "created_at": "2018-08-09T17:43:48Z",
+            "diff_hunk": "@@ -973,22 +974,12 @@ cdef extern from \"numpy/ufuncobject.h\":\n \n     int _import_umath() except -1\n \n+cdef inline void set_array_base(object arr, object base):\n+    Py_INCREF(base)\n+    PyArray_SetBaseObject(arr, base)",
+            "html_url": "https://github.com/cython/cython/pull/2528#discussion_r209019230",
+            "id": 209019230,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIwOTAxOTIzMA==",
+            "original_commit_id": "ecf1fda81261bbe5f17e855fcca126ed3a909ce6",
+            "original_position": 14,
+            "path": "Cython/Includes/numpy/__init__.pxd",
+            "position": null,
+            "pull_request_review_id": 144948161,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2528",
+            "updated_at": "2018-08-10T16:58:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/209019230",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2528#discussion_r209109733"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2528"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/209109733"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "I wanted it to go through the python-level attribute access, maybe that is extreme. I will redo this with PyArray_BASE.",
+            "commit_id": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "created_at": "2018-08-09T23:35:13Z",
+            "diff_hunk": "@@ -973,22 +974,12 @@ cdef extern from \"numpy/ufuncobject.h\":\n \n     int _import_umath() except -1\n \n+cdef inline void set_array_base(object arr, object base):\n+    Py_INCREF(base)\n+    PyArray_SetBaseObject(arr, base)\n \n-cdef inline void set_array_base(ndarray arr, object base):\n-     cdef PyObject* baseptr\n-     if base is None:\n-         baseptr = NULL\n-     else:\n-         Py_INCREF(base) # important to do this before decref below!\n-         baseptr = <PyObject*>base\n-     Py_XDECREF(arr.base)\n-     arr.base = baseptr\n-\n-cdef inline object get_array_base(ndarray arr):\n-    if arr.base is NULL:\n-        return None\n-    else:\n-        return <object>arr.base\n+cdef inline object get_array_base(object arr):\n+    return <object>arr.base",
+            "html_url": "https://github.com/cython/cython/pull/2528#discussion_r209109733",
+            "id": 209109733,
+            "in_reply_to_id": 209016436,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIwOTEwOTczMw==",
+            "original_commit_id": "ecf1fda81261bbe5f17e855fcca126ed3a909ce6",
+            "original_position": 32,
+            "path": "Cython/Includes/numpy/__init__.pxd",
+            "position": null,
+            "pull_request_review_id": 145063040,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2528",
+            "updated_at": "2018-08-10T16:58:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/209109733",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+                "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+                "followers_url": "https://api.github.com/users/mattip/followers",
+                "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+                "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/mattip",
+                "id": 823911,
+                "login": "mattip",
+                "node_id": "MDQ6VXNlcjgyMzkxMQ==",
+                "organizations_url": "https://api.github.com/users/mattip/orgs",
+                "received_events_url": "https://api.github.com/users/mattip/received_events",
+                "repos_url": "https://api.github.com/users/mattip/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/mattip"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2528#discussion_r209109754"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2528"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/209109754"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "fixed",
+            "commit_id": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "created_at": "2018-08-09T23:35:21Z",
+            "diff_hunk": "@@ -719,6 +719,7 @@ cdef extern from \"numpy/arrayobject.h\":\n     object PyArray_CheckAxis (ndarray, int *, int)\n     npy_intp PyArray_OverflowMultiplyList (npy_intp *, int)\n     int PyArray_CompareString (char *, char *, size_t)\n+    int PyArray_SetBaseObject(object, object)",
+            "html_url": "https://github.com/cython/cython/pull/2528#discussion_r209109754",
+            "id": 209109754,
+            "in_reply_to_id": 209018845,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIwOTEwOTc1NA==",
+            "original_commit_id": "ecf1fda81261bbe5f17e855fcca126ed3a909ce6",
+            "original_position": 4,
+            "path": "Cython/Includes/numpy/__init__.pxd",
+            "position": null,
+            "pull_request_review_id": 145063063,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2528",
+            "updated_at": "2018-08-10T16:58:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/209109754",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+                "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+                "followers_url": "https://api.github.com/users/mattip/followers",
+                "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+                "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/mattip",
+                "id": 823911,
+                "login": "mattip",
+                "node_id": "MDQ6VXNlcjgyMzkxMQ==",
+                "organizations_url": "https://api.github.com/users/mattip/orgs",
+                "received_events_url": "https://api.github.com/users/mattip/received_events",
+                "repos_url": "https://api.github.com/users/mattip/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/mattip"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2528#discussion_r209109785"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2528"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/209109785"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "ok",
+            "commit_id": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "created_at": "2018-08-09T23:35:31Z",
+            "diff_hunk": "@@ -973,22 +974,12 @@ cdef extern from \"numpy/ufuncobject.h\":\n \n     int _import_umath() except -1\n \n+cdef inline void set_array_base(object arr, object base):\n+    Py_INCREF(base)\n+    PyArray_SetBaseObject(arr, base)",
+            "html_url": "https://github.com/cython/cython/pull/2528#discussion_r209109785",
+            "id": 209109785,
+            "in_reply_to_id": 209019230,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIwOTEwOTc4NQ==",
+            "original_commit_id": "ecf1fda81261bbe5f17e855fcca126ed3a909ce6",
+            "original_position": 14,
+            "path": "Cython/Includes/numpy/__init__.pxd",
+            "position": null,
+            "pull_request_review_id": 145063096,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2528",
+            "updated_at": "2018-08-10T16:58:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/209109785",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+                "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+                "followers_url": "https://api.github.com/users/mattip/followers",
+                "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+                "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/mattip",
+                "id": 823911,
+                "login": "mattip",
+                "node_id": "MDQ6VXNlcjgyMzkxMQ==",
+                "organizations_url": "https://api.github.com/users/mattip/orgs",
+                "received_events_url": "https://api.github.com/users/mattip/received_events",
+                "repos_url": "https://api.github.com/users/mattip/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/mattip"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2528#discussion_r209144815"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2528"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/209144815"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "The [NumPy documentation](https://docs.scipy.org/doc/numpy/reference/c-api.array.html#c.PyArray_BASE) isn't clear here, but I assume that `PyArray_BASE()` is just a macro that returns a borrowed reference? If so, then the correct return type here is `PyObject *` and not a normally refcounted `object`. You'll then have to cast it to `<object>` on use, which will turn it into an owned reference.",
+            "commit_id": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "created_at": "2018-08-10T04:57:55Z",
+            "diff_hunk": "@@ -395,7 +395,7 @@ cdef extern from \"numpy/arrayobject.h\":\n     npy_intp PyArray_DIM(ndarray, size_t)\n     npy_intp PyArray_STRIDE(ndarray, size_t)\n \n-    # object PyArray_BASE(ndarray) wrong refcount semantics\n+    object PyArray_BASE(ndarray) #wrong refcount semantics?",
+            "html_url": "https://github.com/cython/cython/pull/2528#discussion_r209144815",
+            "id": 209144815,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIwOTE0NDgxNQ==",
+            "original_commit_id": "21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4",
+            "original_position": 5,
+            "path": "Cython/Includes/numpy/__init__.pxd",
+            "position": 5,
+            "pull_request_review_id": 145103625,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2528",
+            "updated_at": "2018-08-10T16:58:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/209144815",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2528#discussion_r209144851"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2528"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/209144851"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I guess so, as it was done before.",
+            "commit_id": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "created_at": "2018-08-10T04:58:20Z",
+            "diff_hunk": "@@ -973,23 +974,15 @@ cdef extern from \"numpy/ufuncobject.h\":\n \n     int _import_umath() except -1\n \n-\n cdef inline void set_array_base(ndarray arr, object base):\n-     cdef PyObject* baseptr\n-     if base is None:\n-         baseptr = NULL\n-     else:\n-         Py_INCREF(base) # important to do this before decref below!\n-         baseptr = <PyObject*>base\n-     Py_XDECREF(arr.base)\n-     arr.base = baseptr\n+    Py_INCREF(base)\n+    PyArray_SetBaseObject(arr, base)\n \n cdef inline object get_array_base(ndarray arr):\n-    if arr.base is NULL:\n-        return None\n-    else:\n-        return <object>arr.base\n-\n+    base = PyArray_BASE(arr)\n+    # Do we need to convert NULL -> None?",
+            "html_url": "https://github.com/cython/cython/pull/2528#discussion_r209144851",
+            "id": 209144851,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIwOTE0NDg1MQ==",
+            "original_commit_id": "21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4",
+            "original_position": 41,
+            "path": "Cython/Includes/numpy/__init__.pxd",
+            "position": null,
+            "pull_request_review_id": 145103625,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2528",
+            "updated_at": "2018-08-10T16:58:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/209144851",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2528#discussion_r209144924"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2528"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/209144924"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "See my comment regarding the macro signature.",
+            "commit_id": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "created_at": "2018-08-10T04:59:04Z",
+            "diff_hunk": "@@ -973,23 +974,15 @@ cdef extern from \"numpy/ufuncobject.h\":\n \n     int _import_umath() except -1\n \n-\n cdef inline void set_array_base(ndarray arr, object base):\n-     cdef PyObject* baseptr\n-     if base is None:\n-         baseptr = NULL\n-     else:\n-         Py_INCREF(base) # important to do this before decref below!\n-         baseptr = <PyObject*>base\n-     Py_XDECREF(arr.base)\n-     arr.base = baseptr\n+    Py_INCREF(base)\n+    PyArray_SetBaseObject(arr, base)\n \n cdef inline object get_array_base(ndarray arr):\n-    if arr.base is NULL:\n-        return None\n-    else:\n-        return <object>arr.base\n-\n+    base = PyArray_BASE(arr)\n+    # Do we need to convert NULL -> None?\n+    # Do we need to incref base or is that done by cython?",
+            "html_url": "https://github.com/cython/cython/pull/2528#discussion_r209144924",
+            "id": 209144924,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIwOTE0NDkyNA==",
+            "original_commit_id": "21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4",
+            "original_position": 42,
+            "path": "Cython/Includes/numpy/__init__.pxd",
+            "position": null,
+            "pull_request_review_id": 145103625,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2528",
+            "updated_at": "2018-08-10T16:58:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/209144924",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2528#discussion_r209289149"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2528"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/209289149"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "yes, it's just a macro. Fixing to old logic",
+            "commit_id": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "created_at": "2018-08-10T15:00:30Z",
+            "diff_hunk": "@@ -395,7 +395,7 @@ cdef extern from \"numpy/arrayobject.h\":\n     npy_intp PyArray_DIM(ndarray, size_t)\n     npy_intp PyArray_STRIDE(ndarray, size_t)\n \n-    # object PyArray_BASE(ndarray) wrong refcount semantics\n+    object PyArray_BASE(ndarray) #wrong refcount semantics?",
+            "html_url": "https://github.com/cython/cython/pull/2528#discussion_r209289149",
+            "id": 209289149,
+            "in_reply_to_id": 209144815,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIwOTI4OTE0OQ==",
+            "original_commit_id": "21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4",
+            "original_position": 5,
+            "path": "Cython/Includes/numpy/__init__.pxd",
+            "position": 5,
+            "pull_request_review_id": 145278601,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2528",
+            "updated_at": "2018-08-10T16:58:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/209289149",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+                "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+                "followers_url": "https://api.github.com/users/mattip/followers",
+                "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+                "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/mattip",
+                "id": 823911,
+                "login": "mattip",
+                "node_id": "MDQ6VXNlcjgyMzkxMQ==",
+                "organizations_url": "https://api.github.com/users/mattip/orgs",
+                "received_events_url": "https://api.github.com/users/mattip/received_events",
+                "repos_url": "https://api.github.com/users/mattip/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/mattip"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/2528/comments",
     "commit_data": [
         {
@@ -235,6 +730,164 @@
             ],
             "sha": "ecf1fda81261bbe5f17e855fcca126ed3a909ce6",
             "url": "https://api.github.com/repos/cython/cython/commits/ecf1fda81261bbe5f17e855fcca126ed3a909ce6"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+                "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+                "followers_url": "https://api.github.com/users/mattip/followers",
+                "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+                "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/mattip",
+                "id": 823911,
+                "login": "mattip",
+                "node_id": "MDQ6VXNlcjgyMzkxMQ==",
+                "organizations_url": "https://api.github.com/users/mattip/orgs",
+                "received_events_url": "https://api.github.com/users/mattip/received_events",
+                "repos_url": "https://api.github.com/users/mattip/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/mattip"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4/comments",
+            "commit": {
+                "author": {
+                    "date": "2018-08-09T23:48:47Z",
+                    "email": "matti.picus@gmail.com",
+                    "name": "mattip"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2018-08-10T02:08:29Z",
+                    "email": "matti.picus@gmail.com",
+                    "name": "mattip"
+                },
+                "message": "fixes from review",
+                "tree": {
+                    "sha": "a59b5ec647179c67072b08d21c9ab5cd17d126ed",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a59b5ec647179c67072b08d21c9ab5cd17d126ed"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+                "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+                "followers_url": "https://api.github.com/users/mattip/followers",
+                "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+                "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/mattip",
+                "id": 823911,
+                "login": "mattip",
+                "node_id": "MDQ6VXNlcjgyMzkxMQ==",
+                "organizations_url": "https://api.github.com/users/mattip/orgs",
+                "received_events_url": "https://api.github.com/users/mattip/received_events",
+                "repos_url": "https://api.github.com/users/mattip/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/mattip"
+            },
+            "html_url": "https://github.com/cython/cython/commit/21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4",
+            "node_id": "MDY6Q29tbWl0NzQ2MzcyMzE6MjFmMWE3M2MyYjlkYWY1ZGVhYzYyMmU3YzBmN2VlMTJlODI1ZWJjNA==",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/ecf1fda81261bbe5f17e855fcca126ed3a909ce6",
+                    "sha": "ecf1fda81261bbe5f17e855fcca126ed3a909ce6",
+                    "url": "https://api.github.com/repos/cython/cython/commits/ecf1fda81261bbe5f17e855fcca126ed3a909ce6"
+                }
+            ],
+            "sha": "21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4",
+            "url": "https://api.github.com/repos/cython/cython/commits/21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+                "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+                "followers_url": "https://api.github.com/users/mattip/followers",
+                "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+                "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/mattip",
+                "id": 823911,
+                "login": "mattip",
+                "node_id": "MDQ6VXNlcjgyMzkxMQ==",
+                "organizations_url": "https://api.github.com/users/mattip/orgs",
+                "received_events_url": "https://api.github.com/users/mattip/received_events",
+                "repos_url": "https://api.github.com/users/mattip/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/mattip"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/b8c4fc58cd15429ea09395fc9ea232d85879f7b5/comments",
+            "commit": {
+                "author": {
+                    "date": "2018-08-10T16:24:09Z",
+                    "email": "matti.picus@gmail.com",
+                    "name": "mattip"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2018-08-10T16:24:09Z",
+                    "email": "matti.picus@gmail.com",
+                    "name": "mattip"
+                },
+                "message": "fixes from review",
+                "tree": {
+                    "sha": "ecd7ca11095f18529eec2a946ae1914ccff3c385",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/ecd7ca11095f18529eec2a946ae1914ccff3c385"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+                "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+                "followers_url": "https://api.github.com/users/mattip/followers",
+                "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+                "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/mattip",
+                "id": 823911,
+                "login": "mattip",
+                "node_id": "MDQ6VXNlcjgyMzkxMQ==",
+                "organizations_url": "https://api.github.com/users/mattip/orgs",
+                "received_events_url": "https://api.github.com/users/mattip/received_events",
+                "repos_url": "https://api.github.com/users/mattip/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/mattip"
+            },
+            "html_url": "https://github.com/cython/cython/commit/b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "node_id": "MDY6Q29tbWl0NzQ2MzcyMzE6YjhjNGZjNThjZDE1NDI5ZWEwOTM5NWZjOWVhMjMyZDg1ODc5ZjdiNQ==",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4",
+                    "sha": "21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4",
+                    "url": "https://api.github.com/repos/cython/cython/commits/21f1a73c2b9daf5deac622e7c0f7ee12e825ebc4"
+                }
+            ],
+            "sha": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
+            "url": "https://api.github.com/repos/cython/cython/commits/b8c4fc58cd15429ea09395fc9ea232d85879f7b5"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/2528/commits",
@@ -324,9 +977,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/mattip/cython/pulls{/number}",
-            "pushed_at": "2018-08-01T19:30:29Z",
+            "pushed_at": "2018-08-10T16:58:27Z",
             "releases_url": "https://api.github.com/repos/mattip/cython/releases{/id}",
-            "size": 51334,
+            "size": 51626,
             "ssh_url": "git@github.com:mattip/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/mattip/cython/stargazers",
@@ -342,7 +995,7 @@
             "watchers": 0,
             "watchers_count": 0
         },
-        "sha": "ecf1fda81261bbe5f17e855fcca126ed3a909ce6",
+        "sha": "b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
         "user": {
             "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
             "events_url": "https://api.github.com/users/mattip/events{/privacy}",
@@ -369,8 +1022,8 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/2528",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "2c27ece36e804b29e37c1ef6ee8e6ef3823eee57",
-    "merged_at": null,
+    "merge_commit_sha": "3679dca77348d36dd131bbdb96f3868f6aa365a4",
+    "merged_at": "2018-08-10T17:05:04Z",
     "milestone": null,
     "node_id": "MDExOlB1bGxSZXF1ZXN0MjA1NTMxNDIz",
     "number": 2528,
@@ -379,10 +1032,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/2528/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/ecf1fda81261bbe5f17e855fcca126ed3a909ce6",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/b8c4fc58cd15429ea09395fc9ea232d85879f7b5",
     "title": "WIP: MAINT: avoid numpy internals in {sg}et_array_base",
-    "updated_at": "2018-08-09T06:36:34Z",
+    "updated_at": "2018-08-10T17:05:04Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/2528",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
