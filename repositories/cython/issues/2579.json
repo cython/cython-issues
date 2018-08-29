@@ -1,0 +1,171 @@
+{
+    "assignee": null,
+    "assignees": [],
+    "author_association": "MEMBER",
+    "body": "Especially when using fused types, some code section may or may not require the GIL. Currently, the only way to release the GIL in these cases is to duplicate the code sections and wrap one in a `with nogil` block but not the other, e.g.\r\n```\r\n    if fusedtype is object:\r\n        ...  # complicated code here\r\n    else:\r\n        with nogil:\r\n            ... # complicated code repeated here\r\n```\r\nThe normal reflex of moving the code into a cdef function also does not work out because the function then has the same declaration problem.\r\n\r\nAt least for cases where the distinction is known at compile time (which includes type checks for fused types), there should be a way to base the `nogil` case on a condition.\r\n\r\n**Constraints**:\r\n\r\nThe solution should be as obvious from a Python perspective as possible. `with nogil` is currently special-cased in Cython, but that shouldn't impact its use. An obvious approach in Python would be, for example:\r\n```\r\n    cm = nogil if condition else dummy\r\n    with cm:\r\n        ...\r\n```\r\nbut this is difficult to match with the need for special casing `nogil` in Cython at compile time.\r\n\r\nAlso, while an initial implementation could be restricted to compile time constant conditions, the same syntax should still be applicable when allowing the decision to be taken at runtime (by implicitly generating a duplicate code block in C).\r\n\r\n`nogil` is not only a (special) context manager in Cython but also a decorator, so `nogil(True)` might not be easy to distinguish from `@nogil`, especially in pure Python code (`Shadow.py`). Still, also allowing `@nogil(True)` as a decorator would be nice.\r\n\r\n**Approach**:\r\n\r\nGiven that directives like `with boundscheck(True)` already exist, `with nogil(True)` is probably the way to go. Thus, allow `with nogil(flag)` and detect the decorator case in pure Python mode by checking for callables in the dummy implementation in `Shadow.py`.\r\n\r\nThe `InterpretCompilerDirectives` transform in [ParseTreeTransforms.py](https://github.com/cython/cython/blob/master/Cython/Compiler/ParseTreeTransforms.py) is the place where compiler directives are evaluated. For `with nogil` and `with gil`, a `Nodes.GILStatNode` is created. Note that this is run *before* transforming normal with-statements (with is not relevant for this special case) and constant folding (in the `ConstantFolding` tree transform, which determines the compile time value of the condition), and also long before type analysis (`AnalyseExpressionsTransform`) where fused types are evaluated (see the order in [Pipeline.py](https://github.com/cython/cython/blob/master/Cython/Compiler/Pipeline.py)), so the directive condition will not be finally known until constant folding and type analysis have run, and must therefore be stored as a syntax tree node instead of a boolean flag.\r\n\r\nThe type analysis step should be able to take the final decision about the condition value in `Nodes.GILStatNode`. However, it could well be that certain syntax tree nodes in the code block have already decided by then that they are in a `nogil` context. That might need to be revised to make sure they only take that decision after the compile time condition is evaluated and the final GIL state known.",
+    "closed_at": null,
+    "comment_data": [],
+    "comments": 0,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/2579/comments",
+    "created_at": "2018-08-25T09:48:47Z",
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2018-08-25T09:48:47Z",
+            "event": "labeled",
+            "id": 1808937020,
+            "label": {
+                "color": "0e8a16",
+                "name": "help wanted"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDE4MDg5MzcwMjA=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1808937020"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2018-08-25T09:48:47Z",
+            "event": "labeled",
+            "id": 1808937021,
+            "label": {
+                "color": "444444",
+                "name": "enhancement"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDE4MDg5MzcwMjE=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1808937021"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2018-08-25T09:48:47Z",
+            "event": "labeled",
+            "id": 1808937022,
+            "label": {
+                "color": "444444",
+                "name": "Cython Language Feature"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDE4MDg5MzcwMjI=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/1808937022"
+        }
+    ],
+    "events_url": "https://api.github.com/repos/cython/cython/issues/2579/events",
+    "html_url": "https://github.com/cython/cython/issues/2579",
+    "id": 354000003,
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425559948,
+            "name": "Cython Language Feature",
+            "node_id": "MDU6TGFiZWw0MjU1NTk5NDg=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Cython%20Language%20Feature"
+        },
+        {
+            "color": "444444",
+            "default": true,
+            "id": 425556243,
+            "name": "enhancement",
+            "node_id": "MDU6TGFiZWw0MjU1NTYyNDM=",
+            "url": "https://api.github.com/repos/cython/cython/labels/enhancement"
+        },
+        {
+            "color": "0e8a16",
+            "default": true,
+            "id": 414800879,
+            "name": "help wanted",
+            "node_id": "MDU6TGFiZWw0MTQ4MDA4Nzk=",
+            "url": "https://api.github.com/repos/cython/cython/labels/help%20wanted"
+        }
+    ],
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/2579/labels{/name}",
+    "locked": false,
+    "milestone": null,
+    "node_id": "MDU6SXNzdWUzNTQwMDAwMDM=",
+    "number": 2579,
+    "repository_url": "https://api.github.com/repos/cython/cython",
+    "state": "open",
+    "title": "Allow (compile-time) conditional \"with nogil\" blocks",
+    "updated_at": "2018-08-25T10:05:10Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/2579",
+    "user": {
+        "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+        "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+        "followers_url": "https://api.github.com/users/scoder/followers",
+        "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+        "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/scoder",
+        "id": 491659,
+        "login": "scoder",
+        "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+        "organizations_url": "https://api.github.com/users/scoder/orgs",
+        "received_events_url": "https://api.github.com/users/scoder/received_events",
+        "repos_url": "https://api.github.com/users/scoder/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/scoder"
+    }
+}
