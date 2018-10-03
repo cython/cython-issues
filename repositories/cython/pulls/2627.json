@@ -51,8 +51,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 736,
-            "forks_count": 736,
+            "forks": 738,
+            "forks_count": 738,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -77,9 +77,9 @@
             "languages_url": "https://api.github.com/repos/cython/cython/languages",
             "license": {
                 "key": "other",
-                "name": "Other",
+                "name": "NOASSERTION",
                 "node_id": "MDc6TGljZW5zZTA=",
-                "spdx_id": null,
+                "spdx_id": "NOASSERTION",
                 "url": null
             },
             "merges_url": "https://api.github.com/repos/cython/cython/merges",
@@ -88,8 +88,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 570,
-            "open_issues_count": 570,
+            "open_issues": 571,
+            "open_issues_count": 571,
             "owner": {
                 "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -112,11 +112,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2018-09-26T04:32:56Z",
+            "pushed_at": "2018-09-29T21:03:52Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 52514,
+            "size": 53471,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 3497,
+            "stargazers_count": 3512,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -125,10 +125,10 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2018-09-26T12:53:41Z",
+            "updated_at": "2018-10-01T13:19:00Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 3497,
-            "watchers_count": 3497
+            "watchers": 3512,
+            "watchers_count": 3512
         },
         "sha": "9f2869067b2cf8e86aa0c52fad90a477fe7fae87",
         "user": {
@@ -153,7 +153,7 @@
         }
     },
     "body": "Address #2221 by adding a new `check_size` clause to `ctypedef class` definitions. This will allow suppressing the warning.\r\n\r\nThe srctree test actually comprises a few tests, but they are reported as one pass/fail. I am not sure how to break them into separate tests.\r\n\r\nI think 'min', True, and False were the proposed values, but maybe I misunderstood.",
-    "closed_at": null,
+    "closed_at": "2018-09-29T07:32:09Z",
     "comment_data": [
         {
             "_links": {
@@ -1195,6 +1195,256 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2627#discussion_r221431796"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2627"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/221431796"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "If I understand the options correctly, we always error fo smaller structs, but either ignore, warn, or error for larger structs. This doesn't map obviously to the True/False/'min' options provided here--maybe literally call then None, 'warn,' and 'error'? (As an aside, maybe it'd be better to use an enum than 0, 1, 2 as well). \r\n\r\n(I actually wonder if instead we'd be better off doing a stricter check using offsetof for declared fields, even for non-extern classes, but that may have issues...)",
+            "commit_id": "9e7fdef1de7b185f3c6925cecefea746e6e83853",
+            "created_at": "2018-09-29T15:46:33Z",
+            "diff_hunk": "@@ -308,15 +308,22 @@ static int __Pyx_SetPackagePathFromImportLib(const char* parent_package_name, Py\n \n /////////////// TypeImport.proto ///////////////\n \n-static PyTypeObject *__Pyx_ImportType(PyObject* module, const char *module_name, const char *class_name, size_t size, int strict);  /*proto*/\n+\n+static PyTypeObject *__Pyx_ImportType(PyObject* module, const char *module_name, const char *class_name, size_t size, int check_size);  /*proto*/\n \n /////////////// TypeImport ///////////////\n \n #ifndef __PYX_HAVE_RT_ImportType\n #define __PYX_HAVE_RT_ImportType\n static PyTypeObject *__Pyx_ImportType(PyObject *module, const char *module_name, const char *class_name,\n-    size_t size, int strict)\n+    size_t size, int check_size)\n {\n+    /*\n+     * check_size tells what to do if tp_basicsize is different from size:\n+     * 0 - Error (originates in check_size=True)\n+     * 1 - Error if tp_basicsize is smaller, warn if larger (originates in check_size='min')\n+     * 2 - Error if tp_basicsize is smaller (originates in check_size=False)",
+            "html_url": "https://github.com/cython/cython/pull/2627#discussion_r221431796",
+            "id": 221431796,
+            "in_reply_to_id": 220058062,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIyMTQzMTc5Ng==",
+            "original_commit_id": "37fb8a2d43924fd9d616e3c16718bc137c015bf0",
+            "original_position": 20,
+            "path": "Cython/Utility/ImportExport.c",
+            "position": 20,
+            "pull_request_review_id": 160084697,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2627",
+            "updated_at": "2018-09-29T15:47:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/221431796",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "node_id": "MDQ6VXNlcjQ4NjAxNw==",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2627#discussion_r221431816"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2627"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/221431816"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Or do we want to allow this for non-extern classes? (We need to take care that the vtable doesn't change either...)",
+            "commit_id": "9e7fdef1de7b185f3c6925cecefea746e6e83853",
+            "created_at": "2018-09-29T15:47:44Z",
+            "diff_hunk": "@@ -3059,10 +3059,21 @@ def generate_type_import_call(self, type, code, import_generator, error_code=Non\n         else:\n             code.put('sizeof(%s), ' % objstruct)\n \n-        code.putln('%i); if (!%s) %s' % (\n-            not type.is_external or type.is_subclassed,\n-            type.typeptr_cname,\n-            error_code))\n+        # check_size\n+        if not type.is_external or type.is_subclassed:",
+            "html_url": "https://github.com/cython/cython/pull/2627#discussion_r221431816",
+            "id": 221431816,
+            "in_reply_to_id": 220060373,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIyMTQzMTgxNg==",
+            "original_commit_id": "37fb8a2d43924fd9d616e3c16718bc137c015bf0",
+            "original_position": 9,
+            "path": "Cython/Compiler/ModuleNode.py",
+            "position": 9,
+            "pull_request_review_id": 160084697,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2627",
+            "updated_at": "2018-09-29T15:47:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/221431816",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "node_id": "MDQ6VXNlcjQ4NjAxNw==",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2627#discussion_r221433228"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2627"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/221433228"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "What about \"extend\", \"warn\" (default) and \"error\" ? `None` doesn't tell me much either.\r\n\r\nAgreed that offset checks would be nice, but that's a separate feature (and not for 0.29).",
+            "commit_id": "9e7fdef1de7b185f3c6925cecefea746e6e83853",
+            "created_at": "2018-09-29T16:39:41Z",
+            "diff_hunk": "@@ -308,15 +308,22 @@ static int __Pyx_SetPackagePathFromImportLib(const char* parent_package_name, Py\n \n /////////////// TypeImport.proto ///////////////\n \n-static PyTypeObject *__Pyx_ImportType(PyObject* module, const char *module_name, const char *class_name, size_t size, int strict);  /*proto*/\n+\n+static PyTypeObject *__Pyx_ImportType(PyObject* module, const char *module_name, const char *class_name, size_t size, int check_size);  /*proto*/\n \n /////////////// TypeImport ///////////////\n \n #ifndef __PYX_HAVE_RT_ImportType\n #define __PYX_HAVE_RT_ImportType\n static PyTypeObject *__Pyx_ImportType(PyObject *module, const char *module_name, const char *class_name,\n-    size_t size, int strict)\n+    size_t size, int check_size)\n {\n+    /*\n+     * check_size tells what to do if tp_basicsize is different from size:\n+     * 0 - Error (originates in check_size=True)\n+     * 1 - Error if tp_basicsize is smaller, warn if larger (originates in check_size='min')\n+     * 2 - Error if tp_basicsize is smaller (originates in check_size=False)",
+            "html_url": "https://github.com/cython/cython/pull/2627#discussion_r221433228",
+            "id": 221433228,
+            "in_reply_to_id": 220058062,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIyMTQzMzIyOA==",
+            "original_commit_id": "37fb8a2d43924fd9d616e3c16718bc137c015bf0",
+            "original_position": 20,
+            "path": "Cython/Utility/ImportExport.c",
+            "position": 20,
+            "pull_request_review_id": 160086424,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2627",
+            "updated_at": "2018-09-29T16:39:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/221433228",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2627#discussion_r221434148"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2627"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/221434148"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "If the type is `cimport`ed, how would we set `check_size`? Is there an example in the tests that redefines a `cimport`ed type?",
+            "commit_id": "9e7fdef1de7b185f3c6925cecefea746e6e83853",
+            "created_at": "2018-09-29T17:12:18Z",
+            "diff_hunk": "@@ -3059,10 +3059,21 @@ def generate_type_import_call(self, type, code, import_generator, error_code=Non\n         else:\n             code.put('sizeof(%s), ' % objstruct)\n \n-        code.putln('%i); if (!%s) %s' % (\n-            not type.is_external or type.is_subclassed,\n-            type.typeptr_cname,\n-            error_code))\n+        # check_size\n+        if not type.is_external or type.is_subclassed:",
+            "html_url": "https://github.com/cython/cython/pull/2627#discussion_r221434148",
+            "id": 221434148,
+            "in_reply_to_id": 220060373,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIyMTQzNDE0OA==",
+            "original_commit_id": "37fb8a2d43924fd9d616e3c16718bc137c015bf0",
+            "original_position": 9,
+            "path": "Cython/Compiler/ModuleNode.py",
+            "position": 9,
+            "pull_request_review_id": 160087400,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2627",
+            "updated_at": "2018-09-29T17:12:18Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/221434148",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+                "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+                "followers_url": "https://api.github.com/users/mattip/followers",
+                "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+                "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/mattip",
+                "id": 823911,
+                "login": "mattip",
+                "node_id": "MDQ6VXNlcjgyMzkxMQ==",
+                "organizations_url": "https://api.github.com/users/mattip/orgs",
+                "received_events_url": "https://api.github.com/users/mattip/received_events",
+                "repos_url": "https://api.github.com/users/mattip/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/mattip"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2627#discussion_r221434477"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2627"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/221434477"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "> maybe it'd be better to use an enum than 0, 1, 2\r\n\r\nI tried that, but an enum just before the `__Pyx_ImportType` declaration in the `TypeImport.proto` section was not exported to the generated code. Is there an example of such an enum?",
+            "commit_id": "9e7fdef1de7b185f3c6925cecefea746e6e83853",
+            "created_at": "2018-09-29T17:21:21Z",
+            "diff_hunk": "@@ -308,15 +308,22 @@ static int __Pyx_SetPackagePathFromImportLib(const char* parent_package_name, Py\n \n /////////////// TypeImport.proto ///////////////\n \n-static PyTypeObject *__Pyx_ImportType(PyObject* module, const char *module_name, const char *class_name, size_t size, int strict);  /*proto*/\n+\n+static PyTypeObject *__Pyx_ImportType(PyObject* module, const char *module_name, const char *class_name, size_t size, int check_size);  /*proto*/\n \n /////////////// TypeImport ///////////////\n \n #ifndef __PYX_HAVE_RT_ImportType\n #define __PYX_HAVE_RT_ImportType\n static PyTypeObject *__Pyx_ImportType(PyObject *module, const char *module_name, const char *class_name,\n-    size_t size, int strict)\n+    size_t size, int check_size)\n {\n+    /*\n+     * check_size tells what to do if tp_basicsize is different from size:\n+     * 0 - Error (originates in check_size=True)\n+     * 1 - Error if tp_basicsize is smaller, warn if larger (originates in check_size='min')\n+     * 2 - Error if tp_basicsize is smaller (originates in check_size=False)",
+            "html_url": "https://github.com/cython/cython/pull/2627#discussion_r221434477",
+            "id": 221434477,
+            "in_reply_to_id": 220058062,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDIyMTQzNDQ3Nw==",
+            "original_commit_id": "37fb8a2d43924fd9d616e3c16718bc137c015bf0",
+            "original_position": 20,
+            "path": "Cython/Utility/ImportExport.c",
+            "position": 20,
+            "pull_request_review_id": 160087731,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2627",
+            "updated_at": "2018-09-29T17:21:22Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/221434477",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
+                "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+                "followers_url": "https://api.github.com/users/mattip/followers",
+                "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+                "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/mattip",
+                "id": 823911,
+                "login": "mattip",
+                "node_id": "MDQ6VXNlcjgyMzkxMQ==",
+                "organizations_url": "https://api.github.com/users/mattip/orgs",
+                "received_events_url": "https://api.github.com/users/mattip/received_events",
+                "repos_url": "https://api.github.com/users/mattip/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/mattip"
+            }
         }
     ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/2627/comments",
@@ -1647,9 +1897,9 @@
             "languages_url": "https://api.github.com/repos/mattip/cython/languages",
             "license": {
                 "key": "other",
-                "name": "Other",
+                "name": "NOASSERTION",
                 "node_id": "MDc6TGljZW5zZTA=",
-                "spdx_id": null,
+                "spdx_id": "NOASSERTION",
                 "url": null
             },
             "merges_url": "https://api.github.com/repos/mattip/cython/merges",
@@ -1682,9 +1932,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/mattip/cython/pulls{/number}",
-            "pushed_at": "2018-09-26T04:32:54Z",
+            "pushed_at": "2018-09-29T21:11:12Z",
             "releases_url": "https://api.github.com/repos/mattip/cython/releases{/id}",
-            "size": 52657,
+            "size": 52572,
             "ssh_url": "git@github.com:mattip/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/mattip/cython/stargazers",
@@ -1744,11 +1994,11 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "62b6e0569fd864b9d6fdb9ec557ebd9f99ab6a04",
-    "merged_at": null,
+    "merge_commit_sha": "a6990434f908b9aa075a79ebe23d3daf0efccaa8",
+    "merged_at": "2018-09-29T07:32:09Z",
     "milestone": {
         "closed_at": null,
-        "closed_issues": 46,
+        "closed_issues": 50,
         "created_at": "2018-03-06T19:20:48Z",
         "creator": {
             "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
@@ -1777,10 +2027,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/51/labels",
         "node_id": "MDk6TWlsZXN0b25lMzE2Njk0NA==",
         "number": 51,
-        "open_issues": 1,
+        "open_issues": 0,
         "state": "open",
         "title": "0.29",
-        "updated_at": "2018-09-25T05:17:10Z",
+        "updated_at": "2018-09-29T18:38:14Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/51"
     },
     "node_id": "MDExOlB1bGxSZXF1ZXN0MjE3ODEyODcw",
@@ -1790,10 +2040,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/2627/comments",
-    "state": "open",
+    "state": "closed",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/9e7fdef1de7b185f3c6925cecefea746e6e83853",
     "title": " ENH: add check_size option to ctypedef class for external classes ",
-    "updated_at": "2018-09-25T20:46:34Z",
+    "updated_at": "2018-09-30T05:13:08Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/2627",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/823911?v=4",
