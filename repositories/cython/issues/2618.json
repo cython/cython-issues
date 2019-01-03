@@ -4,8 +4,40 @@
     "author_association": "MEMBER",
     "body": "Currently, Cython generates code to create constants (strings, tuples, code objects, …) at module init time, using C-API calls. As an experimental [patch](https://github.com/python/cpython/pull/9320/files) by Facebook shows, the entire objects could be statically allocated and loaded from the C data segment instead. The [resulting C code](https://raw.githubusercontent.com/python/cpython/267c93d61db9292921229fafd895b5ff9740b759/Python/frozenmodules.c) shows a nice example of code that Cython could generate as well.\r\n\r\nConstraints:\r\n- We need to keep the dynamic object creation, both as a fallback and to support PyPy.\r\n- This requires some adaptations across CPython versions, especially for Unicode strings. For that, we need to generate copies of the object structs and select them at C compile time via `PY_HEX_VERSION`.\r\n- In the easiest case, we could limit it to Py3.4+ for the beginning, as most object differences are between Py2 and Py3, so this would reduce the duplication.\r\n- It's unclear what to do about small integers and interned strings, since loading them from the data segment would prevent them from being singletons.",
     "closed_at": null,
-    "comment_data": [],
-    "comments": 0,
+    "comment_data": [
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "Another benefit is optimizing away unreachable code. For example, if you have something like:\r\n```cython\r\ncdef bool DEBUG = False;\r\n\r\ncdef do_something():\r\n    if DEBUG:\r\n         printf('Debug message\\n')\r\n```\r\nyou get something like:\r\n```c++\r\n#include <stdio.h>\r\n\r\nstatic bool __pyx_v__DEBUG;\r\n\r\nstatic int\r\n__pyx_pymod_exec_trace(PyObject *__pyx_pyinit_module)\r\n{\r\n    __pyx_v__DEBUG = 0;\r\n\r\n    return 0;\r\n}\r\n\r\nstatic void\r\ndo_something(void)\r\n{\r\n    int __pyx_t_1;\r\n\r\n    __pyx_t_1 = (__pyx_v__DEBUG != 0);\r\n    if (__pyx_t_1) {\r\n        printf(\"Debug message\\n\");\r\n    }\r\n}\r\n```\r\n\r\nIf `__pyx_v__DEBUG` were initialized when it was defined, then an optimizing compiler (e.g., `gcc -O2`) would recognize that the `printf` could never be called and remove it entirely.",
+            "created_at": "2019-01-03T00:19:41Z",
+            "html_url": "https://github.com/cython/cython/issues/2618#issuecomment-451025720",
+            "id": 451025720,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2618",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDQ1MTAyNTcyMA==",
+            "updated_at": "2019-01-03T00:19:41Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/451025720",
+            "user": {
+                "avatar_url": "https://avatars2.githubusercontent.com/u/302469?v=4",
+                "events_url": "https://api.github.com/users/QuLogic/events{/privacy}",
+                "followers_url": "https://api.github.com/users/QuLogic/followers",
+                "following_url": "https://api.github.com/users/QuLogic/following{/other_user}",
+                "gists_url": "https://api.github.com/users/QuLogic/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/QuLogic",
+                "id": 302469,
+                "login": "QuLogic",
+                "node_id": "MDQ6VXNlcjMwMjQ2OQ==",
+                "organizations_url": "https://api.github.com/users/QuLogic/orgs",
+                "received_events_url": "https://api.github.com/users/QuLogic/received_events",
+                "repos_url": "https://api.github.com/users/QuLogic/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/QuLogic/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/QuLogic/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/QuLogic"
+            }
+        }
+    ],
+    "comments": 1,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/2618/comments",
     "created_at": "2018-09-21T06:55:03Z",
     "event_data": [
@@ -146,7 +178,7 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "Load constants from data segment",
-    "updated_at": "2018-09-21T06:55:03Z",
+    "updated_at": "2019-01-03T00:19:41Z",
     "url": "https://api.github.com/repos/cython/cython/issues/2618",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
