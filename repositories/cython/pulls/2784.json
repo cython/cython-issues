@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/2784"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/0f4e38cfb473de6ec420b694fd39497963c06bf8"
+            "href": "https://api.github.com/repos/cython/cython/statuses/bd44de56407ab970fc65a631a856b9956613a21a"
         }
     },
     "assignee": null,
@@ -51,8 +51,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 789,
-            "forks_count": 789,
+            "forks": 791,
+            "forks_count": 791,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -88,8 +88,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 621,
-            "open_issues_count": 621,
+            "open_issues": 614,
+            "open_issues_count": 614,
             "owner": {
                 "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -112,11 +112,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2019-01-06T12:53:38Z",
+            "pushed_at": "2019-01-17T14:23:58Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 53142,
+            "size": 53330,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 3746,
+            "stargazers_count": 3769,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -125,12 +125,12 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2019-01-07T14:06:05Z",
+            "updated_at": "2019-01-17T14:52:17Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 3746,
-            "watchers_count": 3746
+            "watchers": 3769,
+            "watchers_count": 3769
         },
-        "sha": "fd760b0c402aa6ef18b859a5505dc8bcd0eda29c",
+        "sha": "5ecb4ba9519e456c064f2d84c32ee4bd9d390374",
         "user": {
             "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -154,7 +154,107 @@
     },
     "body": "When solving #2776 which reported ``Plugin 'Cython.Coverage.Plugin' did not provide a file reporter for '/Users/wenjun.swj/miniconda3/lib/python3.7/site-packages/gevent/_hub_local.py'`` when executing ``coverage report``, I find the cause is that some tracers built in Cython.Coverage do not have corresponding reporters.\r\nIn Cython.Coverage, when ``Plugin._parse_lines(c_file, filename)`` returns (None, None), ``Plugin.file_tracer(filename)`` returns a tracer, while ``Plugin.file_reporter(filename)`` returns None, and then coverage.py reports the error. This happens when shared packages have both *.py and *.c sharing the same base name. For instance, in the wheel package of gevent, both _hub_local.c and _hub_local.py exist, which mislead Cython.Coverage to produce a tracer as it does not ignore shared libraries. However, file_reporter() ignores shared libraries, and the report error is raised. \r\nThe simple solution is to ignore shared libraries in file_tracer like it does in file_reporter, and ``coverage report`` does not raise errors, thus fixes #2776 .",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2784#discussion_r248441694"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2784"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/248441694"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Is it actually necessary for this test to compile the `.py` files, in addition to the `.pyx` files?\r\n\r\nI'm asking for two reasons: it complicates the test setup (thus increasing the risk of potentially unrelated failures), and there is currently a bug in your branch that I fixed in latest master regarding the compilation of `__init__.py` files under Windows, so I'm getting [failures](https://ci.appveyor.com/project/cython/cython/builds/21403742) in appveyor. Merging master should resolve that, but if we can avoid this complication entirely, then that's clearly preferable.",
+            "commit_id": "bd44de56407ab970fc65a631a856b9956613a21a",
+            "created_at": "2019-01-16T20:37:57Z",
+            "diff_hunk": "@@ -0,0 +1,71 @@\n+# mode: run\n+# tag: coverage,trace\n+\n+\"\"\"\n+PYTHON setup.py build_ext -i\n+PYTHON -c \"import shutil; shutil.move('ext_src/ext_pkg', 'ext_pkg')\"\n+PYTHON -m coverage run coverage_test.py\n+PYTHON -m coverage report\n+\"\"\"\n+\n+######## setup.py ########\n+from distutils.core import setup, Extension\n+from Cython.Build import cythonize\n+\n+setup(ext_modules = cythonize([\n+    'pkg/*.py*',",
+            "html_url": "https://github.com/cython/cython/pull/2784#discussion_r248441694",
+            "id": 248441694,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI0ODQ0MTY5NA==",
+            "original_commit_id": "0f4e38cfb473de6ec420b694fd39497963c06bf8",
+            "original_position": 16,
+            "path": "tests/run/coverage_installed_pkg.srctree",
+            "position": null,
+            "pull_request_review_id": 193340376,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2784",
+            "updated_at": "2019-01-17T03:35:16Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/248441694",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2784#discussion_r248536554"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2784"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/248536554"
+                }
+            },
+            "author_association": "NONE",
+            "body": "Done, changed to ``*.pyx``.",
+            "commit_id": "bd44de56407ab970fc65a631a856b9956613a21a",
+            "created_at": "2019-01-17T04:35:48Z",
+            "diff_hunk": "@@ -0,0 +1,71 @@\n+# mode: run\n+# tag: coverage,trace\n+\n+\"\"\"\n+PYTHON setup.py build_ext -i\n+PYTHON -c \"import shutil; shutil.move('ext_src/ext_pkg', 'ext_pkg')\"\n+PYTHON -m coverage run coverage_test.py\n+PYTHON -m coverage report\n+\"\"\"\n+\n+######## setup.py ########\n+from distutils.core import setup, Extension\n+from Cython.Build import cythonize\n+\n+setup(ext_modules = cythonize([\n+    'pkg/*.py*',",
+            "html_url": "https://github.com/cython/cython/pull/2784#discussion_r248536554",
+            "id": 248536554,
+            "in_reply_to_id": 248441694,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI0ODUzNjU1NA==",
+            "original_commit_id": "0f4e38cfb473de6ec420b694fd39497963c06bf8",
+            "original_position": 16,
+            "path": "tests/run/coverage_installed_pkg.srctree",
+            "position": null,
+            "pull_request_review_id": 193457400,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2784",
+            "updated_at": "2019-01-17T04:35:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/248536554",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/8284922?v=4",
+                "events_url": "https://api.github.com/users/wjsi/events{/privacy}",
+                "followers_url": "https://api.github.com/users/wjsi/followers",
+                "following_url": "https://api.github.com/users/wjsi/following{/other_user}",
+                "gists_url": "https://api.github.com/users/wjsi/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/wjsi",
+                "id": 8284922,
+                "login": "wjsi",
+                "node_id": "MDQ6VXNlcjgyODQ5MjI=",
+                "organizations_url": "https://api.github.com/users/wjsi/orgs",
+                "received_events_url": "https://api.github.com/users/wjsi/received_events",
+                "repos_url": "https://api.github.com/users/wjsi/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/wjsi/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/wjsi/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/wjsi"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/2784/comments",
     "commit_data": [
         {
@@ -178,7 +278,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/wjsi"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/36fcce0274e08213a6b39447702db8084b061503/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/4c9acf09a7cfbcb1d4ade314f645844ee06f3f88/comments",
             "commit": {
                 "author": {
                     "date": "2019-01-05T03:17:52Z",
@@ -187,16 +287,16 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2019-01-05T03:17:52Z",
-                    "email": "swj0066@gmail.com",
-                    "name": "wjsi"
+                    "date": "2019-01-17T02:30:25Z",
+                    "email": "wenjun.swj@alibaba-inc.com",
+                    "name": "wenjun.swj"
                 },
                 "message": "Fix inconsistency between trace files and report files",
                 "tree": {
-                    "sha": "8907ed89fddb93825a2a0882e95ba7e0bcf70cf4",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/8907ed89fddb93825a2a0882e95ba7e0bcf70cf4"
+                    "sha": "6304366fe19aaa7a1944d725d3c0aba0ccdc2c87",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6304366fe19aaa7a1944d725d3c0aba0ccdc2c87"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/36fcce0274e08213a6b39447702db8084b061503",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/4c9acf09a7cfbcb1d4ade314f645844ee06f3f88",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -224,17 +324,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/wjsi"
             },
-            "html_url": "https://github.com/cython/cython/commit/36fcce0274e08213a6b39447702db8084b061503",
-            "node_id": "MDY6Q29tbWl0MTY0MTc0ODc4OjM2ZmNjZTAyNzRlMDgyMTNhNmIzOTQ0NzcwMmRiODA4NGIwNjE1MDM=",
+            "html_url": "https://github.com/cython/cython/commit/4c9acf09a7cfbcb1d4ade314f645844ee06f3f88",
+            "node_id": "MDY6Q29tbWl0MTY0MTc0ODc4OjRjOWFjZjA5YTdjZmJjYjFkNGFkZTMxNGY2NDU4NDRlZTA2ZjNmODg=",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/4b64bbe1c792c0b0f40d97bb98e4192e28923ca2",
-                    "sha": "4b64bbe1c792c0b0f40d97bb98e4192e28923ca2",
-                    "url": "https://api.github.com/repos/cython/cython/commits/4b64bbe1c792c0b0f40d97bb98e4192e28923ca2"
+                    "html_url": "https://github.com/cython/cython/commit/5ecb4ba9519e456c064f2d84c32ee4bd9d390374",
+                    "sha": "5ecb4ba9519e456c064f2d84c32ee4bd9d390374",
+                    "url": "https://api.github.com/repos/cython/cython/commits/5ecb4ba9519e456c064f2d84c32ee4bd9d390374"
                 }
             ],
-            "sha": "36fcce0274e08213a6b39447702db8084b061503",
-            "url": "https://api.github.com/repos/cython/cython/commits/36fcce0274e08213a6b39447702db8084b061503"
+            "sha": "4c9acf09a7cfbcb1d4ade314f645844ee06f3f88",
+            "url": "https://api.github.com/repos/cython/cython/commits/4c9acf09a7cfbcb1d4ade314f645844ee06f3f88"
         },
         {
             "author": {
@@ -257,25 +357,25 @@
                 "type": "User",
                 "url": "https://api.github.com/users/wjsi"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/0f4e38cfb473de6ec420b694fd39497963c06bf8/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/bd44de56407ab970fc65a631a856b9956613a21a/comments",
             "commit": {
                 "author": {
-                    "date": "2019-01-06T02:12:07Z",
-                    "email": "swj0066@gmail.com",
-                    "name": "wjsi"
+                    "date": "2019-01-17T03:34:58Z",
+                    "email": "wenjun.swj@alibaba-inc.com",
+                    "name": "wenjun.swj"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2019-01-06T02:12:07Z",
-                    "email": "swj0066@gmail.com",
-                    "name": "wjsi"
+                    "date": "2019-01-17T03:34:58Z",
+                    "email": "wenjun.swj@alibaba-inc.com",
+                    "name": "wenjun.swj"
                 },
                 "message": "add case for tracer-reporter mismatch",
                 "tree": {
-                    "sha": "e8389f50a5a0f9e564e25c8065df6777ce7bc331",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/e8389f50a5a0f9e564e25c8065df6777ce7bc331"
+                    "sha": "13b2da034b3e6a9f094c6119217a02b86ddae3b8",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/13b2da034b3e6a9f094c6119217a02b86ddae3b8"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/0f4e38cfb473de6ec420b694fd39497963c06bf8",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/bd44de56407ab970fc65a631a856b9956613a21a",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -303,17 +403,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/wjsi"
             },
-            "html_url": "https://github.com/cython/cython/commit/0f4e38cfb473de6ec420b694fd39497963c06bf8",
-            "node_id": "MDY6Q29tbWl0MTY0MTc0ODc4OjBmNGUzOGNmYjQ3M2RlNmVjNDIwYjY5NGZkMzk0OTc5NjNjMDZiZjg=",
+            "html_url": "https://github.com/cython/cython/commit/bd44de56407ab970fc65a631a856b9956613a21a",
+            "node_id": "MDY6Q29tbWl0MTY0MTc0ODc4OmJkNDRkZTU2NDA3YWI5NzBmYzY1YTYzMWE4NTZiOTk1NjYxM2EyMWE=",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/36fcce0274e08213a6b39447702db8084b061503",
-                    "sha": "36fcce0274e08213a6b39447702db8084b061503",
-                    "url": "https://api.github.com/repos/cython/cython/commits/36fcce0274e08213a6b39447702db8084b061503"
+                    "html_url": "https://github.com/cython/cython/commit/4c9acf09a7cfbcb1d4ade314f645844ee06f3f88",
+                    "sha": "4c9acf09a7cfbcb1d4ade314f645844ee06f3f88",
+                    "url": "https://api.github.com/repos/cython/cython/commits/4c9acf09a7cfbcb1d4ade314f645844ee06f3f88"
                 }
             ],
-            "sha": "0f4e38cfb473de6ec420b694fd39497963c06bf8",
-            "url": "https://api.github.com/repos/cython/cython/commits/0f4e38cfb473de6ec420b694fd39497963c06bf8"
+            "sha": "bd44de56407ab970fc65a631a856b9956613a21a",
+            "url": "https://api.github.com/repos/cython/cython/commits/bd44de56407ab970fc65a631a856b9956613a21a"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/2784/commits",
@@ -403,9 +503,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/wjsi/cython/pulls{/number}",
-            "pushed_at": "2019-01-06T02:12:18Z",
+            "pushed_at": "2019-01-17T03:35:15Z",
             "releases_url": "https://api.github.com/repos/wjsi/cython/releases{/id}",
-            "size": 53167,
+            "size": 53319,
             "ssh_url": "git@github.com:wjsi/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/wjsi/cython/stargazers",
@@ -416,12 +516,12 @@
             "tags_url": "https://api.github.com/repos/wjsi/cython/tags",
             "teams_url": "https://api.github.com/repos/wjsi/cython/teams",
             "trees_url": "https://api.github.com/repos/wjsi/cython/git/trees{/sha}",
-            "updated_at": "2019-01-06T02:12:20Z",
+            "updated_at": "2019-01-17T03:35:18Z",
             "url": "https://api.github.com/repos/wjsi/cython",
             "watchers": 0,
             "watchers_count": 0
         },
-        "sha": "0f4e38cfb473de6ec420b694fd39497963c06bf8",
+        "sha": "bd44de56407ab970fc65a631a856b9956613a21a",
         "user": {
             "avatar_url": "https://avatars1.githubusercontent.com/u/8284922?v=4",
             "events_url": "https://api.github.com/users/wjsi/events{/privacy}",
@@ -448,7 +548,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/2784",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "a333342c8dea2ea88e08cf5f16802082284810e0",
+    "merge_commit_sha": "f035d37f50544ee6660444bbefdf36c4708bdd52",
     "merged_at": null,
     "milestone": null,
     "node_id": "MDExOlB1bGxSZXF1ZXN0MjQyNDE5MzY1",
@@ -459,9 +559,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/2784/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/0f4e38cfb473de6ec420b694fd39497963c06bf8",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/bd44de56407ab970fc65a631a856b9956613a21a",
     "title": "Fix inconsistency between traced files and reported files",
-    "updated_at": "2019-01-06T08:07:50Z",
+    "updated_at": "2019-01-17T04:35:48Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/2784",
     "user": {
         "avatar_url": "https://avatars1.githubusercontent.com/u/8284922?v=4",
