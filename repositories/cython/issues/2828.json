@@ -4,8 +4,40 @@
     "author_association": "NONE",
     "body": "Hi,\r\nI found a memory leak when using the `np.ndarray[np.intp_t, ndim=2]` syntax or memory views of dimension at least 2.\r\nStrangely, the memory leak only appears if the second dimension is 0, irregardless of the other dimensions. I checked that it also appears with ndim=3 (also if the *second* dimension is zero).\r\n\r\nMinimal example:\r\n    # a.pyx\r\n    # compile: cythonize -bi a.pyx\r\n    # run: python -c 'import a; a.main()'\r\n\r\n    cimport numpy as cnp\r\n    import numpy as np\r\n    import psutil\r\n\r\n    cnp.import_array()\r\n\r\n    def check_memleak(var):\r\n        cdef cnp.ndarray[cnp.intp_t, ndim=2] c_var = var  # commenting this out prevents the leak\r\n        #cdef cnp.intp_t[:, :] c_var = var  # memory views have the same problem\r\n        return True\r\n\r\n    def mem():\r\n        print(str(round(psutil.Process().memory_info().rss/1024./1024., 2)) + ' MB')\r\n\r\n    def main():\r\n        for shape in [(2, 2), (2, 0), (0, 2), (0, 0)]:\r\n            print(\"shape = \", shape)\r\n            var = np.zeros(shape, dtype=np.intp)\r\n            mem()\r\n            for i in range(100000):\r\n                check_memleak(var)\r\n            mem()\r\n\r\nSample output:\r\n\r\n    $python -c 'import a; a.main()'\r\n    ('shape = ', (2, 2))\r\n    27.95 MB\r\n    27.95 MB\r\n    ('shape = ', (2, 0))\r\n    27.95 MB\r\n    43.81 MB\r\n    ('shape = ', (0, 2))\r\n    40.21 MB\r\n    40.21 MB\r\n    ('shape = ', (0, 0))\r\n    40.21 MB\r\n    43.82 MB\r\n\r\nAny ideas what might cause this strange behaviour?",
     "closed_at": null,
-    "comment_data": [],
-    "comments": 0,
+    "comment_data": [
+        {
+            "author_association": "MEMBER",
+            "body": "I looked into this a bit and could reproduce it. Not sure where the problem is, though. It would help to see if moving either NumPy or Cython out of the way would show the same issue, so that we can see if it's due to Cython or NumPy (or a mix of both).\r\n\r\nAlso, arrays with a zero dimension, while certainly not useless, do not seem like a particularly critical use case to fix. That might also be the reason why it's not been found and/or reported so far.",
+            "created_at": "2019-02-15T16:16:54Z",
+            "html_url": "https://github.com/cython/cython/issues/2828#issuecomment-464107890",
+            "id": 464107890,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2828",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDQ2NDEwNzg5MA==",
+            "updated_at": "2019-02-15T16:17:46Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/464107890",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
+    "comments": 1,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/2828/comments",
     "created_at": "2019-02-08T19:06:01Z",
     "event_data": [
@@ -41,12 +73,95 @@
                 "to": "memory leak with typed ndarray and memory views"
             },
             "url": "https://api.github.com/repos/cython/cython/issues/events/2133019778"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-02-15T16:14:20Z",
+            "event": "labeled",
+            "id": 2142902849,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDIxNDI5MDI4NDk=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2142902849"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-02-15T16:14:20Z",
+            "event": "labeled",
+            "id": 2142902853,
+            "label": {
+                "color": "444444",
+                "name": "Buffers"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDIxNDI5MDI4NTM=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2142902853"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/2828/events",
     "html_url": "https://github.com/cython/cython/issues/2828",
     "id": 408283991,
-    "labels": [],
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425562719,
+            "name": "Buffers",
+            "node_id": "MDU6TGFiZWw0MjU1NjI3MTk=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Buffers"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425553654,
+            "name": "defect",
+            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        }
+    ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/2828/labels{/name}",
     "locked": false,
     "milestone": null,
@@ -55,7 +170,7 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "memory leak with typed ndarray and memory views",
-    "updated_at": "2019-02-12T08:56:18Z",
+    "updated_at": "2019-02-15T16:17:46Z",
     "url": "https://api.github.com/repos/cython/cython/issues/2828",
     "user": {
         "avatar_url": "https://avatars3.githubusercontent.com/u/35832621?v=4",
