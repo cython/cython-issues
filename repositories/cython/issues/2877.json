@@ -1,13 +1,45 @@
 {
     "assignee": null,
     "assignees": [],
-    "author_association": "MEMBER",
-    "body": "There is [dedicated code](https://github.com/cython/cython/blob/e00f9c271592c3d1326f968acd0710a556033bfb/Cython/Utility/TypeConversion.c#L653) for formatting integer literals in f-strings, which avoids converting C integers to Python integer objects just for formatting them as strings. It is used by the `FormattedValueNode` in `ExprNodes.py`.\r\n\r\nThe same should be done for C float/double values, as Py2.7+ (and Py3) provides [PyOS_double_to_string()](https://docs.python.org/3/c-api/conversion.html#c.PyOS_double_to_string). See CPython's own float formatting in [unicodeobject.c](https://github.com/python/cpython/blob/master/Objects/unicodeobject.c) and [formatter_unicode.c](https://github.com/python/cpython/blob/master/Python/formatter_unicode.c).\r\n\r\n- implement relevant tests in `tests/run/fstring.pyx` and/or check if `tests/run/test_fstring.pyx` (copied from CPython's test suite) covers this sufficiently\r\n- extract the relevant parts of CPython's formatting implementation (potentially limiting it to easy to support formats)\r\n- create a new C utility function in `TypeConversion.c` that formats double values\r\n- implement `CFloatType.can_coerce_to_pystring()` in `PyrexTypes.py` to make it return `True` when supported\r\n- implement `CFloatType.convert_to_pystring()` to call the formatting C function.",
+    "author_association": "NONE",
+    "body": "When I tried cythonizing\r\n```python\r\nasync def abc():\r\n    return \"abc\"\r\n\r\n\r\nasync def main():\r\n    print(f\"{await abc()}\")\r\n```\r\nI got\r\n```\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\nasync def abc():\r\n    return \"abc\"\r\n\r\n\r\nasync def main():\r\n    print(f\"{await abc()}\")\r\n                   ^\r\n------------------------------------------------------------\r\n\r\ntest.pyx:6:20: Expected ')', found 'abc'\r\n\r\n```\r\nI'm sure python can run it directly. It seems that cython won't parse `await` inside f-string, and I have to split it into two lines now.",
     "closed_at": null,
-    "comment_data": [],
-    "comments": 0,
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/2195/comments",
-    "created_at": "2018-03-31T20:23:57Z",
+    "comment_data": [
+        {
+            "author_association": "MEMBER",
+            "body": "Looks like a pure parser issue. Should be easy to fix by adding a test and making the parser use the right type of expression to parse inside of f-strings.\r\nNote that the test should be in a `.py` file and use the `pure3.6` tag to make sure Python only tests it in Py3.6+.",
+            "created_at": "2019-03-03T15:24:12Z",
+            "html_url": "https://github.com/cython/cython/issues/2877#issuecomment-469033154",
+            "id": 469033154,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2877",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDQ2OTAzMzE1NA==",
+            "updated_at": "2019-03-03T15:24:12Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/469033154",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
+    "comments": 1,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/2877/comments",
+    "created_at": "2019-03-02T18:45:20Z",
     "event_data": [
         {
             "actor": {
@@ -32,15 +64,15 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2018-03-31T20:23:57Z",
+            "created_at": "2019-03-03T15:21:02Z",
             "event": "labeled",
-            "id": 1550864605,
+            "id": 2176340672,
             "label": {
                 "color": "0e8a16",
                 "name": "help wanted"
             },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDE1NTA4NjQ2MDU=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1550864605"
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDIxNzYzNDA2NzI=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2176340672"
         },
         {
             "actor": {
@@ -65,48 +97,15 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2018-03-31T20:23:57Z",
+            "created_at": "2019-03-03T15:21:02Z",
             "event": "labeled",
-            "id": 1550864606,
-            "label": {
-                "color": "f9d0c4",
-                "name": "performance"
-            },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDE1NTA4NjQ2MDY=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1550864606"
-        },
-        {
-            "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            },
-            "commit_id": null,
-            "commit_url": null,
-            "created_at": "2018-03-31T20:23:57Z",
-            "event": "labeled",
-            "id": 1550864607,
+            "id": 2176340674,
             "label": {
                 "color": "1d76db",
                 "name": "good first issue"
             },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDE1NTA4NjQ2MDc=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1550864607"
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDIxNzYzNDA2NzQ=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2176340674"
         },
         {
             "actor": {
@@ -131,15 +130,15 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2018-03-31T20:23:57Z",
+            "created_at": "2019-03-03T15:21:02Z",
             "event": "labeled",
-            "id": 1550864608,
+            "id": 2176340675,
             "label": {
                 "color": "444444",
-                "name": "enhancement"
+                "name": "Parsing"
             },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDE1NTA4NjQ2MDg=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1550864608"
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDIxNzYzNDA2NzU=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2176340675"
         },
         {
             "actor": {
@@ -164,15 +163,15 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2018-03-31T20:23:57Z",
+            "created_at": "2019-03-03T15:21:02Z",
             "event": "labeled",
-            "id": 1550864609,
+            "id": 2176340677,
             "label": {
                 "color": "444444",
-                "name": "Code Generation"
+                "name": "defect"
             },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDE1NTA4NjQ2MDk=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1550864609"
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDIxNzYzNDA2Nzc=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2176340677"
         },
         {
             "actor": {
@@ -197,44 +196,44 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2018-03-31T20:56:05Z",
+            "created_at": "2019-03-03T15:21:02Z",
             "event": "labeled",
-            "id": 1550874198,
+            "id": 2176340679,
             "label": {
                 "color": "444444",
-                "name": "Optimization"
+                "name": "Python Semantics"
             },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDE1NTA4NzQxOTg=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/1550874198"
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDIxNzYzNDA2Nzk=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2176340679"
         }
     ],
-    "events_url": "https://api.github.com/repos/cython/cython/issues/2195/events",
-    "html_url": "https://github.com/cython/cython/issues/2195",
-    "id": 310269362,
+    "events_url": "https://api.github.com/repos/cython/cython/issues/2877/events",
+    "html_url": "https://github.com/cython/cython/issues/2877",
+    "id": 416427764,
     "labels": [
         {
             "color": "444444",
             "default": false,
-            "id": 425556330,
-            "name": "Code Generation",
-            "node_id": "MDU6TGFiZWw0MjU1NTYzMzA=",
-            "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
+            "id": 425553653,
+            "name": "Parsing",
+            "node_id": "MDU6TGFiZWw0MjU1NTM2NTM=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Parsing"
         },
         {
             "color": "444444",
             "default": false,
-            "id": 425556272,
-            "name": "Optimization",
-            "node_id": "MDU6TGFiZWw0MjU1NTYyNzI=",
-            "url": "https://api.github.com/repos/cython/cython/labels/Optimization"
+            "id": 425556315,
+            "name": "Python Semantics",
+            "node_id": "MDU6TGFiZWw0MjU1NTYzMTU=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Python%20Semantics"
         },
         {
             "color": "444444",
-            "default": true,
-            "id": 425556243,
-            "name": "enhancement",
-            "node_id": "MDU6TGFiZWw0MjU1NTYyNDM=",
-            "url": "https://api.github.com/repos/cython/cython/labels/enhancement"
+            "default": false,
+            "id": 425553654,
+            "name": "defect",
+            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
         },
         {
             "color": "1d76db",
@@ -251,44 +250,36 @@
             "name": "help wanted",
             "node_id": "MDU6TGFiZWw0MTQ4MDA4Nzk=",
             "url": "https://api.github.com/repos/cython/cython/labels/help%20wanted"
-        },
-        {
-            "color": "f9d0c4",
-            "default": false,
-            "id": 414805151,
-            "name": "performance",
-            "node_id": "MDU6TGFiZWw0MTQ4MDUxNTE=",
-            "url": "https://api.github.com/repos/cython/cython/labels/performance"
         }
     ],
-    "labels_url": "https://api.github.com/repos/cython/cython/issues/2195/labels{/name}",
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/2877/labels{/name}",
     "locked": false,
     "milestone": null,
-    "node_id": "MDU6SXNzdWUzMTAyNjkzNjI=",
-    "number": 2195,
+    "node_id": "MDU6SXNzdWU0MTY0Mjc3NjQ=",
+    "number": 2877,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
-    "title": "Speed up f-string float formatting",
-    "updated_at": "2019-03-01T21:10:00Z",
-    "url": "https://api.github.com/repos/cython/cython/issues/2195",
+    "title": "await inside f-string",
+    "updated_at": "2019-03-03T15:24:13Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/2877",
     "user": {
-        "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-        "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-        "followers_url": "https://api.github.com/users/scoder/followers",
-        "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-        "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+        "avatar_url": "https://avatars0.githubusercontent.com/u/9294979?v=4",
+        "events_url": "https://api.github.com/users/fduxiao/events{/privacy}",
+        "followers_url": "https://api.github.com/users/fduxiao/followers",
+        "following_url": "https://api.github.com/users/fduxiao/following{/other_user}",
+        "gists_url": "https://api.github.com/users/fduxiao/gists{/gist_id}",
         "gravatar_id": "",
-        "html_url": "https://github.com/scoder",
-        "id": 491659,
-        "login": "scoder",
-        "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-        "organizations_url": "https://api.github.com/users/scoder/orgs",
-        "received_events_url": "https://api.github.com/users/scoder/received_events",
-        "repos_url": "https://api.github.com/users/scoder/repos",
+        "html_url": "https://github.com/fduxiao",
+        "id": 9294979,
+        "login": "fduxiao",
+        "node_id": "MDQ6VXNlcjkyOTQ5Nzk=",
+        "organizations_url": "https://api.github.com/users/fduxiao/orgs",
+        "received_events_url": "https://api.github.com/users/fduxiao/received_events",
+        "repos_url": "https://api.github.com/users/fduxiao/repos",
         "site_admin": false,
-        "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-        "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+        "starred_url": "https://api.github.com/users/fduxiao/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/fduxiao/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/scoder"
+        "url": "https://api.github.com/users/fduxiao"
     }
 }
