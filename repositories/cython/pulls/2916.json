@@ -52,8 +52,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 825,
-            "forks_count": 825,
+            "forks": 830,
+            "forks_count": 830,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -89,8 +89,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 634,
-            "open_issues_count": 634,
+            "open_issues": 636,
+            "open_issues_count": 636,
             "owner": {
                 "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -113,11 +113,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2019-04-08T13:39:34Z",
+            "pushed_at": "2019-04-11T20:25:50Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
             "size": 54374,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 3987,
+            "stargazers_count": 3993,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -126,10 +126,10 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2019-04-09T15:25:05Z",
+            "updated_at": "2019-04-13T10:53:50Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 3987,
-            "watchers_count": 3987
+            "watchers": 3993,
+            "watchers_count": 3993
         },
         "sha": "cd2a42e2ce0248f0b251902707aba8b11ef7410d",
         "user": {
@@ -155,7 +155,205 @@
     },
     "body": "Closes #2912 \r\n\r\nPer the comment on the issue, this turns `NameNodes` for `__class__` into `ClassCellNodes`, so that you can call `__class__` inside methods without qualifying with `self`. I believe that this fix is effectively just replacing `__class__` with `<name of class>` in these expressions, EG, no `__class__` local ends up created. \r\n\r\nThis is quite a minimal fix. There are a few remaining differences in `__class__` behaviour but I wasn't sure how to proceed with them, so I thought I'd raise a PR for comment. \r\n\r\nBasically, in non-Cythonized Python it appears that `__class__` is a bit of a \"magic\" local. If it appears anywhere in a method body, then `locals()` will contain `__class__` pointing to the containing class, anywhere in the function, but if it doesn't, then it won't. So:\r\n\r\n```\r\nclass A:\r\n    def b(self):\r\n        print(locals())\r\n        __class__\r\n```\r\n`A().b()` will print `['self', '__class__']`. As would \r\n\r\n```\r\nclass A:\r\n    def b(self):\r\n        __class__\r\n        print(locals())\r\n```\r\n\r\nBut:\r\n\r\n```\r\nclass A:\r\n    def b(self):\r\n        print(locals())\r\n```\r\nwould print only `['self']`\r\n\r\nThis behaviour is hard to achieve with the current PR, because instead of creating a local called `__class__` we are just replacing the `NameNode` with a `ClassCellNode`. As a result, when cythonized, in all the above examples `locals()` just prints `['self']`. \r\n\r\nOff the top of my head, some approaches that might be better: \r\n\r\n- Instead of replacing the `NameNode`, inject an `entry` into the current scope called `__class__` pointing to the containing `__class__` object. This requires rewriting `FuncLocalsExprNode` so that it iterates over the keys in `entries` rather than calling `.name` on each one. I tried this and it sort of worked but it was a bit messy manually updating the entries dictionary, maybe there's a better way?\r\n\r\n- From a higher level in the tree (the `DefNode`?) iterating through all of the statements in the body checking to see if any of them contain `__class__` and, if so, injecting it as a local.  \r\n\r\n- Without bothering to see if it's in the body or not, just always injecting `__class__` into the method scope (it's harmless if unused and I don't think it's unreasonable to interpret PEP3135 as implying it should always be in the `locals()` symbol table. However, I am far from an expert and there is potentially a good reason why Python doesn't put it into `locals()` for methods not containing `__class__`.)\r\n\r\nEager to get any and all feedback on the above! This is my first time touching the Cython codebase so I might have missed some things, but it's been really fun to dig into.\r\n",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2916#discussion_r274769613"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2916"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/274769613"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Since this covers the complete function body (and the function name suggests that it does what it says), I'd move this `if` into `visit_NameNode()` above.",
+            "commit_id": "d26818ef2dbea5cdb6debdf60b2eb819c4712991",
+            "created_at": "2019-04-12T06:06:13Z",
+            "diff_hunk": "@@ -3114,6 +3115,21 @@ def _inject_eval(self, node, func_name):\n                     node.pos, self.current_scope_node(), lenv))\n         return node\n \n+    def _inject_class(self, node):\n+        if node.name == u'__class__':",
+            "html_url": "https://github.com/cython/cython/pull/2916#discussion_r274769613",
+            "id": 274769613,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI3NDc2OTYxMw==",
+            "original_commit_id": "d26818ef2dbea5cdb6debdf60b2eb819c4712991",
+            "original_position": 13,
+            "path": "Cython/Compiler/ParseTreeTransforms.py",
+            "position": 13,
+            "pull_request_review_id": 225908385,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2916",
+            "updated_at": "2019-04-12T06:13:43Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/274769613",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2916#discussion_r274769950"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2916"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/274769950"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Max line length in Cython is 120, so no need to wrap this line.",
+            "commit_id": "d26818ef2dbea5cdb6debdf60b2eb819c4712991",
+            "created_at": "2019-04-12T06:07:57Z",
+            "diff_hunk": "@@ -3114,6 +3115,21 @@ def _inject_eval(self, node, func_name):\n                     node.pos, self.current_scope_node(), lenv))\n         return node\n \n+    def _inject_class(self, node):\n+        if node.name == u'__class__':\n+            # bare __class__ reference inside function\n+            def_node = self.current_scope_node()\n+            if (not isinstance(def_node, Nodes.DefNode) or not def_node.args or\n+                len(self.env_stack) < 2):",
+            "html_url": "https://github.com/cython/cython/pull/2916#discussion_r274769950",
+            "id": 274769950,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI3NDc2OTk1MA==",
+            "original_commit_id": "d26818ef2dbea5cdb6debdf60b2eb819c4712991",
+            "original_position": 17,
+            "path": "Cython/Compiler/ParseTreeTransforms.py",
+            "position": 17,
+            "pull_request_review_id": 225908385,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2916",
+            "updated_at": "2019-04-12T06:13:43Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/274769950",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2916#discussion_r274770345"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2916"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/274770345"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "This is a bit of an assumption. :)\r\nInstead, you can follow the `parent_scope` chain of the current scope to find the outer class.",
+            "commit_id": "d26818ef2dbea5cdb6debdf60b2eb819c4712991",
+            "created_at": "2019-04-12T06:10:13Z",
+            "diff_hunk": "@@ -3114,6 +3115,21 @@ def _inject_eval(self, node, func_name):\n                     node.pos, self.current_scope_node(), lenv))\n         return node\n \n+    def _inject_class(self, node):\n+        if node.name == u'__class__':\n+            # bare __class__ reference inside function\n+            def_node = self.current_scope_node()\n+            if (not isinstance(def_node, Nodes.DefNode) or not def_node.args or\n+                len(self.env_stack) < 2):\n+                return node\n+            class_node, class_scope = self.env_stack[-2]",
+            "html_url": "https://github.com/cython/cython/pull/2916#discussion_r274770345",
+            "id": 274770345,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI3NDc3MDM0NQ==",
+            "original_commit_id": "d26818ef2dbea5cdb6debdf60b2eb819c4712991",
+            "original_position": 19,
+            "path": "Cython/Compiler/ParseTreeTransforms.py",
+            "position": 19,
+            "pull_request_review_id": 225908385,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2916",
+            "updated_at": "2019-04-12T06:13:43Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/274770345",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2916#discussion_r274771929"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2916"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/274771929"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I just realised that the current `super()` implementation uses exactly this code. Probably worth at least extracting it into a common method to make it easier to change later.",
+            "commit_id": "d26818ef2dbea5cdb6debdf60b2eb819c4712991",
+            "created_at": "2019-04-12T06:18:51Z",
+            "diff_hunk": "@@ -3114,6 +3115,21 @@ def _inject_eval(self, node, func_name):\n                     node.pos, self.current_scope_node(), lenv))\n         return node\n \n+    def _inject_class(self, node):\n+        if node.name == u'__class__':\n+            # bare __class__ reference inside function\n+            def_node = self.current_scope_node()\n+            if (not isinstance(def_node, Nodes.DefNode) or not def_node.args or\n+                len(self.env_stack) < 2):\n+                return node\n+            class_node, class_scope = self.env_stack[-2]",
+            "html_url": "https://github.com/cython/cython/pull/2916#discussion_r274771929",
+            "id": 274771929,
+            "in_reply_to_id": 274770345,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI3NDc3MTkyOQ==",
+            "original_commit_id": "d26818ef2dbea5cdb6debdf60b2eb819c4712991",
+            "original_position": 19,
+            "path": "Cython/Compiler/ParseTreeTransforms.py",
+            "position": 19,
+            "pull_request_review_id": 225911217,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2916",
+            "updated_at": "2019-04-12T06:18:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/274771929",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/2916/comments",
     "commit_data": [
         {
@@ -346,7 +544,7 @@
     "state": "open",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/d26818ef2dbea5cdb6debdf60b2eb819c4712991",
     "title": "Use ClassCellNode for __class__ so that it's available in methods",
-    "updated_at": "2019-04-08T13:39:33Z",
+    "updated_at": "2019-04-12T06:18:51Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/2916",
     "user": {
         "avatar_url": "https://avatars2.githubusercontent.com/u/8655118?v=4",

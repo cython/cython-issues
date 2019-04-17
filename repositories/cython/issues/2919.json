@@ -1,0 +1,162 @@
+{
+    "assignee": null,
+    "assignees": [],
+    "author_association": "NONE",
+    "body": "We found that our regular Python code compiled with Cython behaves differently from the original. The issue appears to be with boolean constants being treated as if they were integers 0/1 (or the other way around). The following MRE reproduces the problem:\r\n\r\n### dt.pyx \r\n```\r\n# cython: language_level=3\r\n\r\ndef test():\r\n    j = (False, False)\r\n    k = (0, 0)\r\n    if k[0] is False or k[1] is False:\r\n        raise AssertionError(\"Oh noes! k = %r\" % (k,))\r\n    print(\"ok\")\r\n```\r\n\r\n### setup.py\r\n```\r\nfrom distutils.core import setup\r\nfrom Cython.Build import cythonize\r\nsetup(ext_modules = cythonize('dt.pyx'))\r\n```\r\n\r\n### Buillding\r\n```\r\n$ python setup.py build_ext --inplace\r\nCompiling dt.pyx because it changed.\r\n[1/1] Cythonizing dt.pyx\r\nrunning build_ext\r\nbuilding 'dt' extension\r\ngcc -Wno-unused-result -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -fwrapv -O3 -Wall -arch x86_64 -g -I/Library/Frameworks/Python.framework/Versions/3.6/include/python3.6m -c dt.c -o build/temp.macosx-10.9-x86_64-3.6/dt.o\r\ngcc -bundle -undefined dynamic_lookup -arch x86_64 -g build/temp.macosx-10.9-x86_64-3.6/dt.o -o /Users/pasha/github/datatable/temp/cy/dt.cpython-36m-darwin.so\r\n```\r\n\r\n### Running\r\n```\r\n$ python\r\nPython 3.6.6 (v3.6.6:4cf1f54eb7, Jun 26 2018, 19:50:54) \r\n[GCC 4.2.1 Compatible Apple LLVM 6.0 (clang-600.0.57)] on darwin\r\nType \"help\", \"copyright\", \"credits\" or \"license\" for more information.\r\n>>> from dt import test\r\n>>> test()\r\nTraceback (most recent call last):\r\n  File \"<stdin>\", line 1, in <module>\r\n  File \"dt.pyx\", line 7, in dt.test\r\n    raise AssertionError(\"Oh noes! k = %r\" % (k,))\r\nAssertionError: Oh noes! k = (False, False)\r\n>>> \r\n>>> def test():\r\n...     j = (False, False)\r\n...     k = (0, 0)\r\n...     if k[0] is False or k[1] is False:\r\n...         raise AssertionError(\"Oh noes! k = %r\" % (k,))\r\n...     print(\"ok\")\r\n... \r\n>>> test()\r\nok\r\n>>> \r\n```\r\n\r\nUsing Cython version 0.29.6 (https://files.pythonhosted.org/packages/d0/27/d7e796420dd1c69135ccf1362cd8ecf61a09db990a8335d65cd715b275b6/Cython-0.29.6-cp36-cp36m-macosx_10_6_intel.macosx_10_9_intel.macosx_10_9_x86_64.macosx_10_10_intel.macosx_10_10_x86_64.whl)",
+    "closed_at": null,
+    "comment_data": [
+        {
+            "author_association": "MEMBER",
+            "body": "Thanks for the report. My guess is that both tuples are treated as typed ctuples, but that the type deduplication for them does not distinguish the `int` and `bint` types and joins both together into `(bint, bint)`. It probably also depends on the order in which you define the tuples.\r\n\r\nThe deduplication happens in `declare_tuple_type()` in `Symtab.py`. It's worth investigating how the hashing and comparison works for the types at hand, to see what can be improved there.",
+            "created_at": "2019-04-12T05:52:52Z",
+            "html_url": "https://github.com/cython/cython/issues/2919#issuecomment-482446963",
+            "id": 482446963,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2919",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDQ4MjQ0Njk2Mw==",
+            "updated_at": "2019-04-12T05:53:20Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/482446963",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
+    "comments": 1,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/2919/comments",
+    "created_at": "2019-04-11T20:23:05Z",
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-04-12T05:45:49Z",
+            "event": "labeled",
+            "id": 2271433186,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDIyNzE0MzMxODY=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2271433186"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-04-12T05:45:49Z",
+            "event": "labeled",
+            "id": 2271433187,
+            "label": {
+                "color": "444444",
+                "name": "Type Analysis"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDIyNzE0MzMxODc=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2271433187"
+        }
+    ],
+    "events_url": "https://api.github.com/repos/cython/cython/issues/2919/events",
+    "html_url": "https://github.com/cython/cython/issues/2919",
+    "id": 432231169,
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425558824,
+            "name": "Type Analysis",
+            "node_id": "MDU6TGFiZWw0MjU1NTg4MjQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Type%20Analysis"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425553654,
+            "name": "defect",
+            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        }
+    ],
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/2919/labels{/name}",
+    "locked": false,
+    "milestone": null,
+    "node_id": "MDU6SXNzdWU0MzIyMzExNjk=",
+    "number": 2919,
+    "repository_url": "https://api.github.com/repos/cython/cython",
+    "state": "open",
+    "title": "Boolean constants get confused with integers",
+    "updated_at": "2019-04-12T05:53:20Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/2919",
+    "user": {
+        "avatar_url": "https://avatars0.githubusercontent.com/u/4231472?v=4",
+        "events_url": "https://api.github.com/users/st-pasha/events{/privacy}",
+        "followers_url": "https://api.github.com/users/st-pasha/followers",
+        "following_url": "https://api.github.com/users/st-pasha/following{/other_user}",
+        "gists_url": "https://api.github.com/users/st-pasha/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/st-pasha",
+        "id": 4231472,
+        "login": "st-pasha",
+        "node_id": "MDQ6VXNlcjQyMzE0NzI=",
+        "organizations_url": "https://api.github.com/users/st-pasha/orgs",
+        "received_events_url": "https://api.github.com/users/st-pasha/received_events",
+        "repos_url": "https://api.github.com/users/st-pasha/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/st-pasha/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/st-pasha/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/st-pasha"
+    }
+}
