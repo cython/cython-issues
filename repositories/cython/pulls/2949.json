@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/2949"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/aae70a1c8f3534877550efd6b6253b48e86f8159"
+            "href": "https://api.github.com/repos/cython/cython/statuses/7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298"
         }
     },
     "assignee": null,
@@ -52,8 +52,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 835,
-            "forks_count": 835,
+            "forks": 838,
+            "forks_count": 838,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -89,8 +89,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 637,
-            "open_issues_count": 637,
+            "open_issues": 640,
+            "open_issues_count": 640,
             "owner": {
                 "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -113,11 +113,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2019-05-07T02:02:05Z",
+            "pushed_at": "2019-05-15T12:30:50Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 54616,
+            "size": 54682,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 4058,
+            "stargazers_count": 4077,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -126,10 +126,10 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2019-05-08T19:40:13Z",
+            "updated_at": "2019-05-15T02:48:02Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 4058,
-            "watchers_count": 4058
+            "watchers": 4077,
+            "watchers_count": 4077
         },
         "sha": "cd76a42afd1345c68922bbdfb1c9ca11a5fd1aad",
         "user": {
@@ -154,8 +154,950 @@
         }
     },
     "body": "This addresses the suggestions from the comments in #2927.  There are two changes:\r\n1. whenever a function has only positional-only arguments and no **arg, no keyword unpacking code is generated, and instead an error is raised,\r\n2. if a function takes `n` positional-only args and `m` not-positional-only args, then the check that at least `n` positional args have been passed occurs in the very first switch statement.  The subsequent switch statements then exclude the cases `<n`,\r\n\r\nAs a concrete example of (1), here is the code generated for a signature like `test1(a, b, /)`:\r\n```\r\n    PyObject* values[2] = {0,0};\r\n    if (unlikely(__pyx_kwds)) {\r\n      PyErr_Format(PyExc_TypeError, \"test1() takes no keyword arguments\");\r\n      __PYX_ERR(0, 2, __pyx_L3_error)\r\n    } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {\r\n      goto __pyx_L5_argtuple_error;\r\n    } else {\r\n      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);\r\n      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);\r\n    }\r\n    __pyx_v_a = values[0];\r\n    __pyx_v_b = values[1];\r\n```\r\n\r\nFor (2), here is the start of the code generated for `test2(a, b, /, c, d)`:\r\n\r\n```\r\n    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_c,&__pyx_n_s_d,0};\r\n    PyObject* values[4] = {0,0,0,0};\r\n    if (unlikely(__pyx_kwds)) {\r\n      Py_ssize_t kw_args;\r\n      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);\r\n      switch (pos_args) {\r\n        case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);\r\n        CYTHON_FALLTHROUGH;\r\n        case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);\r\n        CYTHON_FALLTHROUGH;\r\n        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);\r\n        values[0] = PyTuple_GET_ITEM(__pyx_args, 0);\r\n        break;\r\n        case  1: CYTHON_FALLTHROUGH;\r\n        case  0:\r\n        goto __pyx_L5_argtuple_error;\r\n        default: goto __pyx_L5_argtuple_error;\r\n      }\r\n      kw_args = PyDict_Size(__pyx_kwds);\r\n      switch (pos_args) {\r\n        case  2:\r\n        ...\r\n        CYTHON_FALLTHROUGH;\r\n        case  3:\r\n        ...\r\n      }\r\n      if (unlikely(kw_args > 0)) {\r\n      ...\r\n\r\n```\r\n\r\nNote that the error message raised in (1) is `test1() takes no keyword arguments`.  This is copied from the error raised when keyword arguments are passed to a non-`METH_KWARGS` function.  CPython's error messages are different: `test1() got an unexpected keyword argument 'c'`.  If we want to match this, I can also generate code to extract the name of one of the passed keywords.  \r\n\r\nAnother difference to the CPython behaviour:  say we have `def f(a,b,/):`.  If we call `f(a=1)` in the Cython implementation we get `f() takes no keyword arguments`.  In CPython we get ` f() got some positional-only arguments passed as keyword arguments: 'a'`.  This error is thrown before even checking that the correct number of positional arguments is passed.  So to replicate this behaviour we'd need to check the names of the passed keyword arguments against the names of positional-only arguments at the very beginning of argument parsing.  Seems like too big a performance hit, but I'm not sure how important it is to try to exactly replicate the CPython errors.\r\n\r\n",
-    "closed_at": null,
-    "comment_data": [],
+    "closed_at": "2019-05-14T19:26:21Z",
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r282208467"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/282208467"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "If you care about a `bool` here, then the whole expression on the right side should be wrapped in `bool(…)`.",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-08T19:11:21Z",
+            "diff_hunk": "@@ -3691,10 +3691,13 @@ def generate_tuple_and_keyword_parsing_code(self, args, success_label, code):\n \n         code.putln('{')\n         all_args = tuple(positional_args) + tuple(kw_only_args)\n-        code.putln(\"static PyObject **%s[] = {%s};\" % (\n-            Naming.pykwdlist_cname,\n-            ','.join(['&%s' % code.intern_identifier(arg.name)\n-                      for arg in all_args if not arg.pos_only] + ['0'])))\n+        non_posonly_args = [arg for arg in all_args if not arg.pos_only]\n+        do_generate_kw_unpacking = bool(non_posonly_args) or self.starstar_arg",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r282208467",
+            "id": 282208467,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MjIwODQ2Nw==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 9,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 235239533,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/282208467",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r282210626"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/282210626"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Whitespace around the comparison operator improves readability.\r\nI generally prefer seeing the output if the test fails, which could be done like this:\r\n```python\r\n>>> all_args = f_call_posonly_stararg_kwarg(1, b=3, c=4)\r\n>>> all_args == (1, (), {'b': 3, 'c': 4}) or all_args\r\nTrue\r\n```",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-08T19:17:46Z",
+            "diff_hunk": "@@ -496,3 +496,34 @@ def f_call_one_optional_kwd(a,/,*,b=2):\n     (1, 3)\n     \"\"\"\n     return (a,b)\n+\n+def f_call_posonly_stararg(a,/,*args):\n+    \"\"\"\n+    >>> f_call_posonly_stararg(1)\n+    (1, ())\n+    >>> f_call_posonly_stararg(1, 2, 3, 4)\n+    (1, (2, 3, 4))\n+    \"\"\"\n+    return (a,args)\n+\n+def f_call_posonly_kwarg(a,/,**kw):\n+    \"\"\"\n+    >>> f_call_posonly_kwarg(1)\n+    (1, {})\n+    >>> f_call_posonly_kwarg(1, b=2, c=3, d=4)==(1, {'b': 2, 'c': 3, 'd': 4})\n+    True\n+    \"\"\"\n+    return (a,kw)\n+\n+def f_call_posonly_stararg_kwarg(a,/,*args,**kw):\n+    \"\"\"\n+    >>> f_call_posonly_stararg_kwarg(1)\n+    (1, (), {})\n+    >>> f_call_posonly_stararg_kwarg(1, 2)\n+    (1, (2,), {})\n+    >>> f_call_posonly_stararg_kwarg(1, b=3, c=4)==(1, (), {'b': 3, 'c': 4})",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r282210626",
+            "id": 282210626,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MjIxMDYyNg==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 56,
+            "path": "tests/run/posonly.pyx",
+            "position": null,
+            "pull_request_review_id": 235239533,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/282210626",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r282211595"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/282211595"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "This looks like a place where we could call `__Pyx_ParseOptionalKeywords()` instead to raise an appropriate error that names the argument. CPython gives me this:\r\n```python\r\n>>> def f(a,b,/): pass\r\n>>> f(a=1,b=2)\r\nTraceback (most recent call last):\r\nTypeError: f() got some positional-only arguments passed as keyword arguments: 'a, b'\r\n```",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-08T19:20:36Z",
+            "diff_hunk": "@@ -3710,9 +3713,14 @@ def generate_tuple_and_keyword_parsing_code(self, args, success_label, code):\n         code.putln(\"if (%s(%s)) {\" % (\n             (self.num_required_kw_args > 0) and \"likely\" or \"unlikely\",\n             Naming.kwds_cname))\n-        self.generate_keyword_unpacking_code(\n-            min_positional_args, max_positional_args,\n-            has_fixed_positional_count, has_kw_only_args, all_args, argtuple_error_label, code)\n+\n+        if do_generate_kw_unpacking:\n+            self.generate_keyword_unpacking_code(\n+                min_positional_args, max_positional_args,\n+                has_fixed_positional_count, has_kw_only_args, all_args, argtuple_error_label, code)\n+        else:\n+            code.putln(\"PyErr_Format(PyExc_TypeError, \\\"%s() takes no keyword arguments\\\");\" % self.name)",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r282211595",
+            "id": 282211595,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MjIxMTU5NQ==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 31,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 235239533,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/282211595",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r282212866"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/282212866"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I think we know this already, right? There's an instance attribute for it.",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-08T19:24:35Z",
+            "diff_hunk": "@@ -3877,6 +3885,14 @@ def generate_argument_values_setup_code(self, args, code):\n     def generate_keyword_unpacking_code(self, min_positional_args, max_positional_args,\n                                         has_fixed_positional_count,\n                                         has_kw_only_args, all_args, argtuple_error_label, code):\n+        # First we count how many arguments must be passed as positional",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r282212866",
+            "id": 282212866,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MjIxMjg2Ng==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 40,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 80,
+            "pull_request_review_id": 235239533,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/282212866",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r282214057"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/282214057"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "This looks like it could be done after the loop, by running the outer loop only up to `num_required_posonly_args` instead of `-1`.",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-08T19:28:10Z",
+            "diff_hunk": "@@ -3885,10 +3901,24 @@ def generate_keyword_unpacking_code(self, min_positional_args, max_positional_ar\n             code.putln('default:')\n         for i in range(max_positional_args-1, -1, -1):\n             code.put('case %2d: ' % (i+1))\n-            code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n-                i, Naming.args_cname, i))\n-            code.putln('CYTHON_FALLTHROUGH;')\n-        code.putln('case  0: break;')\n+            if i+1 > num_required_posonly_args:\n+                code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n+                    i, Naming.args_cname, i))\n+                code.putln('CYTHON_FALLTHROUGH;')\n+            elif i+1 == num_required_posonly_args:\n+                for j in range(num_required_posonly_args-1, -1, -1):",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r282214057",
+            "id": 282214057,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MjIxNDA1Nw==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 64,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 235239533,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/282214057",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r282215598"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/282215598"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "You could generate a one-liner here, in which case you can extract the `code.put('case 0: ')` from the conditional to make it clear that it's always handled, just in two different ways.",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-08T19:32:23Z",
+            "diff_hunk": "@@ -3885,10 +3901,24 @@ def generate_keyword_unpacking_code(self, min_positional_args, max_positional_ar\n             code.putln('default:')\n         for i in range(max_positional_args-1, -1, -1):\n             code.put('case %2d: ' % (i+1))\n-            code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n-                i, Naming.args_cname, i))\n-            code.putln('CYTHON_FALLTHROUGH;')\n-        code.putln('case  0: break;')\n+            if i+1 > num_required_posonly_args:\n+                code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n+                    i, Naming.args_cname, i))\n+                code.putln('CYTHON_FALLTHROUGH;')\n+            elif i+1 == num_required_posonly_args:\n+                for j in range(num_required_posonly_args-1, -1, -1):\n+                    code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n+                        j, Naming.args_cname, j))\n+                code.putln('break;')\n+            else:\n+                code.putln('CYTHON_FALLTHROUGH;')\n+\n+        if num_required_posonly_args == 0:\n+            code.putln('case  0: break;')\n+        else:\n+            # catch-all for not enough pos-only args passed\n+            code.putln('case  0:')\n+            code.put_goto(argtuple_error_label)",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r282215598",
+            "id": 282215598,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MjIxNTU5OA==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 76,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 117,
+            "pull_request_review_id": 235239533,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/282215598",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r282216396"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/282216396"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Maybe like this?\r\n`for i, arg in enumerate(all_args[num_posonly_args:last_required_arg+1], num_posonly_args):`",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-08T19:34:44Z",
+            "diff_hunk": "@@ -3906,31 +3936,24 @@ def generate_keyword_unpacking_code(self, min_positional_args, max_positional_ar\n         code.putln('kw_args = PyDict_Size(%s);' % Naming.kwds_cname)\n         if self.num_required_args or max_positional_args > 0:\n             last_required_arg = -1\n-            last_required_posonly_arg = -1\n             for i, arg in enumerate(all_args):\n                 if not arg.default:\n                     last_required_arg = i\n-                if arg.pos_only and not arg.default:\n-                    last_required_posonly_arg = i\n             if last_required_arg < max_positional_args:\n                 last_required_arg = max_positional_args-1\n-            if max_positional_args > 0:\n+            if max_positional_args > num_posonly_args:\n                 code.putln('switch (pos_args) {')\n             for i, arg in enumerate(all_args[:last_required_arg+1]):",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r282216396",
+            "id": 282216396,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MjIxNjM5Ng==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 95,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 235239533,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/282216396",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283158692"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283158692"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Done",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-12T22:56:19Z",
+            "diff_hunk": "@@ -3691,10 +3691,13 @@ def generate_tuple_and_keyword_parsing_code(self, args, success_label, code):\n \n         code.putln('{')\n         all_args = tuple(positional_args) + tuple(kw_only_args)\n-        code.putln(\"static PyObject **%s[] = {%s};\" % (\n-            Naming.pykwdlist_cname,\n-            ','.join(['&%s' % code.intern_identifier(arg.name)\n-                      for arg in all_args if not arg.pos_only] + ['0'])))\n+        non_posonly_args = [arg for arg in all_args if not arg.pos_only]\n+        do_generate_kw_unpacking = bool(non_posonly_args) or self.starstar_arg",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283158692",
+            "id": 283158692,
+            "in_reply_to_id": 282208467,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MzE1ODY5Mg==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 9,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 236440375,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283158692",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283158695"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283158695"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Done",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-12T22:56:25Z",
+            "diff_hunk": "@@ -496,3 +496,34 @@ def f_call_one_optional_kwd(a,/,*,b=2):\n     (1, 3)\n     \"\"\"\n     return (a,b)\n+\n+def f_call_posonly_stararg(a,/,*args):\n+    \"\"\"\n+    >>> f_call_posonly_stararg(1)\n+    (1, ())\n+    >>> f_call_posonly_stararg(1, 2, 3, 4)\n+    (1, (2, 3, 4))\n+    \"\"\"\n+    return (a,args)\n+\n+def f_call_posonly_kwarg(a,/,**kw):\n+    \"\"\"\n+    >>> f_call_posonly_kwarg(1)\n+    (1, {})\n+    >>> f_call_posonly_kwarg(1, b=2, c=3, d=4)==(1, {'b': 2, 'c': 3, 'd': 4})\n+    True\n+    \"\"\"\n+    return (a,kw)\n+\n+def f_call_posonly_stararg_kwarg(a,/,*args,**kw):\n+    \"\"\"\n+    >>> f_call_posonly_stararg_kwarg(1)\n+    (1, (), {})\n+    >>> f_call_posonly_stararg_kwarg(1, 2)\n+    (1, (2,), {})\n+    >>> f_call_posonly_stararg_kwarg(1, b=3, c=4)==(1, (), {'b': 3, 'c': 4})",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283158695",
+            "id": 283158695,
+            "in_reply_to_id": 282210626,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MzE1ODY5NQ==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 56,
+            "path": "tests/run/posonly.pyx",
+            "position": null,
+            "pull_request_review_id": 236440378,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283158695",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283158701"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283158701"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Done",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-12T22:56:32Z",
+            "diff_hunk": "@@ -3710,9 +3713,14 @@ def generate_tuple_and_keyword_parsing_code(self, args, success_label, code):\n         code.putln(\"if (%s(%s)) {\" % (\n             (self.num_required_kw_args > 0) and \"likely\" or \"unlikely\",\n             Naming.kwds_cname))\n-        self.generate_keyword_unpacking_code(\n-            min_positional_args, max_positional_args,\n-            has_fixed_positional_count, has_kw_only_args, all_args, argtuple_error_label, code)\n+\n+        if do_generate_kw_unpacking:\n+            self.generate_keyword_unpacking_code(\n+                min_positional_args, max_positional_args,\n+                has_fixed_positional_count, has_kw_only_args, all_args, argtuple_error_label, code)\n+        else:\n+            code.putln(\"PyErr_Format(PyExc_TypeError, \\\"%s() takes no keyword arguments\\\");\" % self.name)",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283158701",
+            "id": 283158701,
+            "in_reply_to_id": 282211595,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MzE1ODcwMQ==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 31,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 236440383,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283158701",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283158727"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283158727"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "This instance attribute is sometimes different from this value, so I didn't change this.  See the longer comment below for details.",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-12T22:57:23Z",
+            "diff_hunk": "@@ -3877,6 +3885,14 @@ def generate_argument_values_setup_code(self, args, code):\n     def generate_keyword_unpacking_code(self, min_positional_args, max_positional_args,\n                                         has_fixed_positional_count,\n                                         has_kw_only_args, all_args, argtuple_error_label, code):\n+        # First we count how many arguments must be passed as positional",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283158727",
+            "id": 283158727,
+            "in_reply_to_id": 282212866,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MzE1ODcyNw==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 40,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 80,
+            "pull_request_review_id": 236440414,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283158727",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283158730"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283158730"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Done",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-12T22:57:28Z",
+            "diff_hunk": "@@ -3885,10 +3901,24 @@ def generate_keyword_unpacking_code(self, min_positional_args, max_positional_ar\n             code.putln('default:')\n         for i in range(max_positional_args-1, -1, -1):\n             code.put('case %2d: ' % (i+1))\n-            code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n-                i, Naming.args_cname, i))\n-            code.putln('CYTHON_FALLTHROUGH;')\n-        code.putln('case  0: break;')\n+            if i+1 > num_required_posonly_args:\n+                code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n+                    i, Naming.args_cname, i))\n+                code.putln('CYTHON_FALLTHROUGH;')\n+            elif i+1 == num_required_posonly_args:\n+                for j in range(num_required_posonly_args-1, -1, -1):",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283158730",
+            "id": 283158730,
+            "in_reply_to_id": 282214057,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MzE1ODczMA==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 64,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 236440418,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283158730",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283158733"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283158733"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Done",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-12T22:57:31Z",
+            "diff_hunk": "@@ -3885,10 +3901,24 @@ def generate_keyword_unpacking_code(self, min_positional_args, max_positional_ar\n             code.putln('default:')\n         for i in range(max_positional_args-1, -1, -1):\n             code.put('case %2d: ' % (i+1))\n-            code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n-                i, Naming.args_cname, i))\n-            code.putln('CYTHON_FALLTHROUGH;')\n-        code.putln('case  0: break;')\n+            if i+1 > num_required_posonly_args:\n+                code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n+                    i, Naming.args_cname, i))\n+                code.putln('CYTHON_FALLTHROUGH;')\n+            elif i+1 == num_required_posonly_args:\n+                for j in range(num_required_posonly_args-1, -1, -1):\n+                    code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n+                        j, Naming.args_cname, j))\n+                code.putln('break;')\n+            else:\n+                code.putln('CYTHON_FALLTHROUGH;')\n+\n+        if num_required_posonly_args == 0:\n+            code.putln('case  0: break;')\n+        else:\n+            # catch-all for not enough pos-only args passed\n+            code.putln('case  0:')\n+            code.put_goto(argtuple_error_label)",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283158733",
+            "id": 283158733,
+            "in_reply_to_id": 282215598,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MzE1ODczMw==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 76,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 117,
+            "pull_request_review_id": 236440420,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283158733",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283158736"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283158736"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Done",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-12T22:57:35Z",
+            "diff_hunk": "@@ -3906,31 +3936,24 @@ def generate_keyword_unpacking_code(self, min_positional_args, max_positional_ar\n         code.putln('kw_args = PyDict_Size(%s);' % Naming.kwds_cname)\n         if self.num_required_args or max_positional_args > 0:\n             last_required_arg = -1\n-            last_required_posonly_arg = -1\n             for i, arg in enumerate(all_args):\n                 if not arg.default:\n                     last_required_arg = i\n-                if arg.pos_only and not arg.default:\n-                    last_required_posonly_arg = i\n             if last_required_arg < max_positional_args:\n                 last_required_arg = max_positional_args-1\n-            if max_positional_args > 0:\n+            if max_positional_args > num_posonly_args:\n                 code.putln('switch (pos_args) {')\n             for i, arg in enumerate(all_args[:last_required_arg+1]):",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283158736",
+            "id": 283158736,
+            "in_reply_to_id": 282216396,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MzE1ODczNg==",
+            "original_commit_id": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+            "original_position": 95,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 236440424,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283158736",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283461463"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283461463"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "This is a pure error case, right? In that case, it's at least `likely()` instead of `unlikely()` (these are branch prediction macros). Not sure if this should enforce the expected error return more strongly in any way…?",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-13T17:48:56Z",
+            "diff_hunk": "@@ -3709,18 +3707,41 @@ def generate_tuple_and_keyword_parsing_code(self, args, success_label, code):\n         # was passed for them.\n         self.generate_argument_values_setup_code(all_args, code)\n \n+        # If all args are positional-only, we can raise an error\n+        # straight away if we receive a non-empty kw-dict.\n+        # This requires a PyDict_Size call.  This call is wasteful\n+        # for functions which do accept kw-args, so we do not generate\n+        # the PyDict_Size call unless all args are positional-only.\n+        accept_kwd_args = non_posonly_args or self.starstar_arg\n+        if accept_kwd_args:\n+            kw_unpacking_condition = Naming.kwds_cname\n+        else:\n+            kw_unpacking_condition = \"%s && PyDict_Size(%s) > 0\" % (\n+                Naming.kwds_cname, Naming.kwds_cname)\n+\n         # --- optimised code when we receive keyword arguments\n         code.putln(\"if (%s(%s)) {\" % (\n             (self.num_required_kw_args > 0) and \"likely\" or \"unlikely\",\n-            Naming.kwds_cname))\n+            kw_unpacking_condition))\n \n-        if do_generate_kw_unpacking:\n+        if accept_kwd_args:\n             self.generate_keyword_unpacking_code(\n                 min_positional_args, max_positional_args,\n                 has_fixed_positional_count, has_kw_only_args, all_args, argtuple_error_label, code)\n         else:\n-            code.putln(\"PyErr_Format(PyExc_TypeError, \\\"%s() takes no keyword arguments\\\");\" % self.name)\n-            code.putln(code.error_goto(self.pos))\n+            # Here we do not accept kw-args but we are passed a non-empty kw-dict.\n+            # We call ParseOptionalKeywords which will raise an appropriate error if\n+            # the kw-args dict passed is non-empty.\n+            code.globalstate.use_utility_code(\n+                UtilityCode.load_cached(\"ParseKeywords\", \"FunctionArguments.c\"))\n+            code.putln('if (unlikely(__Pyx_ParseOptionalKeywords(%s, %s, %s, %s, %s, \"%s\") < 0)) %s' % (",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283461463",
+            "id": 283461463,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MzQ2MTQ2Mw==",
+            "original_commit_id": "ca25dfd2c0b0ac78537875b338dfbd13ddbeaace",
+            "original_position": 52,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 236825030,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283461463",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283464718"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283464718"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "This part looks a bit redundant with the `default:` case below – but I guess it's safer to just always generate it.",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-13T17:57:08Z",
+            "diff_hunk": "@@ -3899,25 +3920,27 @@ def generate_keyword_unpacking_code(self, min_positional_args, max_positional_ar\n         code.putln('switch (pos_args) {')\n         if self.star_arg:\n             code.putln('default:')\n-        for i in range(max_positional_args-1, -1, -1):\n+\n+        for i in range(max_positional_args-1, num_required_posonly_args-1, -1):\n             code.put('case %2d: ' % (i+1))\n-            if i+1 > num_required_posonly_args:\n+            code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n+                i, Naming.args_cname, i))\n+            code.putln('CYTHON_FALLTHROUGH;')\n+        if num_required_posonly_args > 0:\n+            code.put('case %2d: ' % num_required_posonly_args)\n+            for i in range(num_required_posonly_args-1, -1, -1):\n                 code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n                     i, Naming.args_cname, i))\n-                code.putln('CYTHON_FALLTHROUGH;')\n-            elif i+1 == num_required_posonly_args:\n-                for j in range(num_required_posonly_args-1, -1, -1):\n-                    code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n-                        j, Naming.args_cname, j))\n-                code.putln('break;')\n-            else:\n-                code.putln('CYTHON_FALLTHROUGH;')\n+            code.putln('break;')\n+        for i in range(num_required_posonly_args-2, -1, -1):\n+            code.put('case %2d: ' % (i+1))\n+            code.putln('CYTHON_FALLTHROUGH;')",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283464718",
+            "id": 283464718,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MzQ2NDcxOA==",
+            "original_commit_id": "ca25dfd2c0b0ac78537875b338dfbd13ddbeaace",
+            "original_position": 91,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 110,
+            "pull_request_review_id": 236825030,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:09:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283464718",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283619846"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283619846"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Done",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-14T04:12:40Z",
+            "diff_hunk": "@@ -3709,18 +3707,41 @@ def generate_tuple_and_keyword_parsing_code(self, args, success_label, code):\n         # was passed for them.\n         self.generate_argument_values_setup_code(all_args, code)\n \n+        # If all args are positional-only, we can raise an error\n+        # straight away if we receive a non-empty kw-dict.\n+        # This requires a PyDict_Size call.  This call is wasteful\n+        # for functions which do accept kw-args, so we do not generate\n+        # the PyDict_Size call unless all args are positional-only.\n+        accept_kwd_args = non_posonly_args or self.starstar_arg\n+        if accept_kwd_args:\n+            kw_unpacking_condition = Naming.kwds_cname\n+        else:\n+            kw_unpacking_condition = \"%s && PyDict_Size(%s) > 0\" % (\n+                Naming.kwds_cname, Naming.kwds_cname)\n+\n         # --- optimised code when we receive keyword arguments\n         code.putln(\"if (%s(%s)) {\" % (\n             (self.num_required_kw_args > 0) and \"likely\" or \"unlikely\",\n-            Naming.kwds_cname))\n+            kw_unpacking_condition))\n \n-        if do_generate_kw_unpacking:\n+        if accept_kwd_args:\n             self.generate_keyword_unpacking_code(\n                 min_positional_args, max_positional_args,\n                 has_fixed_positional_count, has_kw_only_args, all_args, argtuple_error_label, code)\n         else:\n-            code.putln(\"PyErr_Format(PyExc_TypeError, \\\"%s() takes no keyword arguments\\\");\" % self.name)\n-            code.putln(code.error_goto(self.pos))\n+            # Here we do not accept kw-args but we are passed a non-empty kw-dict.\n+            # We call ParseOptionalKeywords which will raise an appropriate error if\n+            # the kw-args dict passed is non-empty.\n+            code.globalstate.use_utility_code(\n+                UtilityCode.load_cached(\"ParseKeywords\", \"FunctionArguments.c\"))\n+            code.putln('if (unlikely(__Pyx_ParseOptionalKeywords(%s, %s, %s, %s, %s, \"%s\") < 0)) %s' % (",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283619846",
+            "id": 283619846,
+            "in_reply_to_id": 283461463,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MzYxOTg0Ng==",
+            "original_commit_id": "ca25dfd2c0b0ac78537875b338dfbd13ddbeaace",
+            "original_position": 52,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 237018806,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:12:40Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283619846",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283620668"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283620668"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Yeah, when there is no *arg these cases are redundant (though not redundant when there is a *arg).  I thought about dealing with this case differently, but wasn't sure if it was worth adding yet another case to the already complicated logic.  Happy to add this case if you think it's a good trade-off, for now I've left it as it is.",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-14T04:19:04Z",
+            "diff_hunk": "@@ -3899,25 +3920,27 @@ def generate_keyword_unpacking_code(self, min_positional_args, max_positional_ar\n         code.putln('switch (pos_args) {')\n         if self.star_arg:\n             code.putln('default:')\n-        for i in range(max_positional_args-1, -1, -1):\n+\n+        for i in range(max_positional_args-1, num_required_posonly_args-1, -1):\n             code.put('case %2d: ' % (i+1))\n-            if i+1 > num_required_posonly_args:\n+            code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n+                i, Naming.args_cname, i))\n+            code.putln('CYTHON_FALLTHROUGH;')\n+        if num_required_posonly_args > 0:\n+            code.put('case %2d: ' % num_required_posonly_args)\n+            for i in range(num_required_posonly_args-1, -1, -1):\n                 code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n                     i, Naming.args_cname, i))\n-                code.putln('CYTHON_FALLTHROUGH;')\n-            elif i+1 == num_required_posonly_args:\n-                for j in range(num_required_posonly_args-1, -1, -1):\n-                    code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n-                        j, Naming.args_cname, j))\n-                code.putln('break;')\n-            else:\n-                code.putln('CYTHON_FALLTHROUGH;')\n+            code.putln('break;')\n+        for i in range(num_required_posonly_args-2, -1, -1):\n+            code.put('case %2d: ' % (i+1))\n+            code.putln('CYTHON_FALLTHROUGH;')",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283620668",
+            "id": 283620668,
+            "in_reply_to_id": 283464718,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4MzYyMDY2OA==",
+            "original_commit_id": "ca25dfd2c0b0ac78537875b338dfbd13ddbeaace",
+            "original_position": 91,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 110,
+            "pull_request_review_id": 237019891,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T04:19:04Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283620668",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/2949#discussion_r283962342"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/2949"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/283962342"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I think it's ok to let the C compiler deal with it.",
+            "commit_id": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "created_at": "2019-05-14T19:26:01Z",
+            "diff_hunk": "@@ -3899,25 +3920,27 @@ def generate_keyword_unpacking_code(self, min_positional_args, max_positional_ar\n         code.putln('switch (pos_args) {')\n         if self.star_arg:\n             code.putln('default:')\n-        for i in range(max_positional_args-1, -1, -1):\n+\n+        for i in range(max_positional_args-1, num_required_posonly_args-1, -1):\n             code.put('case %2d: ' % (i+1))\n-            if i+1 > num_required_posonly_args:\n+            code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n+                i, Naming.args_cname, i))\n+            code.putln('CYTHON_FALLTHROUGH;')\n+        if num_required_posonly_args > 0:\n+            code.put('case %2d: ' % num_required_posonly_args)\n+            for i in range(num_required_posonly_args-1, -1, -1):\n                 code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n                     i, Naming.args_cname, i))\n-                code.putln('CYTHON_FALLTHROUGH;')\n-            elif i+1 == num_required_posonly_args:\n-                for j in range(num_required_posonly_args-1, -1, -1):\n-                    code.putln(\"values[%d] = PyTuple_GET_ITEM(%s, %d);\" % (\n-                        j, Naming.args_cname, j))\n-                code.putln('break;')\n-            else:\n-                code.putln('CYTHON_FALLTHROUGH;')\n+            code.putln('break;')\n+        for i in range(num_required_posonly_args-2, -1, -1):\n+            code.put('case %2d: ' % (i+1))\n+            code.putln('CYTHON_FALLTHROUGH;')",
+            "html_url": "https://github.com/cython/cython/pull/2949#discussion_r283962342",
+            "id": 283962342,
+            "in_reply_to_id": 283464718,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDI4Mzk2MjM0Mg==",
+            "original_commit_id": "ca25dfd2c0b0ac78537875b338dfbd13ddbeaace",
+            "original_position": 91,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 110,
+            "pull_request_review_id": 237453387,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/2949",
+            "updated_at": "2019-05-14T19:26:01Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/283962342",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/2949/comments",
     "commit_data": [
         {
@@ -315,6 +1257,322 @@
             ],
             "sha": "aae70a1c8f3534877550efd6b6253b48e86f8159",
             "url": "https://api.github.com/repos/cython/cython/commits/aae70a1c8f3534877550efd6b6253b48e86f8159"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/ca25dfd2c0b0ac78537875b338dfbd13ddbeaace/comments",
+            "commit": {
+                "author": {
+                    "date": "2019-05-11T18:51:24Z",
+                    "email": "tobinrj@tcd.ie",
+                    "name": "Josh Tobin"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2019-05-12T19:33:34Z",
+                    "email": "tobinrj@tcd.ie",
+                    "name": "Josh Tobin"
+                },
+                "message": "posonly_optimization: address review feedback",
+                "tree": {
+                    "sha": "46ea669aa086ec448de31103c3fe4040dedb5ef7",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/46ea669aa086ec448de31103c3fe4040dedb5ef7"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/ca25dfd2c0b0ac78537875b338dfbd13ddbeaace",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            },
+            "html_url": "https://github.com/cython/cython/commit/ca25dfd2c0b0ac78537875b338dfbd13ddbeaace",
+            "node_id": "MDY6Q29tbWl0MTgxNTQxNTUzOmNhMjVkZmQyYzBiMGFjNzg1Mzc4NzViMzM4ZGZiZDEzZGRiZWFhY2U=",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/aae70a1c8f3534877550efd6b6253b48e86f8159",
+                    "sha": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+                    "url": "https://api.github.com/repos/cython/cython/commits/aae70a1c8f3534877550efd6b6253b48e86f8159"
+                }
+            ],
+            "sha": "ca25dfd2c0b0ac78537875b338dfbd13ddbeaace",
+            "url": "https://api.github.com/repos/cython/cython/commits/ca25dfd2c0b0ac78537875b338dfbd13ddbeaace"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/24941cb7aa4a1c3367ddf69c83f3357918399f77/comments",
+            "commit": {
+                "author": {
+                    "date": "2019-05-12T00:50:46Z",
+                    "email": "tobinrj@tcd.ie",
+                    "name": "Josh Tobin"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2019-05-12T19:33:38Z",
+                    "email": "tobinrj@tcd.ie",
+                    "name": "Josh Tobin"
+                },
+                "message": "posonly_args: bugfix & test",
+                "tree": {
+                    "sha": "1d39522182bd614f68698daad5dfc4765fedfbd7",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/1d39522182bd614f68698daad5dfc4765fedfbd7"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/24941cb7aa4a1c3367ddf69c83f3357918399f77",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            },
+            "html_url": "https://github.com/cython/cython/commit/24941cb7aa4a1c3367ddf69c83f3357918399f77",
+            "node_id": "MDY6Q29tbWl0MTgxNTQxNTUzOjI0OTQxY2I3YWE0YTFjMzM2N2RkZjY5YzgzZjMzNTc5MTgzOTlmNzc=",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/ca25dfd2c0b0ac78537875b338dfbd13ddbeaace",
+                    "sha": "ca25dfd2c0b0ac78537875b338dfbd13ddbeaace",
+                    "url": "https://api.github.com/repos/cython/cython/commits/ca25dfd2c0b0ac78537875b338dfbd13ddbeaace"
+                }
+            ],
+            "sha": "24941cb7aa4a1c3367ddf69c83f3357918399f77",
+            "url": "https://api.github.com/repos/cython/cython/commits/24941cb7aa4a1c3367ddf69c83f3357918399f77"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/33e01738e515ea66ec9b2308eacf285b4e1706db/comments",
+            "commit": {
+                "author": {
+                    "date": "2019-05-13T01:01:42Z",
+                    "email": "tobinrj@tcd.ie",
+                    "name": "Josh Tobin"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2019-05-13T01:01:42Z",
+                    "email": "tobinrj@tcd.ie",
+                    "name": "Josh Tobin"
+                },
+                "message": "posonly: fix test for some python versions",
+                "tree": {
+                    "sha": "2f612159e4702c8b52fa2b367c692eec9f22b240",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/2f612159e4702c8b52fa2b367c692eec9f22b240"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/33e01738e515ea66ec9b2308eacf285b4e1706db",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            },
+            "html_url": "https://github.com/cython/cython/commit/33e01738e515ea66ec9b2308eacf285b4e1706db",
+            "node_id": "MDY6Q29tbWl0MTgxNTQxNTUzOjMzZTAxNzM4ZTUxNWVhNjZlYzliMjMwOGVhY2YyODViNGUxNzA2ZGI=",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/24941cb7aa4a1c3367ddf69c83f3357918399f77",
+                    "sha": "24941cb7aa4a1c3367ddf69c83f3357918399f77",
+                    "url": "https://api.github.com/repos/cython/cython/commits/24941cb7aa4a1c3367ddf69c83f3357918399f77"
+                }
+            ],
+            "sha": "33e01738e515ea66ec9b2308eacf285b4e1706db",
+            "url": "https://api.github.com/repos/cython/cython/commits/33e01738e515ea66ec9b2308eacf285b4e1706db"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298/comments",
+            "commit": {
+                "author": {
+                    "date": "2019-05-14T04:07:08Z",
+                    "email": "tobinrj@tcd.ie",
+                    "name": "Josh Tobin"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2019-05-14T04:07:08Z",
+                    "email": "tobinrj@tcd.ie",
+                    "name": "Josh Tobin"
+                },
+                "message": "posonly optimization: more code review feedback",
+                "tree": {
+                    "sha": "1d223bf795ce081825c04da916d9d089ce540dc1",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/1d223bf795ce081825c04da916d9d089ce540dc1"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
+                "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/rjtobin/followers",
+                "following_url": "https://api.github.com/users/rjtobin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/rjtobin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/rjtobin",
+                "id": 5141467,
+                "login": "rjtobin",
+                "node_id": "MDQ6VXNlcjUxNDE0Njc=",
+                "organizations_url": "https://api.github.com/users/rjtobin/orgs",
+                "received_events_url": "https://api.github.com/users/rjtobin/received_events",
+                "repos_url": "https://api.github.com/users/rjtobin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/rjtobin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/rjtobin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/rjtobin"
+            },
+            "html_url": "https://github.com/cython/cython/commit/7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "node_id": "MDY6Q29tbWl0MTgxNTQxNTUzOjdiNWFlOGZjMDFkOWEwODFlOTFjYjVmY2EwZjdkYTgwZjg2YTQyOTg=",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/33e01738e515ea66ec9b2308eacf285b4e1706db",
+                    "sha": "33e01738e515ea66ec9b2308eacf285b4e1706db",
+                    "url": "https://api.github.com/repos/cython/cython/commits/33e01738e515ea66ec9b2308eacf285b4e1706db"
+                }
+            ],
+            "sha": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
+            "url": "https://api.github.com/repos/cython/cython/commits/7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/2949/commits",
@@ -405,9 +1663,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/rjtobin/cython/pulls{/number}",
-            "pushed_at": "2019-05-07T01:34:11Z",
+            "pushed_at": "2019-05-14T04:09:46Z",
             "releases_url": "https://api.github.com/repos/rjtobin/cython/releases{/id}",
-            "size": 54536,
+            "size": 54807,
             "ssh_url": "git@github.com:rjtobin/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/rjtobin/cython/stargazers",
@@ -423,7 +1681,7 @@
             "watchers": 0,
             "watchers_count": 0
         },
-        "sha": "aae70a1c8f3534877550efd6b6253b48e86f8159",
+        "sha": "7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
         "user": {
             "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
             "events_url": "https://api.github.com/users/rjtobin/events{/privacy}",
@@ -448,11 +1706,64 @@
     "html_url": "https://github.com/cython/cython/pull/2949",
     "id": 276413834,
     "issue_url": "https://api.github.com/repos/cython/cython/issues/2949",
-    "labels": [],
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425556330,
+            "name": "Code Generation",
+            "node_id": "MDU6TGFiZWw0MjU1NTYzMzA=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
+        },
+        {
+            "color": "444444",
+            "default": true,
+            "id": 425556243,
+            "name": "enhancement",
+            "node_id": "MDU6TGFiZWw0MjU1NTYyNDM=",
+            "url": "https://api.github.com/repos/cython/cython/labels/enhancement"
+        }
+    ],
     "locked": false,
-    "merge_commit_sha": "3d250eee02cd910e98f36e1c3a9d019ba5a1f9fe",
-    "merged_at": null,
-    "milestone": null,
+    "merge_commit_sha": "652f061d47128a64fed793f8d54d352620ba934a",
+    "merged_at": "2019-05-14T19:26:21Z",
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 67,
+        "created_at": "2018-08-18T06:33:08Z",
+        "creator": {
+            "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/scoder"
+        },
+        "description": "Goals:\r\n– New version scheme: 3.x instead of 0.x.\r\n– Change default `language_level` from `2` to `3`.\r\n– Change default for `binding` directive from `False` to `True`.\r\n– Fix some Python compatibility issues (if possible, allowing for breaking changes).",
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestone/58",
+        "id": 3580387,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
+        "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
+        "number": 58,
+        "open_issues": 23,
+        "state": "open",
+        "title": "3.0",
+        "updated_at": "2019-05-14T19:26:29Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/58"
+    },
     "node_id": "MDExOlB1bGxSZXF1ZXN0Mjc2NDEzODM0",
     "number": 2949,
     "patch_url": "https://github.com/cython/cython/pull/2949.patch",
@@ -460,10 +1771,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/2949/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/aae70a1c8f3534877550efd6b6253b48e86f8159",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/7b5ae8fc01d9a081e91cb5fca0f7da80f86a4298",
     "title": "Positional-only code generation optimization",
-    "updated_at": "2019-05-08T04:04:47Z",
+    "updated_at": "2019-05-14T19:26:38Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/2949",
     "user": {
         "avatar_url": "https://avatars3.githubusercontent.com/u/5141467?v=4",
