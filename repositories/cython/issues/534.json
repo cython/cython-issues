@@ -1,19 +1,22 @@
 {
     "assignee": null,
     "assignees": [],
-    "body": "Instantiating a template class like so works fine in Cython:\r\n\r\n```cython\r\nnew MyClass[int *]()\r\n```\r\n\r\nHowever, this gives a syntax error:\r\n\r\n```cython\r\ncdef extern from \"foo.h\":\r\n    T my_function[T]()\r\n\r\nmy_function[int *]()\r\n```\r\n\r\n---\r\n\r\n```\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\ncdef extern from \"foo.h\":\r\n    T my_function[T]()\r\n\r\nmy_function[int *]()                ^\r\n------------------------------------------------------------\r\n\r\nfoo.pyx:4:17: Expected an identifier or literal\r\n```\r\n\r\nA small workaround I've been using is making a `ctypedef` like so:\r\n\r\n```cython\r\nctypedef int* intptr\r\nmy_function[intptr]()\r\n```",
+    "author_association": "CONTRIBUTOR",
+    "body": "Instantiating a template class like so works fine in Cython:\n\n``` cython\nnew MyClass[int *]()\n```\n\nHowever, this gives a syntax error:\n\n``` cython\ncdef extern from \"foo.h\":\n    T my_function[T]()\n\nmy_function[int *]()\n```\n\n---\n\n```\nError compiling Cython file:\n------------------------------------------------------------\n...\ncdef extern from \"foo.h\":\n    T my_function[T]()\n\nmy_function[int *]()                ^\n------------------------------------------------------------\n\nfoo.pyx:4:17: Expected an identifier or literal\n```\n\nA small workaround I've been using is making a `ctypedef` like so:\n\n``` cython\nctypedef int* intptr\nmy_function[intptr]()\n```\n",
     "closed_at": null,
     "comment_data": [
         {
-            "body": "It doesn't seem as if it's just template functions that encounter this - it's also template classes if they're being used outside of a `cdef` statement, like:\r\n\r\n```cython\r\nfrom libcpp cimport bool\r\ncdef extern from *:\r\n    cdef cppclass MyClass[T]:\r\n        MyClass()\r\n        MyClass(bool someArgument)        \r\n        @staticmethod\r\n        void aMethod()\r\n\r\n\r\n# Okay\r\ncdef MyClass[int *] myvar\r\n\r\n# Not okay\r\ncdef MyClass[int *] myvar = MyClass[int *](True)\r\n\r\n# Not okay\r\nMyClass[int *].aMethod()\r\n```",
+            "author_association": "CONTRIBUTOR",
+            "body": "It doesn't seem as if it's just template functions that encounter this - it's also template classes if they're being used outside of a `cdef` statement, like:\n\n``` cython\nfrom libcpp cimport bool\ncdef extern from *:\n    cdef cppclass MyClass[T]:\n        MyClass()\n        MyClass(bool someArgument)        \n        @staticmethod\n        void aMethod()\n\n\n# Okay\ncdef MyClass[int *] myvar\n\n# Not okay\ncdef MyClass[int *] myvar = MyClass[int *](True)\n\n# Not okay\nMyClass[int *].aMethod()\n```\n",
             "created_at": "2016-09-06T22:20:22Z",
             "html_url": "https://github.com/cython/cython/issues/534#issuecomment-245114288",
             "id": 245114288,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/534",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDI0NTExNDI4OA==",
             "updated_at": "2016-09-06T22:20:22Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/245114288",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/2847127?v=3",
+                "avatar_url": "https://avatars0.githubusercontent.com/u/2847127?v=4",
                 "events_url": "https://api.github.com/users/empyrical/events{/privacy}",
                 "followers_url": "https://api.github.com/users/empyrical/followers",
                 "following_url": "https://api.github.com/users/empyrical/following{/other_user}",
@@ -22,6 +25,7 @@
                 "html_url": "https://github.com/empyrical",
                 "id": 2847127,
                 "login": "empyrical",
+                "node_id": "MDQ6VXNlcjI4NDcxMjc=",
                 "organizations_url": "https://api.github.com/users/empyrical/orgs",
                 "received_events_url": "https://api.github.com/users/empyrical/received_events",
                 "repos_url": "https://api.github.com/users/empyrical/repos",
@@ -31,15 +35,46 @@
                 "type": "User",
                 "url": "https://api.github.com/users/empyrical"
             }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "I've hit this too:\r\n\r\n```\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n# cython: language_level=2\r\ncdef extern from \"golang.h\" nogil:\r\n    void *makechan[T](unsigned size)\r\n\r\ncdef void *a = makechan[int*](10)\r\n                           ^\r\n------------------------------------------------------------\r\n\r\ny.pyx:5:28: Expected an identifier or literal\r\nTraceback (most recent call last):\r\n  File \"/home/kirr/src/wendelin/venv/z-dev/bin/cythonize\", line 11, in <module>\r\n    load_entry_point('Cython', 'console_scripts', 'cythonize')()\r\n  File \"/home/kirr/src/tools/py/cython/Cython/Build/Cythonize.py\", line 223, in main\r\n    cython_compile(path, options)\r\n  File \"/home/kirr/src/tools/py/cython/Cython/Build/Cythonize.py\", line 106, in cython_compile\r\n    **options.options)\r\n  File \"/home/kirr/src/tools/py/cython/Cython/Build/Dependencies.py\", line 1096, in cythonize\r\n    cythonize_one(*args)\r\n  File \"/home/kirr/src/tools/py/cython/Cython/Build/Dependencies.py\", line 1219, in cythonize_one\r\n    raise CompileError(None, pyx_file)\r\n```\r\n\r\nFails with both 0.29.x and current master (0.29.12-519-gba6d2c5e6)\r\n\r\nWith just `makechan[int](10)` (no star after int) it works.",
+            "created_at": "2019-07-21T11:02:47Z",
+            "html_url": "https://github.com/cython/cython/issues/534#issuecomment-513544052",
+            "id": 513544052,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/534",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDUxMzU0NDA1Mg==",
+            "updated_at": "2019-07-21T11:02:47Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/513544052",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/1794248?v=4",
+                "events_url": "https://api.github.com/users/navytux/events{/privacy}",
+                "followers_url": "https://api.github.com/users/navytux/followers",
+                "following_url": "https://api.github.com/users/navytux/following{/other_user}",
+                "gists_url": "https://api.github.com/users/navytux/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/navytux",
+                "id": 1794248,
+                "login": "navytux",
+                "node_id": "MDQ6VXNlcjE3OTQyNDg=",
+                "organizations_url": "https://api.github.com/users/navytux/orgs",
+                "received_events_url": "https://api.github.com/users/navytux/received_events",
+                "repos_url": "https://api.github.com/users/navytux/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/navytux/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/navytux/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/navytux"
+            }
         }
     ],
-    "comments": 1,
+    "comments": 2,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/534/comments",
     "created_at": "2016-07-26T22:10:21Z",
     "event_data": [
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=3",
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -48,6 +83,7 @@
                 "html_url": "https://github.com/scoder",
                 "id": 491659,
                 "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
                 "organizations_url": "https://api.github.com/users/scoder/orgs",
                 "received_events_url": "https://api.github.com/users/scoder/received_events",
                 "repos_url": "https://api.github.com/users/scoder/repos",
@@ -66,6 +102,7 @@
                 "color": "f9d0c4",
                 "name": "C++"
             },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDczNTkzNzcwOQ==",
             "url": "https://api.github.com/repos/cython/cython/issues/events/735937709"
         }
     ],
@@ -75,21 +112,25 @@
     "labels": [
         {
             "color": "f9d0c4",
+            "default": false,
+            "id": 414805136,
             "name": "C++",
+            "node_id": "MDU6TGFiZWw0MTQ4MDUxMzY=",
             "url": "https://api.github.com/repos/cython/cython/labels/C++"
         }
     ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/534/labels{/name}",
     "locked": false,
     "milestone": null,
+    "node_id": "MDU6SXNzdWUxNjc3MjQzMzc=",
     "number": 534,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "Pointer types don't work properly with template functions",
-    "updated_at": "2016-09-06T22:20:22Z",
+    "updated_at": "2019-07-21T11:02:47Z",
     "url": "https://api.github.com/repos/cython/cython/issues/534",
     "user": {
-        "avatar_url": "https://avatars.githubusercontent.com/u/2847127?v=3",
+        "avatar_url": "https://avatars0.githubusercontent.com/u/2847127?v=4",
         "events_url": "https://api.github.com/users/empyrical/events{/privacy}",
         "followers_url": "https://api.github.com/users/empyrical/followers",
         "following_url": "https://api.github.com/users/empyrical/following{/other_user}",
@@ -98,6 +139,7 @@
         "html_url": "https://github.com/empyrical",
         "id": 2847127,
         "login": "empyrical",
+        "node_id": "MDQ6VXNlcjI4NDcxMjc=",
         "organizations_url": "https://api.github.com/users/empyrical/orgs",
         "received_events_url": "https://api.github.com/users/empyrical/received_events",
         "repos_url": "https://api.github.com/users/empyrical/repos",

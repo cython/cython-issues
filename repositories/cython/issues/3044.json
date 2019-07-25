@@ -2,7 +2,7 @@
     "assignee": null,
     "assignees": [],
     "author_association": "NONE",
-    "body": "When i write the code as follows, i get an error as described in the title:\r\n\r\n```python\r\nclass example:\r\n    @classmethod\r\n    @Singletonclass1.decorator1\r\n    def xyz(cls, path_variable):\r\n        # rest of code\r\n```\r\n\r\n\r\n\r\nIs this something new or is there a workaround for this ?\r\n\r\nmy unit tests on cythonized code for the above  code-snippet is causing the error as in title description.\r\n\r\nPlease help! :)\r\n\r\nAnd, if i reverse the positions of '@classmethod' and the decorator as follows,, I get another error:\r\n\"TypeError: <classmethod object at 0x0000023B83552748> is not a callable object\"\r\n\r\n```python\r\nclass example:\r\n    @Singletonclass1.decorator1\r\n    @classmethod\r\n    def xyz(cls, path_variable):\r\n        # rest of code\r\n```\r\n\r\n",
+    "body": "util.py:\r\n\r\nimport inspect\r\n\r\n```python\r\nclass Singleton(type):\r\n    _instances=[]\r\n    def __call__(cls, *args, **kwargs):\r\n        if cls not in cls._instances:\r\n            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)\r\n\r\n\r\nclass MetaResult(Singleton):\r\n    def __getattribute__(cls, name):\r\n        return super().__getattribute__(name)\r\n\r\nclass Result(metaclass=MetaResult):\r\n    @staticmethod\r\n    def res_decorator(func):\r\n        def funcwrap(*args, **kwargs):\r\n            sig = inspect.signature(func)\r\n            bound_sig = sig.bind(*args, **kwargs)\r\n            bound_sig.apply_defaults()\r\n            #additional code to extract function arguments \r\n        return funcwrap        \r\n```\r\n\r\ncheck_params.py\r\n\r\n```python\r\nfrom util.py import Result as _Result\r\nfrom abc import ABCMeta as _ABCMeta\r\n\r\nclass paramparse(metaclass=_ABCMeta)\r\n\r\n    @classmethod\r\n    @_Result.res_decorator\r\n    def parse_flash_params(cls, flash_config_path):\r\n        #some code\r\n```\r\nNow, I cythonize the file check_params.py with following setup :\r\ncythonize.py\r\n```python\r\nimport os as _os\r\nfrom pathlib import Path as _Path\r\nfrom distutils.core import setup as _setup\r\nfrom Cython.Distutils import build_ext as _build_ext\r\n\r\nfiles_to_compile = []\r\n\r\ndef cython_build(source_path):\r\n    for dirpath, _, fnames in os.walk(source_path):\r\n        for fname in [x for x in fnames if f.endswith('.py'):\r\n            fname = _Path(fname)\r\n            files_to_compile.append(fname)\r\n\r\n    for e in files_to_compile:\r\n        e.cython_directives = {'binding':True, 'language_level':3}\r\n\r\n    _setup(name=\"Proj1\",cmdclass={build_ext':_build_ext}, ext_modules=files_to_compile}      \r\n```\r\n\r\ncythonized as: python cythonize.py --path C:\\directory_where_check_params_exist\r\n\r\ngenerates a pyd file on which the following unit tests were attempted to run:\r\n\r\nNow, coming to the usage, in the unit tests:\r\n\r\nunit_test_check_params.py\r\n```python\r\nfrom check_params import *    #getting error here , details outside the code\r\n\r\n# unit tests written here\r\n```\r\n\r\ncheck_params.pyx:112: in init check_params ??? E\r\nTypeError: Class-level classmethod() can only be called on a method_descriptor or instance method.\r\n\r\nSo when i debug this, the error appears as being caused because of the classmethod descriptor over decorator (def parse_flash_params) in check_params.py\r\n\r\nPlease let me know if you need more information.",
     "closed_at": null,
     "comment_data": [],
     "comments": 0,
@@ -95,6 +95,35 @@
             "id": 2489470438,
             "node_id": "MDE0Ok1lbnRpb25lZEV2ZW50MjQ4OTQ3MDQzOA==",
             "url": "https://api.github.com/repos/cython/cython/issues/events/2489470438"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/1532151?v=4",
+                "events_url": "https://api.github.com/users/classmethod/events{/privacy}",
+                "followers_url": "https://api.github.com/users/classmethod/followers",
+                "following_url": "https://api.github.com/users/classmethod/following{/other_user}",
+                "gists_url": "https://api.github.com/users/classmethod/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/classmethod",
+                "id": 1532151,
+                "login": "classmethod",
+                "node_id": "MDEyOk9yZ2FuaXphdGlvbjE1MzIxNTE=",
+                "organizations_url": "https://api.github.com/users/classmethod/orgs",
+                "received_events_url": "https://api.github.com/users/classmethod/received_events",
+                "repos_url": "https://api.github.com/users/classmethod/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/classmethod/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/classmethod/subscriptions",
+                "type": "Organization",
+                "url": "https://api.github.com/users/classmethod"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-07-23T09:10:38Z",
+            "event": "unsubscribed",
+            "id": 2502344503,
+            "node_id": "MDE3OlVuc3Vic2NyaWJlZEV2ZW50MjUwMjM0NDUwMw==",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2502344503"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/3044/events",
@@ -109,7 +138,7 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "class-level classmethod() can only be called on a method_descriptor or instance method.",
-    "updated_at": "2019-07-17T13:42:16Z",
+    "updated_at": "2019-07-23T09:11:38Z",
     "url": "https://api.github.com/repos/cython/cython/issues/3044",
     "user": {
         "avatar_url": "https://avatars1.githubusercontent.com/u/53007205?v=4",
