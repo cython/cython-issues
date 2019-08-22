@@ -3,7 +3,7 @@
     "assignees": [],
     "author_association": "NONE",
     "body": "I have a user-defined class implementing C++ [input iterator](https://en.cppreference.com/w/cpp/named_req/InputIterator) requirements. It skips an element in the beginning and prints last element twice when I iterate over it with Cython's range based loop. Looking into produced code, I realized iterator value is increased before the loop body gets executed. Incrementing is done right after dereferenced iterator value is copied into a temporary. However, incrementing the iterator invalidates previously dereferenced values for input iterators. In my case, it was trying to parse next node in a stream.\r\n\r\nHere is a toy example for demonstration:\r\n\r\n```cython\r\n# distutils: language = c++\r\n\r\nfrom cython.operator cimport dereference as deref, preincrement as preinc\r\n\r\ncdef extern from *:\r\n    \"\"\"\r\n    //#define PRINT() std::cout << __PRETTY_FUNCTION__ << std::endl\r\n    #define PRINT()\r\n    #include<iostream>\r\n    struct CountDown {\r\n        struct Iterator {\r\n            CountDown* ptr;\r\n            Iterator() = default;\r\n            Iterator(CountDown* ptr) : ptr(ptr) {}\r\n            Iterator& operator++() { PRINT(); ptr->count--; return *this; }\r\n            Iterator& operator++(int) { PRINT(); ptr->count--; return *this; }\r\n            const int* operator*() { return &ptr->count; }\r\n            bool operator!=(const Iterator&) { PRINT(); return ptr->count > 0; }\r\n        };\r\n        int count;\r\n        CountDown() = default;\r\n        CountDown(int count) : count(count) {}\r\n        Iterator begin() { PRINT(); return Iterator(this); }\r\n        Iterator end() { PRINT(); return Iterator(); }\r\n    };\r\n    \"\"\"\r\n    cdef cppclass CountDown:\r\n        cppclass Iterator:\r\n            Iterator()\r\n            Iterator operator++()\r\n            Iterator operator++(int)\r\n            const int* operator*()\r\n            bint operator!=(Iterator)\r\n        CountDown()\r\n        CountDown(int count)\r\n        Iterator begin()\r\n        Iterator end()\r\n\r\ncdef countdown_range():\r\n    cdef CountDown cd = CountDown(5)\r\n    cdef const int* num\r\n    for num in cd:\r\n        print(deref(num))\r\n\r\ncdef countdown_expected():\r\n    cdef CountDown cd = CountDown(5)\r\n    cdef CountDown.Iterator it = cd.begin()\r\n    while it != cd.end():\r\n        print(deref(deref(it)))\r\n        it = preinc(it)\r\n\r\nprint(\"Actual output:\")\r\ncountdown_range()\r\nprint(\"Expected output:\")\r\ncountdown_expected()\r\n```\r\n\r\nOutput:\r\n```\r\n ~/tmp/cyissue  python3 -c \"import example\"\r\nActual output:\r\n4\r\n3\r\n2\r\n1\r\n0\r\nExpected output:\r\n5\r\n4\r\n3\r\n2\r\n1\r\n```\r\n\r\nHere is the related part in the produced code:\r\n```cpp\r\n  /* \"example.pyx\":42\r\n *     cdef CountDown cd = CountDown(5)\r\n *     cdef const int* num\r\n *     for num in cd:             # <<<<<<<<<<<<<<\r\n *         print(deref(num))\r\n * \r\n */\r\n  __pyx_t_1 = __pyx_v_cd.begin();\r\n  for (;;) {\r\n    if (!(__pyx_t_1 != __pyx_v_cd.end())) break;\r\n    __pyx_t_2 = *__pyx_t_1;\r\n    ++__pyx_t_1;\r\n    __pyx_v_num = __pyx_t_2;\r\n```\r\n\r\nThis isn't a crucial feature since it can be implemented without range-based loop as in the above example, yet this was quite surprising for me and it took some time to figure this out, so I decided to open this issue.",
-    "closed_at": null,
+    "closed_at": "2019-08-20T20:03:21Z",
     "comment_data": [
         {
             "author_association": "NONE",
@@ -35,9 +35,40 @@
                 "type": "User",
                 "url": "https://api.github.com/users/ozars"
             }
+        },
+        {
+            "author_association": "NONE",
+            "body": "It turns out I misunderstood requirements of input iterator. It invalidates any copies of the iterator upon advancing it, not copies of values it points. `value_type v = *it; it++; do_something_with(v);` is perfectly valid. Hence, there is nothing wrong with cython's behavior. Closing this.",
+            "created_at": "2019-08-20T20:03:21Z",
+            "html_url": "https://github.com/cython/cython/issues/3055#issuecomment-523172731",
+            "id": 523172731,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3055",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDUyMzE3MjczMQ==",
+            "updated_at": "2019-08-20T20:03:21Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/523172731",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/13993759?v=4",
+                "events_url": "https://api.github.com/users/ozars/events{/privacy}",
+                "followers_url": "https://api.github.com/users/ozars/followers",
+                "following_url": "https://api.github.com/users/ozars/following{/other_user}",
+                "gists_url": "https://api.github.com/users/ozars/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/ozars",
+                "id": 13993759,
+                "login": "ozars",
+                "node_id": "MDQ6VXNlcjEzOTkzNzU5",
+                "organizations_url": "https://api.github.com/users/ozars/orgs",
+                "received_events_url": "https://api.github.com/users/ozars/received_events",
+                "repos_url": "https://api.github.com/users/ozars/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/ozars/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/ozars/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/ozars"
+            }
         }
     ],
-    "comments": 1,
+    "comments": 2,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3055/comments",
     "created_at": "2019-07-26T00:30:40Z",
     "event_data": [
@@ -73,6 +104,35 @@
                 "to": "Advancing iterator in range loop invalidates previously dereferenced values for input iterators in C++"
             },
             "url": "https://api.github.com/repos/cython/cython/issues/events/2511168037"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/13993759?v=4",
+                "events_url": "https://api.github.com/users/ozars/events{/privacy}",
+                "followers_url": "https://api.github.com/users/ozars/followers",
+                "following_url": "https://api.github.com/users/ozars/following{/other_user}",
+                "gists_url": "https://api.github.com/users/ozars/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/ozars",
+                "id": 13993759,
+                "login": "ozars",
+                "node_id": "MDQ6VXNlcjEzOTkzNzU5",
+                "organizations_url": "https://api.github.com/users/ozars/orgs",
+                "received_events_url": "https://api.github.com/users/ozars/received_events",
+                "repos_url": "https://api.github.com/users/ozars/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/ozars/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/ozars/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/ozars"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-08-20T20:03:21Z",
+            "event": "closed",
+            "id": 2570906435,
+            "node_id": "MDExOkNsb3NlZEV2ZW50MjU3MDkwNjQzNQ==",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2570906435"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/3055/events",
@@ -85,9 +145,9 @@
     "node_id": "MDU6SXNzdWU0NzMxMjQzODg=",
     "number": 3055,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "title": "Advancing iterator in range loop invalidates previously dereferenced values for input iterators in C++",
-    "updated_at": "2019-07-26T14:19:08Z",
+    "updated_at": "2019-08-20T20:03:21Z",
     "url": "https://api.github.com/repos/cython/cython/issues/3055",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/13993759?v=4",
