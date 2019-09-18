@@ -1,0 +1,203 @@
+{
+    "assignee": null,
+    "assignees": [],
+    "author_association": "NONE",
+    "body": "This .pyx file can be compiled:\r\n```cython\r\nimport cython\r\n\r\nimport numpy as np\r\ncimport numpy as np\r\n\r\nctypedef fused A:\r\n    np.int_t[:]\r\n    np.float_t[:]\r\n\r\ncpdef func(A arg):\r\n    cdef A arr = np.empty_like(arg)\r\n    return arr\r\n```\r\n\r\nbut this doesn't work whereas it seems to me that it should mean the same thing in pure-Python mode (Is it true?):\r\n\r\nbug.py:\r\n```python\r\nimport numpy as np\r\n\r\ndef func(arg):\r\n    arr = np.empty_like(arg)\r\n    return arr\r\n```\r\n\r\nbug.pxd:\r\n```\r\nimport cython\r\n\r\nimport numpy as np\r\ncimport numpy as np\r\n\r\nctypedef fused A:\r\n    np.int_t[:]\r\n    np.float_t[:]\r\n\r\n@cython.locals(arr=A)\r\ncpdef func(A arg)\r\n```\r\n\r\nThe error log:\r\n\r\n```\r\nCompiling bug.py because it changed.\r\n[1/1] Cythonizing bug.py\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\nimport numpy as np\r\n\r\ndef func(arg):\r\n    arr = np.empty_like(arg)\r\n                      ^\r\n------------------------------------------------------------\r\n\r\nbug.py:4:23: Cannot coerce to a type that is not specialized\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\nimport numpy as np\r\n\r\ndef func(arg):\r\n    arr = np.empty_like(arg)\r\n    return arr\r\n          ^\r\n------------------------------------------------------------\r\n\r\nbug.py:5:11: Type is not specialized\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\nimport numpy as np\r\n\r\ndef func(arg):\r\n    arr = np.empty_like(arg)\r\n                      ^\r\n------------------------------------------------------------\r\n\r\nbug.py:4:23: Cannot coerce to a type that is not specialized\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\nimport numpy as np\r\n\r\ndef func(arg):\r\n    arr = np.empty_like(arg)\r\n    return arr\r\n          ^\r\n------------------------------------------------------------\r\n\r\nbug.py:5:11: Type is not specialized\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\nimport numpy as np\r\n\r\ndef func(arg):\r\n    arr = np.empty_like(arg)\r\n   ^\r\n------------------------------------------------------------\r\n\r\nbug.py:4:4: Invalid use of fused types, type cannot be specialized\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\nimport numpy as np\r\n\r\ndef func(arg):\r\n    arr = np.empty_like(arg)\r\n   ^\r\n------------------------------------------------------------\r\n\r\nbug.py:4:4: Invalid use of fused types, type cannot be specialized\r\nTraceback (most recent call last):\r\n  File \"/home/users/augier3pi/.pyenv/versions/3.7.3/lib/python3.7/runpy.py\", line 193, in _run_module_as_main\r\n    \"__main__\", mod_spec)\r\n  File \"/home/users/augier3pi/.pyenv/versions/3.7.3/lib/python3.7/runpy.py\", line 85, in _run_code\r\n    exec(code, run_globals)\r\n  File \"/home/users/augier3pi/Dev/transonic/transonic_cl/cythonize.py\", line 11, in <module>\r\n    ext_modules=cythonize(path, language_level=3), include_dirs=[np.get_include()]\r\n  File \"/home/users/augier3pi/.pyenv/versions/3.7.3/lib/python3.7/site-packages/Cython/Build/Dependencies.py\", line 1096, in cythonize\r\n    cythonize_one(*args)\r\n  File \"/home/users/augier3pi/.pyenv/versions/3.7.3/lib/python3.7/site-packages/Cython/Build/Dependencies.py\", line 1219, in cythonize_one\r\n    raise CompileError(None, pyx_file)\r\nCython.Compiler.Errors.CompileError: bug.py\r\n```",
+    "closed_at": null,
+    "comment_data": [
+        {
+            "author_association": "MEMBER",
+            "body": "The code looks reasonable to me, so I consider it a bug that it doesn't work. My guess is that the `directive_locals` handling in the `AnalyseDeclarationsTransform` does not take (enough?) care about fused types.\r\n\r\nFurther investigation and PR welcome.",
+            "created_at": "2019-09-13T09:04:21Z",
+            "html_url": "https://github.com/cython/cython/issues/3142#issuecomment-531161172",
+            "id": 531161172,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3142",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDUzMTE2MTE3Mg==",
+            "updated_at": "2019-09-13T09:04:21Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/531161172",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
+    "comments": 1,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/3142/comments",
+    "created_at": "2019-09-12T15:06:21Z",
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-09-13T09:04:39Z",
+            "event": "labeled",
+            "id": 2631673885,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDI2MzE2NzM4ODU=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2631673885"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-09-13T09:04:39Z",
+            "event": "labeled",
+            "id": 2631673886,
+            "label": {
+                "color": "444444",
+                "name": "Pure Python Mode"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDI2MzE2NzM4ODY=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2631673886"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-09-13T09:04:39Z",
+            "event": "labeled",
+            "id": 2631673888,
+            "label": {
+                "color": "444444",
+                "name": "Type Analysis"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDI2MzE2NzM4ODg=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2631673888"
+        }
+    ],
+    "events_url": "https://api.github.com/repos/cython/cython/issues/3142/events",
+    "html_url": "https://github.com/cython/cython/issues/3142",
+    "id": 492865989,
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425558499,
+            "name": "Pure Python Mode",
+            "node_id": "MDU6TGFiZWw0MjU1NTg0OTk=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Pure%20Python%20Mode"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425558824,
+            "name": "Type Analysis",
+            "node_id": "MDU6TGFiZWw0MjU1NTg4MjQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Type%20Analysis"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "id": 425553654,
+            "name": "defect",
+            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        }
+    ],
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/3142/labels{/name}",
+    "locked": false,
+    "milestone": null,
+    "node_id": "MDU6SXNzdWU0OTI4NjU5ODk=",
+    "number": 3142,
+    "repository_url": "https://api.github.com/repos/cython/cython",
+    "state": "open",
+    "title": "Bug pure-Python mode and fused types?",
+    "updated_at": "2019-09-13T09:04:39Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/3142",
+    "user": {
+        "avatar_url": "https://avatars0.githubusercontent.com/u/8842662?v=4",
+        "events_url": "https://api.github.com/users/paugier/events{/privacy}",
+        "followers_url": "https://api.github.com/users/paugier/followers",
+        "following_url": "https://api.github.com/users/paugier/following{/other_user}",
+        "gists_url": "https://api.github.com/users/paugier/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/paugier",
+        "id": 8842662,
+        "login": "paugier",
+        "node_id": "MDQ6VXNlcjg4NDI2NjI=",
+        "organizations_url": "https://api.github.com/users/paugier/orgs",
+        "received_events_url": "https://api.github.com/users/paugier/received_events",
+        "repos_url": "https://api.github.com/users/paugier/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/paugier/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/paugier/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/paugier"
+    }
+}
