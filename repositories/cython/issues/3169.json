@@ -2,7 +2,7 @@
     "assignee": null,
     "assignees": [],
     "author_association": "NONE",
-    "body": "This code works fine:\r\n```cython\r\n# cython: language_level=3\r\nimport cython\r\n\r\ncpdef inline cython.int add(cython.int a, cython.int b) nogil:\r\n    return a + b\r\n\r\ndef use_add(cython.int n):\r\n    cdef Py_ssize_t i\r\n    cdef cython.int result = 1\r\n    with cython.nogil:\r\n        for i in range(n):\r\n            result = add(result, result)\r\n    return result\r\n```\r\n\r\nHowever, the equivalent code in pure-Python mode does not compile:\r\n\r\n```python\r\n# cython: language_level=3\r\nimport cython\r\n\r\n@cython.ccall\r\n@cython.inline\r\n@cython.returns(cython.int)\r\n@cython.locals(a=cython.int, b=cython.int)\r\n@cython.nogil\r\ndef add(a, b):\r\n    return a + b\r\n\r\n@cython.locals(n=cython.int, i=Py_ssize_t, result=cython.int)\r\ndef use_add(n):\r\n    result = 1\r\n    with cython.nogil:\r\n        for i in range(n):\r\n            result = add(result, result)\r\n    return result\r\n```\r\n\r\nAnd it works if I replace `@cython.ccall` by `@cython.cfunc`. But it is no longer equivalent to the first code.\r\n\r\nThe error log:\r\n```\r\nCompiling pure_wo_pxd_ccall.py because it changed.\r\n[1/1] Cythonizing pure_wo_pxd_ccall.py\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n@cython.ccall\r\n@cython.inline\r\n@cython.returns(cython.int)\r\n@cython.locals(a=cython.int, b=cython.int)\r\n@cython.nogil\r\ndef add(a, b):\r\n^\r\n------------------------------------------------------------\r\n\r\npure_wo_pxd_ccall.py:10:0: Constructing Python function not allowed without gil\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n@cython.ccall\r\n@cython.inline\r\n@cython.returns(cython.int)\r\n@cython.locals(a=cython.int, b=cython.int)\r\n@cython.nogil\r\ndef add(a, b):\r\n^\r\n------------------------------------------------------------\r\n\r\npure_wo_pxd_ccall.py:10:0: Constructing Python tuple not allowed without gil\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n@cython.ccall\r\n@cython.inline\r\n@cython.returns(cython.int)\r\n@cython.locals(a=cython.int, b=cython.int)\r\n@cython.nogil\r\ndef add(a, b):\r\n       ^\r\n------------------------------------------------------------\r\n\r\npure_wo_pxd_ccall.py:10:8: Operation not allowed without gil\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n@cython.ccall\r\n@cython.inline\r\n@cython.returns(cython.int)\r\n@cython.locals(a=cython.int, b=cython.int)\r\n@cython.nogil\r\ndef add(a, b):\r\n          ^\r\n------------------------------------------------------------\r\n\r\npure_wo_pxd_ccall.py:10:11: Operation not allowed without gil\r\n\r\n...\r\n\r\n  File \"/home/users/me/.pyenv/versions/3.7.3/lib/python3.7/site-packages/Cython/Build/Dependencies.py\", line 1096, in cythonize\r\n    cythonize_one(*args)\r\n  File \"/home/users/me/.pyenv/versions/3.7.3/lib/python3.7/site-packages/Cython/Build/Dependencies.py\", line 1219, in cythonize_one\r\n    raise CompileError(None, pyx_file)\r\nCython.Compiler.Errors.CompileError: pure_wo_pxd_ccall.py\r\n\r\n```\r\n\r\nCould you please confirm that it is indeed a bug? It would be create to tell where to start to try to fix it.",
+    "body": "This code works fine:\r\n```cython\r\n# cython: language_level=3\r\nimport cython\r\n\r\ncpdef inline cython.int add(cython.int a, cython.int b) nogil:\r\n    return a + b\r\n\r\ndef use_add(cython.int n):\r\n    cdef Py_ssize_t i\r\n    cdef cython.int result = 1\r\n    with cython.nogil:\r\n        for i in range(n):\r\n            result = add(result, result)\r\n    return result\r\n```\r\n\r\nHowever, the equivalent code in pure-Python mode does not compile:\r\n\r\n```python\r\n# cython: language_level=3\r\nimport cython\r\n\r\n@cython.ccall\r\n@cython.inline\r\n@cython.returns(cython.int)\r\n@cython.locals(a=cython.int, b=cython.int)\r\n@cython.nogil\r\ndef add(a, b):\r\n    return a + b\r\n\r\n@cython.locals(n=cython.int, i=Py_ssize_t, result=cython.int)\r\ndef use_add(n):\r\n    result = 1\r\n    with cython.nogil:\r\n        for i in range(n):\r\n            result = add(result, result)\r\n    return result\r\n```\r\n\r\nAnd it works if I replace `@cython.ccall` by `@cython.cfunc`. But it is no longer equivalent to the first code.\r\n\r\nThe error log:\r\n```\r\nCompiling pure_wo_pxd_ccall.py because it changed.\r\n[1/1] Cythonizing pure_wo_pxd_ccall.py\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n@cython.ccall\r\n@cython.inline\r\n@cython.returns(cython.int)\r\n@cython.locals(a=cython.int, b=cython.int)\r\n@cython.nogil\r\ndef add(a, b):\r\n^\r\n------------------------------------------------------------\r\n\r\npure_wo_pxd_ccall.py:10:0: Constructing Python function not allowed without gil\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n@cython.ccall\r\n@cython.inline\r\n@cython.returns(cython.int)\r\n@cython.locals(a=cython.int, b=cython.int)\r\n@cython.nogil\r\ndef add(a, b):\r\n^\r\n------------------------------------------------------------\r\n\r\npure_wo_pxd_ccall.py:10:0: Constructing Python tuple not allowed without gil\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n@cython.ccall\r\n@cython.inline\r\n@cython.returns(cython.int)\r\n@cython.locals(a=cython.int, b=cython.int)\r\n@cython.nogil\r\ndef add(a, b):\r\n       ^\r\n------------------------------------------------------------\r\n\r\npure_wo_pxd_ccall.py:10:8: Operation not allowed without gil\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n@cython.ccall\r\n@cython.inline\r\n@cython.returns(cython.int)\r\n@cython.locals(a=cython.int, b=cython.int)\r\n@cython.nogil\r\ndef add(a, b):\r\n          ^\r\n------------------------------------------------------------\r\n\r\npure_wo_pxd_ccall.py:10:11: Operation not allowed without gil\r\n\r\n...\r\n\r\n  File \"/home/users/me/.pyenv/versions/3.7.3/lib/python3.7/site-packages/Cython/Build/Dependencies.py\", line 1096, in cythonize\r\n    cythonize_one(*args)\r\n  File \"/home/users/me/.pyenv/versions/3.7.3/lib/python3.7/site-packages/Cython/Build/Dependencies.py\", line 1219, in cythonize_one\r\n    raise CompileError(None, pyx_file)\r\nCython.Compiler.Errors.CompileError: pure_wo_pxd_ccall.py\r\n\r\n```\r\n\r\nCould you please confirm that it is indeed a bug? It would be great to tell where to start to try to fix it.",
     "closed_at": null,
     "comment_data": [
         {
@@ -35,9 +35,40 @@
                 "type": "User",
                 "url": "https://api.github.com/users/robertwb"
             }
+        },
+        {
+            "author_association": "NONE",
+            "body": "The same bug also happens with pure Python mode with a pxd file:\r\n\r\nThe Python file:\r\n```python\r\n# cython: language_level=3\r\nimport cython\r\n\r\ndef add(a, b):\r\n    return a + b\r\n\r\ndef use_add(n):\r\n    result = 1\r\n    with cython.nogil:\r\n        for i in range(n):\r\n            result = add(result, result)\r\n    return result\r\n```\r\n\r\nThe .pxd file:\r\n```cython\r\ncimport cython\r\ncdef inline int add(int a, int b) nogil\r\n\r\n@cython.locals(n=int, i=int, result=int)\r\ncpdef int use_add(int n)\r\n```\r\n\r\nThis works but if I replace `cdef` by `cpdef`, it does not compile.\r\n",
+            "created_at": "2019-10-12T21:41:50Z",
+            "html_url": "https://github.com/cython/cython/issues/3169#issuecomment-541363751",
+            "id": 541363751,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3169",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDU0MTM2Mzc1MQ==",
+            "updated_at": "2019-10-12T21:41:50Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/541363751",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/8842662?v=4",
+                "events_url": "https://api.github.com/users/paugier/events{/privacy}",
+                "followers_url": "https://api.github.com/users/paugier/followers",
+                "following_url": "https://api.github.com/users/paugier/following{/other_user}",
+                "gists_url": "https://api.github.com/users/paugier/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/paugier",
+                "id": 8842662,
+                "login": "paugier",
+                "node_id": "MDQ6VXNlcjg4NDI2NjI=",
+                "organizations_url": "https://api.github.com/users/paugier/orgs",
+                "received_events_url": "https://api.github.com/users/paugier/received_events",
+                "repos_url": "https://api.github.com/users/paugier/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/paugier/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/paugier/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/paugier"
+            }
         }
     ],
-    "comments": 1,
+    "comments": 2,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3169/comments",
     "created_at": "2019-10-07T13:57:19Z",
     "event_data": [],
@@ -53,7 +84,7 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "pure-python mode: nogil + ccall",
-    "updated_at": "2019-10-08T04:37:44Z",
+    "updated_at": "2019-10-12T21:41:50Z",
     "url": "https://api.github.com/repos/cython/cython/issues/3169",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/8842662?v=4",
