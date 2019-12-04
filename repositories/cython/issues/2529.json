@@ -1,7 +1,7 @@
 {
     "assignee": null,
     "assignees": [],
-    "author_association": "NONE",
+    "author_association": "CONTRIBUTOR",
     "body": "Going through some of pandas' cython modules to try to make code valid-python where possible, I'm seeing cythonize-time errors.  It seems like some combinations are invalid for surprising reasons, e.g:\r\n\r\n```\r\ncpdef object get_rule_month(object source, object default='DEC')\r\n# existing, works as expected\r\n\r\ncpdef object get_rule_month(source: object, default: object='DEC'):\r\n# seems OK\r\n\r\ncpdef get_rule_month(source: object, default: object='DEC') -> object:\r\n# breaks --> Syntax error in C variable declaration\r\n\r\n@cython.ccall\r\ndef get_rule_month(source: object, default: object='DEC') -> object:\r\n# breaks --> Exception clause not allowed for function returning Python object\r\n\r\n@cython.ccall\r\ndef object get_rule_month(source: object, default: object='DEC'):\r\n# breaks --> Expected '(', found 'get_rule_month'\r\n\r\n@cython.ccall\r\n@cython.returns(object)\r\ndef get_rule_month(source: object, default: object='DEC'):\r\n# appears OK\r\n```\r\n\r\nAnother example with a slightly different set of errors:\r\n\r\n```\r\ncdef inline bint is_null_datetime64(v):\r\n# existing, OK\r\n\r\ncdef inline is_null_datetime64(v) -> bint:\r\n# breaks --> Syntax error in C variable declaration\r\n\r\n@cython.cfunc\r\ndef inline is_null_datetime64(v) -> bint:\r\n# breaks --> Expected '(', found 'is_null_datetime64\r\n\r\n@cython.cfunc\r\n@cython.inline\r\ndef is_null_datetime64(v) -> bint:\r\n# breaks --> Function signature does not match previous declaration\r\n```\r\n\r\nThis last one here is the one that is noticeably different from the first example.\r\n\r\nIs this behavior intentional?",
     "closed_at": null,
     "comment_data": [
@@ -37,7 +37,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "> There is a (similar) test for this in our test suite, so I don't know right now why this would fail. Probably something trivial.\r\n\r\nPossibly relevant: there is an accompanying .pxd file that was unchanged throughout all these iterations with \"cdef  bint is_null_datetime64(v)`\r\n\r\n> I remember noticing this kind of error, too, and fixing something in that corner recently. Could you try the latest master on that?\r\n\r\nWill do.  I'll also add to the list permutations involving `nogil` and `except? -1`\r\n\r\n> Similarly, cdef/cpdef syntax cannot be combined with -> return type annotations, which are a Python def function feature.\r\n\r\nGood to know, thanks.  My intuition was that the parser would translate each of the supported forms to a canonical representation, allowing users to mix and match (even though doing so would be really weird in some cases).  Not the first time intuition has led me astray.  (Can you point me towards the part of the code responsible for this?  If it doesn't require learning the entire code-base, I'd be happy to help with fleshing out the tests)\r\n\r\n> While `cpdef` + Python syntax is a debatable edge case, I'd suggest that providing the return type like this should stay illegal for now. \r\n\r\nA use case I can imagine where this would be really convenient is linting (a large part of the motivation for trying this syntax in the first place).  With `cp?def` + Python syntax, we can probably cobble together something to pass `re.sub('^cp?def ', 'def', source).replace('cimport', 'import')` and be most of the way towards having something we can pass to `flake8`.",
             "created_at": "2018-08-03T19:12:42Z",
             "html_url": "https://github.com/cython/cython/issues/2529#issuecomment-410349505",
@@ -99,7 +99,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "> But if you have a .pxd file with the types in it, why do you still need to define them in the actual source file?\r\n\r\nNot sure how this status quo developed; presumably easier for contributors/reviewers if they match.  \r\n\r\n>> re.sub('^cp?def ', 'def', source).replace('cimport', 'import')\r\n>\r\n> For the first part, use def with decorators.\r\n>\r\n> For the second, there isn't currently a way to use cimport in Python syntax. \r\n\r\nThis runs into a \"if it were up to me...\" issue where its hard to predict what maintainers will or won't have a strong opinion about.  Last time I tried to move to the decorator syntax the idea was shot down.  It's totally reasonable if you want to declare that Not Cython's Problem.\r\n\r\nAs for the `source.replace(\"cimport\", \"import\")`, that's just a hack to trick a linter into think its valid python.  Feel free to ignore.\r\n\r\nI'll install from master and update results in a bit.",
             "created_at": "2018-08-04T00:58:20Z",
             "html_url": "https://github.com/cython/cython/issues/2529#issuecomment-410410168",
@@ -130,7 +130,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "Installed from master, no apparent change:\r\n\r\n```\r\ncpdef get_rule_month(source: object, default: object='DEC') -> object:\r\n# still breaks --> Syntax error in C variable declaration\r\n\r\n@cython.ccall\r\ndef get_rule_month(source: object, default: object='DEC') -> object:\r\n# still breaks --> Exception clause not allowed for function returning Python object\r\n\r\ncdef inline is_null_datetime64(v) -> bint:\r\n# still breaks --> Syntax error in C variable declaration\r\n\r\n@cython.cfunc\r\ndef inline is_null_datetime64(v) -> bint:\r\n# still breaks --> Expected '(', found 'is_null_datetime64\r\n\r\n@cython.cfunc\r\n@cython.inline\r\ndef is_null_datetime64(v) -> bint:\r\n# still breaks --> Function signature does not match previous declaration\r\n```\r\n\r\nSome more cases, these _without_ an accompanying pxd file:\r\n\r\n```\r\n@cython.cfunc\r\n@cython.inline\r\ndef median_linear(a: float64_t*, n: int) -> float64_t nogil:\r\n# breaks --> Expected an identifier or literal\r\n\r\n@cython.cfunc\r\n@cython.inline\r\n@cython.nogil\r\ndef median_linear(a: float64_t*, n: int) -> float64_t:\r\n# breaks --> Expected an identifier or literal\r\n\r\n@cython.cfunc\r\n@cython.inline\r\n@cython.nogil\r\ndef median_linear(a: cython.pointer(float64_t), n: int) -> float64_t:\r\n# breaks --> Invalid directive: 'nogil'.  (+1 on the error message)\r\n```\r\n\r\nSo it looks like there exists no valid way to use type annotations on this function.\r\n\r\nA weird thing a user might do is mix/match (here using type annotation only for the `labels` kwarg:\r\n```\r\n@cython.boundscheck(False)\r\n@cython.wraparound(False)\r\ndef group_median_float64(ndarray[float64_t, ndim=2] out,\r\n                         ndarray[int64_t] counts,\r\n                         ndarray[float64_t, ndim=2] values,\r\n                         labels: ndarray[int64_t],\r\n                         Py_ssize_t min_count=-1):\r\n# breaks --> 'int64_t' is not a constant, variable or function identifier\r\n```\r\n\r\nOf course the `ndim=2` bit isn't valid python (we're in the process of converting these to `foo[:, :]`), so trying to put that in the new format:\r\n\r\n```\r\n@cython.boundscheck(False)\r\n@cython.wraparound(False)\r\ndef group_median_float64(out ndarray[float64_t, ndim=2],\r\n                         counts: ndarray[int64_t],\r\n                         values: ndarray[float64_t, ndim=2],\r\n                         labels: ndarray[int64_t],\r\n                         min_count: Py_ssize_t=-1):\r\n# breaks --> Expected ']', found '='\r\n```\r\n\r\nBut even with the memoryview syntax it chokes:\r\n\r\n```\r\n@cython.boundscheck(False)\r\n@cython.wraparound(False)\r\ndef group_cumsum(out: numeric[:, :],\r\n                 values: numeric[:, :],\r\n                 labels: int64_t[:],\r\n                 is_datetimelike,\r\n                 skipna: bint=True):\r\n# breaks --> Compiler crash in AnalyseDeclarationsTransform\r\n```\r\n\r\nNow one with an `except? -1` clause (some of these I now know will break, but listing them for thoroughness)\r\n\r\n```\r\ncdef inline get_datetime64_nanos(val: object) -> int64_t except? -1:\r\n# Syntax error in C variable declaration\r\n\r\n@cython.cfunc\r\n@cython.inline\r\n@cython.exceptval(-1)\r\ndef get_datetime64_nanos(val: object) -> int64_t:\r\n# OK!  Even with an accompanying pxd file\r\n\r\ncdef inline int64_t get_datetime64_nanos(val: object) except? -1:\r\n# OK\r\n\r\n@cython.inline\r\ncdef int64_t get_datetime64_nanos(val: object) except? -1:\r\n# OK\r\n\r\n@cython.exceptval(-1)\r\ncdef inline int64_t get_datetime64_nanos(val: object):\r\n# breaks --> Function signature does not match previous declaration\r\n\r\n@cython.exceptval(-1)\r\n@cython.inline\r\ncdef int64_t get_datetime64_nanos(val: object):\r\n# breaks --> Function signature does not match previous declaration\r\n\r\n@cython.inline\r\n@cython.cfunc\r\ndef int64_t get_datetime64_nanos(val: object) except? -1:\r\n# breaks --> Expected '(', found 'get_datetime64_nanos'\r\n\r\n@cython.inline\r\n@cython.cfunc\r\n@cython.exceptval(-1)\r\ndef int64_t get_datetime64_nanos(val: object):\r\n# breaks --> Expected '(', found 'get_datetime64_nanos'\r\n```",
             "created_at": "2018-08-04T01:24:26Z",
             "html_url": "https://github.com/cython/cython/issues/2529#issuecomment-410412181",
@@ -223,7 +223,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "Thanks, I'll give this a try on master and report back.",
             "created_at": "2018-08-15T16:53:33Z",
             "html_url": "https://github.com/cython/cython/issues/2529#issuecomment-413261497",
@@ -254,7 +254,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "Trying out 0.29\r\n\r\n```\r\n@cython.cfunc\r\n@cython.inline\r\ndef is_null_datetimelike(val : object) -> bint:\r\n# breaks --> pandas/_libs/tslibs/nattype.pyx:627:0: Function signature does not match previous declaration\r\n```\r\n\r\nTried changing this in the accompanying pxd to match\r\n\r\n```\r\n@cython.cfunc\r\ndef is_null_datetimelike(val : object) -> bint\r\n# breaks --> pandas/_libs/tslibs/nattype.pxd:14:0: def statement not allowed here\r\n```",
             "created_at": "2018-10-16T17:49:31Z",
             "html_url": "https://github.com/cython/cython/issues/2529#issuecomment-430332893",
@@ -314,9 +314,40 @@
                 "type": "User",
                 "url": "https://api.github.com/users/Yobmod"
             }
+        },
+        {
+            "author_association": "NONE",
+            "body": "@Yobmod It looks like that there is a workaround for `-> object` case: If we add a decorator `@cython.exceptval(check=False)` it works fine. The generated code still checks the return value for exceptions. ",
+            "created_at": "2019-12-04T01:01:01Z",
+            "html_url": "https://github.com/cython/cython/issues/2529#issuecomment-561427009",
+            "id": 561427009,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2529",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDU2MTQyNzAwOQ==",
+            "updated_at": "2019-12-04T01:01:01Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/561427009",
+            "user": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/3925065?v=4",
+                "events_url": "https://api.github.com/users/black-square/events{/privacy}",
+                "followers_url": "https://api.github.com/users/black-square/followers",
+                "following_url": "https://api.github.com/users/black-square/following{/other_user}",
+                "gists_url": "https://api.github.com/users/black-square/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/black-square",
+                "id": 3925065,
+                "login": "black-square",
+                "node_id": "MDQ6VXNlcjM5MjUwNjU=",
+                "organizations_url": "https://api.github.com/users/black-square/orgs",
+                "received_events_url": "https://api.github.com/users/black-square/received_events",
+                "repos_url": "https://api.github.com/users/black-square/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/black-square/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/black-square/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/black-square"
+            }
         }
     ],
-    "comments": 10,
+    "comments": 11,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/2529/comments",
     "created_at": "2018-08-03T03:19:18Z",
     "event_data": [
@@ -435,6 +466,64 @@
             "id": 1790077743,
             "node_id": "MDE1OlJlZmVyZW5jZWRFdmVudDE3OTAwNzc3NDM=",
             "url": "https://api.github.com/repos/cython/cython/issues/events/1790077743"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/22235459?v=4",
+                "events_url": "https://api.github.com/users/Yobmod/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Yobmod/followers",
+                "following_url": "https://api.github.com/users/Yobmod/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Yobmod/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Yobmod",
+                "id": 22235459,
+                "login": "Yobmod",
+                "node_id": "MDQ6VXNlcjIyMjM1NDU5",
+                "organizations_url": "https://api.github.com/users/Yobmod/orgs",
+                "received_events_url": "https://api.github.com/users/Yobmod/received_events",
+                "repos_url": "https://api.github.com/users/Yobmod/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Yobmod/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Yobmod/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Yobmod"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-12-04T01:01:01Z",
+            "event": "mentioned",
+            "id": 2852230258,
+            "node_id": "MDE0Ok1lbnRpb25lZEV2ZW50Mjg1MjIzMDI1OA==",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2852230258"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/22235459?v=4",
+                "events_url": "https://api.github.com/users/Yobmod/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Yobmod/followers",
+                "following_url": "https://api.github.com/users/Yobmod/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Yobmod/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Yobmod",
+                "id": 22235459,
+                "login": "Yobmod",
+                "node_id": "MDQ6VXNlcjIyMjM1NDU5",
+                "organizations_url": "https://api.github.com/users/Yobmod/orgs",
+                "received_events_url": "https://api.github.com/users/Yobmod/received_events",
+                "repos_url": "https://api.github.com/users/Yobmod/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Yobmod/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Yobmod/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Yobmod"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-12-04T01:01:01Z",
+            "event": "subscribed",
+            "id": 2852230260,
+            "node_id": "MDE1OlN1YnNjcmliZWRFdmVudDI4NTIyMzAyNjA=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2852230260"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/2529/events",
@@ -449,7 +538,7 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "(@cython.cfunc + Type Annotation) Fragility",
-    "updated_at": "2018-10-18T16:54:31Z",
+    "updated_at": "2019-12-04T01:01:01Z",
     "url": "https://api.github.com/repos/cython/cython/issues/2529",
     "user": {
         "avatar_url": "https://avatars1.githubusercontent.com/u/8078968?v=4",
