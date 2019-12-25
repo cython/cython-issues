@@ -3,7 +3,7 @@
     "assignees": [],
     "author_association": "NONE",
     "body": "Cython functions are not compatible with unittest.mock's `create_autospec` and asyncio's `iscoroutinefunction` when imported into a CPython module.\r\n\r\nI'm not super familiar with the inner workings of cython and how it integrates with cpython, but getting the functions to work seems like the responsibility of cython, not cpython.\r\n\r\n----------\r\n\r\nCPython's unittest.mock uses FunctionTypes, a tuple with 2 objects, to determine if an object is callable for the purposes of automatically creating a mock object.\r\n\r\nhttps://github.com/python/cpython/blob/master/Lib/unittest/mock.py#L2715\r\n\r\nShould Cython patch FunctionTypes to also include cyfunction types? Or is there a better way of making this change?\r\n\r\n----------\r\n\r\nAdditionally, CPython's `asyncio.iscoroutinefunction` cannot determine that a cythonized function is async. \r\n\r\n[iscoroutinefunction](https://github.com/python/cpython/blob/ae239f6b0626e926613a4a1dbafa323bd41fec32/Lib/asyncio/coroutines.py#L164) looks for one of two things: [inspect saying it's a coroutine](https://github.com/python/cpython/blob/ae239f6b0626e926613a4a1dbafa323bd41fec32/Lib/inspect.py#L189) or the function having `_is_coroutine` assigned to a specific object (internal use).\r\n\r\nI think the best way to do this is to make `_has_code_flag(obj, CO_COROUTINE)` return True for cython functions.\r\n\r\n---------------\r\n\r\nPointers on what to modify in cython's code base are welcome!",
-    "closed_at": null,
+    "closed_at": "2019-12-24T08:00:17Z",
     "comment_data": [
         {
             "author_association": "NONE",
@@ -35,25 +35,129 @@
                 "type": "User",
                 "url": "https://api.github.com/users/fornellas"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "> Should Cython patch FunctionTypes to also include cyfunction types?\r\n\r\nIMHO, no. Cython can't know all tools and places where some code tries to decide what is a function and what isn't. Instead, tools like `unittest.mock` should use appropriate ABCs or duck typing for their needs, as one would also do for everything else in Python. If you want to know if an object is callable and what arguments it takes, *do not* check if it's a function. Instead, use `callable()`, the `inspect` module, and/or look at its special attributes and methods.\r\n\r\nSince there already is a ticket for the `async` part, I'll close this ticket as \"won't fix\" – unless someone convinces me that what I write above is wrong. :)",
+            "created_at": "2019-12-24T08:00:17Z",
+            "html_url": "https://github.com/cython/cython/issues/3143#issuecomment-568686523",
+            "id": 568686523,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3143",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDU2ODY4NjUyMw==",
+            "updated_at": "2019-12-24T08:00:17Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/568686523",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
         }
     ],
-    "comments": 1,
+    "comments": 2,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3143/comments",
     "created_at": "2019-09-13T19:50:45Z",
-    "event_data": [],
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-12-24T07:59:21Z",
+            "event": "labeled",
+            "id": 2906384065,
+            "label": {
+                "color": "444444",
+                "name": "R: wontfix"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDI5MDYzODQwNjU=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2906384065"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-12-24T08:00:17Z",
+            "event": "closed",
+            "id": 2906385491,
+            "node_id": "MDExOkNsb3NlZEV2ZW50MjkwNjM4NTQ5MQ==",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/2906385491"
+        }
+    ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/3143/events",
     "html_url": "https://github.com/cython/cython/issues/3143",
     "id": 493490681,
-    "labels": [],
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425557400,
+            "name": "R: wontfix",
+            "node_id": "MDU6TGFiZWw0MjU1NTc0MDA=",
+            "url": "https://api.github.com/repos/cython/cython/labels/R:%20wontfix"
+        }
+    ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/3143/labels{/name}",
     "locked": false,
     "milestone": null,
     "node_id": "MDU6SXNzdWU0OTM0OTA2ODE=",
     "number": 3143,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "title": "CPython create_autospec does not work with cyfunctions ",
-    "updated_at": "2019-12-10T20:23:18Z",
+    "updated_at": "2019-12-24T08:00:18Z",
     "url": "https://api.github.com/repos/cython/cython/issues/3143",
     "user": {
         "avatar_url": "https://avatars1.githubusercontent.com/u/111300?v=4",
