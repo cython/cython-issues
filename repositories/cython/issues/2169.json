@@ -3,10 +3,10 @@
     "assignees": [],
     "author_association": "CONTRIBUTOR",
     "body": "Since it seems tricky to find the right declaration spelling for `std::move` (if at all possible?), it would be nice to have it predeclared in `libcpp`.",
-    "closed_at": null,
+    "closed_at": "2020-02-22T00:22:31Z",
     "comment_data": [
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "I attempted declaring `std::move` with no luck. I got it working through a wrapper, but I'm not sure if it covers all cases or causes subtle bugs. Here is the idea:\r\n\r\n[This](https://en.cppreference.com/w/cpp/utility/move) is the definition of `std::move`:\r\n\r\n```cpp\r\ntemplate< class T >\r\ntypename std::remove_reference<T>::type&& move( T&& t ) noexcept;\r\n```\r\n\r\nThis is test.pyx file I will use for demonstration:\r\n\r\n```cython\r\n# distutils: language = c++\r\n\r\ncdef extern from *:\r\n    \"\"\"\r\n    #include <iostream>\r\n\r\n    #define PRINT() std::cout << __PRETTY_FUNCTION__ << std::endl\r\n\r\n    struct Test {\r\n        Test() { PRINT(); }\r\n        ~Test() { PRINT(); }\r\n        Test(const Test&) { PRINT(); }\r\n        Test(Test&&) { PRINT(); }\r\n        Test& operator=(const Test&) { PRINT(); return *this; }\r\n        Test& operator=(Test&&) { PRINT(); return *this; }\r\n    };\r\n\r\n    void f(const Test&) { PRINT(); }\r\n    void f(Test&&) { PRINT(); }\r\n    \"\"\"\r\n\r\n    cdef cppclass Test:\r\n        pass\r\n\r\n    cdef void f(Test)\r\n\r\nfrom move cimport move\r\n\r\ncdef Test t1, t2\r\n\r\nprint(\"# t1 = t2\")\r\nt1 = t2\r\n\r\nprint(\"# t1 = move(t2)\")\r\nt1 = move(t2)\r\n\r\nprint(\"# f(t1)\")\r\nf(t1)\r\n\r\nprint(\"# f(move(t1))\")\r\nf(move(t1))\r\n\r\nprint(\"# f(move(move(t1)))\")\r\nf(move(move(t1)))\r\n\r\nprint(\"# f(move(move(move(t1))))\")\r\nf(move(move(move(t1))))\r\n\r\n```\r\n\r\nFirst attempt at move.pxd:\r\n\r\n```cython\r\n# distutils: language = c++\r\n\r\ncdef extern from \"<utility>\" namespace \"std\" nogil:\r\n    cdef T&& move[T](T&&)\r\n```\r\n\r\nCompiling test.pyx returns bunch of errors, but the first one was:\r\n\r\n```\r\n/home/omer/tmp/cythonize/test.cpp: In function ‘int __pyx_pymod_exec_test(PyObject*)’:                                                                                                                             \r\n/home/omer/tmp/cythonize/test.cpp:1541:54: error: no matching function for call to ‘move<Test>(Test&)’                                                                                                             \r\n   __pyx_v_4test_t1 = std::move<Test>(__pyx_v_4test_t2);                                              \r\n```\r\n\r\nSo, the issue is that cython explicitly provides template argument `Test`, however `t1` cannot bind to the function parameter of type `Test&&`. For this to work, the function call should have been made without explicit template argument or with correct explicit template argument. I think both of these requires some changes in the way cython translates the code.\r\n\r\nAnother way would be having a wrapper which accepts above template parameter and calls `std::move` correctly. An initial wrapper:\r\n\r\n```cython\r\n# distutils: language = c++\r\n\r\ncdef extern from * namespace \"polyfill\":\r\n    \"\"\"\r\n    #include <type_traits>\r\n    #include <utility>\r\n\r\n    namespace polyfill {\r\n\r\n    template <typename T>\r\n    inline typename std::remove_reference<T>::type&& move(T& t) {\r\n        return std::move(t);\r\n    }\r\n\r\n    template <typename T>\r\n    inline typename std::remove_reference<T>::type&& move(T&& t) {\r\n        return std::move(t);\r\n    }\r\n\r\n    }  // namespace pf\r\n    \"\"\"\r\n    cdef T&& move[T](T&)\r\n    cdef T&& move[T](T&&)\r\n```\r\n\r\nThis causes error for three level nested  move:\r\n\r\n```\r\n/home/omer/tmp/cythonize/test.cpp: In function ‘int __pyx_pymod_exec_test(PyObject*)’:\r\n/home/omer/tmp/cythonize/test.cpp:1631:27: error: cannot declare reference to ‘struct Test&&’, which is not a typedef or a template type argument\r\n   f(polyfill::move<Test &&&&>(polyfill::move<Test &&>(polyfill::move<Test>(__pyx_v_4test_t1))));\r\n                           ^~\r\n```\r\n\r\nSo the return value being declared as xvalue is the culprit. From what I understood it doesn't matter if a function's parameter/return type is xvalue, prvalue or lvalue from cython's point of view, so we can simplify above code as:\r\n\r\n```cython\r\n# distutils: language = c++\r\n\r\ncdef extern from * namespace \"polyfill\":\r\n    \"\"\"\r\n    #include <type_traits>\r\n    #include <utility>\r\n\r\n    namespace polyfill {\r\n\r\n    template <typename T>\r\n    inline typename std::remove_reference<T>::type&& move(T& t) {\r\n        return std::move(t);\r\n    }\r\n\r\n    template <typename T>\r\n    inline typename std::remove_reference<T>::type&& move(T&& t) {\r\n        return std::move(t);\r\n    }\r\n\r\n    }  // namespace pf\r\n    \"\"\"\r\n    cdef T move[T](T)\r\n```\r\n\r\nIt compiles and works correctly:\r\n```\r\n ~/tmp/cythonize  python3 -c \"import test\"\r\nTest::Test()\r\nTest::Test()\r\n# t1 = t2\r\nTest& Test::operator=(const Test&)\r\n# t1 = move(t2)\r\nTest& Test::operator=(Test&&)\r\n# f(t1)\r\nvoid f(const Test&)\r\n# f(move(t1))\r\nvoid f(Test&&)\r\n# f(move(move(t1)))\r\nvoid f(Test&&)\r\n# f(move(move(move(t1))))\r\nvoid f(Test&&)\r\nTest::~Test()\r\nTest::~Test()\r\n```\r\n\r\nI can submit a PR for embedding above wrapper snippet into `libcpp.utility` if above approach looks alright.",
             "created_at": "2019-07-23T21:52:49Z",
             "html_url": "https://github.com/cython/cython/issues/2169#issuecomment-514397866",
@@ -37,7 +37,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "I packaged it as [cymove](https://pypi.org/project/cymove/) for now.",
             "created_at": "2019-07-24T20:24:22Z",
             "html_url": "https://github.com/cython/cython/issues/2169#issuecomment-514786123",
@@ -99,7 +99,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "@robertwb \r\n\r\nI submitted a PR over the weekend. It's ready to be merged if there are no changes needed. I'd appreciate if you could review it.",
             "created_at": "2020-02-17T16:19:43Z",
             "html_url": "https://github.com/cython/cython/issues/2169#issuecomment-587068596",
@@ -191,6 +191,35 @@
             "id": 3044341130,
             "node_id": "MDE1OlN1YnNjcmliZWRFdmVudDMwNDQzNDExMzA=",
             "url": "https://api.github.com/repos/cython/cython/issues/events/3044341130"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
+                "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
+                "followers_url": "https://api.github.com/users/robertwb/followers",
+                "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
+                "gists_url": "https://api.github.com/users/robertwb/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/robertwb",
+                "id": 486017,
+                "login": "robertwb",
+                "node_id": "MDQ6VXNlcjQ4NjAxNw==",
+                "organizations_url": "https://api.github.com/users/robertwb/orgs",
+                "received_events_url": "https://api.github.com/users/robertwb/received_events",
+                "repos_url": "https://api.github.com/users/robertwb/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/robertwb"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2020-02-22T00:22:31Z",
+            "event": "closed",
+            "id": 3062317690,
+            "node_id": "MDExOkNsb3NlZEV2ZW50MzA2MjMxNzY5MA==",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3062317690"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/2169/events",
@@ -203,9 +232,9 @@
     "node_id": "MDU6SXNzdWUzMDcyMjkxMTg=",
     "number": 2169,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "title": "std::move missing from libcpp",
-    "updated_at": "2020-02-17T16:19:43Z",
+    "updated_at": "2020-02-22T00:22:31Z",
     "url": "https://api.github.com/repos/cython/cython/issues/2169",
     "user": {
         "avatar_url": "https://avatars2.githubusercontent.com/u/1721820?v=4",
