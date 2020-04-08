@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/3383"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/3191cfd947257ebd0f977bcbd26b5b977f0fc018"
+            "href": "https://api.github.com/repos/cython/cython/statuses/1a556866461c0d839ad506a91a51416f9421e034"
         }
     },
     "assignee": null,
@@ -52,8 +52,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 995,
-            "forks_count": 995,
+            "forks": 1003,
+            "forks_count": 1003,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -89,8 +89,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 823,
-            "open_issues_count": 823,
+            "open_issues": 820,
+            "open_issues_count": 820,
             "owner": {
                 "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -113,11 +113,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2020-03-26T12:18:00Z",
+            "pushed_at": "2020-04-08T08:30:57Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 56780,
+            "size": 57131,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 4997,
+            "stargazers_count": 5039,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -126,12 +126,12 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2020-03-26T11:06:18Z",
+            "updated_at": "2020-04-08T07:16:46Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 4997,
-            "watchers_count": 4997
+            "watchers": 5039,
+            "watchers_count": 5039
         },
-        "sha": "48dc1f0169f81ed20c6b374941c2498ec94e57d0",
+        "sha": "2ca3f569254ddee7d1561d102ccca0c9d3250c91",
         "user": {
             "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -153,9 +153,1119 @@
             "url": "https://api.github.com/users/cython"
         }
     },
-    "body": "Follows https://github.com/cython/cython/pull/3381 so look at that first\r\n\r\n-----\r\n\r\n1. Allow the type of `self` in a cdef class to be specified\r\n\r\n    As in this comment https://github.com/cython/cython/issues/1274#issuecomment-525230079.\r\n    I've tried to follow existing behaviour with respect to type checking - self arg\r\n\r\n    This only works in Python 3 - reflecting the different behaviour of pure Python code:\r\n\r\n    ```\r\n    class C:\r\n      def f(self):\r\n        pass\r\n    C.f(1)\r\n    ```\r\n\r\n    This works fine in Python 3 but fails in Python 2. I don't see an easy workaround for this. Maybe to create non-__PYX_CCLASS functions?\r\n\r\n2. Relax some restriction on cdef class properties/staticmethods/classmethods\r\n\r\n    Where it isn't able to do the efficient thing it falls back to calling the builtin method property/staticmethod/classmethod.\r\n\r\n    Properties are only special-cased where the property decorator is the only decorator. Having mismatching function names now generates a warning, not an error, and follows Python 3 (which is slightly counter-intuitive but fairly easily tested). Python 2 behaviour appears to be different. https://github.com/cython/cython/issues/1905.\r\n\r\n    staticmethod/classmethod are only special-cased when the decorator is innermost.\r\n\r\n3. Fixes https://github.com/cython/cython/issues/1274 - arbitrarily decorated methods fall back to \"ordinary\" functions as in the issue.\r\n\r\n    Where a method is arbitrarily decorated we don't really know the type of the `self` argument - it's probably just the type of the `cdef class`, but it could be anything else. Therefore, we produce a fused function with the `self` type either that of the `cdef class`, or `object`. Therefore both the likely case (where the `self` is the `cdef class` and we want access to `cdef` methods and attributes) is handled and the alternative case where `self` is some other object should also work. This behaviour can be overridden by specifying the type manually.\r\n\r\n    This is mostly transparent to the user, but if they look hard they will be able to tell it's a `cdef` function, mostly because the function has `__getitem__` defined.\r\n\r\n    I don't think the should break anything, but it might be possible to end up with one or the fused function definitions unable to compile, and that might be a problem....\r\n\r\n    I suspect it fixes\r\n    https://github.com/cython/cython/issues/3072\r\n    https://github.com/cython/cython/issues/3044\r\n    but the associated test-cases were large and fairly confusing\r\n\r\n    Fixes https://github.com/cython/cython/issues/2181\r\n\r\n------------------------------------------\r\n\r\nCurrent status (I think):\r\nTests passing on Python2 and 3. Some of the new flexibility doesn't work on Python2 but I hope there aren't any regressions.\r\n~At least one of the tests produces ref-counting errors (and also fails) when Cython is compiled but not when it isn't. This definitely needs investigation since it suggests something's really going wrong.~ This was related to https://github.com/cython/cython/issues/3384. This underlying issue isn't fixed but I no longer run into it here.",
+    "body": "1. Allow the type of `self` in a cdef class to be specified\r\n\r\n    As in this comment https://github.com/cython/cython/issues/1274#issuecomment-525230079.\r\n    I've tried to follow existing behaviour with respect to type checking - self arg\r\n\r\n    This only works in Python 3 - reflecting the different behaviour of pure Python code:\r\n\r\n    ```\r\n    class C:\r\n      def f(self):\r\n        pass\r\n    C.f(1)\r\n    ```\r\n\r\n    This works fine in Python 3 but fails in Python 2. I don't see an easy workaround for this. Maybe to create non-__PYX_CCLASS functions?\r\n\r\n2. Relax some restriction on cdef class properties/staticmethods/classmethods\r\n\r\n    Where it isn't able to do the efficient thing it falls back to calling the builtin method property/staticmethod/classmethod.\r\n\r\n    Properties are only special-cased where the property decorator is the only decorator. Having mismatching function names now generates a warning, not an error, and follows Python 3 (which is slightly counter-intuitive but fairly easily tested). Python 2 behaviour appears to be different. https://github.com/cython/cython/issues/1905.\r\n\r\n    staticmethod/classmethod are only special-cased when the decorator is innermost.     Fixes https://github.com/cython/cython/issues/1434\r\n\r\n3. Fixes https://github.com/cython/cython/issues/1274 - arbitrarily decorated methods fall back to \"ordinary\" functions as in the issue.\r\n\r\n    Where a method is arbitrarily decorated we don't really know the type of the `self` argument - it's probably just the type of the `cdef class`, but it could be anything else. Therefore, we produce a fused function with the `self` type either that of the `cdef class`, or `object`. Therefore both the likely case (where the `self` is the `cdef class` and we want access to `cdef` methods and attributes) is handled and the alternative case where `self` is some other object should also work. This behaviour can be overridden by specifying the type manually.\r\n\r\n    This is mostly transparent to the user, but if they look hard they will be able to tell it's a `cdef` function, mostly because the function has `__getitem__` defined.\r\n\r\n    I don't think the should break anything, but it might be possible to end up with one or the fused function definitions unable to compile, and that might be a problem....\r\n\r\n    I suspect it fixes\r\n    https://github.com/cython/cython/issues/3072\r\n    https://github.com/cython/cython/issues/3044\r\n    but the associated test-cases were large and fairly confusing\r\n\r\n    Fixes https://github.com/cython/cython/issues/2181",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405058184"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405058184"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Should this really be \"warn once\"? Shouldn't this be reported at least for each each extension type to which it applies? What would be wrong with always reporting it when it occurs?",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T19:27:37Z",
+            "diff_hunk": "@@ -3018,21 +3041,49 @@ def analyse_signature(self, env):\n             sig.is_staticmethod = True\n             sig.has_generic_args = True\n \n-        if ((self.is_classmethod or self.is_staticmethod) and\n-                self.has_fused_arguments and env.is_c_class_scope):\n-            del self.decorator_indirection.stats[:]\n-\n         for i in range(min(nfixed, len(self.args))):\n             arg = self.args[i]\n             arg.is_generic = 0\n-            if sig.is_self_arg(i) and not self.is_staticmethod:\n+            if (sig.is_self_arg(i) and not self.is_staticmethod):\n+                self_type_overridden = arg.type_set_manually\n                 if self.is_classmethod:\n                     arg.is_type_arg = 1\n-                    arg.hdr_type = arg.type = Builtin.type_type\n+                    usual_type = Builtin.type_type\n+                    if not arg.type_set_manually:\n+                        arg.hdr_type = arg.type = usual_type\n                 else:\n                     arg.is_self_arg = 1\n-                    arg.hdr_type = arg.type = env.parent_type\n+                    if self.is_in_arbitrary_decorator:\n+                        usual_type = PyrexTypes.FusedType([env.parent_type, PyrexTypes.py_object_type],\n+                                                name=\"fused self or object\")\n+                        warn_once(arg.pos, \"Type of argument '%s' cannot be assumed to be %s because \"\n+                                    \"it has an unknown decorator. \"\n+                                    \"Consider setting the type explicitly.\" % (\n+                                        arg.name, env.parent_type),\n+                                    1, warn_once_key=\"unknown decorator type\")",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405058184",
+            "id": 405058184,
+            "line": 3063,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTA1ODE4NA==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 3063,
+            "original_position": 136,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 135,
+            "pull_request_review_id": 389424054,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T20:41:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405058184",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405059384"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405059384"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I don't see a reason for this change. (We allow 120 characters per line in Cython and usually accept up to 150.)\r\n```suggestion\r\n        if def_node.local_scope.parent_scope.is_c_class_scope and not def_node.entry.is_anonymous:\r\n```",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T19:29:41Z",
+            "diff_hunk": "@@ -9368,7 +9368,8 @@ def generate_cyfunction_code(self, code):\n         elif def_node.is_classmethod:\n             flags.append('__Pyx_CYFUNCTION_CLASSMETHOD')\n \n-        if def_node.local_scope.parent_scope.is_c_class_scope and not def_node.entry.is_anonymous:\n+        if (def_node.local_scope.parent_scope.is_c_class_scope\n+            and not def_node.entry.is_anonymous):",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405059384",
+            "id": 405059384,
+            "line": null,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTA1OTM4NA==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 9372,
+            "original_position": 6,
+            "original_start_line": 9371,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 389424054,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "updated_at": "2020-04-07T20:41:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405059384",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405060465"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405060465"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Typo in comment (`generate_disposal code`), but what I think you want here is `generate_post_assignment_code()`.",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T19:31:44Z",
+            "diff_hunk": "@@ -923,6 +923,10 @@ def generate_execution_code(self, code):\n                                     (self.resulting_fused_function.result(),\n                                      self.__signatures__.result()))\n             self.__signatures__.generate_giveref(code)\n+            # TODO would \"incref, giveref, gevenrate_disposal code\" be more idomatic (but",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405060465",
+            "id": 405060465,
+            "line": 926,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTA2MDQ2NQ==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 926,
+            "original_position": 4,
+            "original_start_line": null,
+            "path": "Cython/Compiler/FusedNode.py",
+            "position": 4,
+            "pull_request_review_id": 389424054,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T20:41:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405060465",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405062517"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405062517"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I'm not convinced of this feature yet. I think it's worth a separate discussion. There might be other ways to achieve the original intention, for example.",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T19:35:33Z",
+            "diff_hunk": "@@ -815,6 +815,7 @@ class CArgDeclNode(Node):\n     # kw_only        boolean            Is a keyword-only argument\n     # is_dynamic     boolean            Non-literal arg stored inside CyFunction\n     # pos_only       boolean            Is a positional-only argument\n+    # type_set_manually boolean         Used in overriding the type of self arguments - otherwise unimportant",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405062517",
+            "id": 405062517,
+            "line": 818,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTA2MjUxNw==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 818,
+            "original_position": 13,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 13,
+            "pull_request_review_id": 389424054,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T20:41:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405062517",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405067540"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405067540"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I'm not so sure that the `DefNode` should know its decorator calls. They should be part of the name assignment, and not necessarily the `DefNode` itself.",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T19:45:03Z",
+            "diff_hunk": "@@ -2742,7 +2753,8 @@ class DefNode(FuncDefNode):\n     #  specialized_cpdefs   [DefNode]   list of specialized cpdef DefNodes\n     #  py_cfunc_node  PyCFunctionNode/InnerFunctionNode   The PyCFunction to create and assign\n     #\n-    # decorator_indirection IndirectionNode Used to remove __Pyx_Method_ClassMethod for fused functions\n+    # decorator_call_tree   StatList node containing LetNodes containing SimpleCallNodes",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405067540",
+            "id": 405067540,
+            "line": 2756,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTA2NzU0MA==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 2756,
+            "original_position": 60,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 60,
+            "pull_request_review_id": 389424054,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T20:41:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405067540",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405067890"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405067890"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "How is this different from `if self.decorators` above?",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T19:45:45Z",
+            "diff_hunk": "@@ -2869,18 +2884,26 @@ def is_cdef_func_compatible(self):\n \n     def analyse_declarations(self, env):\n         if self.decorators:\n-            for decorator in self.decorators:\n+            # should only apply to functions outside cdef classes\n+            if len(self.decorators):",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405067890",
+            "id": 405067890,
+            "line": 2888,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTA2Nzg5MA==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 2888,
+            "original_position": 81,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 81,
+            "pull_request_review_id": 389424054,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T20:41:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405067890",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405068703"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405068703"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "`!=` is clearer than `not … == …`.\r\n```suggestion\r\n        if self.is_classmethod and (not cm_entry or cm_entry.cname != \"__Pyx_Method_ClassMethod\"):\r\n```",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T19:47:18Z",
+            "diff_hunk": "@@ -2869,18 +2884,26 @@ def is_cdef_func_compatible(self):\n \n     def analyse_declarations(self, env):\n         if self.decorators:\n-            for decorator in self.decorators:\n+            # should only apply to functions outside cdef classes\n+            if len(self.decorators):\n+                # only test the innermost decorator for classmethod\n+                # and static method - anything else will have to be\n+                # fed to the relevant builtin functions\n+                decorator = self.decorators[-1]\n                 func = decorator.decorator\n                 if func.is_name:\n                     self.is_classmethod |= func.name == 'classmethod'\n                     self.is_staticmethod |= func.name == 'staticmethod'\n-\n-        if self.is_classmethod and env.lookup_here('classmethod'):\n+        cm_entry = env.lookup('classmethod')\n+        if self.is_classmethod and cm_entry and not cm_entry.cname == \"__Pyx_Method_ClassMethod\":",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405068703",
+            "id": 405068703,
+            "line": null,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTA2ODcwMw==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 2898,
+            "original_position": 93,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 389424054,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T20:41:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405068703",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405070681"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405070681"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Why is `lookup()` more correct than `lookup_here()` in this case?",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T19:50:32Z",
+            "diff_hunk": "@@ -2869,18 +2884,26 @@ def is_cdef_func_compatible(self):\n \n     def analyse_declarations(self, env):\n         if self.decorators:\n-            for decorator in self.decorators:\n+            # should only apply to functions outside cdef classes\n+            if len(self.decorators):\n+                # only test the innermost decorator for classmethod\n+                # and static method - anything else will have to be\n+                # fed to the relevant builtin functions\n+                decorator = self.decorators[-1]\n                 func = decorator.decorator\n                 if func.is_name:\n                     self.is_classmethod |= func.name == 'classmethod'\n                     self.is_staticmethod |= func.name == 'staticmethod'\n-\n-        if self.is_classmethod and env.lookup_here('classmethod'):\n+        cm_entry = env.lookup('classmethod')",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405070681",
+            "id": 405070681,
+            "line": 2897,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTA3MDY4MQ==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 2897,
+            "original_position": 92,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 92,
+            "pull_request_review_id": 389424054,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T20:41:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405070681",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405071116"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405071116"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Shouldn't `env.lookup('staticmethod')` always succeed?",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T19:51:22Z",
+            "diff_hunk": "@@ -2869,18 +2884,26 @@ def is_cdef_func_compatible(self):\n \n     def analyse_declarations(self, env):\n         if self.decorators:\n-            for decorator in self.decorators:\n+            # should only apply to functions outside cdef classes\n+            if len(self.decorators):\n+                # only test the innermost decorator for classmethod\n+                # and static method - anything else will have to be\n+                # fed to the relevant builtin functions\n+                decorator = self.decorators[-1]\n                 func = decorator.decorator\n                 if func.is_name:\n                     self.is_classmethod |= func.name == 'classmethod'\n                     self.is_staticmethod |= func.name == 'staticmethod'\n-\n-        if self.is_classmethod and env.lookup_here('classmethod'):\n+        cm_entry = env.lookup('classmethod')\n+        if self.is_classmethod and cm_entry and not cm_entry.cname == \"__Pyx_Method_ClassMethod\":\n             # classmethod() was overridden - not much we can do here ...\n             self.is_classmethod = False\n-        if self.is_staticmethod and env.lookup_here('staticmethod'):\n+        if self.is_staticmethod and env.lookup('staticmethod'):",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405071116",
+            "id": 405071116,
+            "line": 2901,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTA3MTExNg==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 2901,
+            "original_position": 97,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 97,
+            "pull_request_review_id": 389424054,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T20:41:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405071116",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405071738"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405071738"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n            if sig.is_self_arg(i) and not self.is_staticmethod:\r\n```",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T19:52:24Z",
+            "diff_hunk": "@@ -3018,21 +3041,49 @@ def analyse_signature(self, env):\n             sig.is_staticmethod = True\n             sig.has_generic_args = True\n \n-        if ((self.is_classmethod or self.is_staticmethod) and\n-                self.has_fused_arguments and env.is_c_class_scope):\n-            del self.decorator_indirection.stats[:]\n-\n         for i in range(min(nfixed, len(self.args))):\n             arg = self.args[i]\n             arg.is_generic = 0\n-            if sig.is_self_arg(i) and not self.is_staticmethod:\n+            if (sig.is_self_arg(i) and not self.is_staticmethod):",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405071738",
+            "id": 405071738,
+            "line": null,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTA3MTczOA==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 3047,
+            "original_position": 118,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": null,
+            "pull_request_review_id": 389424054,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T20:41:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405071738",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405073736"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405073736"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Phew – I'm not sure if it's always a good idea to change a \"normal\" function into a fused one. That's seems bit too non-obvious for users, also regarding performance characteristics etc.",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T19:55:59Z",
+            "diff_hunk": "@@ -3018,21 +3041,49 @@ def analyse_signature(self, env):\n             sig.is_staticmethod = True\n             sig.has_generic_args = True\n \n-        if ((self.is_classmethod or self.is_staticmethod) and\n-                self.has_fused_arguments and env.is_c_class_scope):\n-            del self.decorator_indirection.stats[:]\n-\n         for i in range(min(nfixed, len(self.args))):\n             arg = self.args[i]\n             arg.is_generic = 0\n-            if sig.is_self_arg(i) and not self.is_staticmethod:\n+            if (sig.is_self_arg(i) and not self.is_staticmethod):\n+                self_type_overridden = arg.type_set_manually\n                 if self.is_classmethod:\n                     arg.is_type_arg = 1\n-                    arg.hdr_type = arg.type = Builtin.type_type\n+                    usual_type = Builtin.type_type\n+                    if not arg.type_set_manually:\n+                        arg.hdr_type = arg.type = usual_type\n                 else:\n                     arg.is_self_arg = 1\n-                    arg.hdr_type = arg.type = env.parent_type\n+                    if self.is_in_arbitrary_decorator:\n+                        usual_type = PyrexTypes.FusedType([env.parent_type, PyrexTypes.py_object_type],",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405073736",
+            "id": 405073736,
+            "line": 3057,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTA3MzczNg==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 3057,
+            "original_position": 130,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 129,
+            "pull_request_review_id": 389424054,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T20:41:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405073736",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405100335"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405100335"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Do you mean \"you're not convinced it should be possible to override the type of self\" or \"this way of doing it is probably not the right way\"?",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T20:43:37Z",
+            "diff_hunk": "@@ -815,6 +815,7 @@ class CArgDeclNode(Node):\n     # kw_only        boolean            Is a keyword-only argument\n     # is_dynamic     boolean            Non-literal arg stored inside CyFunction\n     # pos_only       boolean            Is a positional-only argument\n+    # type_set_manually boolean         Used in overriding the type of self arguments - otherwise unimportant",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405100335",
+            "id": 405100335,
+            "in_reply_to_id": 405062517,
+            "line": 818,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTEwMDMzNQ==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 818,
+            "original_position": 13,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 13,
+            "pull_request_review_id": 389475460,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T21:17:37Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405100335",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405101620"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405101620"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Yes I agree although it's replacing something similarly intrusive.",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T20:45:55Z",
+            "diff_hunk": "@@ -2742,7 +2753,8 @@ class DefNode(FuncDefNode):\n     #  specialized_cpdefs   [DefNode]   list of specialized cpdef DefNodes\n     #  py_cfunc_node  PyCFunctionNode/InnerFunctionNode   The PyCFunction to create and assign\n     #\n-    # decorator_indirection IndirectionNode Used to remove __Pyx_Method_ClassMethod for fused functions\n+    # decorator_call_tree   StatList node containing LetNodes containing SimpleCallNodes",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405101620",
+            "id": 405101620,
+            "in_reply_to_id": 405067540,
+            "line": 2756,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTEwMTYyMA==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 2756,
+            "original_position": 60,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 60,
+            "pull_request_review_id": 389475460,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T21:17:37Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405101620",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405109255"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405109255"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "It doesn't although I can't quite work out why right now. I think it's special-cased somewhere. I'll work out why and add an explanatory comment. As with `classmethod` it's necessary to at least look outwards to the module scope.",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T20:59:29Z",
+            "diff_hunk": "@@ -2869,18 +2884,26 @@ def is_cdef_func_compatible(self):\n \n     def analyse_declarations(self, env):\n         if self.decorators:\n-            for decorator in self.decorators:\n+            # should only apply to functions outside cdef classes\n+            if len(self.decorators):\n+                # only test the innermost decorator for classmethod\n+                # and static method - anything else will have to be\n+                # fed to the relevant builtin functions\n+                decorator = self.decorators[-1]\n                 func = decorator.decorator\n                 if func.is_name:\n                     self.is_classmethod |= func.name == 'classmethod'\n                     self.is_staticmethod |= func.name == 'staticmethod'\n-\n-        if self.is_classmethod and env.lookup_here('classmethod'):\n+        cm_entry = env.lookup('classmethod')\n+        if self.is_classmethod and cm_entry and not cm_entry.cname == \"__Pyx_Method_ClassMethod\":\n             # classmethod() was overridden - not much we can do here ...\n             self.is_classmethod = False\n-        if self.is_staticmethod and env.lookup_here('staticmethod'):\n+        if self.is_staticmethod and env.lookup('staticmethod'):",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405109255",
+            "id": 405109255,
+            "in_reply_to_id": 405071116,
+            "line": 2901,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTEwOTI1NQ==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 2901,
+            "original_position": 97,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 97,
+            "pull_request_review_id": 389475460,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T21:17:37Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405109255",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405118268"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405118268"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "I do see the point here. This seemed less painful than a custom dispatch mechanism just for this use.\r\n\r\nA few possible options:\r\n* I already added a warning message for arbitrary decorators without an explicit type (https://github.com/cython/cython/pull/3383/files#r405058184). It could be more detailed about what it's done and mention the fused function.\r\n* Compiler option to control this (so keep current behaviour as the default, but allow this extension with a compiler options)\r\n* It might be possible to make a simpler dispatch mechanism - just duplicate the tree inside the function so it's effectively in an `if statement`. Obviously that might well have its own complications:\r\n\r\n       ```\r\n       if isinstance(self, CdefClassType):\r\n           # code\r\n       else\r\n            # copy of code with \"self\" -> \"<object>self\"\r\n     ```",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T21:16:44Z",
+            "diff_hunk": "@@ -3018,21 +3041,49 @@ def analyse_signature(self, env):\n             sig.is_staticmethod = True\n             sig.has_generic_args = True\n \n-        if ((self.is_classmethod or self.is_staticmethod) and\n-                self.has_fused_arguments and env.is_c_class_scope):\n-            del self.decorator_indirection.stats[:]\n-\n         for i in range(min(nfixed, len(self.args))):\n             arg = self.args[i]\n             arg.is_generic = 0\n-            if sig.is_self_arg(i) and not self.is_staticmethod:\n+            if (sig.is_self_arg(i) and not self.is_staticmethod):\n+                self_type_overridden = arg.type_set_manually\n                 if self.is_classmethod:\n                     arg.is_type_arg = 1\n-                    arg.hdr_type = arg.type = Builtin.type_type\n+                    usual_type = Builtin.type_type\n+                    if not arg.type_set_manually:\n+                        arg.hdr_type = arg.type = usual_type\n                 else:\n                     arg.is_self_arg = 1\n-                    arg.hdr_type = arg.type = env.parent_type\n+                    if self.is_in_arbitrary_decorator:\n+                        usual_type = PyrexTypes.FusedType([env.parent_type, PyrexTypes.py_object_type],",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405118268",
+            "id": 405118268,
+            "in_reply_to_id": 405073736,
+            "line": 3057,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTExODI2OA==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 3057,
+            "original_position": 130,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 129,
+            "pull_request_review_id": 389475460,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T21:17:37Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405118268",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405119873"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405119873"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "`lookup_here` only checks inside the class scope so it's almost never right. It won't notice if you've re-defined `classmethod` at module level, which has to be much more common. e.g.\r\n\r\n```\r\nclassmethod = lambda x: (lambda: 1)\r\n\r\ncdef class C:\r\n    @classmethod\r\n    def cm(cls):\r\n        pass\r\n```",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-07T21:20:00Z",
+            "diff_hunk": "@@ -2869,18 +2884,26 @@ def is_cdef_func_compatible(self):\n \n     def analyse_declarations(self, env):\n         if self.decorators:\n-            for decorator in self.decorators:\n+            # should only apply to functions outside cdef classes\n+            if len(self.decorators):\n+                # only test the innermost decorator for classmethod\n+                # and static method - anything else will have to be\n+                # fed to the relevant builtin functions\n+                decorator = self.decorators[-1]\n                 func = decorator.decorator\n                 if func.is_name:\n                     self.is_classmethod |= func.name == 'classmethod'\n                     self.is_staticmethod |= func.name == 'staticmethod'\n-\n-        if self.is_classmethod and env.lookup_here('classmethod'):\n+        cm_entry = env.lookup('classmethod')",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405119873",
+            "id": 405119873,
+            "in_reply_to_id": 405070681,
+            "line": 2897,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTExOTg3Mw==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 2897,
+            "original_position": 92,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 92,
+            "pull_request_review_id": 389498788,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-07T21:20:01Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405119873",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405325304"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405325304"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I'm not convinced it should be possible to override the type of self. Being able to call a type's method on something that is not the type? How is that not a static method then?",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-08T07:50:32Z",
+            "diff_hunk": "@@ -815,6 +815,7 @@ class CArgDeclNode(Node):\n     # kw_only        boolean            Is a keyword-only argument\n     # is_dynamic     boolean            Non-literal arg stored inside CyFunction\n     # pos_only       boolean            Is a positional-only argument\n+    # type_set_manually boolean         Used in overriding the type of self arguments - otherwise unimportant",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405325304",
+            "id": 405325304,
+            "in_reply_to_id": 405062517,
+            "line": 818,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTMyNTMwNA==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 818,
+            "original_position": 13,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 13,
+            "pull_request_review_id": 389730811,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-08T07:50:32Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405325304",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405331429"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405331429"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "> although it's replacing something similarly intrusive.\r\n\r\nSorry for that. It's just that adding more tech debt on existing debt is the wrong direction. Changes in suboptimal code and designs should aim for leaving the code cleaner afterwards, even if that means more work along the way.\r\n\r\nIt's definitely not your fault – I'm totally aware that it's difficult to see what others (specifically me) might consider cruft or bad design for whatever reason, when all you're trying to do is to resolve that one problem at hand, following as good as you can whatever help and guiding principles you can extract from a fairly large code base. You're doing great work on that front, seriously!",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-08T08:00:55Z",
+            "diff_hunk": "@@ -2742,7 +2753,8 @@ class DefNode(FuncDefNode):\n     #  specialized_cpdefs   [DefNode]   list of specialized cpdef DefNodes\n     #  py_cfunc_node  PyCFunctionNode/InnerFunctionNode   The PyCFunction to create and assign\n     #\n-    # decorator_indirection IndirectionNode Used to remove __Pyx_Method_ClassMethod for fused functions\n+    # decorator_call_tree   StatList node containing LetNodes containing SimpleCallNodes",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405331429",
+            "id": 405331429,
+            "in_reply_to_id": 405067540,
+            "line": 2756,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTMzMTQyOQ==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 2756,
+            "original_position": 60,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 60,
+            "pull_request_review_id": 389737969,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-08T08:00:55Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405331429",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405333709"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405333709"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "The main counter-argument is that it is possible in Python 3 where functions and methods are the same thing.\r\n\r\nThe difference between it and a static method is that in staticmethod always drops the `self` argument whether you call it with an instance or not, but it is acting very similar to a static method.\r\n\r\nI definitely don't think this would be a good thing to do regularly. @jdemeyer [claimed to have use cases for it](https://github.com/cython/cython/issues/1274#issuecomment-525230079) so maybe could suggest a good reason? I'd mainly implemented it here because it seemed like a necessary step for the arbitrary decorator support.",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-08T08:04:56Z",
+            "diff_hunk": "@@ -815,6 +815,7 @@ class CArgDeclNode(Node):\n     # kw_only        boolean            Is a keyword-only argument\n     # is_dynamic     boolean            Non-literal arg stored inside CyFunction\n     # pos_only       boolean            Is a positional-only argument\n+    # type_set_manually boolean         Used in overriding the type of self arguments - otherwise unimportant",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405333709",
+            "id": 405333709,
+            "in_reply_to_id": 405062517,
+            "line": 818,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTMzMzcwOQ==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 818,
+            "original_position": 13,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 13,
+            "pull_request_review_id": 389740705,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-08T08:04:56Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405333709",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3383#discussion_r405336776"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3383"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/405336776"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "I found a much clearer way of doing it that I'll push in the next commit so it was a useful thing to point out anyway...",
+            "commit_id": "1a556866461c0d839ad506a91a51416f9421e034",
+            "created_at": "2020-04-08T08:09:56Z",
+            "diff_hunk": "@@ -2742,7 +2753,8 @@ class DefNode(FuncDefNode):\n     #  specialized_cpdefs   [DefNode]   list of specialized cpdef DefNodes\n     #  py_cfunc_node  PyCFunctionNode/InnerFunctionNode   The PyCFunction to create and assign\n     #\n-    # decorator_indirection IndirectionNode Used to remove __Pyx_Method_ClassMethod for fused functions\n+    # decorator_call_tree   StatList node containing LetNodes containing SimpleCallNodes",
+            "html_url": "https://github.com/cython/cython/pull/3383#discussion_r405336776",
+            "id": 405336776,
+            "in_reply_to_id": 405067540,
+            "line": 2756,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwNTMzNjc3Ng==",
+            "original_commit_id": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "original_line": 2756,
+            "original_position": 60,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 60,
+            "pull_request_review_id": 389744268,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3383",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-08T08:09:56Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/405336776",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3383/comments",
     "commit_data": [
         {
@@ -1925,6 +3035,248 @@
             ],
             "sha": "3191cfd947257ebd0f977bcbd26b5b977f0fc018",
             "url": "https://api.github.com/repos/cython/cython/commits/3191cfd947257ebd0f977bcbd26b5b977f0fc018"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/c1e73564925320dcc43ba81a880f6501268ef46a/comments",
+            "commit": {
+                "author": {
+                    "date": "2020-04-02T19:25:51Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2020-04-02T19:25:51Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Merge branch 'master' into arb_decorators",
+                "tree": {
+                    "sha": "72cb05702c2e230cb0dee4e12e4c1a6f4ef58b8f",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/72cb05702c2e230cb0dee4e12e4c1a6f4ef58b8f"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/c1e73564925320dcc43ba81a880f6501268ef46a",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/c1e73564925320dcc43ba81a880f6501268ef46a",
+            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6YzFlNzM1NjQ5MjUzMjBkY2M0M2JhODFhODgwZjY1MDEyNjhlZjQ2YQ==",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/3191cfd947257ebd0f977bcbd26b5b977f0fc018",
+                    "sha": "3191cfd947257ebd0f977bcbd26b5b977f0fc018",
+                    "url": "https://api.github.com/repos/cython/cython/commits/3191cfd947257ebd0f977bcbd26b5b977f0fc018"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/2ca3f569254ddee7d1561d102ccca0c9d3250c91",
+                    "sha": "2ca3f569254ddee7d1561d102ccca0c9d3250c91",
+                    "url": "https://api.github.com/repos/cython/cython/commits/2ca3f569254ddee7d1561d102ccca0c9d3250c91"
+                }
+            ],
+            "sha": "c1e73564925320dcc43ba81a880f6501268ef46a",
+            "url": "https://api.github.com/repos/cython/cython/commits/c1e73564925320dcc43ba81a880f6501268ef46a"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/4e1cda27d944191e655b2c5ee98682f827cbf980/comments",
+            "commit": {
+                "author": {
+                    "date": "2020-04-03T07:41:09Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2020-04-03T07:41:09Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Got rid of test that had been renamed in master",
+                "tree": {
+                    "sha": "6b7090ad604f46b02be7c5b5558f360029775c5f",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6b7090ad604f46b02be7c5b5558f360029775c5f"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/4e1cda27d944191e655b2c5ee98682f827cbf980",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6NGUxY2RhMjdkOTQ0MTkxZTY1NWIyYzVlZTk4NjgyZjgyN2NiZjk4MA==",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/c1e73564925320dcc43ba81a880f6501268ef46a",
+                    "sha": "c1e73564925320dcc43ba81a880f6501268ef46a",
+                    "url": "https://api.github.com/repos/cython/cython/commits/c1e73564925320dcc43ba81a880f6501268ef46a"
+                }
+            ],
+            "sha": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+            "url": "https://api.github.com/repos/cython/cython/commits/4e1cda27d944191e655b2c5ee98682f827cbf980"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/1a556866461c0d839ad506a91a51416f9421e034/comments",
+            "commit": {
+                "author": {
+                    "date": "2020-04-07T20:41:52Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2020-04-07T20:41:52Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Apply suggestions from code review\n\nCo-Authored-By: Stefan Behnel <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "45ef266f7719e1ad7fb45b2cf0dc128b0ad89666",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/45ef266f7719e1ad7fb45b2cf0dc128b0ad89666"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/1a556866461c0d839ad506a91a51416f9421e034",
+                "verification": {
+                    "payload": "tree 45ef266f7719e1ad7fb45b2cf0dc128b0ad89666\nparent 4e1cda27d944191e655b2c5ee98682f827cbf980\nauthor da-woods <dw-git@d-woods.co.uk> 1586292112 +0100\ncommitter GitHub <noreply@github.com> 1586292112 +0100\n\nApply suggestions from code review\n\nCo-Authored-By: Stefan Behnel <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJejOWQCRBK7hj4Ov3rIwAAdHIIAFd2tGwzw4h3vvRUKlamva0F\nKukLooAaoK19ZfRP9IANqzz/5GqHPn783sjJy4fRDHCInhOOs8nuuH+jb4njHWeh\nYdokyqSCwE3BocpJnjMvVal2UsN6pZ9eDXR826qQs76n3Yx1lRjLvZiuff1NPa+i\nJyViT3jddccK2NvC6qE451r4Suj6YMjIpmsR1qHOnKeyToudjrPzllPFfwjny/EE\n+OI9JicrwK5bxcGZBm/iZ2Ke8h/YGTTSz3Ru6JQU0323S3xWF1LBdNNAONGQgbhH\n1jpajh9k0IVqbMBpcYty9E938QliydpiumUn6Fjj8V/7KtkXQyBDknakmSK64wI=\n=LKoN\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars3.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/1a556866461c0d839ad506a91a51416f9421e034",
+            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6MWE1NTY4NjY0NjFjMGQ4MzlhZDUwNmE5MWE1MTQxNmY5NDIxZTAzNA==",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/4e1cda27d944191e655b2c5ee98682f827cbf980",
+                    "sha": "4e1cda27d944191e655b2c5ee98682f827cbf980",
+                    "url": "https://api.github.com/repos/cython/cython/commits/4e1cda27d944191e655b2c5ee98682f827cbf980"
+                }
+            ],
+            "sha": "1a556866461c0d839ad506a91a51416f9421e034",
+            "url": "https://api.github.com/repos/cython/cython/commits/1a556866461c0d839ad506a91a51416f9421e034"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/3383/commits",
@@ -2016,9 +3368,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2020-03-26T12:23:26Z",
+            "pushed_at": "2020-04-07T21:00:56Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 58364,
+            "size": 57814,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -2034,7 +3386,7 @@
             "watchers": 0,
             "watchers_count": 0
         },
-        "sha": "3191cfd947257ebd0f977bcbd26b5b977f0fc018",
+        "sha": "1a556866461c0d839ad506a91a51416f9421e034",
         "user": {
             "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -2061,7 +3413,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/3383",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "48e52bcc29b05957020e9e3ed4aaffa658147e2a",
+    "merge_commit_sha": "d3cd00a70ff5e3b063a59c947d93998b6403f70c",
     "merged_at": null,
     "milestone": null,
     "node_id": "MDExOlB1bGxSZXF1ZXN0MzgxNjI5Nzcw",
@@ -2072,9 +3424,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/3383/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/3191cfd947257ebd0f977bcbd26b5b977f0fc018",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/1a556866461c0d839ad506a91a51416f9421e034",
     "title": "Arbitrary decorators on cdef class def functions",
-    "updated_at": "2020-03-25T20:05:57Z",
+    "updated_at": "2020-04-08T08:09:56Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/3383",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
