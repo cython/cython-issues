@@ -1,45 +1,45 @@
 {
     "assignee": null,
     "assignees": [],
-    "author_association": "CONTRIBUTOR",
-    "body": "Here is a sample function in question:\r\n\r\n```python\r\ndef first_or_last(int[:] values, bint first):\r\n    cdef Py_ssize_t i\r\n\r\n    if first:\r\n        i = -1\r\n        yield values[i]\r\n    else:\r\n        i = 0\r\n        yield values[i]\r\n```\r\n\r\nIn both cases, `i` should always be initialized when used, but gcc emits something along the lines of \r\n\r\n```sh\r\nhello.c: In function ‘__pyx_gb_5hello_2generator’:\r\nhello.c:2326:32: warning: ‘__pyx_t_2’ may be used uninitialized in this function [-Wmaybe-uninitialized]\r\n     __pyx_cur_scope->__pyx_t_0 = __pyx_t_2;\r\n```\r\n\r\nMoving the yields outside of the branches works fine, but this is a problem showing up in a larger function where I don't know that that is possible\r\n\r\nI've attached the generated code. I think this is an issue where the generator saving the state of the function but not entirely sure\r\n\r\n\r\n[hello.c.zip](https://github.com/cython/cython/files/4333024/hello.c.zip)\r\n",
+    "author_association": "MEMBER",
+    "body": "Any signature type added to the [generated fused dispatch function](https://github.com/cython/cython/blob/983192298f91352b6159dcd839c607d962bd0a4e/Cython/Compiler/FusedNode.py#L643-L645) leaks into the default argument type of the user defined signature of the specialised functions. This probably happens in (or is triggered by behaviour of) `FusedNode.analyse_expressions()`, but we need to find out where and what is actually going wrong here.",
     "closed_at": null,
     "comment_data": [
         {
-            "author_association": "MEMBER",
-            "body": "The warning seems correct: that temp variable is only used in the first branch and not in the second. There is no reason why it would need to get stored away in the closure there.\r\n\r\nIt could be that some state from the first branch leaks into the second during the code generation phase, e.g. an unreleased temp variable. Needs some more debugging there.",
-            "created_at": "2020-04-14T18:35:22Z",
-            "html_url": "https://github.com/cython/cython/issues/3430#issuecomment-613610420",
-            "id": 613610420,
-            "issue_url": "https://api.github.com/repos/cython/cython/issues/3430",
-            "node_id": "MDEyOklzc3VlQ29tbWVudDYxMzYxMDQyMA==",
-            "updated_at": "2020-04-14T18:35:22Z",
-            "url": "https://api.github.com/repos/cython/cython/issues/comments/613610420",
+            "author_association": "CONTRIBUTOR",
+            "body": "Not got to the bottom of this yet but I think you've got it the wrong way round. It isn't that the types from the dispatch function leak into the user function. It's that the defaults from the user function leak into the dispatch function.\r\n\r\nUsing the example in https://github.com/pandas-dev/pandas/issues/33507#issuecomment-613013030 as a test + `CYTHON_CLINE_IN_TRACEBACK` the error comes from\r\n\r\n    if (!(likely(PyDict_CheckExact(__pyx_v__fused_sigindex))||((__pyx_v__fused_sigindex) == Py_None)||(PyErr_Format(PyExc_TypeError, \"Expected %.16s, got %.200s\", \"dict\", __Pyx_PyType_Name(Py_TYPE(__pyx_v__fused_sigindex))), 0))) __PYX_ERR(0, 6, __pyx_L1_error)\r\n\r\ni.e. an unwanted bool has found its way into the dispatch function.",
+            "created_at": "2020-04-15T09:16:31Z",
+            "html_url": "https://github.com/cython/cython/issues/3511#issuecomment-613921203",
+            "id": 613921203,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3511",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDYxMzkyMTIwMw==",
+            "updated_at": "2020-04-15T09:16:49Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/613921203",
             "user": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
                 "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
                 "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/da-woods"
             }
         }
     ],
     "comments": 1,
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/3430/comments",
-    "created_at": "2020-03-14T16:43:28Z",
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/3511/comments",
+    "created_at": "2020-04-14T05:42:42Z",
     "event_data": [
         {
             "actor": {
@@ -64,15 +64,15 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2020-04-14T18:32:53Z",
+            "created_at": "2020-04-14T05:42:42Z",
             "event": "labeled",
-            "id": 3232387992,
+            "id": 3229555207,
             "label": {
-                "color": "444444",
-                "name": "Code Generation"
+                "color": "0e8a16",
+                "name": "help wanted"
             },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDMyMzIzODc5OTI=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3232387992"
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDMyMjk1NTUyMDc=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3229555207"
         },
         {
             "actor": {
@@ -97,15 +97,15 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2020-04-14T18:32:53Z",
+            "created_at": "2020-04-14T05:42:42Z",
             "event": "labeled",
-            "id": 3232387995,
+            "id": 3229555208,
             "label": {
                 "color": "444444",
                 "name": "defect"
             },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDMyMzIzODc5OTU=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3232387995"
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDMyMjk1NTUyMDg=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3229555208"
         },
         {
             "actor": {
@@ -130,14 +130,47 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2020-04-14T18:35:29Z",
+            "created_at": "2020-04-14T18:15:16Z",
             "event": "milestoned",
-            "id": 3232397172,
+            "id": 3232323085,
             "milestone": {
                 "title": "3.0"
             },
-            "node_id": "MDE1Ok1pbGVzdG9uZWRFdmVudDMyMzIzOTcxNzI=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3232397172"
+            "node_id": "MDE1Ok1pbGVzdG9uZWRFdmVudDMyMzIzMjMwODU=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3232323085"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2020-04-14T18:15:36Z",
+            "event": "labeled",
+            "id": 3232324223,
+            "label": {
+                "color": "444444",
+                "name": "P: blocker"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDMyMzIzMjQyMjM=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3232324223"
         },
         {
             "actor": {
@@ -160,27 +193,27 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             },
-            "commit_id": "bac342ea39fbf911b93d5b1820243bc3fd211f0e",
-            "commit_url": "https://api.github.com/repos/da-woods/cython/commits/bac342ea39fbf911b93d5b1820243bc3fd211f0e",
-            "created_at": "2020-04-14T21:59:04Z",
+            "commit_id": "fa1dde5055a3c52f41b11690b65771916fbccb43",
+            "commit_url": "https://api.github.com/repos/da-woods/cython/commits/fa1dde5055a3c52f41b11690b65771916fbccb43",
+            "created_at": "2020-04-15T10:14:22Z",
             "event": "referenced",
-            "id": 3233062481,
-            "node_id": "MDE1OlJlZmVyZW5jZWRFdmVudDMyMzMwNjI0ODE=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3233062481"
+            "id": 3234815979,
+            "node_id": "MDE1OlJlZmVyZW5jZWRFdmVudDMyMzQ4MTU5Nzk=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3234815979"
         }
     ],
-    "events_url": "https://api.github.com/repos/cython/cython/issues/3430/events",
-    "html_url": "https://github.com/cython/cython/issues/3430",
-    "id": 581280148,
+    "events_url": "https://api.github.com/repos/cython/cython/issues/3511/events",
+    "html_url": "https://github.com/cython/cython/issues/3511",
+    "id": 599311563,
     "labels": [
         {
             "color": "444444",
             "default": false,
             "description": null,
-            "id": 425556330,
-            "name": "Code Generation",
-            "node_id": "MDU6TGFiZWw0MjU1NTYzMzA=",
-            "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
+            "id": 425557145,
+            "name": "P: blocker",
+            "node_id": "MDU6TGFiZWw0MjU1NTcxNDU=",
+            "url": "https://api.github.com/repos/cython/cython/labels/P:%20blocker"
         },
         {
             "color": "444444",
@@ -190,9 +223,18 @@
             "name": "defect",
             "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
             "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        },
+        {
+            "color": "0e8a16",
+            "default": true,
+            "description": null,
+            "id": 414800879,
+            "name": "help wanted",
+            "node_id": "MDU6TGFiZWw0MTQ4MDA4Nzk=",
+            "url": "https://api.github.com/repos/cython/cython/labels/help%20wanted"
         }
     ],
-    "labels_url": "https://api.github.com/repos/cython/cython/issues/3430/labels{/name}",
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/3511/labels{/name}",
     "locked": false,
     "milestone": {
         "closed_at": null,
@@ -231,31 +273,31 @@
         "updated_at": "2020-04-14T18:35:29Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
-    "node_id": "MDU6SXNzdWU1ODEyODAxNDg=",
-    "number": 3430,
+    "node_id": "MDU6SXNzdWU1OTkzMTE1NjM=",
+    "number": 3511,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
-    "title": "Generator Function with Yield in condition causes maybe-uninitialized warning with GCC",
-    "updated_at": "2020-04-14T18:35:29Z",
-    "url": "https://api.github.com/repos/cython/cython/issues/3430",
+    "title": "Fused dispatch function leaks into specialised user functions",
+    "updated_at": "2020-04-15T09:16:49Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/3511",
     "user": {
-        "avatar_url": "https://avatars0.githubusercontent.com/u/609873?v=4",
-        "events_url": "https://api.github.com/users/WillAyd/events{/privacy}",
-        "followers_url": "https://api.github.com/users/WillAyd/followers",
-        "following_url": "https://api.github.com/users/WillAyd/following{/other_user}",
-        "gists_url": "https://api.github.com/users/WillAyd/gists{/gist_id}",
+        "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+        "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+        "followers_url": "https://api.github.com/users/scoder/followers",
+        "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+        "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
         "gravatar_id": "",
-        "html_url": "https://github.com/WillAyd",
-        "id": 609873,
-        "login": "WillAyd",
-        "node_id": "MDQ6VXNlcjYwOTg3Mw==",
-        "organizations_url": "https://api.github.com/users/WillAyd/orgs",
-        "received_events_url": "https://api.github.com/users/WillAyd/received_events",
-        "repos_url": "https://api.github.com/users/WillAyd/repos",
+        "html_url": "https://github.com/scoder",
+        "id": 491659,
+        "login": "scoder",
+        "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+        "organizations_url": "https://api.github.com/users/scoder/orgs",
+        "received_events_url": "https://api.github.com/users/scoder/received_events",
+        "repos_url": "https://api.github.com/users/scoder/repos",
         "site_admin": false,
-        "starred_url": "https://api.github.com/users/WillAyd/starred{/owner}{/repo}",
-        "subscriptions_url": "https://api.github.com/users/WillAyd/subscriptions",
+        "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/WillAyd"
+        "url": "https://api.github.com/users/scoder"
     }
 }

@@ -1,11 +1,43 @@
 {
     "assignee": null,
     "assignees": [],
-    "author_association": "NONE",
+    "author_association": "CONTRIBUTOR",
     "body": "In `__init__.pxd` in a package, using `from . cimport modulename` attempts to find `modulename.pxd` in the parent directory of the package.\r\n\r\nUsing `from . import modulename` in basic Python attempts to find `modulename.*` within the package itself, as does using `from . cimport modulename` in all `*.pxd` files *except* for `__init__.pxd` in packages.\r\n\r\nUsing `from .packagename cimport modulename` in `__init__.pxd` doesn't work around this, because this (correctly) attempts to find `packagename` inside the package itself.\r\n\r\nBecause of this, I think there should not be much functional code out there that depends on the relative `cimport` being based on the parent directory, meaning that it should be possible to switch it to the package directory, in line with Python behaviour, without breaking compatibility.\r\n\r\n---\r\n\r\n#### Example structure:\r\n```\r\ncyrel_package/\r\n├── __init__.pxd\r\n├── __init__.py\r\n├── module.pxd\r\n├── module.py\r\n└── subpackage\r\n    ├── __init__.pxd\r\n    ├── __init__.py\r\n    ├── submodule.pxd\r\n    └── submodule.py\r\n```\r\n\r\nAnd in `cyrel_package/subpackage/__init__.pxd`:\r\n\r\n```python3\r\n# from . cimport submodule\r\n# Fails, \"'cyrel_package/submodule.pxd' not found\" — Attempts to import relative to parent package directory instead of current package directory.\r\n\r\n# from .subpackage cimport submodule\r\n# Fails, \"'cyrel_package/subpackage/subpackage/submodule.pxd' not found\" — Attempts to (correctly) import relative to current package directory.\r\n\r\nfrom cyrel_package.subpackage cimport submodule\r\n# Works.\r\n```\r\n\r\nIt also fails with `from . cimport module` in the topmost `cyrel_package/__init__.pxd`.",
     "closed_at": null,
-    "comment_data": [],
-    "comments": 0,
+    "comment_data": [
+        {
+            "author_association": "MEMBER",
+            "body": "Thanks for the report. There's probably just a tiny wrong decision taken somewhere, e.g. that `__init__.pxd` is not always considered to be a package in all places or so.\r\n\r\nYou tried this with the latest master, right? Could you provide a PR that adds this setup to the existing `tests/run/relative_cimport.srctree` test?",
+            "created_at": "2020-04-10T08:30:46Z",
+            "html_url": "https://github.com/cython/cython/issues/3442#issuecomment-611937423",
+            "id": 611937423,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3442",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDYxMTkzNzQyMw==",
+            "updated_at": "2020-04-10T08:30:46Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/611937423",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
+    "comments": 1,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3442/comments",
     "created_at": "2020-03-17T03:47:11Z",
     "event_data": [
@@ -41,12 +73,139 @@
                 "to": "`from . cimport modulename` tries to search in parent package from `__init__.pxd`."
             },
             "url": "https://api.github.com/repos/cython/cython/issues/events/3135807760"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2020-04-10T08:26:36Z",
+            "event": "labeled",
+            "id": 3221180822,
+            "label": {
+                "color": "444444",
+                "name": "Build System"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDMyMjExODA4MjI=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3221180822"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2020-04-10T08:26:36Z",
+            "event": "labeled",
+            "id": 3221180823,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDMyMjExODA4MjM=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3221180823"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2020-04-10T08:27:21Z",
+            "event": "labeled",
+            "id": 3221183308,
+            "label": {
+                "color": "1d76db",
+                "name": "good first issue"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDMyMjExODMzMDg=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3221183308"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/3442/events",
     "html_url": "https://github.com/cython/cython/issues/3442",
     "id": 582734328,
-    "labels": [],
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425556353,
+            "name": "Build System",
+            "node_id": "MDU6TGFiZWw0MjU1NTYzNTM=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Build%20System"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425553654,
+            "name": "defect",
+            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        },
+        {
+            "color": "1d76db",
+            "default": true,
+            "description": null,
+            "id": 414805682,
+            "name": "good first issue",
+            "node_id": "MDU6TGFiZWw0MTQ4MDU2ODI=",
+            "url": "https://api.github.com/repos/cython/cython/labels/good%20first%20issue"
+        }
+    ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/3442/labels{/name}",
     "locked": false,
     "milestone": null,
@@ -55,7 +214,7 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "`from . cimport modulename` tries to search in parent package from `__init__.pxd`.",
-    "updated_at": "2020-03-19T08:19:05Z",
+    "updated_at": "2020-04-10T08:30:46Z",
     "url": "https://api.github.com/repos/cython/cython/issues/3442",
     "user": {
         "avatar_url": "https://avatars2.githubusercontent.com/u/37680486?v=4",
