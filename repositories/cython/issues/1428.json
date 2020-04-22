@@ -1,16 +1,49 @@
 {
     "assignee": null,
     "assignees": [],
-    "body": "When a .py file is augmented by a .pxd one, cythonize won’t recompile the module when only the pxd has changed, or one of its dependencies, which often leads to broken code.\n\nThis doesn’t happen when the base module is a .pyx one.\n\nMigrated from http://trac.cython.org/ticket/874",
+    "author_association": "MEMBER",
+    "body": "When a .py file is augmented by a .pxd one, cythonize won’t recompile the module when only the pxd has changed, or one of its dependencies, which often leads to broken code.\n\nThis doesn’t happen when the base module is a .pyx one.\n\nMigrated from http://trac.cython.org/ticket/874\n",
     "closed_at": null,
-    "comment_data": [],
-    "comments": 0,
+    "comment_data": [
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "This is still true as of today (cython `3.0a1-79-g3de7a4b8f`):\r\n\r\n```\r\n$ ls\r\na.pxd  a.py  setup.py\r\n```\r\n\r\n`$ cat setup.py`\r\n```py\r\nfrom setuptools import setup\r\nfrom Cython.Build import cythonize\r\n\r\nsetup(\r\n    ext_modules = cythonize([\"a.py\"], language_level=3)\r\n)\r\n```\r\n\r\n`$ cat a.py`\r\n```py\r\ndef afunc(x):\r\n    return x+2\r\n```\r\n\r\n`$ cat a.pxd`\r\n```pyx\r\ncdef int afunc(int x)\r\n```\r\n\r\n( first time compile -> ok )\r\n```\r\n$ python setup.py build_ext -i\r\nCompiling a.py because it changed.\r\n[1/1] Cythonizing a.py\r\nrunning build_ext\r\nbuilding 'a' extension\r\ncreating build\r\ncreating build/temp.linux-x86_64-2.7\r\nx86_64-linux-gnu-gcc -pthread -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -fno-strict-aliasing -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-2.7.16=. -fstack-protector-strong -Wformat -Werror=format-security -fPIC -I/usr/include/python2.7 -c a.c -o build/temp.linux-x86_64-2.7/a.o\r\ncreating build/lib.linux-x86_64-2.7\r\nx86_64-linux-gnu-gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions -Wl,-z,relro -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-2.7.16=. -fstack-protector-strong -Wformat -Werror=format-security -Wl,-z,relro -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-2.7.16=. -fstack-protector-strong -Wformat -Werror=format-security build/temp.linux-x86_64-2.7/a.o -o build/lib.linux-x86_64-2.7/a.so\r\ncopying build/lib.linux-x86_64-2.7/a.so -> \r\n```\r\n\r\n( second time compile -> nothing is done (ok) )\r\n```\r\n$ python setup.py build_ext -i\r\nrunning build_ext\r\ncopying build/lib.linux-x86_64-2.7/a.so -> \r\n```\r\n\r\n( change `a.py` + compile -> `a.so` recompiled (ok) )\r\n```\r\n$ touch a.py \r\n$ python setup.py build_ext -i\r\nCompiling a.py because it changed.\r\n[1/1] Cythonizing a.py\r\nrunning build_ext\r\nbuilding 'a' extension\r\nx86_64-linux-gnu-gcc -pthread -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -fno-strict-aliasing -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-2.7.16=. -fstack-protector-strong -Wformat -Werror=format-security -fPIC -I/usr/include/python2.7 -c a.c -o build/temp.linux-x86_64-2.7/a.o\r\nx86_64-linux-gnu-gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions -Wl,-z,relro -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-2.7.16=. -fstack-protector-strong -Wformat -Werror=format-security -Wl,-z,relro -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-2.7.16=. -fstack-protector-strong -Wformat -Werror=format-security build/temp.linux-x86_64-2.7/a.o -o build/lib.linux-x86_64-2.7/a.so\r\ncopying build/lib.linux-x86_64-2.7/a.so -> \r\n```\r\n\r\n( change `a.pxd`+ compile -> `a.so` is not recompiled (**WRONG**) )\r\n```\r\n$ touch a.pxd \r\n$ python setup.py build_ext -i\r\nrunning build_ext\r\ncopying build/lib.linux-x86_64-2.7/a.so -> \r\n```\r\n\r\n( `a.so` is not recompiled even if we change content of `a.pxd` (**WRONG**) )\r\n```\r\n$ echo ZZZ >a.pxd \r\n$ python setup.py build_ext -i\r\nrunning build_ext\r\ncopying build/lib.linux-x86_64-2.7/a.so -> \r\n```\r\n\r\n( it recompiles and gives the error only if `a.py` is changed )\r\n```\r\n$ touch a.py \r\n$ python setup.py build_ext -i\r\nCompiling a.py because it changed.\r\n[1/1] Cythonizing a.py\r\n\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\nZZZ\r\n^\r\n------------------------------------------------------------\r\n\r\na.pxd:1:0: undeclared name not builtin: ZZZ\r\nTraceback (most recent call last):\r\n  File \"setup.py\", line 5, in <module>\r\n    ext_modules = cythonize([\"a.py\"], language_level=3)\r\n  File \"/home/kirr/src/tools/py/cython/Cython/Build/Dependencies.py\", line 1105, in cythonize\r\n    cythonize_one(*args)\r\n  File \"/home/kirr/src/tools/py/cython/Cython/Build/Dependencies.py\", line 1263, in cythonize_one\r\n    raise CompileError(None, pyx_file)\r\nCython.Compiler.Errors.CompileError: a.py\r\n```\r\n\r\n--------\r\n\r\nThis issue was hit for real with gevent where it was not evident why a code was crashing and only later it was discovered be a miscompilation issue: https://github.com/gevent/gevent/issues/1568#issuecomment-617432757 .\r\n",
+            "created_at": "2020-04-22T11:28:11Z",
+            "html_url": "https://github.com/cython/cython/issues/1428#issuecomment-617719681",
+            "id": 617719681,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1428",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDYxNzcxOTY4MQ==",
+            "updated_at": "2020-04-22T11:28:11Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/617719681",
+            "user": {
+                "avatar_url": "https://avatars1.githubusercontent.com/u/1794248?v=4",
+                "events_url": "https://api.github.com/users/navytux/events{/privacy}",
+                "followers_url": "https://api.github.com/users/navytux/followers",
+                "following_url": "https://api.github.com/users/navytux/following{/other_user}",
+                "gists_url": "https://api.github.com/users/navytux/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/navytux",
+                "id": 1794248,
+                "login": "navytux",
+                "node_id": "MDQ6VXNlcjE3OTQyNDg=",
+                "organizations_url": "https://api.github.com/users/navytux/orgs",
+                "received_events_url": "https://api.github.com/users/navytux/received_events",
+                "repos_url": "https://api.github.com/users/navytux/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/navytux/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/navytux/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/navytux"
+            }
+        }
+    ],
+    "comments": 1,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1428/comments",
     "created_at": "2015-11-27T19:20:26Z",
     "event_data": [
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -19,6 +52,7 @@
                 "html_url": "https://github.com/robertwb",
                 "id": 486017,
                 "login": "robertwb",
+                "node_id": "MDQ6VXNlcjQ4NjAxNw==",
                 "organizations_url": "https://api.github.com/users/robertwb/orgs",
                 "received_events_url": "https://api.github.com/users/robertwb/received_events",
                 "repos_url": "https://api.github.com/users/robertwb/repos",
@@ -37,11 +71,12 @@
                 "color": "444444",
                 "name": "Build System"
             },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDc1Njc4OTE2Mw==",
             "url": "https://api.github.com/repos/cython/cython/issues/events/756789163"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -50,6 +85,7 @@
                 "html_url": "https://github.com/robertwb",
                 "id": 486017,
                 "login": "robertwb",
+                "node_id": "MDQ6VXNlcjQ4NjAxNw==",
                 "organizations_url": "https://api.github.com/users/robertwb/orgs",
                 "received_events_url": "https://api.github.com/users/robertwb/received_events",
                 "repos_url": "https://api.github.com/users/robertwb/repos",
@@ -68,11 +104,12 @@
                 "color": "444444",
                 "name": "defect"
             },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDc1Njc4OTE2NA==",
             "url": "https://api.github.com/repos/cython/cython/issues/events/756789164"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+                "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
                 "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
                 "followers_url": "https://api.github.com/users/robertwb/followers",
                 "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -81,6 +118,7 @@
                 "html_url": "https://github.com/robertwb",
                 "id": 486017,
                 "login": "robertwb",
+                "node_id": "MDQ6VXNlcjQ4NjAxNw==",
                 "organizations_url": "https://api.github.com/users/robertwb/orgs",
                 "received_events_url": "https://api.github.com/users/robertwb/received_events",
                 "repos_url": "https://api.github.com/users/robertwb/repos",
@@ -98,6 +136,7 @@
             "milestone": {
                 "title": "wishlist"
             },
+            "node_id": "MDE1Ok1pbGVzdG9uZWRFdmVudDc1Njc4OTE2NQ==",
             "url": "https://api.github.com/repos/cython/cython/issues/events/756789165"
         }
     ],
@@ -107,12 +146,20 @@
     "labels": [
         {
             "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425556353,
             "name": "Build System",
+            "node_id": "MDU6TGFiZWw0MjU1NTYzNTM=",
             "url": "https://api.github.com/repos/cython/cython/labels/Build%20System"
         },
         {
             "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425553654,
             "name": "defect",
+            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
             "url": "https://api.github.com/repos/cython/cython/labels/defect"
         }
     ],
@@ -120,10 +167,10 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 25,
+        "closed_issues": 35,
         "created_at": "2016-08-16T08:38:52Z",
         "creator": {
-            "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+            "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
             "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
             "followers_url": "https://api.github.com/users/robertwb/followers",
             "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -132,6 +179,7 @@
             "html_url": "https://github.com/robertwb",
             "id": 486017,
             "login": "robertwb",
+            "node_id": "MDQ6VXNlcjQ4NjAxNw==",
             "organizations_url": "https://api.github.com/users/robertwb/orgs",
             "received_events_url": "https://api.github.com/users/robertwb/received_events",
             "repos_url": "https://api.github.com/users/robertwb/repos",
@@ -143,24 +191,26 @@
         },
         "description": "",
         "due_on": null,
-        "html_url": "https://github.com/cython/cython/milestones/wishlist",
+        "html_url": "https://github.com/cython/cython/milestone/6",
         "id": 1944442,
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/6/labels",
+        "node_id": "MDk6TWlsZXN0b25lMTk0NDQ0Mg==",
         "number": 6,
-        "open_issues": 196,
+        "open_issues": 174,
         "state": "open",
         "title": "wishlist",
-        "updated_at": "2016-08-17T04:27:14Z",
+        "updated_at": "2020-04-11T16:14:02Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/6"
     },
+    "node_id": "MDU6SXNzdWUxNzEzNjUyODk=",
     "number": 1428,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "cythonize doesn’t recompile when only the pxd has changed in pure python mode",
-    "updated_at": "2015-11-27T19:20:26Z",
+    "updated_at": "2020-04-22T11:28:12Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1428",
     "user": {
-        "avatar_url": "https://avatars.githubusercontent.com/u/486017?v=3",
+        "avatar_url": "https://avatars3.githubusercontent.com/u/486017?v=4",
         "events_url": "https://api.github.com/users/robertwb/events{/privacy}",
         "followers_url": "https://api.github.com/users/robertwb/followers",
         "following_url": "https://api.github.com/users/robertwb/following{/other_user}",
@@ -169,6 +219,7 @@
         "html_url": "https://github.com/robertwb",
         "id": 486017,
         "login": "robertwb",
+        "node_id": "MDQ6VXNlcjQ4NjAxNw==",
         "organizations_url": "https://api.github.com/users/robertwb/orgs",
         "received_events_url": "https://api.github.com/users/robertwb/received_events",
         "repos_url": "https://api.github.com/users/robertwb/repos",

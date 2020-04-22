@@ -52,8 +52,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 966,
-            "forks_count": 966,
+            "forks": 1003,
+            "forks_count": 1003,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -89,8 +89,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 783,
-            "open_issues_count": 783,
+            "open_issues": 817,
+            "open_issues_count": 817,
             "owner": {
                 "avatar_url": "https://avatars3.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -113,11 +113,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2020-01-15T07:19:23Z",
+            "pushed_at": "2020-04-17T08:57:25Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 56168,
+            "size": 57403,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 4821,
+            "stargazers_count": 5077,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -126,10 +126,10 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2020-01-15T15:07:06Z",
+            "updated_at": "2020-04-17T14:05:35Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 4821,
-            "watchers_count": 4821
+            "watchers": 5077,
+            "watchers_count": 5077
         },
         "sha": "d86aebefd33ecd232317e4becc15bb1d2f9f4bb7",
         "user": {
@@ -153,9 +153,398 @@
             "url": "https://api.github.com/users/cython"
         }
     },
-    "body": "fix for https://github.com/cython/cython/issues/2159\r\n(I started it earlier and had to finish it)\r\n\r\nPotentially I went to wrong way, ready to comments.\r\nHow to emulate coercion to tuple?",
+    "body": "fix for https://github.com/cython/cython/issues/2159\r\n(I started it earlier and had to finish it)\r\n\r\nPotentially I went to wrong way, ready to comments.\r\n",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3151#discussion_r409334427"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3151"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/409334427"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "This looks like it breaks the general interface for `to_py_call_code`.",
+            "commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "created_at": "2020-04-16T07:20:11Z",
+            "diff_hunk": "@@ -2592,6 +2592,46 @@ def find_cpp_operation_type(self, operator, operand_type=None):\n             return self.base_type.find_cpp_operation_type(operator, operand_type)\n         return None\n \n+class CPtrToArraySliceType(CPtrType):\n+    def create_to_py_utility_code(self, env):\n+        if self.to_py_function is not None:\n+            return True\n+        if not self.base_type.create_to_py_utility_code(env):\n+            return False\n+\n+        safe_typename = self.base_type.specialization_name()\n+\n+        to_py_function = \"__Pyx_carray_slice_to_py_%s\" % safe_typename\n+        to_tuple_function = \"__Pyx_carray_slice_to_tuple_%s\" % safe_typename\n+\n+        from .UtilityCode import CythonUtilityCode\n+        context = {\n+            'cname': to_py_function,\n+            'to_tuple_cname': to_tuple_function,\n+            'base_type': self.base_type,\n+        }\n+        env.use_utility_code(CythonUtilityCode.load(\n+            \"carray_slice.to_py\", \"CConvert.pyx\",\n+            outer_module_scope=env.global_scope(),  # need access to types declared in module\n+            context=context, compiler_directives=dict(env.global_scope().directives)))\n+        self.to_tuple_function = to_tuple_function\n+        self.to_py_function = to_py_function\n+        return True\n+\n+    def to_py_call_code(self, source_code, start_code, stop_code, result_code, result_type, to_py_function=None):",
+            "html_url": "https://github.com/cython/cython/pull/3151#discussion_r409334427",
+            "id": 409334427,
+            "line": 2621,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwOTMzNDQyNw==",
+            "original_commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "original_line": 2621,
+            "original_position": 30,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 30,
+            "pull_request_review_id": 394359565,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3151",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-16T07:22:53Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/409334427",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3151#discussion_r409335608"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3151"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/409335608"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Can you ever end up with `arg` as something that isn't a `SliceIndexNode`? For example:\r\n\r\n    a = some_array[1:10]\r\n    return a\r\n\r\nCould `a` pick up the type from the indexing operation, but the coercion would happen to a `NameNode`?",
+            "commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "created_at": "2020-04-16T07:22:25Z",
+            "diff_hunk": "@@ -13192,6 +13200,16 @@ def analyse_types(self, env):\n \n     def generate_result_code(self, code):\n         code.putln('%s; %s' % (\n+            self.arg.type.to_py_call_code(",
+            "html_url": "https://github.com/cython/cython/pull/3151#discussion_r409335608",
+            "id": 409335608,
+            "line": 13203,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwOTMzNTYwOA==",
+            "original_commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "original_line": 13203,
+            "original_position": 39,
+            "original_start_line": null,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 39,
+            "pull_request_review_id": 394359565,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3151",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-16T07:22:53Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/409335608",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3151#discussion_r409364037"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3151"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/409364037"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Both functions seem symmetric, so they should use similar names as well.",
+            "commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "created_at": "2020-04-16T08:10:57Z",
+            "diff_hunk": "@@ -2592,6 +2592,46 @@ def find_cpp_operation_type(self, operator, operand_type=None):\n             return self.base_type.find_cpp_operation_type(operator, operand_type)\n         return None\n \n+class CPtrToArraySliceType(CPtrType):\n+    def create_to_py_utility_code(self, env):\n+        if self.to_py_function is not None:\n+            return True\n+        if not self.base_type.create_to_py_utility_code(env):\n+            return False\n+\n+        safe_typename = self.base_type.specialization_name()\n+\n+        to_py_function = \"__Pyx_carray_slice_to_py_%s\" % safe_typename\n+        to_tuple_function = \"__Pyx_carray_slice_to_tuple_%s\" % safe_typename\n+\n+        from .UtilityCode import CythonUtilityCode\n+        context = {\n+            'cname': to_py_function,\n+            'to_tuple_cname': to_tuple_function,",
+            "html_url": "https://github.com/cython/cython/pull/3151#discussion_r409364037",
+            "id": 409364037,
+            "line": 2610,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwOTM2NDAzNw==",
+            "original_commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "original_line": 2610,
+            "original_position": 19,
+            "original_start_line": 2609,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 19,
+            "pull_request_review_id": 394394984,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3151",
+            "side": "RIGHT",
+            "start_line": 2609,
+            "start_side": "RIGHT",
+            "updated_at": "2020-04-16T08:16:04Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/409364037",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3151#discussion_r409365774"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3151"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/409365774"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Yes. It seems to me that going through an implementation tree node would be better than going through the type system for this. A sliced array isn't really a type by itself.",
+            "commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "created_at": "2020-04-16T08:13:41Z",
+            "diff_hunk": "@@ -2592,6 +2592,46 @@ def find_cpp_operation_type(self, operator, operand_type=None):\n             return self.base_type.find_cpp_operation_type(operator, operand_type)\n         return None\n \n+class CPtrToArraySliceType(CPtrType):\n+    def create_to_py_utility_code(self, env):\n+        if self.to_py_function is not None:\n+            return True\n+        if not self.base_type.create_to_py_utility_code(env):\n+            return False\n+\n+        safe_typename = self.base_type.specialization_name()\n+\n+        to_py_function = \"__Pyx_carray_slice_to_py_%s\" % safe_typename\n+        to_tuple_function = \"__Pyx_carray_slice_to_tuple_%s\" % safe_typename\n+\n+        from .UtilityCode import CythonUtilityCode\n+        context = {\n+            'cname': to_py_function,\n+            'to_tuple_cname': to_tuple_function,\n+            'base_type': self.base_type,\n+        }\n+        env.use_utility_code(CythonUtilityCode.load(\n+            \"carray_slice.to_py\", \"CConvert.pyx\",\n+            outer_module_scope=env.global_scope(),  # need access to types declared in module\n+            context=context, compiler_directives=dict(env.global_scope().directives)))\n+        self.to_tuple_function = to_tuple_function\n+        self.to_py_function = to_py_function\n+        return True\n+\n+    def to_py_call_code(self, source_code, start_code, stop_code, result_code, result_type, to_py_function=None):",
+            "html_url": "https://github.com/cython/cython/pull/3151#discussion_r409365774",
+            "id": 409365774,
+            "in_reply_to_id": 409334427,
+            "line": 2621,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwOTM2NTc3NA==",
+            "original_commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "original_line": 2621,
+            "original_position": 30,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 30,
+            "pull_request_review_id": 394394984,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3151",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-16T08:16:04Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/409365774",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3151#discussion_r409367009"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3151"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/409367009"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Makes total sense to have these two versions, but the tuple case doesn't seem to be exercised in the tests.",
+            "commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "created_at": "2020-04-16T08:15:36Z",
+            "diff_hunk": "@@ -2592,6 +2592,46 @@ def find_cpp_operation_type(self, operator, operand_type=None):\n             return self.base_type.find_cpp_operation_type(operator, operand_type)\n         return None\n \n+class CPtrToArraySliceType(CPtrType):\n+    def create_to_py_utility_code(self, env):\n+        if self.to_py_function is not None:\n+            return True\n+        if not self.base_type.create_to_py_utility_code(env):\n+            return False\n+\n+        safe_typename = self.base_type.specialization_name()\n+\n+        to_py_function = \"__Pyx_carray_slice_to_py_%s\" % safe_typename\n+        to_tuple_function = \"__Pyx_carray_slice_to_tuple_%s\" % safe_typename\n+\n+        from .UtilityCode import CythonUtilityCode\n+        context = {\n+            'cname': to_py_function,\n+            'to_tuple_cname': to_tuple_function,\n+            'base_type': self.base_type,\n+        }\n+        env.use_utility_code(CythonUtilityCode.load(\n+            \"carray_slice.to_py\", \"CConvert.pyx\",\n+            outer_module_scope=env.global_scope(),  # need access to types declared in module\n+            context=context, compiler_directives=dict(env.global_scope().directives)))\n+        self.to_tuple_function = to_tuple_function\n+        self.to_py_function = to_py_function\n+        return True\n+\n+    def to_py_call_code(self, source_code, start_code, stop_code, result_code, result_type, to_py_function=None):\n+        func = self.to_py_function if to_py_function is None else to_py_function\n+\n+        target_is_tuple = result_type.is_builtin_type and result_type.name == 'tuple'",
+            "html_url": "https://github.com/cython/cython/pull/3151#discussion_r409367009",
+            "id": 409367009,
+            "line": 2624,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwOTM2NzAwOQ==",
+            "original_commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "original_line": 2624,
+            "original_position": 33,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 33,
+            "pull_request_review_id": 394394984,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3151",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-16T08:16:04Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/409367009",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3151#discussion_r409552218"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3151"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/409552218"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "I little bit forgot what is there, I know that I did it by potentially wrong way, comments will help to understand where are errors ",
+            "commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "created_at": "2020-04-16T13:24:02Z",
+            "diff_hunk": "@@ -13192,6 +13200,16 @@ def analyse_types(self, env):\n \n     def generate_result_code(self, code):\n         code.putln('%s; %s' % (\n+            self.arg.type.to_py_call_code(",
+            "html_url": "https://github.com/cython/cython/pull/3151#discussion_r409552218",
+            "id": 409552218,
+            "in_reply_to_id": 409335608,
+            "line": 13203,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwOTU1MjIxOA==",
+            "original_commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "original_line": 13203,
+            "original_position": 39,
+            "original_start_line": null,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 39,
+            "pull_request_review_id": 394627641,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3151",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-16T13:24:02Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/409552218",
+            "user": {
+                "avatar_url": "https://avatars2.githubusercontent.com/u/2492069?v=4",
+                "events_url": "https://api.github.com/users/demiurg337/events{/privacy}",
+                "followers_url": "https://api.github.com/users/demiurg337/followers",
+                "following_url": "https://api.github.com/users/demiurg337/following{/other_user}",
+                "gists_url": "https://api.github.com/users/demiurg337/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/demiurg337",
+                "id": 2492069,
+                "login": "demiurg337",
+                "node_id": "MDQ6VXNlcjI0OTIwNjk=",
+                "organizations_url": "https://api.github.com/users/demiurg337/orgs",
+                "received_events_url": "https://api.github.com/users/demiurg337/received_events",
+                "repos_url": "https://api.github.com/users/demiurg337/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/demiurg337/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/demiurg337/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/demiurg337"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3151#discussion_r409552744"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3151"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/409552744"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "ok, I will move",
+            "commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "created_at": "2020-04-16T13:24:44Z",
+            "diff_hunk": "@@ -2592,6 +2592,46 @@ def find_cpp_operation_type(self, operator, operand_type=None):\n             return self.base_type.find_cpp_operation_type(operator, operand_type)\n         return None\n \n+class CPtrToArraySliceType(CPtrType):\n+    def create_to_py_utility_code(self, env):\n+        if self.to_py_function is not None:\n+            return True\n+        if not self.base_type.create_to_py_utility_code(env):\n+            return False\n+\n+        safe_typename = self.base_type.specialization_name()\n+\n+        to_py_function = \"__Pyx_carray_slice_to_py_%s\" % safe_typename\n+        to_tuple_function = \"__Pyx_carray_slice_to_tuple_%s\" % safe_typename\n+\n+        from .UtilityCode import CythonUtilityCode\n+        context = {\n+            'cname': to_py_function,\n+            'to_tuple_cname': to_tuple_function,\n+            'base_type': self.base_type,\n+        }\n+        env.use_utility_code(CythonUtilityCode.load(\n+            \"carray_slice.to_py\", \"CConvert.pyx\",\n+            outer_module_scope=env.global_scope(),  # need access to types declared in module\n+            context=context, compiler_directives=dict(env.global_scope().directives)))\n+        self.to_tuple_function = to_tuple_function\n+        self.to_py_function = to_py_function\n+        return True\n+\n+    def to_py_call_code(self, source_code, start_code, stop_code, result_code, result_type, to_py_function=None):",
+            "html_url": "https://github.com/cython/cython/pull/3151#discussion_r409552744",
+            "id": 409552744,
+            "in_reply_to_id": 409334427,
+            "line": 2621,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDQwOTU1Mjc0NA==",
+            "original_commit_id": "373419b53e7331535e075d298100ae270d6c09db",
+            "original_line": 2621,
+            "original_position": 30,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 30,
+            "pull_request_review_id": 394628332,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3151",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2020-04-16T13:24:45Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/409552744",
+            "user": {
+                "avatar_url": "https://avatars2.githubusercontent.com/u/2492069?v=4",
+                "events_url": "https://api.github.com/users/demiurg337/events{/privacy}",
+                "followers_url": "https://api.github.com/users/demiurg337/followers",
+                "following_url": "https://api.github.com/users/demiurg337/following{/other_user}",
+                "gists_url": "https://api.github.com/users/demiurg337/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/demiurg337",
+                "id": 2492069,
+                "login": "demiurg337",
+                "node_id": "MDQ6VXNlcjI0OTIwNjk=",
+                "organizations_url": "https://api.github.com/users/demiurg337/orgs",
+                "received_events_url": "https://api.github.com/users/demiurg337/received_events",
+                "repos_url": "https://api.github.com/users/demiurg337/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/demiurg337/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/demiurg337/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/demiurg337"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3151/comments",
     "commit_data": [
         {
@@ -320,6 +709,7 @@
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/3151/commits",
     "created_at": "2019-09-21T16:59:31Z",
     "diff_url": "https://github.com/cython/cython/pull/3151.diff",
+    "draft": false,
     "head": {
         "label": "demiurg337:_fix_of_2159",
         "ref": "_fix_of_2159",
@@ -381,8 +771,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkyMDA4NDMyMTA=",
             "notifications_url": "https://api.github.com/repos/demiurg337/cython/notifications{?since,all,participating}",
-            "open_issues": 0,
-            "open_issues_count": 0,
+            "open_issues": 1,
+            "open_issues_count": 1,
             "owner": {
                 "avatar_url": "https://avatars2.githubusercontent.com/u/2492069?v=4",
                 "events_url": "https://api.github.com/users/demiurg337/events{/privacy}",
@@ -405,9 +795,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/demiurg337/cython/pulls{/number}",
-            "pushed_at": "2019-09-23T10:10:18Z",
+            "pushed_at": "2020-04-16T17:42:22Z",
             "releases_url": "https://api.github.com/repos/demiurg337/cython/releases{/id}",
-            "size": 55473,
+            "size": 57115,
             "ssh_url": "git@github.com:demiurg337/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/demiurg337/cython/stargazers",
@@ -418,7 +808,7 @@
             "tags_url": "https://api.github.com/repos/demiurg337/cython/tags",
             "teams_url": "https://api.github.com/repos/demiurg337/cython/teams",
             "trees_url": "https://api.github.com/repos/demiurg337/cython/git/trees{/sha}",
-            "updated_at": "2019-08-06T12:04:21Z",
+            "updated_at": "2020-04-05T09:25:38Z",
             "url": "https://api.github.com/repos/demiurg337/cython",
             "watchers": 0,
             "watchers_count": 0
@@ -450,7 +840,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/3151",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "612452efcc29c998d659922d7708513903c5b18e",
+    "merge_commit_sha": "4f7f09f9d0d1d8f3e487cfb195c5b61e1a8b7e4a",
     "merged_at": null,
     "milestone": null,
     "node_id": "MDExOlB1bGxSZXF1ZXN0MzE5OTc0NzQ3",
@@ -462,8 +852,8 @@
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/3151/comments",
     "state": "open",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/373419b53e7331535e075d298100ae270d6c09db",
-    "title": "[RFC]Coercing sliced array to Python object",
-    "updated_at": "2020-01-14T18:43:03Z",
+    "title": "[wip]Coercing sliced array to Python  object",
+    "updated_at": "2020-04-16T13:24:45Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/3151",
     "user": {
         "avatar_url": "https://avatars2.githubusercontent.com/u/2492069?v=4",
