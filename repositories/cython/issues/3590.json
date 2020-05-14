@@ -1,20 +1,20 @@
 {
     "assignee": null,
     "assignees": [],
-    "author_association": "NONE",
-    "body": "Using Cython version 3.0a4 with python3.7 on windows7 x64, I received \r\n\r\nplugin.cpp(329104): warning C4551: function call missing argument list\r\n\r\n~~~cpp\r\n#if PY_VERSION_HEX < 0x030600A4 && CYTHON_PEP487_INIT_SUBCLASS\r\n    if (likely(result) && likely(PyType_Check(result))) {\r\n        if (unlikely(__Pyx_SetNamesPEP487(result) < 0)) {\r\n            Py_CLEAR(result);\r\n        } else {\r\n            result = __Pyx_InitSubclassPEP487(result, mkw);\r\n        }\r\n    }\r\n#else\r\n    (void) __Pyx_GetBuiltinName;   <-- line 329104\r\n#endif\r\n~~~\r\n\r\nCython version 3.0a1 did not show this warning.\r\n\r\nFeel free to close if this isn't relevant.",
-    "closed_at": "2020-05-07T12:39:45Z",
+    "author_association": "CONTRIBUTOR",
+    "body": "```\r\ncdef void f() nogil:\r\n    with gil:\r\n        x = []\r\n```\r\n\r\nOn current master this generates the C code:\r\n\r\n```\r\ngoto __pyx_L0;\r\n  __pyx_L1_error:;\r\n  __Pyx_XDECREF(__pyx_t_1);\r\n  #ifdef WITH_THREAD\r\n  __pyx_gilstate_save = __Pyx_PyGILState_Ensure();\r\n  #endif\r\n  __Pyx_WriteUnraisable(\"xxx.f\", __pyx_clineno, __pyx_lineno, __pyx_filename, 1, 0);\r\n  #ifdef WITH_THREAD\r\n  __Pyx_PyGILState_Release(__pyx_gilstate_save);\r\n  #endif\r\n  __pyx_L0:;\r\n  __Pyx_XDECREF(__pyx_v_x);\r\n```\r\n\r\nNote that both `__Pyx_XDECREF`s happen outside the `__Pyx_PyGILState_Ensure` block.\r\n\r\nOn 0.29.x the code generated looks fine.",
+    "closed_at": "2020-05-09T06:54:40Z",
     "comment_data": [
         {
             "author_association": "MEMBER",
-            "body": "Oh, great. That line is literally only there to _avoid_ a warning, about the function being unused, specifically. Does it help to take the address of the function instead, i.e. `(void) &__Pyx_GetBuiltinName` ?",
-            "created_at": "2020-05-07T12:34:32Z",
-            "html_url": "https://github.com/cython/cython/issues/3579#issuecomment-625227967",
-            "id": 625227967,
-            "issue_url": "https://api.github.com/repos/cython/cython/issues/3579",
-            "node_id": "MDEyOklzc3VlQ29tbWVudDYyNTIyNzk2Nw==",
-            "updated_at": "2020-05-07T12:34:32Z",
-            "url": "https://api.github.com/repos/cython/cython/issues/comments/625227967",
+            "body": "Thanks for noticing and for the short reproducer.",
+            "created_at": "2020-05-09T06:55:18Z",
+            "html_url": "https://github.com/cython/cython/issues/3590#issuecomment-626117941",
+            "id": 626117941,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3590",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDYyNjExNzk0MQ==",
+            "updated_at": "2020-05-09T06:55:18Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/626117941",
             "user": {
                 "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
@@ -35,42 +35,11 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             }
-        },
-        {
-            "author_association": "NONE",
-            "body": "@scoder, sorry for the naive question but should I do the test to see if the change does what you want it to be done? I certainly open for doing it.",
-            "created_at": "2020-05-10T21:46:45Z",
-            "html_url": "https://github.com/cython/cython/issues/3579#issuecomment-626394544",
-            "id": 626394544,
-            "issue_url": "https://api.github.com/repos/cython/cython/issues/3579",
-            "node_id": "MDEyOklzc3VlQ29tbWVudDYyNjM5NDU0NA==",
-            "updated_at": "2020-05-10T21:46:45Z",
-            "url": "https://api.github.com/repos/cython/cython/issues/comments/626394544",
-            "user": {
-                "avatar_url": "https://avatars2.githubusercontent.com/u/47723516?v=4",
-                "events_url": "https://api.github.com/users/Ekopalypse/events{/privacy}",
-                "followers_url": "https://api.github.com/users/Ekopalypse/followers",
-                "following_url": "https://api.github.com/users/Ekopalypse/following{/other_user}",
-                "gists_url": "https://api.github.com/users/Ekopalypse/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/Ekopalypse",
-                "id": 47723516,
-                "login": "Ekopalypse",
-                "node_id": "MDQ6VXNlcjQ3NzIzNTE2",
-                "organizations_url": "https://api.github.com/users/Ekopalypse/orgs",
-                "received_events_url": "https://api.github.com/users/Ekopalypse/received_events",
-                "repos_url": "https://api.github.com/users/Ekopalypse/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/Ekopalypse/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/Ekopalypse/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/Ekopalypse"
-            }
         }
     ],
-    "comments": 2,
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/3579/comments",
-    "created_at": "2020-05-06T16:59:10Z",
+    "comments": 1,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/3590/comments",
+    "created_at": "2020-05-08T13:30:33Z",
     "event_data": [
         {
             "actor": {
@@ -95,15 +64,15 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2020-05-07T12:34:39Z",
+            "created_at": "2020-05-09T06:49:56Z",
             "event": "labeled",
-            "id": 3312678539,
+            "id": 3319072921,
             "label": {
                 "color": "444444",
                 "name": "Code Generation"
             },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDMzMTI2Nzg1Mzk=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3312678539"
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDMzMTkwNzI5MjE=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3319072921"
         },
         {
             "actor": {
@@ -128,44 +97,15 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2020-05-07T12:34:39Z",
+            "created_at": "2020-05-09T06:49:56Z",
             "event": "labeled",
-            "id": 3312678542,
+            "id": 3319072922,
             "label": {
                 "color": "444444",
                 "name": "defect"
             },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDMzMTI2Nzg1NDI=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3312678542"
-        },
-        {
-            "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            },
-            "commit_id": "5f2a908fa7ce3257c29d9aea13e588cbc644f7dd",
-            "commit_url": "https://api.github.com/repos/cython/cython/commits/5f2a908fa7ce3257c29d9aea13e588cbc644f7dd",
-            "created_at": "2020-05-07T12:39:46Z",
-            "event": "closed",
-            "id": 3312697383,
-            "node_id": "MDExOkNsb3NlZEV2ZW50MzMxMjY5NzM4Mw==",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3312697383"
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDMzMTkwNzI5MjI=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3319072922"
         },
         {
             "actor": {
@@ -190,14 +130,14 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2020-05-07T12:40:16Z",
+            "created_at": "2020-05-09T06:50:00Z",
             "event": "milestoned",
-            "id": 3312699480,
+            "id": 3319072967,
             "milestone": {
                 "title": "3.0"
             },
-            "node_id": "MDE1Ok1pbGVzdG9uZWRFdmVudDMzMTI2OTk0ODA=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3312699480"
+            "node_id": "MDE1Ok1pbGVzdG9uZWRFdmVudDMzMTkwNzI5Njc=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3319072967"
         },
         {
             "actor": {
@@ -220,47 +160,18 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             },
-            "commit_id": null,
-            "commit_url": null,
-            "created_at": "2020-05-10T21:46:45Z",
-            "event": "mentioned",
-            "id": 3320728876,
-            "node_id": "MDE0Ok1lbnRpb25lZEV2ZW50MzMyMDcyODg3Ng==",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3320728876"
-        },
-        {
-            "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            },
-            "commit_id": null,
-            "commit_url": null,
-            "created_at": "2020-05-10T21:46:45Z",
-            "event": "subscribed",
-            "id": 3320728878,
-            "node_id": "MDE1OlN1YnNjcmliZWRFdmVudDMzMjA3Mjg4Nzg=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3320728878"
+            "commit_id": "2d8f7f35c28c5c398143c74a9b2f34ee65e61554",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/2d8f7f35c28c5c398143c74a9b2f34ee65e61554",
+            "created_at": "2020-05-09T06:54:40Z",
+            "event": "closed",
+            "id": 3319076001,
+            "node_id": "MDExOkNsb3NlZEV2ZW50MzMxOTA3NjAwMQ==",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3319076001"
         }
     ],
-    "events_url": "https://api.github.com/repos/cython/cython/issues/3579/events",
-    "html_url": "https://github.com/cython/cython/issues/3579",
-    "id": 613470594,
+    "events_url": "https://api.github.com/repos/cython/cython/issues/3590/events",
+    "html_url": "https://github.com/cython/cython/issues/3590",
+    "id": 614744659,
     "labels": [
         {
             "color": "444444",
@@ -281,11 +192,11 @@
             "url": "https://api.github.com/repos/cython/cython/labels/defect"
         }
     ],
-    "labels_url": "https://api.github.com/repos/cython/cython/issues/3579/labels{/name}",
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/3590/labels{/name}",
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 226,
+        "closed_issues": 223,
         "created_at": "2018-08-18T06:33:08Z",
         "creator": {
             "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
@@ -314,37 +225,37 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
         "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
         "number": 58,
-        "open_issues": 18,
+        "open_issues": 19,
         "state": "open",
         "title": "3.0",
-        "updated_at": "2020-05-09T18:10:28Z",
+        "updated_at": "2020-05-09T09:09:56Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
-    "node_id": "MDU6SXNzdWU2MTM0NzA1OTQ=",
-    "number": 3579,
+    "node_id": "MDU6SXNzdWU2MTQ3NDQ2NTk=",
+    "number": 3590,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "closed",
-    "title": "Warning C4551: function call missing argument list",
-    "updated_at": "2020-05-10T21:46:45Z",
-    "url": "https://api.github.com/repos/cython/cython/issues/3579",
+    "title": "Cleanup of Python variables wrong in nogil functions",
+    "updated_at": "2020-05-09T06:55:18Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/3590",
     "user": {
-        "avatar_url": "https://avatars2.githubusercontent.com/u/47723516?v=4",
-        "events_url": "https://api.github.com/users/Ekopalypse/events{/privacy}",
-        "followers_url": "https://api.github.com/users/Ekopalypse/followers",
-        "following_url": "https://api.github.com/users/Ekopalypse/following{/other_user}",
-        "gists_url": "https://api.github.com/users/Ekopalypse/gists{/gist_id}",
+        "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+        "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+        "followers_url": "https://api.github.com/users/da-woods/followers",
+        "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+        "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
         "gravatar_id": "",
-        "html_url": "https://github.com/Ekopalypse",
-        "id": 47723516,
-        "login": "Ekopalypse",
-        "node_id": "MDQ6VXNlcjQ3NzIzNTE2",
-        "organizations_url": "https://api.github.com/users/Ekopalypse/orgs",
-        "received_events_url": "https://api.github.com/users/Ekopalypse/received_events",
-        "repos_url": "https://api.github.com/users/Ekopalypse/repos",
+        "html_url": "https://github.com/da-woods",
+        "id": 10536947,
+        "login": "da-woods",
+        "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+        "organizations_url": "https://api.github.com/users/da-woods/orgs",
+        "received_events_url": "https://api.github.com/users/da-woods/received_events",
+        "repos_url": "https://api.github.com/users/da-woods/repos",
         "site_admin": false,
-        "starred_url": "https://api.github.com/users/Ekopalypse/starred{/owner}{/repo}",
-        "subscriptions_url": "https://api.github.com/users/Ekopalypse/subscriptions",
+        "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/Ekopalypse"
+        "url": "https://api.github.com/users/da-woods"
     }
 }
