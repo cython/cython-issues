@@ -3,12 +3,12 @@
     "assignee": null,
     "assignees": [],
     "author_association": "MEMBER",
-    "body": "Cython generates some code into cpdef methods that checks if the method has potentially been overridden when calling it directly through the C vtable, and if that's possible, it repeats the call through a Python method lookup. This works for non-heap types without instance dict, but fails otherwise, e.g. for Python subtypes and types created with type specs. This is covered by `test_cpdef.test_fused_cpdef()` with `-DCYTHON_USE_TYPE_SPECS=1`.\r\n\r\nFor fused methods, this currently generates\r\n1) duplicate code for the override check (`declare_cpdef_wrapper()` is called twice for fused functions and creates two `OverrideCheckNode`s where we should have only one)\r\n2) a method lookup for the internal (mangled) fused function name, which is then not found.\r\n3) a Python call from the specialised method to the generic method, which might then end up calling a different specialisation than what was chosen at compile time.\r\n\r\nInstead, it should\r\n1) generate only one check [*work-around is in 45038e3c47e3ebd7e155e316b1ff23848b736348*]\r\n2) look up the normally named method\r\n3a) check if that method is a fused function (if not, call it, since it has definitely been overwritten)\r\n3b) if if is a fused function, look up the concrete specialised method from it (if that fails, call the fused function itself)\r\n3c) then check if that specialised function points to the (running) C function (if not, call it)\r\n\r\nAlong the way, it can use dict version checks for all involved dicts, i.e. the type's dict and the fused method's specialisation dict.",
+    "body": "The global module state implementation introduced in #3223 needs to be cleaned up.\r\n\r\n- [ ] Always use a module state struct, not only for the limited API / `CYTHON_USE_MODULE_STATE` case.\r\n- [ ] Remove the long `#define x state->x` blocks at the beginning of the module code and replace them by lookup macros for globals that also use `__pyx_self` in all places where it's available, since that's what the lookups will be based on in the future. Examples: `__Pyx_GlobalInCyFunction(__pyx_self, global_name)` and `__Pyx_GlobalInInit(__pyx_m, global_name)` etc.\r\n- [ ] Merge the duplicate cleanup functions.\r\n\r\nNote that this cleanup needs to be based on #3611.",
     "closed_at": null,
     "comment_data": [],
     "comments": 0,
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/3628/comments",
-    "created_at": "2020-05-22T15:24:16Z",
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/3689/comments",
+    "created_at": "2020-06-17T05:35:15Z",
     "event_data": [
         {
             "actor": {
@@ -33,15 +33,15 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2020-05-22T15:24:16Z",
+            "created_at": "2020-06-17T05:35:15Z",
             "event": "labeled",
-            "id": 3365161529,
+            "id": 3451897361,
             "label": {
                 "color": "444444",
-                "name": "defect"
+                "name": "cleanup"
             },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDMzNjUxNjE1Mjk=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3365161529"
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDM0NTE4OTczNjE=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3451897361"
         },
         {
             "actor": {
@@ -66,80 +66,14 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2020-05-22T15:24:16Z",
-            "event": "labeled",
-            "id": 3365161532,
-            "label": {
-                "color": "444444",
-                "name": "Code Generation"
-            },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDMzNjUxNjE1MzI=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3365161532"
-        },
-        {
-            "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            },
-            "commit_id": null,
-            "commit_url": null,
-            "created_at": "2020-05-22T15:24:16Z",
-            "event": "labeled",
-            "id": 3365161537,
-            "label": {
-                "color": "444444",
-                "name": "Cython Language Feature"
-            },
-            "node_id": "MDEyOkxhYmVsZWRFdmVudDMzNjUxNjE1Mzc=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3365161537"
-        },
-        {
-            "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            },
-            "commit_id": null,
-            "commit_url": null,
-            "created_at": "2020-06-03T08:52:51Z",
+            "created_at": "2020-06-17T05:35:16Z",
             "event": "milestoned",
-            "id": 3401129800,
+            "id": 3451897367,
             "milestone": {
                 "title": "3.0"
             },
-            "node_id": "MDE1Ok1pbGVzdG9uZWRFdmVudDM0MDExMjk4MDA=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3401129800"
+            "node_id": "MDE1Ok1pbGVzdG9uZWRFdmVudDM0NTE4OTczNjc=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3451897367"
         },
         {
             "actor": {
@@ -162,48 +96,43 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             },
-            "commit_id": "45038e3c47e3ebd7e155e316b1ff23848b736348",
-            "commit_url": "https://api.github.com/repos/cython/cython/commits/45038e3c47e3ebd7e155e316b1ff23848b736348",
-            "created_at": "2020-06-17T10:11:41Z",
-            "event": "referenced",
-            "id": 3452864577,
-            "node_id": "MDE1OlJlZmVyZW5jZWRFdmVudDM0NTI4NjQ1Nzc=",
-            "url": "https://api.github.com/repos/cython/cython/issues/events/3452864577"
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2020-06-17T05:35:47Z",
+            "event": "labeled",
+            "id": 3451898449,
+            "label": {
+                "color": "0e8a16",
+                "name": "help wanted"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDM0NTE4OTg0NDk=",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3451898449"
         }
     ],
-    "events_url": "https://api.github.com/repos/cython/cython/issues/3628/events",
-    "html_url": "https://github.com/cython/cython/issues/3628",
-    "id": 623287131,
+    "events_url": "https://api.github.com/repos/cython/cython/issues/3689/events",
+    "html_url": "https://github.com/cython/cython/issues/3689",
+    "id": 640155286,
     "labels": [
         {
             "color": "444444",
             "default": false,
             "description": null,
-            "id": 425556330,
-            "name": "Code Generation",
-            "node_id": "MDU6TGFiZWw0MjU1NTYzMzA=",
-            "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
+            "id": 425558030,
+            "name": "cleanup",
+            "node_id": "MDU6TGFiZWw0MjU1NTgwMzA=",
+            "url": "https://api.github.com/repos/cython/cython/labels/cleanup"
         },
         {
-            "color": "444444",
-            "default": false,
+            "color": "0e8a16",
+            "default": true,
             "description": null,
-            "id": 425559948,
-            "name": "Cython Language Feature",
-            "node_id": "MDU6TGFiZWw0MjU1NTk5NDg=",
-            "url": "https://api.github.com/repos/cython/cython/labels/Cython%20Language%20Feature"
-        },
-        {
-            "color": "444444",
-            "default": false,
-            "description": null,
-            "id": 425553654,
-            "name": "defect",
-            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
-            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+            "id": 414800879,
+            "name": "help wanted",
+            "node_id": "MDU6TGFiZWw0MTQ4MDA4Nzk=",
+            "url": "https://api.github.com/repos/cython/cython/labels/help%20wanted"
         }
     ],
-    "labels_url": "https://api.github.com/repos/cython/cython/issues/3628/labels{/name}",
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/3689/labels{/name}",
     "locked": false,
     "milestone": {
         "closed_at": null,
@@ -242,13 +171,13 @@
         "updated_at": "2020-06-17T05:35:16Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
-    "node_id": "MDU6SXNzdWU2MjMyODcxMzE=",
-    "number": 3628,
+    "node_id": "MDU6SXNzdWU2NDAxNTUyODY=",
+    "number": 3689,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
-    "title": "cpdef method override check fails for fused methods",
-    "updated_at": "2020-06-17T10:14:16Z",
-    "url": "https://api.github.com/repos/cython/cython/issues/3628",
+    "title": "Clean up global module state implementation",
+    "updated_at": "2020-06-17T05:53:58Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/3689",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
         "events_url": "https://api.github.com/users/scoder/events{/privacy}",
