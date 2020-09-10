@@ -1,9 +1,10 @@
 {
+    "active_lock_reason": null,
     "assignee": null,
     "assignees": [],
     "author_association": "NONE",
     "body": "If I create a `cdef`'d class in a cython file having a struct as class member, and then instantiate that class in python, the structs do not get destroyed when the python object is deleted. Adding an explicit call to the struct destructor in `__dealloc__` will do the job however.\r\n\r\nExample:\r\ncppheader.hpp:\r\n```cpp\r\n#include <vector>\r\n\r\ntypedef struct MyObject {\r\n\tint val;\r\n\tstd::vector<double> big_obj;\r\n} MyObject;\r\n\r\ntypedef struct InfoHolder {\r\n\tstd::vector<MyObject> v;\r\n\tint some_val;\r\n} InfoHolder;\r\n\r\nvoid increase_size(MyObject &my_obj)\r\n{\r\n\tmy_obj.big_obj.resize(10000000, 1);\r\n}\r\n\r\nvoid force_destroy(InfoHolder &info_holder)\r\n{\r\n\tinfo_holder.~InfoHolder();\r\n}\r\n```\r\ncyfile.pyx:\r\n```python\r\nfrom libcpp.vector cimport vector\r\n\r\ncdef extern from \"cppheader.hpp\":\r\n\tctypedef struct MyObject:\r\n\t\tint val\r\n\t\tvector[double] big_obj\r\n\tctypedef struct InfoHolder:\r\n\t\tvector[MyObject] v\r\n\t\tint some_val\r\n\tvoid increase_size(MyObject &my_obj)\r\n\tvoid force_destroy(InfoHolder &info_holder)\r\n\r\ncdef class PyInfoHolder:\r\n\tcdef InfoHolder info_holder\r\n\tdef __init__(self):\r\n\t\tself.info_holder.v.resize(1);\r\n\t\tincrease_size(self.info_holder.v.at(0))\t\r\n\tdef say_hello(self):\r\n\t\tprint(\"hello\")\r\n```\r\npyfile.py:\r\n```python\r\nfrom cyfile import PyInfoHolder\r\n\r\nfor i in range(100):\r\n\tpy_obj = PyInfoHolder()\r\n\tpy_obj.say_hello()\r\nprint(\"end\")\r\n```\r\n\r\nWatch the memory usage when running `python pyfile.py`, and then compare against the following alternative cython class:\r\n```python\r\ncdef class PyInfoHolder:\r\n\tcdef InfoHolder info_holder\r\n\tdef __init__(self):\r\n\t\tself.info_holder.v.resize(1);\r\n\t\tincrease_size(self.info_holder.v.at(0))\r\n\tdef __dealloc__(self):\r\n\t\tforce_destroy(self.info_holder)\t\t\r\n\tdef say_hello(self):\r\n\t\tprint(\"hello\")\r\n```\r\n\r\n(For some reason, the structs also cannot call their destructor explicitly within cython - e.g. `self.info_holder.~InfoHolder()` fails to compile)",
-    "closed_at": null,
+    "closed_at": "2020-09-04T07:12:01Z",
     "comment_data": [
         {
             "author_association": "MEMBER",
@@ -13,6 +14,7 @@
             "id": 551188400,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/3226",
             "node_id": "MDEyOklzc3VlQ29tbWVudDU1MTE4ODQwMA==",
+            "performed_via_github_app": null,
             "updated_at": "2019-11-07T17:45:32Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/551188400",
             "user": {
@@ -44,6 +46,7 @@
             "id": 551483804,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/3226",
             "node_id": "MDEyOklzc3VlQ29tbWVudDU1MTQ4MzgwNA==",
+            "performed_via_github_app": null,
             "updated_at": "2019-11-08T09:52:36Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/551483804",
             "user": {
@@ -68,13 +71,14 @@
             }
         },
         {
-            "author_association": "CONTRIBUTOR",
+            "author_association": "COLLABORATOR",
             "body": "I've had a go at fixing it https://github.com/cython/cython/pull/3228. My view is it's somewhat useful: it's convention that C++ structs should only be POD, but it is only a convention so to be safe they should be destructed. It should cost almost nothing to do it (especially when they are just POD) but it could save mystery memory leaks\r\n\r\n@david-cortes  There's no issue with memory being freed built-in types like `int` and `double` - no destructor will be called, but the memory is allocated and deallocated with the Python object.",
             "created_at": "2019-11-09T16:30:02Z",
             "html_url": "https://github.com/cython/cython/issues/3226#issuecomment-552115351",
             "id": 552115351,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/3226",
             "node_id": "MDEyOklzc3VlQ29tbWVudDU1MjExNTM1MQ==",
+            "performed_via_github_app": null,
             "updated_at": "2019-11-09T16:30:02Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/552115351",
             "user": {
@@ -106,6 +110,7 @@
             "id": 552218554,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/3226",
             "node_id": "MDEyOklzc3VlQ29tbWVudDU1MjIxODU1NA==",
+            "performed_via_github_app": null,
             "updated_at": "2019-11-10T18:06:45Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/552218554",
             "user": {
@@ -130,13 +135,14 @@
             }
         },
         {
-            "author_association": "CONTRIBUTOR",
+            "author_association": "COLLABORATOR",
             "body": "@david-cortes I believe it calls the SomeStruct constructor to create a temporary then calls the copy assignment operator, then when the temporary falls out of scope (might be instant or might later in the function) the temporary will be destructed by default - this is the existing behaviour. It might possibly be worth testing for this, but I'm pretty sure it already did the right thing.\r\n\r\nThe issue was really only for structs in cdef classes, where the cdef class is allocated with malloc and freed with free. For pretty much every other case normal C++ scope rules handle appropriately.",
             "created_at": "2019-11-10T18:13:08Z",
             "html_url": "https://github.com/cython/cython/issues/3226#issuecomment-552219032",
             "id": 552219032,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/3226",
             "node_id": "MDEyOklzc3VlQ29tbWVudDU1MjIxOTAzMg==",
+            "performed_via_github_app": null,
             "updated_at": "2019-11-10T18:13:30Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/552219032",
             "user": {
@@ -168,6 +174,7 @@
             "id": 553412430,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/3226",
             "node_id": "MDEyOklzc3VlQ29tbWVudDU1MzQxMjQzMA==",
+            "performed_via_github_app": null,
             "updated_at": "2019-11-13T13:50:50Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/553412430",
             "user": {
@@ -192,13 +199,14 @@
             }
         },
         {
-            "author_association": "CONTRIBUTOR",
+            "author_association": "COLLABORATOR",
             "body": "The output you show is without my PR, so it's missing the destruction of the `MyObject` in the cdef class. With my PR these are destructed correctly\r\n\r\nIf you dig into the C++ code it first creates an uninitialized `MyObject` temporary:\r\n\r\n    MyObject __pyx_t_1;\r\n\r\nthen for all the `self.my_object = MyObject()` assignments it just assigns from that temporary:\r\n\r\n    __pyx_v_self->my_object = __pyx_t_1;\r\n\r\nThe destructor calls you see is that temporary being destroyed at the end of `__init__`, with the arbitrary number being because it was uninitialized.\r\n\r\nYou could possibly argue that this is slightly odd code to generate. However, it's valid and there's no memory leaks or real bugs to fix here. I'm not sure a patch to treat structs and C++ classes completely identically would be practical, and it'd be hard not to break existing code (e.g. struct->dict conversion). I'll leave real decisions on this to the actual maintainers, but personally I'm not going to do anything more on this.\r\n\r\nRemember that you can always just wrap `MyObject` as `cdef cppclass MyObject` if you want Cython to treat it as a C++ class. This'll work fine (without changing the C++ source).",
             "created_at": "2019-11-13T14:22:02Z",
             "html_url": "https://github.com/cython/cython/issues/3226#issuecomment-553424912",
             "id": 553424912,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/3226",
             "node_id": "MDEyOklzc3VlQ29tbWVudDU1MzQyNDkxMg==",
+            "performed_via_github_app": null,
             "updated_at": "2019-11-13T14:22:02Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/553424912",
             "user": {
@@ -258,6 +266,7 @@
                 "name": "C++"
             },
             "node_id": "MDEyOkxhYmVsZWRFdmVudDI3ODAyNDU5NDg=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2780245948"
         },
         {
@@ -291,6 +300,7 @@
                 "name": "feature"
             },
             "node_id": "MDEyOkxhYmVsZWRFdmVudDI3ODAyNTg2MjM=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2780258623"
         },
         {
@@ -320,6 +330,7 @@
             "event": "mentioned",
             "id": 2785460220,
             "node_id": "MDE0Ok1lbnRpb25lZEV2ZW50Mjc4NTQ2MDIyMA==",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2785460220"
         },
         {
@@ -349,6 +360,7 @@
             "event": "subscribed",
             "id": 2785460221,
             "node_id": "MDE1OlN1YnNjcmliZWRFdmVudDI3ODU0NjAyMjE=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2785460221"
         },
         {
@@ -378,6 +390,7 @@
             "event": "mentioned",
             "id": 2786148257,
             "node_id": "MDE0Ok1lbnRpb25lZEV2ZW50Mjc4NjE0ODI1Nw==",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2786148257"
         },
         {
@@ -407,6 +420,7 @@
             "event": "subscribed",
             "id": 2786148258,
             "node_id": "MDE1OlN1YnNjcmliZWRFdmVudDI3ODYxNDgyNTg=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2786148258"
         },
         {
@@ -436,6 +450,7 @@
             "event": "mentioned",
             "id": 2786151539,
             "node_id": "MDE0Ok1lbnRpb25lZEV2ZW50Mjc4NjE1MTUzOQ==",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2786151539"
         },
         {
@@ -465,6 +480,7 @@
             "event": "subscribed",
             "id": 2786151540,
             "node_id": "MDE1OlN1YnNjcmliZWRFdmVudDI3ODYxNTE1NDA=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2786151540"
         },
         {
@@ -494,6 +510,7 @@
             "event": "mentioned",
             "id": 2795356613,
             "node_id": "MDE0Ok1lbnRpb25lZEV2ZW50Mjc5NTM1NjYxMw==",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2795356613"
         },
         {
@@ -523,7 +540,101 @@
             "event": "subscribed",
             "id": 2795356615,
             "node_id": "MDE1OlN1YnNjcmliZWRFdmVudDI3OTUzNTY2MTU=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2795356615"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2020-09-04T07:08:03Z",
+            "event": "milestoned",
+            "id": 3728266796,
+            "milestone": {
+                "title": "3.0"
+            },
+            "node_id": "MDE1Ok1pbGVzdG9uZWRFdmVudDM3MjgyNjY3OTY=",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3728266796"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2020-09-04T07:12:01Z",
+            "event": "closed",
+            "id": 3728281986,
+            "node_id": "MDExOkNsb3NlZEV2ZW50MzcyODI4MTk4Ng==",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3728281986"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": "fd1a431b76956d144b6e1faab00b3ab5ec5c1db7",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/fd1a431b76956d144b6e1faab00b3ab5ec5c1db7",
+            "created_at": "2020-09-04T07:12:03Z",
+            "event": "referenced",
+            "id": 3728282130,
+            "node_id": "MDE1OlJlZmVyZW5jZWRFdmVudDM3MjgyODIxMzA=",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3728282130"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/3226/events",
@@ -533,6 +644,7 @@
         {
             "color": "f9d0c4",
             "default": false,
+            "description": null,
             "id": 414805136,
             "name": "C++",
             "node_id": "MDU6TGFiZWw0MTQ4MDUxMzY=",
@@ -541,6 +653,7 @@
         {
             "color": "c2e0c6",
             "default": false,
+            "description": null,
             "id": 414805463,
             "name": "feature",
             "node_id": "MDU6TGFiZWw0MTQ4MDU0NjM=",
@@ -549,13 +662,50 @@
     ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/3226/labels{/name}",
     "locked": false,
-    "milestone": null,
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 275,
+        "created_at": "2018-08-18T06:33:08Z",
+        "creator": {
+            "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/scoder"
+        },
+        "description": "Goals:\r\n– New version scheme: 3.x instead of 0.x.\r\n– Change default `language_level` from `2` to `3`.\r\n– Change default for `binding` directive from `False` to `True`.\r\n– Fix some Python compatibility issues (if possible, allowing for breaking changes).\r\n",
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestone/58",
+        "id": 3580387,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
+        "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
+        "number": 58,
+        "open_issues": 25,
+        "state": "open",
+        "title": "3.0",
+        "updated_at": "2020-09-04T07:12:01Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/58"
+    },
     "node_id": "MDU6SXNzdWU1MTkyMDE1MjU=",
     "number": 3226,
+    "performed_via_github_app": null,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "title": "Struct members of cdef'd classes don't get destroyed",
-    "updated_at": "2019-11-13T14:22:02Z",
+    "updated_at": "2020-09-04T07:12:01Z",
     "url": "https://api.github.com/repos/cython/cython/issues/3226",
     "user": {
         "avatar_url": "https://avatars0.githubusercontent.com/u/11860098?v=4",
