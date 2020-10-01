@@ -4,7 +4,7 @@
     "assignees": [],
     "author_association": "NONE",
     "body": "**Describe the bug**\r\nWhen the return type is a fused type that is a subset of the input fused type, the compiler crashes while `AnalyseDeclarationsTransform`\r\n\r\n**To Reproduce**\r\n\r\n\r\n```cython\r\n%%cython -3 -a -f\r\ncimport cython\r\n\r\nctypedef fused lapack_t:\r\n    float\r\n    double\r\n    (float complex)\r\n    (double complex)\r\n\r\nctypedef fused lapack_sd_t:\r\n    float\r\n    double\r\n\r\nctypedef fused lapack_f_t:\r\n    float\r\n    (float complex)\r\n\r\n# cython.floating can be replaced with `lapack_sd_t` too\r\ncpdef cython.floating anorm(lapack_t[::1] a, lapack_t[::1] b) nogil:\r\n    cdef int n = <int>len(a)\r\n    cdef int k\r\n    cdef float anorm_f = 0.0\r\n    cdef double anorm_d = 0.0\r\n\r\n    # some code to do max(abs(a)+abs(b))\r\n    for k in xrange(n):\r\n        a[k] = abs(a[k]) + abs(b[k])\r\n\r\n    # here I want to test whether the input type is float or (float complex)\r\n    if lapack_t in lapack_f_t:\r\n        for k in xrange(n):\r\n            anorm_f = max(anorm_f, a[k].real)\r\n        return anorm_f\r\n    else:\r\n        for k in xrange(n):\r\n            anorm_d = max(anorm_d, a[k].real)\r\n        return anorm_d\r\n```\r\n\r\n**Expected behavior**\r\n\r\nWhat I am trying to achieve is that the input args can be any of the `lapack_t` type. `a` and `b` are guaranteed to be of the same type. Depending on the float or double precision of the input, I'd like to return either a float or a double. But it seems that I can't convey this message to the code. \r\n\r\nIs there any other canonical way to do this?\r\n\r\n**Environment (please complete the following information):**\r\n\r\n  - OS: Windows 10.1904\r\n  - Python version 3.8.0\r\n  - Cython version 0.29.21\r\n\r\n\r\n**Additional context**\r\nCrash details \r\n\r\n<details>\r\n\r\n```bash\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n\r\nctypedef fused lapack_d_t:\r\n    double\r\n    (double complex)\r\n\r\ncpdef cython.floating anorm(lapack_t[::1] a, lapack_t[::1] b) nogil:\r\n     ^\r\n------------------------------------------------------------\r\n\r\nC:\\Users\\Ilhan Polat\\.ipython\\cython\\_cython_magic_b9a167bbddb74d7bbc885fffbe56521e.pyx:22:6: Compiler crash in AnalyseDeclarationsTransform\r\n\r\nModuleNode.body = StatListNode(_cython_magic_b9a167bbddb74d7bbc885fffbe56521e.pyx:2:0)\r\nStatListNode.stats[5] = StatListNode(_cython_magic_b9a167bbddb74d7bbc885fffbe56521e.pyx:22:6)\r\nStatListNode.stats[0] = CFuncDefNode(_cython_magic_b9a167bbddb74d7bbc885fffbe56521e.pyx:22:6,\r\n    args = [...]/2,\r\n    has_fused_arguments = True,\r\n    modifiers = [...]/0,\r\n    overridable = 1,\r\n    visibility = 'private')\r\n\r\nCompiler crash traceback from this point on:\r\n  File \"Cython\\Compiler\\Visitor.py\", line 180, in Cython.Compiler.Visitor.TreeVisitor._visit\r\n  File \"c:\\users\\ilhan polat\\appdata\\local\\programs\\python\\python38\\lib\\site-packages\\Cython\\Compiler\\ParseTreeTransforms.py\", line 1896, in visit_FuncDefNode\r\n    node = self._create_fused_function(env, node)\r\n  File \"c:\\users\\ilhan polat\\appdata\\local\\programs\\python\\python38\\lib\\site-packages\\Cython\\Compiler\\ParseTreeTransforms.py\", line 1837, in _create_fused_function\r\n    node = FusedNode.FusedCFuncDefNode(node, env)\r\n  File \"Cython\\Compiler\\FusedNode.py\", line 61, in Cython.Compiler.FusedNode.FusedCFuncDefNode.__init__\r\n  File \"Cython\\Compiler\\FusedNode.py\", line 144, in Cython.Compiler.FusedNode.FusedCFuncDefNode.copy_cdef\r\n  File \"c:\\users\\ilhan polat\\appdata\\local\\programs\\python\\python38\\lib\\site-packages\\Cython\\Compiler\\PyrexTypes.py\", line 2940, in specialize\r\n    result = CFuncType(self.return_type.specialize(values),\r\n  File \"c:\\users\\ilhan polat\\appdata\\local\\programs\\python\\python38\\lib\\site-packages\\Cython\\Compiler\\PyrexTypes.py\", line 1655, in specialize\r\n    return values[self]\r\nKeyError: FusedType(name='floating')\r\n```\r\n\r\n</details>\r\n",
-    "closed_at": null,
+    "closed_at": "2020-09-27T09:41:25Z",
     "comment_data": [
         {
             "author_association": "COLLABORATOR",
@@ -69,9 +69,41 @@
                 "type": "User",
                 "url": "https://api.github.com/users/ilayn"
             }
+        },
+        {
+            "author_association": "COLLABORATOR",
+            "body": "duplicate of https://github.com/cython/cython/issues/3820",
+            "created_at": "2020-09-27T09:41:25Z",
+            "html_url": "https://github.com/cython/cython/issues/3835#issuecomment-699611913",
+            "id": 699611913,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3835",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDY5OTYxMTkxMw==",
+            "performed_via_github_app": null,
+            "updated_at": "2020-09-27T09:41:25Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/699611913",
+            "user": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
         }
     ],
-    "comments": 2,
+    "comments": 3,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3835/comments",
     "created_at": "2020-09-18T13:23:31Z",
     "event_data": [
@@ -108,6 +140,70 @@
             "node_id": "MDEyOkxhYmVsZWRFdmVudDM3OTAzNDk3NDM=",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/3790349743"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2020-09-27T09:41:26Z",
+            "event": "closed",
+            "id": 3811516481,
+            "node_id": "MDExOkNsb3NlZEV2ZW50MzgxMTUxNjQ4MQ==",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3811516481"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2020-09-27T09:41:37Z",
+            "event": "labeled",
+            "id": 3811516630,
+            "label": {
+                "color": "444444",
+                "name": "R: duplicate"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDM4MTE1MTY2MzA=",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3811516630"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/3835/events",
@@ -122,6 +218,15 @@
             "name": "Error Reporting",
             "node_id": "MDU6TGFiZWw0MjU1NTc0Nzg=",
             "url": "https://api.github.com/repos/cython/cython/labels/Error%20Reporting"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425556894,
+            "name": "R: duplicate",
+            "node_id": "MDU6TGFiZWw0MjU1NTY4OTQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/R:%20duplicate"
         }
     ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/3835/labels{/name}",
@@ -131,9 +236,9 @@
     "number": 3835,
     "performed_via_github_app": null,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "title": "[BUG] Returning a fused typed argument causes a compiler crash",
-    "updated_at": "2020-09-21T20:40:20Z",
+    "updated_at": "2020-09-27T09:41:37Z",
     "url": "https://api.github.com/repos/cython/cython/issues/3835",
     "user": {
         "avatar_url": "https://avatars2.githubusercontent.com/u/1303842?v=4",
