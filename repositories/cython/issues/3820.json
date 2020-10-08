@@ -4,7 +4,7 @@
     "assignees": [],
     "author_association": "NONE",
     "body": "**Describe the bug**\r\nCython compiler crashes with unclear error (KeyError: FusedType(name=...)) if the return type of a fused function \r\nis not in the argument type list of the fused function itself.\r\n\r\n**To Reproduce**\r\nCode to reproduce the behaviour:\r\nJupyter notebook snippet\r\n```cython\r\n\r\n%%cython\r\nfrom libc.stdlib cimport free, malloc\r\nimport numpy as np\r\ncimport numpy as np\r\n\r\nctypedef struct array_of_floats:\r\n    size_t size\r\n    float * data\r\n    \r\nctypedef struct array_of_chars:\r\n    size_t size\r\n    np.int8_t * data\r\n\r\nctypedef fused char_or_float:\r\n    np.int8_t\r\n    np.float32_t\r\n    \r\nctypedef fused my_array:\r\n    array_of_chars\r\n    array_of_floats\r\n\r\n# Transform a NumPy 1d-array into a C-struct\r\n# This would be the most convenient way (e.g. c++ template style)\r\ncdef my_array * make_array_fused(char_or_float[::1] numpy_array):\r\n    cdef my_array * array = <my_array *>malloc(sizeof(my_array))\r\n    array.size = numpy_array.shape[0]\r\n    array.data = &numpy_array[0]\r\n    return array\r\n\r\ndef main():\r\n    size = 5\r\n    numpy_array_char = np.arange(size, dtype=np.int8)\r\n    cdef array_of_chars * array = make_array_chars(numpy_array_char)\r\n    \r\n    # next line does not work\r\n    cdef array_of_chars * array_2 = make_array_fused[array_of_chars, np.int8_t[::1]](numpy_array_char) \r\n    try:\r\n        for i in range(size):\r\n            print(array.data[i], end = \", \")\r\n        print(\"array.size = \", array.size)\r\n    finally:\r\n        free(array)\r\n        \r\nmain()\r\n```\r\n\r\n**Expected behavior**\r\nIf this is not implement then the error message should indicate so. Additionally, the \"note\" - section in the [docs](https://cython.readthedocs.io/en/latest/src/userguide/fusedtypes.html) should be updated.\r\nHowever, if the idea is to have something like c++ templates, then this should compile without problems, or throw an error later on (e.g. if there is a mismatch of types) \r\n\r\n**Environment:**\r\n - OS: macOS\r\n - Python version 3.8.2\r\n - Cython version: tested with 0.29.18 and 3.0a6\r\n\r\n**Additional context**\r\n```\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n...\r\n    array_of_chars\r\n    array_of_floats\r\n\r\n# Transform a NumPy 1d-array into a C-struct\r\n# This would be the most convient way (e.g. c++ template style)\r\ncdef my_array * make_array_fused(char_or_float[::1] numpy_array):\r\n    ^\r\n------------------------------------------------------------\r\n\r\ntest_cython_bug.pyx:23:5: Compiler crash in AnalyseDeclarationsTransform\r\n\r\nModuleNode.body = StatListNode(test_cython_bug.pyx:1:0)\r\nStatListNode.stats[7] = StatListNode(test_cython_bug.pyx:23:5)\r\nStatListNode.stats[0] = CFuncDefNode(test_cython_bug.pyx:23:5,\r\n    args = [...]/1,\r\n    has_fused_arguments = True,\r\n    modifiers = [...]/0,\r\n    outer_attrs = [...]/2,\r\n    visibility = 'private')\r\n\r\nCompiler crash traceback from this point on:\r\n  File \"Cython/Compiler/Visitor.py\", line 180, in Cython.Compiler.Visitor.TreeVisitor._visit\r\n  File \"PATH/.env/lib/python3.8/site-packages/Cython/Compiler/ParseTreeTransforms.py\", line 1975, in visit_FuncDefNode\r\n    node = self._create_fused_function(env, node)\r\n  File \"PATH/.env/lib/python3.8/site-packages/Cython/Compiler/ParseTreeTransforms.py\", line 1927, in _create_fused_function\r\n    node = FusedNode.FusedCFuncDefNode(node, env)\r\n  File \"Cython/Compiler/FusedNode.py\", line 61, in Cython.Compiler.FusedNode.FusedCFuncDefNode.__init__\r\n  File \"Cython/Compiler/FusedNode.py\", line 144, in Cython.Compiler.FusedNode.FusedCFuncDefNode.copy_cdef\r\n  File \"PATH/.env/lib/python3.8/site-packages/Cython/Compiler/PyrexTypes.py\", line 3115, in specialize\r\n    result = CFuncType(self.return_type.specialize(values),\r\n  File \"PATH/.env/lib/python3.8/site-packages/Cython/Compiler/PyrexTypes.py\", line 2722, in specialize\r\n    base_type = self.base_type.specialize(values)\r\n  File \"PATH/.env/lib/python3.8/site-packages/Cython/Compiler/PyrexTypes.py\", line 1828, in specialize\r\n    return values[self]\r\nKeyError: FusedType(name='my_array')\r\n```\r\n",
-    "closed_at": null,
+    "closed_at": "2020-10-02T14:19:02Z",
     "comment_data": [
         {
             "author_association": "COLLABORATOR",
@@ -42,7 +42,38 @@
     "comments": 1,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3820/comments",
     "created_at": "2020-09-09T12:16:55Z",
-    "event_data": [],
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2020-10-02T14:19:03Z",
+            "event": "closed",
+            "id": 3834195979,
+            "node_id": "MDExOkNsb3NlZEV2ZW50MzgzNDE5NTk3OQ==",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/3834195979"
+        }
+    ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/3820/events",
     "html_url": "https://github.com/cython/cython/issues/3820",
     "id": 696763874,
@@ -54,9 +85,9 @@
     "number": 3820,
     "performed_via_github_app": null,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "title": "[BUG] Cython compiler crashes if fused return type of fused function is not in function argument types",
-    "updated_at": "2020-09-09T16:57:57Z",
+    "updated_at": "2020-10-02T14:19:02Z",
     "url": "https://api.github.com/repos/cython/cython/issues/3820",
     "user": {
         "avatar_url": "https://avatars1.githubusercontent.com/u/33448151?v=4",
