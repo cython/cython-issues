@@ -4,7 +4,7 @@
     "assignees": [],
     "author_association": "NONE",
     "body": "Hello, I noticed some strange crash when using the `Py_buffer` objects together with `__new__` constructor of extension types:\r\nHere is the matter: I use the `__new__` function of a `WrapperClass` as detailed [in the doc](https://cython.readthedocs.io/en/latest/src/userguide/extension_types.html#existing-pointers-instantiation)\r\nand the `WrapperClass` has a member which is a `Py_buffer`\r\n\r\n```python\r\nfrom cpython cimport PyObject, PyTypeObject, Py_buffer\r\nfrom cpython.buffer cimport PyBUF_SIMPLE, PyObject_CheckBuffer, PyObject_GetBuffer, PyBuffer_Release\r\n\r\n\r\ncdef class WrapperClass:\r\n\t''' A wrapper class for a C/C++ data structure '''\r\n\t\r\n\tcdef Py_buffer view\r\n\t\r\n\tdef __init__(self, buffer):\r\n\t\t''' build the object from a buffer (using __init__) '''\r\n\t\tif not PyObject_CheckBuffer(buffer):\r\n\t\t\traise TypeError('the input object must support the buffer protocol')\r\n\t\t\r\n\t\tPyObject_GetBuffer(buffer, &self.view, PyBUF_SIMPLE)\r\n\r\n\tdef __dealloc__(self):\r\n\t\tPyBuffer_Release(&self.view)\r\n\r\n\t@property\r\n\tdef ptr(self):\r\n\t\treturn <size_t>self.view.buf\r\n\t\t\r\n\t@property\r\n\tdef size(self):\r\n\t\treturn <size_t>self.view.len\r\n\t\t\r\n\t@staticmethod\r\n\tcdef WrapperClass from_raw(void * ptr, size_t size, owner):\r\n\t\t\"\"\"Factory function to create WrapperClass objects from given my_c_struct pointer.\r\n\r\n\t\t\tSetting ``owner`` flag to ``True`` causes the extension type to ``free`` the structure pointed to by ``_ptr`` when the wrapper object is deallocated.\r\n\t\t\"\"\"\r\n\t\t# Call to __new__ bypasses __init__ constructor\r\n\t\tcdef WrapperClass wrapper = WrapperClass.__new__(WrapperClass)\r\n\t\twrapper.view.buf = ptr\r\n\t\twrapper.view.len = size\r\n\t\twrapper.view.obj = owner\r\n\t\twrapper.view.itemsize = 1\r\n\t\twrapper.view.ndim = 1\r\n\t\twrapper.view.format = 'B'\r\n\t\treturn wrapper\r\n\r\n\r\ndef build_wrapped(buffer):\r\n\t''' build the object from a buffer (the same but using __new__ instead of __init__)'''\r\n\t\r\n\t# in this example, the buffer is taken the same way __init__ is doing, but in my real project I do get it from an other source ... this is not changing the issue\r\n\tcdef Py_buffer view\r\n\tif not PyObject_CheckBuffer(buffer):\r\n\t\traise TypeError('the input object must support the buffer protocol')\r\n\t\r\n\tPyObject_GetBuffer(buffer, &view, PyBUF_SIMPLE)\r\n\t\r\n\tcdef WrapperClass wrapped = WrapperClass.from_raw(view.buf, view.len, view.obj)\r\n\treturn wrapped\r\n```\r\nSo this class can be built using 2 different ways:\r\n- using the constructor `__init__`\r\n- using its static method `from_raw`\r\n\r\nsetting its fields attributes only works well in the 1st case:\r\n\r\n```python\r\nfrom extension_type import WrapperClass, build_wrapped\r\n\r\n# build the object using __init__\r\nw1 = WrapperClass(b'a protocol-compatible object')\r\nprint('w1', w1.ptr, w1.size)\r\n\r\n# build the object using __new__ then filling the fields\r\nw2 = build_wrapped(b'a protocol-compatible object')\r\nprint('w2', w2.ptr, w2.size)\r\n```\r\noutput:\r\n```\r\nw1 139932419840976 28\r\nSegmentation fault (core dumped)\r\n```\r\nSo the second methods is crashing (It seems even to always crash at setting `view->obj` at the INCREF/DECREF/GOTREF/... operations)  \r\n\r\nI would expect these 2 methodesto  be roughly equivalent to build a `WrapperClass`\r\nIt seems that when the object is build using `__new__` the attributes cannot be set to an object, or is there anything wrong in my use of it ?\r\n\r\nI'm using \r\n- Ubuntu/Linux latest\r\n- Python 3.8.5  (from repo)\r\n- Cython 0.29.22  (from pip)\r\n",
-    "closed_at": null,
+    "closed_at": "2021-04-05T18:34:43Z",
     "comment_data": [
         {
             "author_association": "NONE",
@@ -453,16 +453,123 @@
                 "type": "User",
                 "url": "https://api.github.com/users/jimy-byerley"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "Closing. It doesn't feel like there is something Cython should do differently here.",
+            "created_at": "2021-04-05T18:34:43Z",
+            "html_url": "https://github.com/cython/cython/issues/4034#issuecomment-813563927",
+            "id": 813563927,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4034",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDgxMzU2MzkyNw==",
+            "performed_via_github_app": null,
+            "updated_at": "2021-04-05T18:34:43Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/813563927",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
         }
     ],
-    "comments": 14,
+    "comments": 15,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4034/comments",
     "created_at": "2021-03-14T15:40:15Z",
-    "event_data": [],
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2021-04-05T18:34:16Z",
+            "event": "labeled",
+            "id": 4552848208,
+            "label": {
+                "color": "444444",
+                "name": "R: wontfix"
+            },
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDQ1NTI4NDgyMDg=",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/4552848208"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2021-04-05T18:34:43Z",
+            "event": "closed",
+            "id": 4552849967,
+            "node_id": "MDExOkNsb3NlZEV2ZW50NDU1Mjg0OTk2Nw==",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/4552849967"
+        }
+    ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/4034/events",
     "html_url": "https://github.com/cython/cython/issues/4034",
     "id": 831187055,
-    "labels": [],
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425557400,
+            "name": "R: wontfix",
+            "node_id": "MDU6TGFiZWw0MjU1NTc0MDA=",
+            "url": "https://api.github.com/repos/cython/cython/labels/R:%20wontfix"
+        }
+    ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/4034/labels{/name}",
     "locked": false,
     "milestone": null,
@@ -470,9 +577,9 @@
     "number": 4034,
     "performed_via_github_app": null,
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "title": "[BUG] initialization of extension type with buffer view after `__new__` makes Segfaults",
-    "updated_at": "2021-03-15T20:25:58Z",
+    "updated_at": "2021-04-05T18:34:43Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4034",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/7940753?v=4",
