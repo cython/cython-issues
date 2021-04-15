@@ -1,4 +1,5 @@
 {
+    "active_lock_reason": null,
     "assignee": null,
     "assignees": [],
     "author_association": "MEMBER",
@@ -13,10 +14,11 @@
             "id": 613471929,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/3473",
             "node_id": "MDEyOklzc3VlQ29tbWVudDYxMzQ3MTkyOQ==",
+            "performed_via_github_app": null,
             "updated_at": "2020-04-14T14:21:00Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/613471929",
             "user": {
-                "avatar_url": "https://avatars2.githubusercontent.com/u/103189?v=4",
+                "avatar_url": "https://avatars.githubusercontent.com/u/103189?v=4",
                 "events_url": "https://api.github.com/users/piotrmaslanka/events{/privacy}",
                 "followers_url": "https://api.github.com/users/piotrmaslanka/followers",
                 "following_url": "https://api.github.com/users/piotrmaslanka/following{/other_user}",
@@ -44,10 +46,11 @@
             "id": 619499072,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/3473",
             "node_id": "MDEyOklzc3VlQ29tbWVudDYxOTQ5OTA3Mg==",
+            "performed_via_github_app": null,
             "updated_at": "2020-04-26T07:11:33Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/619499072",
             "user": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -66,15 +69,79 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             }
+        },
+        {
+            "author_association": "COLLABORATOR",
+            "body": "https://github.com/cython/cython/pull/3617 fully optimized loops over bytearrays (for Cython 3).\r\n\r\nI think this issue was more about the type of the loop variable in Cython 0.29.x though?",
+            "created_at": "2021-04-11T07:15:34Z",
+            "html_url": "https://github.com/cython/cython/issues/3473#issuecomment-817262082",
+            "id": 817262082,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3473",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDgxNzI2MjA4Mg==",
+            "performed_via_github_app": null,
+            "updated_at": "2021-04-11T07:15:34Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/817262082",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "Hi! I ran into this bug while running Cython 0.29.22 on the code below and would like to fix it. This is my first change in this project, so please let me know if I've missed anything.\r\n```python\r\ndef f(src):\r\n    data = bytearray(src)\r\n    for elem in data:\r\n        print(elem)\r\n```\r\nThe relevant code this generates is:\r\n```c\r\n  /* \"bytearray_test.py\":3\r\n * def f(src):\r\n *     data = bytearray(src)\r\n *     for elem in data:             # <<<<<<<<<<<<<<\r\n *         print(elem)\r\n */\r\n  __pyx_t_1 = PyObject_GetIter(__pyx_v_data); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 3, __pyx_L1_error)\r\n  __Pyx_GOTREF(__pyx_t_1);\r\n  __pyx_t_2 = Py_TYPE(__pyx_t_1)->tp_iternext; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 3, __pyx_L1_error)\r\n  for (;;) {\r\n    {\r\n      // Specifically this line is incorrect because __pyx_t_3 is unsigned char, and __pyx_t_2 returns PyObject*\r\n      __pyx_t_3 = __pyx_t_2(__pyx_t_1);\r\n      if (unlikely(!__pyx_t_3)) {\r\n        PyObject* exc_type = PyErr_Occurred();\r\n        if (exc_type) {\r\n          if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();\r\n          else __PYX_ERR(0, 3, __pyx_L1_error)\r\n        }\r\n        break;\r\n      }\r\n      __Pyx_GOTREF(__pyx_t_3);\r\n    }\r\n    __pyx_v_elem = __pyx_t_3;\r\n```\r\nI found the unsigned char is being inferred in ExprNodes.py > IndexNode > infer_type(). Changing this type from `PyrexTypes.c_uchar_type` to `py_object_type` fixes this specific problem by making the iteration just use python types. (both `__pyx_t_3` and `__pyx_v_elem` become PyObject*) I confirmed this by compiling and running with this change, however this breaks tests in bytearray_coercion that are checking for unsigned char types.\r\n\r\nSo my next attempt is to change the __pyx_t_3 (ForInStatNode.item) temporary to be PyObject* and generate the `__Pyx_PyInt_As_unsigned_char` to convert the resulting object to an unsigned char. This works and passes the tests, including the new test I added for bytearray iteration.\r\n\r\nThis is the same block as above after the change in #4108\r\n```c\r\n  /* \"bytearray_test.py\":3\r\n * def f(src):\r\n *     data = bytearray(src)\r\n *     for elem in data:             # <<<<<<<<<<<<<<\r\n *         print(elem)\r\n *\r\n */\r\n  __pyx_t_1 = PyObject_GetIter(__pyx_v_data); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 3, __pyx_L1_error)\r\n  __Pyx_GOTREF(__pyx_t_1);\r\n  __pyx_t_2 = Py_TYPE(__pyx_t_1)->tp_iternext; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 3, __pyx_L1_error)\r\n  for (;;) {\r\n    {\r\n      // Now __pyx_t_3 is PyObject* and is converted to unsigned char below\r\n      __pyx_t_3 = __pyx_t_2(__pyx_t_1);\r\n      if (unlikely(!__pyx_t_3)) {\r\n        PyObject* exc_type = PyErr_Occurred();\r\n        if (exc_type) {\r\n          if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();\r\n          else __PYX_ERR(0, 3, __pyx_L1_error)\r\n        }\r\n        break;\r\n      }\r\n      __Pyx_GOTREF(__pyx_t_3);\r\n    }\r\n    __pyx_t_4 = __Pyx_PyInt_As_unsigned_char(__pyx_t_3); if (unlikely((__pyx_t_4 == (unsigned char)-1) && PyErr_Occurred())) __PYX_ERR(0, 3, __pyx_L1_error)\r\n    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;\r\n    __pyx_v_elem = __pyx_t_4;\r\n```",
+            "created_at": "2021-04-11T07:16:10Z",
+            "html_url": "https://github.com/cython/cython/issues/3473#issuecomment-817262148",
+            "id": 817262148,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3473",
+            "node_id": "MDEyOklzc3VlQ29tbWVudDgxNzI2MjE0OA==",
+            "performed_via_github_app": null,
+            "updated_at": "2021-04-11T07:16:10Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/817262148",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/31653115?v=4",
+                "events_url": "https://api.github.com/users/Kenrick0/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Kenrick0/followers",
+                "following_url": "https://api.github.com/users/Kenrick0/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Kenrick0/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Kenrick0",
+                "id": 31653115,
+                "login": "Kenrick0",
+                "node_id": "MDQ6VXNlcjMxNjUzMTE1",
+                "organizations_url": "https://api.github.com/users/Kenrick0/orgs",
+                "received_events_url": "https://api.github.com/users/Kenrick0/received_events",
+                "repos_url": "https://api.github.com/users/Kenrick0/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Kenrick0/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Kenrick0/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Kenrick0"
+            }
         }
     ],
-    "comments": 2,
+    "comments": 4,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3473/comments",
     "created_at": "2020-03-30T18:48:46Z",
     "event_data": [
         {
             "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -103,11 +170,12 @@
                 "name": "defect"
             },
             "node_id": "MDEyOkxhYmVsZWRFdmVudDMxNzk5OTUxNzE=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/3179995171"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -136,11 +204,12 @@
                 "name": "Code Generation"
             },
             "node_id": "MDEyOkxhYmVsZWRFdmVudDMxNzk5OTUxNzM=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/3179995173"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -168,11 +237,12 @@
                 "title": "0.29.17"
             },
             "node_id": "MDE1Ok1pbGVzdG9uZWRFdmVudDMxNzk5OTUxNzY=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/3179995176"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -200,6 +270,7 @@
                 "title": "0.29.17"
             },
             "node_id": "MDE3OkRlbWlsZXN0b25lZEV2ZW50MzI3MjYzMzU3NA==",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/3272633574"
         }
     ],
@@ -231,13 +302,14 @@
     "milestone": null,
     "node_id": "MDU6SXNzdWU1OTA1MTIwNDM=",
     "number": 3473,
+    "performed_via_github_app": null,
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "title": "Incorrect code for bytearray iteration",
-    "updated_at": "2020-04-26T07:11:33Z",
+    "updated_at": "2021-04-11T07:16:10Z",
     "url": "https://api.github.com/repos/cython/cython/issues/3473",
     "user": {
-        "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+        "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
         "events_url": "https://api.github.com/users/scoder/events{/privacy}",
         "followers_url": "https://api.github.com/users/scoder/followers",
         "following_url": "https://api.github.com/users/scoder/following{/other_user}",
