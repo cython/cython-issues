@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/4204"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/e37c16d6c4c6762df4b08c57668e0c046487afeb"
+            "href": "https://api.github.com/repos/cython/cython/statuses/5393c492b367d09cddb68819a3919ebe58a87399"
         }
     },
     "active_lock_reason": null,
@@ -54,8 +54,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1154,
-            "forks_count": 1154,
+            "forks": 1158,
+            "forks_count": 1158,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -91,8 +91,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 951,
-            "open_issues_count": 951,
+            "open_issues": 953,
+            "open_issues_count": 953,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -115,11 +115,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2021-05-31T10:34:46Z",
+            "pushed_at": "2021-06-09T16:54:57Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 62446,
+            "size": 62325,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 6131,
+            "stargazers_count": 6144,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -128,10 +128,10 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2021-06-01T12:04:44Z",
+            "updated_at": "2021-06-10T12:15:28Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 6131,
-            "watchers_count": 6131
+            "watchers": 6144,
+            "watchers_count": 6144
         },
         "sha": "b3f8a198d96727c9111dbc707a05e286b93c974c",
         "user": {
@@ -157,7 +157,397 @@
     },
     "body": "Fixes #4172 by avoiding an infinitely loop on when not implemented.",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4204#discussion_r648038861"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4204"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/648038861"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Took me a while to decipher this comment, but I think you meant this:\r\n```suggestion\r\n# TODO: Test a class that only defines the `__r...__()` methods.\r\n```",
+            "commit_id": "5393c492b367d09cddb68819a3919ebe58a87399",
+            "created_at": "2021-06-09T07:27:47Z",
+            "diff_hunk": "@@ -35,51 +61,110 @@ class Base(object):\n @cython.cclass\n class OverloadLeft(Base):\n     \"\"\"\n-    >>> OverloadLeft() + 2\n+    >>> OverloadLeft(1) + 2\n     'OverloadLeft.__add__(OverloadLeft(), 2)'\n-    >>> 2 + OverloadLeft()\n+    >>> 2 + OverloadLeft(1)\n     'Base.__radd__(OverloadLeft(), 2)'\n \n-    >>> OverloadLeft() + Base()\n+    >>> OverloadLeft(1) + Base(1)\n     'OverloadLeft.__add__(OverloadLeft(), Base())'\n-    >>> Base() + OverloadLeft()\n+    >>> Base(1) + OverloadLeft(1)\n     'Base.__add__(Base(), OverloadLeft())'\n+\n+    >>> OverloadLeft(0) + Base(0)  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+    >>> Base(0) + OverloadLeft(0)  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n     \"\"\"\n+    derived_implemented: cython.int\n+\n+    def __init__(self, derived_implemented):\n+        super().__init__(derived_implemented)\n+        self.derived_implemented = derived_implemented\n+\n     def __add__(self, other):\n-        return \"OverloadLeft.__add__(%s, %s)\" % (self, other)\n+        if (<OverloadLeft>self).derived_implemented:\n+            return \"OverloadLeft.__add__(%s, %s)\" % (self, other)\n+        else:\n+            return NotImplemented\n \n \n @cython.c_api_binop_methods(False)\n @cython.cclass\n class OverloadRight(Base):\n     \"\"\"\n-    >>> OverloadRight() + 2\n+    >>> OverloadRight(1) + 2\n     'Base.__add__(OverloadRight(), 2)'\n-    >>> 2 + OverloadRight()\n+    >>> 2 + OverloadRight(1)\n     'OverloadRight.__radd__(OverloadRight(), 2)'\n \n-    >>> OverloadRight() + Base()\n+    >>> OverloadRight(1) + Base(1)\n     'Base.__add__(OverloadRight(), Base())'\n-    >>> Base() + OverloadRight()\n+    >>> Base(1) + OverloadRight(1)\n     'OverloadRight.__radd__(OverloadRight(), Base())'\n+\n+    >>> OverloadRight(0) + Base(0)  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+    >>> Base(0) + OverloadRight(0)  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n     \"\"\"\n+    derived_implemented: cython.int\n+\n+    def __init__(self, derived_implemented):\n+        super().__init__(derived_implemented)\n+        self.derived_implemented = derived_implemented\n+\n     def __radd__(self, other):\n-        return \"OverloadRight.__radd__(%s, %s)\" % (self, other)\n+        if (<OverloadRight>self).derived_implemented:\n+            return \"OverloadRight.__radd__(%s, %s)\" % (self, other)\n+        else:\n+            return NotImplemented\n \n @cython.c_api_binop_methods(True)\n @cython.cclass\n class OverloadCApi(Base):\n     \"\"\"\n-    >>> OverloadCApi() + 2\n+    >>> OverloadCApi(1) + 2\n     'OverloadCApi.__add__(OverloadCApi(), 2)'\n-    >>> 2 + OverloadCApi()\n+    >>> 2 + OverloadCApi(1)\n     'OverloadCApi.__add__(2, OverloadCApi())'\n \n-    >>> OverloadCApi() + Base()\n+    >>> OverloadCApi(1) + Base(1)\n     'OverloadCApi.__add__(OverloadCApi(), Base())'\n-    >>> Base() + OverloadCApi()\n+    >>> Base(1) + OverloadCApi(1)\n     'OverloadCApi.__add__(Base(), OverloadCApi())'\n+\n+    >>> OverloadCApi(0) + 2 #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+    >>> 2 + OverloadCApi(0) #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n     \"\"\"\n+    derived_implemented: cython.int\n+\n+    def __init__(self, derived_implemented):\n+        super().__init__(1)\n+        self.derived_implemented = derived_implemented\n+\n     def __add__(self, other):\n-        return \"OverloadCApi.__add__(%s, %s)\" % (self, other)\n+        if isinstance(self, OverloadCApi):\n+            derived_implemented = (<OverloadCApi>self).derived_implemented\n+        else:\n+            derived_implemented = (<OverloadCApi>other).derived_implemented\n+        if derived_implemented:\n+            return \"OverloadCApi.__add__(%s, %s)\" % (self, other)\n+        else:\n+            return NotImplemented\n \n+# TODO: Only defines right?",
+            "html_url": "https://github.com/cython/cython/pull/4204#discussion_r648038861",
+            "id": 648038861,
+            "line": null,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY0ODAzODg2MQ==",
+            "original_commit_id": "e37c16d6c4c6762df4b08c57668e0c046487afeb",
+            "original_line": 170,
+            "original_position": 190,
+            "original_start_line": null,
+            "path": "tests/run/binop_reverse_methods_GH2056.pyx",
+            "position": null,
+            "pull_request_review_id": 679301036,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4204",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2021-06-09T07:42:55Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/648038861",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4204#discussion_r648043320"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4204"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/648043320"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I wonder how to make the usage readable in the tests. What about his?\r\n```suggestion\r\n    def __init__(self, implemented=\"implemented\"):\r\n        assert implemented in (\"implemented\", \"not implemented\")\r\n        self.implemented = implemented == \"implemented\"\r\n```",
+            "commit_id": "5393c492b367d09cddb68819a3919ebe58a87399",
+            "created_at": "2021-06-09T07:34:06Z",
+            "diff_hunk": "@@ -4,29 +4,55 @@ cimport cython\n @cython.cclass\n class Base(object):\n     \"\"\"\n-    >>> Base() + 2\n+    >>> Base(1) + 2\n     'Base.__add__(Base(), 2)'\n-    >>> 2 + Base()\n+    >>> 2 + Base(1)\n     'Base.__radd__(Base(), 2)'\n \n-    >>> Base() ** 2\n+    >>> Base(0) + 2  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+    >>> 2 + Base(0)  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+\n+    >>> Base(1) ** 2\n     'Base.__pow__(Base(), 2, None)'\n-    >>> 2 ** Base()\n+    >>> 2 ** Base(1)\n     'Base.__rpow__(Base(), 2, None)'\n-    >>> pow(Base(), 2, 100)\n+    >>> pow(Base(1), 2, 100)\n     'Base.__pow__(Base(), 2, 100)'\n     \"\"\"\n+    implemented: cython.int\n+\n+    def __init__(self, implemented):\n+        self.implemented = implemented",
+            "html_url": "https://github.com/cython/cython/pull/4204#discussion_r648043320",
+            "id": 648043320,
+            "line": null,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY0ODA0MzMyMA==",
+            "original_commit_id": "e37c16d6c4c6762df4b08c57668e0c046487afeb",
+            "original_line": 31,
+            "original_position": 33,
+            "original_start_line": 30,
+            "path": "tests/run/binop_reverse_methods_GH2056.pyx",
+            "position": null,
+            "pull_request_review_id": 679301036,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4204",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "updated_at": "2021-06-09T07:42:55Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/648043320",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4204#discussion_r648043848"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4204"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/648043848"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Isn't the whole point of this feature to make the cast unnecessary?",
+            "commit_id": "5393c492b367d09cddb68819a3919ebe58a87399",
+            "created_at": "2021-06-09T07:34:53Z",
+            "diff_hunk": "@@ -4,29 +4,55 @@ cimport cython\n @cython.cclass\n class Base(object):\n     \"\"\"\n-    >>> Base() + 2\n+    >>> Base(1) + 2\n     'Base.__add__(Base(), 2)'\n-    >>> 2 + Base()\n+    >>> 2 + Base(1)\n     'Base.__radd__(Base(), 2)'\n \n-    >>> Base() ** 2\n+    >>> Base(0) + 2  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+    >>> 2 + Base(0)  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+\n+    >>> Base(1) ** 2\n     'Base.__pow__(Base(), 2, None)'\n-    >>> 2 ** Base()\n+    >>> 2 ** Base(1)\n     'Base.__rpow__(Base(), 2, None)'\n-    >>> pow(Base(), 2, 100)\n+    >>> pow(Base(1), 2, 100)\n     'Base.__pow__(Base(), 2, 100)'\n     \"\"\"\n+    implemented: cython.int\n+\n+    def __init__(self, implemented):\n+        self.implemented = implemented\n+\n     def __add__(self, other):\n-        return \"Base.__add__(%s, %s)\" % (self, other)\n+        if (<Base>self).implemented:",
+            "html_url": "https://github.com/cython/cython/pull/4204#discussion_r648043848",
+            "id": 648043848,
+            "line": 34,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY0ODA0Mzg0OA==",
+            "original_commit_id": "e37c16d6c4c6762df4b08c57668e0c046487afeb",
+            "original_line": 34,
+            "original_position": 37,
+            "original_start_line": null,
+            "path": "tests/run/binop_reverse_methods_GH2056.pyx",
+            "position": 37,
+            "pull_request_review_id": 679301036,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4204",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2021-06-09T07:42:55Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/648043848",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4204#discussion_r648499539"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4204"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/648499539"
+                }
+            },
+            "author_association": "COLLABORATOR",
+            "body": "I've changed it to be a keyword-only argument, which I think makes it more readable.",
+            "commit_id": "5393c492b367d09cddb68819a3919ebe58a87399",
+            "created_at": "2021-06-09T16:55:46Z",
+            "diff_hunk": "@@ -4,29 +4,55 @@ cimport cython\n @cython.cclass\n class Base(object):\n     \"\"\"\n-    >>> Base() + 2\n+    >>> Base(1) + 2\n     'Base.__add__(Base(), 2)'\n-    >>> 2 + Base()\n+    >>> 2 + Base(1)\n     'Base.__radd__(Base(), 2)'\n \n-    >>> Base() ** 2\n+    >>> Base(0) + 2  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+    >>> 2 + Base(0)  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+\n+    >>> Base(1) ** 2\n     'Base.__pow__(Base(), 2, None)'\n-    >>> 2 ** Base()\n+    >>> 2 ** Base(1)\n     'Base.__rpow__(Base(), 2, None)'\n-    >>> pow(Base(), 2, 100)\n+    >>> pow(Base(1), 2, 100)\n     'Base.__pow__(Base(), 2, 100)'\n     \"\"\"\n+    implemented: cython.int\n+\n+    def __init__(self, implemented):\n+        self.implemented = implemented",
+            "html_url": "https://github.com/cython/cython/pull/4204#discussion_r648499539",
+            "id": 648499539,
+            "in_reply_to_id": 648043320,
+            "line": null,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY0ODQ5OTUzOQ==",
+            "original_commit_id": "e37c16d6c4c6762df4b08c57668e0c046487afeb",
+            "original_line": 31,
+            "original_position": 33,
+            "original_start_line": 30,
+            "path": "tests/run/binop_reverse_methods_GH2056.pyx",
+            "position": null,
+            "pull_request_review_id": 679914736,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4204",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "updated_at": "2021-06-09T16:55:47Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/648499539",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4204#discussion_r648503354"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4204"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/648503354"
+                }
+            },
+            "author_association": "COLLABORATOR",
+            "body": "Maybe? https://github.com/cython/cython/issues/2056#issuecomment-656096798\r\n\r\nI think `__radd__` could always have the type set correctly. For `__add__` it's more complicated because we're currently going for hybrid behaviour so that old code keeps working without changes.\r\n\r\nI think it's probably outside the scope of this PR anyway (which is mainly just aiming to stop valid code from crashing)",
+            "commit_id": "5393c492b367d09cddb68819a3919ebe58a87399",
+            "created_at": "2021-06-09T17:00:57Z",
+            "diff_hunk": "@@ -4,29 +4,55 @@ cimport cython\n @cython.cclass\n class Base(object):\n     \"\"\"\n-    >>> Base() + 2\n+    >>> Base(1) + 2\n     'Base.__add__(Base(), 2)'\n-    >>> 2 + Base()\n+    >>> 2 + Base(1)\n     'Base.__radd__(Base(), 2)'\n \n-    >>> Base() ** 2\n+    >>> Base(0) + 2  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+    >>> 2 + Base(0)  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+\n+    >>> Base(1) ** 2\n     'Base.__pow__(Base(), 2, None)'\n-    >>> 2 ** Base()\n+    >>> 2 ** Base(1)\n     'Base.__rpow__(Base(), 2, None)'\n-    >>> pow(Base(), 2, 100)\n+    >>> pow(Base(1), 2, 100)\n     'Base.__pow__(Base(), 2, 100)'\n     \"\"\"\n+    implemented: cython.int\n+\n+    def __init__(self, implemented):\n+        self.implemented = implemented\n+\n     def __add__(self, other):\n-        return \"Base.__add__(%s, %s)\" % (self, other)\n+        if (<Base>self).implemented:",
+            "html_url": "https://github.com/cython/cython/pull/4204#discussion_r648503354",
+            "id": 648503354,
+            "in_reply_to_id": 648043848,
+            "line": 34,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY0ODUwMzM1NA==",
+            "original_commit_id": "e37c16d6c4c6762df4b08c57668e0c046487afeb",
+            "original_line": 34,
+            "original_position": 37,
+            "original_start_line": null,
+            "path": "tests/run/binop_reverse_methods_GH2056.pyx",
+            "position": 37,
+            "pull_request_review_id": 679919772,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4204",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2021-06-09T17:00:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/648503354",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4204#discussion_r649056866"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4204"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/649056866"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Yeah, I keep being outsmarted by my past self... Ok, then it doesn't work yet without the cast. Not part of this PR.",
+            "commit_id": "5393c492b367d09cddb68819a3919ebe58a87399",
+            "created_at": "2021-06-10T10:27:54Z",
+            "diff_hunk": "@@ -4,29 +4,55 @@ cimport cython\n @cython.cclass\n class Base(object):\n     \"\"\"\n-    >>> Base() + 2\n+    >>> Base(1) + 2\n     'Base.__add__(Base(), 2)'\n-    >>> 2 + Base()\n+    >>> 2 + Base(1)\n     'Base.__radd__(Base(), 2)'\n \n-    >>> Base() ** 2\n+    >>> Base(0) + 2  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+    >>> 2 + Base(0)  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+\n+    >>> Base(1) ** 2\n     'Base.__pow__(Base(), 2, None)'\n-    >>> 2 ** Base()\n+    >>> 2 ** Base(1)\n     'Base.__rpow__(Base(), 2, None)'\n-    >>> pow(Base(), 2, 100)\n+    >>> pow(Base(1), 2, 100)\n     'Base.__pow__(Base(), 2, 100)'\n     \"\"\"\n+    implemented: cython.int\n+\n+    def __init__(self, implemented):\n+        self.implemented = implemented\n+\n     def __add__(self, other):\n-        return \"Base.__add__(%s, %s)\" % (self, other)\n+        if (<Base>self).implemented:",
+            "html_url": "https://github.com/cython/cython/pull/4204#discussion_r649056866",
+            "id": 649056866,
+            "in_reply_to_id": 648043848,
+            "line": 34,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY0OTA1Njg2Ng==",
+            "original_commit_id": "e37c16d6c4c6762df4b08c57668e0c046487afeb",
+            "original_line": 34,
+            "original_position": 37,
+            "original_start_line": null,
+            "path": "tests/run/binop_reverse_methods_GH2056.pyx",
+            "position": 37,
+            "pull_request_review_id": 680612873,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4204",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2021-06-10T10:27:55Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/649056866",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4204#discussion_r649058824"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4204"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/649058824"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "BTW, when we implement this, I think we should do it for both `__radd__` *and* `__add__` etc. It's ok if older Cython versions don't know about the type of `self`, but new ones should. I don't think this change would hurt existing code.",
+            "commit_id": "5393c492b367d09cddb68819a3919ebe58a87399",
+            "created_at": "2021-06-10T10:30:55Z",
+            "diff_hunk": "@@ -4,29 +4,55 @@ cimport cython\n @cython.cclass\n class Base(object):\n     \"\"\"\n-    >>> Base() + 2\n+    >>> Base(1) + 2\n     'Base.__add__(Base(), 2)'\n-    >>> 2 + Base()\n+    >>> 2 + Base(1)\n     'Base.__radd__(Base(), 2)'\n \n-    >>> Base() ** 2\n+    >>> Base(0) + 2  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+    >>> 2 + Base(0)  #doctest: +ELLIPSIS\n+    Traceback (most recent call last):\n+    ...\n+    TypeError: unsupported operand type...\n+\n+    >>> Base(1) ** 2\n     'Base.__pow__(Base(), 2, None)'\n-    >>> 2 ** Base()\n+    >>> 2 ** Base(1)\n     'Base.__rpow__(Base(), 2, None)'\n-    >>> pow(Base(), 2, 100)\n+    >>> pow(Base(1), 2, 100)\n     'Base.__pow__(Base(), 2, 100)'\n     \"\"\"\n+    implemented: cython.int\n+\n+    def __init__(self, implemented):\n+        self.implemented = implemented\n+\n     def __add__(self, other):\n-        return \"Base.__add__(%s, %s)\" % (self, other)\n+        if (<Base>self).implemented:",
+            "html_url": "https://github.com/cython/cython/pull/4204#discussion_r649058824",
+            "id": 649058824,
+            "in_reply_to_id": 648043848,
+            "line": 34,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY0OTA1ODgyNA==",
+            "original_commit_id": "e37c16d6c4c6762df4b08c57668e0c046487afeb",
+            "original_line": 34,
+            "original_position": 37,
+            "original_start_line": null,
+            "path": "tests/run/binop_reverse_methods_GH2056.pyx",
+            "position": 37,
+            "pull_request_review_id": 680615497,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4204",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2021-06-10T10:30:55Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/649058824",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4204/comments",
     "commit_data": [
         {
@@ -317,6 +707,164 @@
             ],
             "sha": "e37c16d6c4c6762df4b08c57668e0c046487afeb",
             "url": "https://api.github.com/repos/cython/cython/commits/e37c16d6c4c6762df4b08c57668e0c046487afeb"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/d0c4b71e0c57a84e2702ea9412449629cb7d68f2/comments",
+            "commit": {
+                "author": {
+                    "date": "2021-06-09T16:35:53Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2021-06-09T16:35:53Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "comment in\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "2fdfa8151145e6ca34ddf19768f34e97754ac213",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/2fdfa8151145e6ca34ddf19768f34e97754ac213"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/d0c4b71e0c57a84e2702ea9412449629cb7d68f2",
+                "verification": {
+                    "payload": "tree 2fdfa8151145e6ca34ddf19768f34e97754ac213\nparent e37c16d6c4c6762df4b08c57668e0c046487afeb\nauthor da-woods <dw-git@d-woods.co.uk> 1623256553 +0100\ncommitter GitHub <noreply@github.com> 1623256553 +0100\n\ncomment in\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJgwO3pCRBK7hj4Ov3rIwAA4b8IALMBAORUsPUMdf6qKwIYUJgh\n7T87Zx4sH0BazQcOQKS9kz1JxlmuT24kIgb1nhvaiWdryz8swxq62CW2Vc9VGLQT\nJ+13Q+mfnTFB29EwbnxC73oe/VihO83tDGwiwdOWGx5av59moEX2L4pERUIqr6Zu\nu8mDdFslzwwc6d6UAZCrA+uksE9nzi+4WJ/2IVPXLczVZvNQ7yLuXT3LVidOZvBm\nMrxb4o1JsmnZoNWmiRiUCDmuV1RseR01EtGL16thkX4PlmlpKDtN6U3v0QwHDGBD\nIl1E63AtqBYJ7bkAehMJEgg5z6WQpJs0asyLSoIO7TQaQIwGoW36m1pctFMJLLM=\n=w6cq\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/d0c4b71e0c57a84e2702ea9412449629cb7d68f2",
+            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6ZDBjNGI3MWUwYzU3YTg0ZTI3MDJlYTk0MTI0NDk2MjljYjdkNjhmMg==",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/e37c16d6c4c6762df4b08c57668e0c046487afeb",
+                    "sha": "e37c16d6c4c6762df4b08c57668e0c046487afeb",
+                    "url": "https://api.github.com/repos/cython/cython/commits/e37c16d6c4c6762df4b08c57668e0c046487afeb"
+                }
+            ],
+            "sha": "d0c4b71e0c57a84e2702ea9412449629cb7d68f2",
+            "url": "https://api.github.com/repos/cython/cython/commits/d0c4b71e0c57a84e2702ea9412449629cb7d68f2"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/5393c492b367d09cddb68819a3919ebe58a87399/comments",
+            "commit": {
+                "author": {
+                    "date": "2021-06-09T16:54:31Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2021-06-09T16:54:31Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Implemented as kwarg for clarity",
+                "tree": {
+                    "sha": "36f7e19e447c65a4462b6da480392f419f22a461",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/36f7e19e447c65a4462b6da480392f419f22a461"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/5393c492b367d09cddb68819a3919ebe58a87399",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/5393c492b367d09cddb68819a3919ebe58a87399",
+            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6NTM5M2M0OTJiMzY3ZDA5Y2RkYjY4ODE5YTM5MTllYmU1OGE4NzM5OQ==",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/d0c4b71e0c57a84e2702ea9412449629cb7d68f2",
+                    "sha": "d0c4b71e0c57a84e2702ea9412449629cb7d68f2",
+                    "url": "https://api.github.com/repos/cython/cython/commits/d0c4b71e0c57a84e2702ea9412449629cb7d68f2"
+                }
+            ],
+            "sha": "5393c492b367d09cddb68819a3919ebe58a87399",
+            "url": "https://api.github.com/repos/cython/cython/commits/5393c492b367d09cddb68819a3919ebe58a87399"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/4204/commits",
@@ -408,9 +956,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2021-05-31T21:15:46Z",
+            "pushed_at": "2021-06-09T21:03:45Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 64888,
+            "size": 64919,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -426,7 +974,7 @@
             "watchers": 0,
             "watchers_count": 0
         },
-        "sha": "e37c16d6c4c6762df4b08c57668e0c046487afeb",
+        "sha": "5393c492b367d09cddb68819a3919ebe58a87399",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -453,7 +1001,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/4204",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "a63d620478235e2365fd9b9afad6b883c5b1c1b6",
+    "merge_commit_sha": "ec7732ec31c678ab5955d4681e9d7621ed3fcfcb",
     "merged_at": null,
     "milestone": null,
     "node_id": "MDExOlB1bGxSZXF1ZXN0NjU4MTA2OTA2",
@@ -464,9 +1012,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/4204/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/e37c16d6c4c6762df4b08c57668e0c046487afeb",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/5393c492b367d09cddb68819a3919ebe58a87399",
     "title": "Fix recursion in binops",
-    "updated_at": "2021-05-31T08:20:15Z",
+    "updated_at": "2021-06-10T10:30:55Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/4204",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
