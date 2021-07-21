@@ -1,28 +1,28 @@
 {
     "_links": {
         "comments": {
-            "href": "https://api.github.com/repos/cython/cython/issues/4273/comments"
+            "href": "https://api.github.com/repos/cython/cython/issues/4292/comments"
         },
         "commits": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/4273/commits"
+            "href": "https://api.github.com/repos/cython/cython/pulls/4292/commits"
         },
         "html": {
-            "href": "https://github.com/cython/cython/pull/4273"
+            "href": "https://github.com/cython/cython/pull/4292"
         },
         "issue": {
-            "href": "https://api.github.com/repos/cython/cython/issues/4273"
+            "href": "https://api.github.com/repos/cython/cython/issues/4292"
         },
         "review_comment": {
             "href": "https://api.github.com/repos/cython/cython/pulls/comments{/number}"
         },
         "review_comments": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/4273/comments"
+            "href": "https://api.github.com/repos/cython/cython/pulls/4292/comments"
         },
         "self": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/4273"
+            "href": "https://api.github.com/repos/cython/cython/pulls/4292"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/8850cb19d25480ebf2e574ca5afb5b16233a7a5f"
+            "href": "https://api.github.com/repos/cython/cython/statuses/86915c49caee9f03b82d82f27d1dbf5af12effae"
         }
     },
     "active_lock_reason": null,
@@ -133,7 +133,7 @@
             "watchers": 6233,
             "watchers_count": 6233
         },
-        "sha": "0fd87fd0fdc031a63f8c166ad1433e686b76331b",
+        "sha": "7528ff8f366130ba1bd99ebbceef58910a89a79f",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -155,43 +155,43 @@
             "url": "https://api.github.com/users/cython"
         }
     },
-    "body": "It's largely just copied from set because it has basically\r\nthe same interface.",
-    "closed_at": "2021-07-19T07:17:00Z",
+    "body": "e.g. with the allocator specified, or with a hash function or predicate etc. It needs to generate a separate version of the conversion code for each variation of the container.\r\n\r\nFixes #4166",
+    "closed_at": null,
     "comment_data": [
         {
             "_links": {
                 "html": {
-                    "href": "https://github.com/cython/cython/pull/4273#discussion_r671893402"
+                    "href": "https://github.com/cython/cython/pull/4292#discussion_r671875625"
                 },
                 "pull_request": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/4273"
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4292"
                 },
                 "self": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671893402"
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671875625"
                 }
             },
             "author_association": "MEMBER",
-            "body": "```suggestion\r\n        ctypedef T value_type\r\n\r\n        cppclass iterator:\r\n```",
-            "commit_id": "8850cb19d25480ebf2e574ca5afb5b16233a7a5f",
-            "created_at": "2021-07-18T20:28:42Z",
-            "diff_hunk": "@@ -59,3 +59,61 @@ cdef extern from \"<set>\" namespace \"std\" nogil:\n         iterator upper_bound(const T&)\n         const_iterator const_upper_bound \"upper_bound\"(const T&)\n         #value_compare value_comp()\n+\n+    cdef cppclass multiset[T]:\n+        ctypedef T value_type\n+        cppclass iterator:",
-            "html_url": "https://github.com/cython/cython/pull/4273#discussion_r671893402",
-            "id": 671893402,
+            "body": "It's interesting that the style checker didn't complain here (also in the other places that use `…+…`).\r\n```suggestion\r\n                optional_arg_template_names = \",\" + optional_arg_template_names\r\n```",
+            "commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "created_at": "2021-07-18T17:49:40Z",
+            "diff_hunk": "@@ -3787,24 +3787,39 @@ def create_from_py_utility_code(self, env):\n             X = \"XYZABC\"\n             tags = []\n             context = {}\n+            optional_tags = []\n+            optional_tag_strs = []\n+            optional_arg_template_names = []  # these may be different (e.g. for unordered_map, map)\n+                # hence have to be generated here rather than hard-coded in the utility_code\n             for ix, T in enumerate(self.templates or []):\n                 if ix >= builtin_cpp_conversions[self.cname]:\n-                    break\n+                    optional_arg_template_names.append(\"%s=*\" % self.template_type.templates[ix].name)\n+                    if not isinstance(T, TemplatePlaceholderType):\n+                        optional_tags.append(T.specialization_name())\n+                        optional_tag_strs.append(X[ix])\n+                        context[X[ix]] = T\n+                    continue\n                 if T.is_pyobject or not T.create_from_py_utility_code(env):\n                     return False\n                 tags.append(T.specialization_name())\n                 context[X[ix]] = T\n \n             if self.cname in cpp_string_conversions:\n                 cls = 'string'\n-                tags = type_identifier(self),\n+                tags = [type_identifier(self)]\n             else:\n                 cls = self.cname[5:]\n-            cname = '__pyx_convert_%s_from_py_%s' % (cls, '__and_'.join(tags))\n+            optional_tag_strs = \",\".join(optional_tag_strs)\n+            optional_arg_template_names = \",\".join(optional_arg_template_names)\n+            if optional_arg_template_names:\n+                optional_arg_template_names = \",\"+optional_arg_template_names",
+            "html_url": "https://github.com/cython/cython/pull/4292#discussion_r671875625",
+            "id": 671875625,
             "line": null,
-            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg5MzQwMg==",
-            "original_commit_id": "71feb1a4cfe723e5c049f81d2f00d1deefeb83fc",
-            "original_line": 65,
-            "original_position": 7,
-            "original_start_line": 64,
-            "path": "Cython/Includes/libcpp/set.pxd",
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg3NTYyNQ==",
+            "original_commit_id": "d2ae1779f23ca0758d2308152261ddd9cce285e3",
+            "original_line": 3815,
+            "original_position": 32,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
             "position": null,
-            "pull_request_review_id": 709058961,
-            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4273",
+            "pull_request_review_id": 709048638,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4292",
             "side": "RIGHT",
             "start_line": null,
-            "start_side": "RIGHT",
-            "updated_at": "2021-07-18T20:30:35Z",
-            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671893402",
+            "start_side": null,
+            "updated_at": "2021-07-18T18:01:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671875625",
             "user": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
@@ -216,37 +216,38 @@
         {
             "_links": {
                 "html": {
-                    "href": "https://github.com/cython/cython/pull/4273#discussion_r671893417"
+                    "href": "https://github.com/cython/cython/pull/4292#discussion_r671877879"
                 },
                 "pull_request": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/4273"
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4292"
                 },
                 "self": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671893417"
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671877879"
                 }
             },
             "author_association": "MEMBER",
-            "body": "```suggestion\r\n        cppclass const_reverse_iterator(reverse_iterator):\r\n            pass\r\n\r\n        multiset() except +\r\n        multiset(multiset&) except +\r\n```",
-            "commit_id": "8850cb19d25480ebf2e574ca5afb5b16233a7a5f",
-            "created_at": "2021-07-18T20:28:55Z",
-            "diff_hunk": "@@ -59,3 +59,61 @@ cdef extern from \"<set>\" namespace \"std\" nogil:\n         iterator upper_bound(const T&)\n         const_iterator const_upper_bound \"upper_bound\"(const T&)\n         #value_compare value_comp()\n+\n+    cdef cppclass multiset[T]:\n+        ctypedef T value_type\n+        cppclass iterator:\n+            T& operator*()\n+            iterator operator++()\n+            iterator operator--()\n+            bint operator==(iterator)\n+            bint operator!=(iterator)\n+        cppclass reverse_iterator:\n+            T& operator*()\n+            iterator operator++()\n+            iterator operator--()\n+            bint operator==(reverse_iterator)\n+            bint operator!=(reverse_iterator)\n+        cppclass const_iterator(iterator):\n+            pass\n+        cppclass const_reverse_iterator(reverse_iterator):\n+            pass\n+        multiset() except +\n+        multiset(multiset&) except +",
-            "html_url": "https://github.com/cython/cython/pull/4273#discussion_r671893417",
-            "id": 671893417,
+            "body": "(Ah, I know – we have stuff like `n+1` in the code base, without whitespace, which is … ok, but rules out enabling the code style checks for arithmetic operators. Too bad…)",
+            "commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "created_at": "2021-07-18T18:09:29Z",
+            "diff_hunk": "@@ -3787,24 +3787,39 @@ def create_from_py_utility_code(self, env):\n             X = \"XYZABC\"\n             tags = []\n             context = {}\n+            optional_tags = []\n+            optional_tag_strs = []\n+            optional_arg_template_names = []  # these may be different (e.g. for unordered_map, map)\n+                # hence have to be generated here rather than hard-coded in the utility_code\n             for ix, T in enumerate(self.templates or []):\n                 if ix >= builtin_cpp_conversions[self.cname]:\n-                    break\n+                    optional_arg_template_names.append(\"%s=*\" % self.template_type.templates[ix].name)\n+                    if not isinstance(T, TemplatePlaceholderType):\n+                        optional_tags.append(T.specialization_name())\n+                        optional_tag_strs.append(X[ix])\n+                        context[X[ix]] = T\n+                    continue\n                 if T.is_pyobject or not T.create_from_py_utility_code(env):\n                     return False\n                 tags.append(T.specialization_name())\n                 context[X[ix]] = T\n \n             if self.cname in cpp_string_conversions:\n                 cls = 'string'\n-                tags = type_identifier(self),\n+                tags = [type_identifier(self)]\n             else:\n                 cls = self.cname[5:]\n-            cname = '__pyx_convert_%s_from_py_%s' % (cls, '__and_'.join(tags))\n+            optional_tag_strs = \",\".join(optional_tag_strs)\n+            optional_arg_template_names = \",\".join(optional_arg_template_names)\n+            if optional_arg_template_names:\n+                optional_arg_template_names = \",\"+optional_arg_template_names",
+            "html_url": "https://github.com/cython/cython/pull/4292#discussion_r671877879",
+            "id": 671877879,
+            "in_reply_to_id": 671875625,
             "line": null,
-            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg5MzQxNw==",
-            "original_commit_id": "71feb1a4cfe723e5c049f81d2f00d1deefeb83fc",
-            "original_line": 82,
-            "original_position": 24,
-            "original_start_line": 79,
-            "path": "Cython/Includes/libcpp/set.pxd",
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg3Nzg3OQ==",
+            "original_commit_id": "d2ae1779f23ca0758d2308152261ddd9cce285e3",
+            "original_line": 3815,
+            "original_position": 32,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
             "position": null,
-            "pull_request_review_id": 709058961,
-            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4273",
+            "pull_request_review_id": 709050063,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4292",
             "side": "RIGHT",
             "start_line": null,
-            "start_side": "RIGHT",
-            "updated_at": "2021-07-18T20:30:35Z",
-            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671893417",
+            "start_side": null,
+            "updated_at": "2021-07-18T18:09:29Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671877879",
             "user": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
@@ -271,147 +272,313 @@
         {
             "_links": {
                 "html": {
-                    "href": "https://github.com/cython/cython/pull/4273#discussion_r671893480"
+                    "href": "https://github.com/cython/cython/pull/4292#discussion_r671891018"
                 },
                 "pull_request": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/4273"
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4292"
                 },
                 "self": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671893480"
-                }
-            },
-            "author_association": "MEMBER",
-            "body": "```suggestion\r\n        ctypedef T value_type\r\n\r\n        cppclass iterator:\r\n```",
-            "commit_id": "8850cb19d25480ebf2e574ca5afb5b16233a7a5f",
-            "created_at": "2021-07-18T20:29:26Z",
-            "diff_hunk": "@@ -45,19 +40,71 @@ cdef extern from \"<unordered_set>\" namespace \"std\" nogil:\n         const_iterator const_find \"find\"(T&)\n         pair[iterator, bint] insert(T&)\n         iterator insert(iterator, T&)\n-        #key_compare key_comp()\n         iterator insert(iterator, iterator)\n-        iterator lower_bound(T&)\n-        const_iterator const_lower_bound \"lower_bound\"(T&)\n         size_t max_size()\n         reverse_iterator rbegin()\n         const_reverse_iterator const_rbegin \"rbegin\"()\n         reverse_iterator rend()\n         const_reverse_iterator const_rend \"rend\"()\n         size_t size()\n         void swap(unordered_set&)\n-        iterator upper_bound(T&)\n-        const_iterator const_upper_bound \"upper_bound\"(T&)\n+        #value_compare value_comp()\n+        void max_load_factor(float)\n+        float max_load_factor()\n+        void rehash(size_t)\n+        void reserve(size_t)\n+        size_t bucket_count()\n+        size_t max_bucket_count()\n+        size_t bucket_size(size_t)\n+        size_t bucket(const T&)\n+\n+    cdef cppclass unordered_multiset[T,HASH=*,PRED=*,ALLOCATOR=*]:\n+        ctypedef T value_type\n+        cppclass iterator:",
-            "html_url": "https://github.com/cython/cython/pull/4273#discussion_r671893480",
-            "id": 671893480,
-            "line": null,
-            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg5MzQ4MA==",
-            "original_commit_id": "71feb1a4cfe723e5c049f81d2f00d1deefeb83fc",
-            "original_line": 63,
-            "original_position": 44,
-            "original_start_line": 62,
-            "path": "Cython/Includes/libcpp/unordered_set.pxd",
-            "position": null,
-            "pull_request_review_id": 709058961,
-            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4273",
-            "side": "RIGHT",
-            "start_line": null,
-            "start_side": "RIGHT",
-            "updated_at": "2021-07-18T20:30:35Z",
-            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671893480",
-            "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            }
-        },
-        {
-            "_links": {
-                "html": {
-                    "href": "https://github.com/cython/cython/pull/4273#discussion_r671893499"
-                },
-                "pull_request": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/4273"
-                },
-                "self": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671893499"
-                }
-            },
-            "author_association": "MEMBER",
-            "body": "```suggestion\r\n        cppclass const_reverse_iterator(reverse_iterator):\r\n            pass\r\n\r\n        unordered_multiset() except +\r\n        unordered_multiset(unordered_multiset&) except +\r\n```",
-            "commit_id": "8850cb19d25480ebf2e574ca5afb5b16233a7a5f",
-            "created_at": "2021-07-18T20:29:38Z",
-            "diff_hunk": "@@ -45,19 +40,71 @@ cdef extern from \"<unordered_set>\" namespace \"std\" nogil:\n         const_iterator const_find \"find\"(T&)\n         pair[iterator, bint] insert(T&)\n         iterator insert(iterator, T&)\n-        #key_compare key_comp()\n         iterator insert(iterator, iterator)\n-        iterator lower_bound(T&)\n-        const_iterator const_lower_bound \"lower_bound\"(T&)\n         size_t max_size()\n         reverse_iterator rbegin()\n         const_reverse_iterator const_rbegin \"rbegin\"()\n         reverse_iterator rend()\n         const_reverse_iterator const_rend \"rend\"()\n         size_t size()\n         void swap(unordered_set&)\n-        iterator upper_bound(T&)\n-        const_iterator const_upper_bound \"upper_bound\"(T&)\n+        #value_compare value_comp()\n+        void max_load_factor(float)\n+        float max_load_factor()\n+        void rehash(size_t)\n+        void reserve(size_t)\n+        size_t bucket_count()\n+        size_t max_bucket_count()\n+        size_t bucket_size(size_t)\n+        size_t bucket(const T&)\n+\n+    cdef cppclass unordered_multiset[T,HASH=*,PRED=*,ALLOCATOR=*]:\n+        ctypedef T value_type\n+        cppclass iterator:\n+            T& operator*()\n+            iterator operator++()\n+            iterator operator--()\n+            bint operator==(iterator)\n+            bint operator!=(iterator)\n+        cppclass reverse_iterator:\n+            T& operator*()\n+            iterator operator++()\n+            iterator operator--()\n+            bint operator==(reverse_iterator)\n+            bint operator!=(reverse_iterator)\n+        cppclass const_iterator(iterator):\n+            pass\n+        cppclass const_reverse_iterator(reverse_iterator):\n+            pass\n+        unordered_multiset() except +\n+        unordered_multiset(unordered_multiset&) except +",
-            "html_url": "https://github.com/cython/cython/pull/4273#discussion_r671893499",
-            "id": 671893499,
-            "line": null,
-            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg5MzQ5OQ==",
-            "original_commit_id": "71feb1a4cfe723e5c049f81d2f00d1deefeb83fc",
-            "original_line": 80,
-            "original_position": 61,
-            "original_start_line": 77,
-            "path": "Cython/Includes/libcpp/unordered_set.pxd",
-            "position": null,
-            "pull_request_review_id": 709058961,
-            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4273",
-            "side": "RIGHT",
-            "start_line": null,
-            "start_side": "RIGHT",
-            "updated_at": "2021-07-18T20:30:35Z",
-            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671893499",
-            "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            }
-        },
-        {
-            "_links": {
-                "html": {
-                    "href": "https://github.com/cython/cython/pull/4273#discussion_r671893949"
-                },
-                "pull_request": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/4273"
-                },
-                "self": {
-                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671893949"
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671891018"
                 }
             },
             "author_association": "COLLABORATOR",
-            "body": "```suggestion\r\n    >>> test_unordered_multiset_find_erase([1,2,2,3, -1], 1)\r\n    [-1, 2, 2, 3]\r\n    >>> test_unordered_multiset_find_erase([1,2,2,3, -1], 2)  # removes a single copy of 2\r\n```",
-            "commit_id": "8850cb19d25480ebf2e574ca5afb5b16233a7a5f",
-            "created_at": "2021-07-18T20:33:26Z",
-            "diff_hunk": "@@ -0,0 +1,106 @@\n+# mode: run\n+# tag: cpp, cpp11\n+\n+# cython: language_level=3\n+\n+from libcpp.set cimport multiset\n+from libcpp.unordered_set cimport unordered_multiset\n+\n+def test_multiset_insert(vals):\n+    \"\"\"\n+    >>> test_multiset_insert([1,2,2,3, -1])\n+    [-1, 1, 2, 2, 3]\n+    \"\"\"\n+    cdef multiset[int] ms = multiset[int]()\n+    for v in vals:\n+        ms.insert(v)\n+    return [ item for item in ms ]\n+\n+def test_multiset_count(vals, to_find):\n+    \"\"\"\n+    >>> test_multiset_count([1,2,2,3, -1], 1)\n+    1\n+    >>> test_multiset_count([1,2,2,3, -1], 2)\n+    2\n+    \"\"\"\n+    cdef multiset[int] ms = multiset[int]()\n+    for v in vals:\n+        ms.insert(v)\n+    return ms.count(to_find)\n+\n+def test_multiset_erase(vals, int to_remove):\n+    \"\"\"\n+    >>> test_multiset_erase([1,2,2,3, -1], 1)\n+    [-1, 2, 2, 3]\n+    >>> test_multiset_erase([1,2,2,3, -1], 2)  # removes both copies of 2\n+    [-1, 1, 3]\n+    \"\"\"\n+    cdef multiset[int] ms = multiset[int]()\n+    for v in vals:\n+        ms.insert(v)\n+    ms.erase(to_remove)\n+    return [ item for item in ms ]\n+\n+def test_multiset_find_erase(vals, to_remove):\n+    \"\"\"\n+    >>> test_multiset_find_erase([1,2,2,3, -1], 1)\n+    [-1, 2, 2, 3]\n+    >>> test_multiset_find_erase([1,2,2,3, -1], 2)  # removes a single copy of 2\n+    [-1, 1, 2, 3]\n+    \"\"\"\n+    cdef multiset[int] ms = multiset[int]()\n+    for v in vals:\n+        ms.insert(v)\n+    it = ms.find(to_remove)\n+    ms.erase(it)\n+    return [ item for item in ms ]\n+\n+\n+def test_unordered_multiset_insert(vals):\n+    \"\"\"\n+    >>> test_unordered_multiset_insert([1,2,2,3, -1])\n+    [-1, 1, 2, 2, 3]\n+    \"\"\"\n+    cdef unordered_multiset[int] ms = unordered_multiset[int]()\n+    for v in vals:\n+        ms.insert(v)\n+    return sorted([ item for item in ms ])\n+\n+def test_unordered_multiset_count(vals, to_find):\n+    \"\"\"\n+    >>> test_unordered_multiset_count([1,2,2,3, -1], 1)\n+    1\n+    >>> test_unordered_multiset_count([1,2,2,3, -1], 2)\n+    2\n+    \"\"\"\n+    cdef unordered_multiset[int] ms = unordered_multiset[int]()\n+    for v in vals:\n+        ms.insert(v)\n+    return ms.count(to_find)\n+\n+def test_unordered_multiset_erase(vals, int to_remove):\n+    \"\"\"\n+    >>> test_unordered_multiset_erase([1,2,2,3, -1], 1)\n+    [-1, 2, 2, 3]\n+    >>> test_unordered_multiset_erase([1,2,2,3, -1], 2)  # removes both copies of 2\n+    [-1, 1, 3]\n+    \"\"\"\n+    cdef unordered_multiset[int] ms = unordered_multiset[int]()\n+    for v in vals:\n+        ms.insert(v)\n+    ms.erase(to_remove)\n+    return sorted([ item for item in ms ])\n+\n+def test_unordered_multiset_find_erase(vals, to_remove):\n+    \"\"\"\n+    >>> test_multiset_find_erase([1,2,2,3, -1], 1)\n+    [-1, 2, 2, 3]\n+    >>> test_multiset_find_erase([1,2,2,3, -1], 2)  # removes a single copy of 2",
-            "html_url": "https://github.com/cython/cython/pull/4273#discussion_r671893949",
-            "id": 671893949,
-            "line": null,
-            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg5Mzk0OQ==",
-            "original_commit_id": "37e6e3d2fbb6e886fed31a7f63d96e0769e77e22",
-            "original_line": 98,
-            "original_position": 98,
-            "original_start_line": 96,
-            "path": "tests/run/cpp_stl_multiset.pyx",
-            "position": null,
-            "pull_request_review_id": 709059261,
-            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4273",
+            "body": "This casting away the const feels slightly dubious to me.\r\n\r\nIt's because Cython infers the iterator type from `begin`, I wonder if it should try `const_begin` first for const types, but that feels like a separate change.",
+            "commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "created_at": "2021-07-18T20:08:15Z",
+            "diff_hunk": "@@ -136,34 +103,22 @@ cdef object {{cname}}(const cpp_list[X]& v):\n \n #################### set.from_py ####################\n \n-cdef extern from *:\n-    cdef cppclass set \"std::{{maybe_unordered}}set\" [T]:\n-        void insert(T&) except +\n-\n @cname(\"{{cname}}\")\n-cdef set[X] {{cname}}(object o) except *:\n-    cdef set[X] s\n+cdef Tp {{cname}}(object o) except *:\n+    cdef Tp s\n     for item in o:\n-        s.insert(<X>item)\n+        s.insert(<Tp.value_type>item)\n     return s\n \n \n #################### set.to_py ####################\n \n cimport cython\n \n-cdef extern from *:\n-    cdef cppclass cpp_set \"std::{{maybe_unordered}}set\" [T]:\n-        cppclass const_iterator:\n-            T& operator*()\n-            const_iterator operator++()\n-            bint operator!=(const_iterator)\n-        const_iterator begin()\n-        const_iterator end()\n-\n @cname(\"{{cname}}\")\n-cdef object {{cname}}(const cpp_set[X]& s):\n-    return {v for v in s}\n+cdef object {{cname}}(const Tp& s):\n+    # casting away the const is a bit dubious, but helps Cython do the iteration\n+    return {v for v in <Tp&>s}",
+            "html_url": "https://github.com/cython/cython/pull/4292#discussion_r671891018",
+            "id": 671891018,
+            "line": 121,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg5MTAxOA==",
+            "original_commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "original_line": 121,
+            "original_position": 165,
+            "original_start_line": null,
+            "path": "Cython/Utility/CppConvert.pyx",
+            "position": 165,
+            "pull_request_review_id": 709057598,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4292",
             "side": "RIGHT",
             "start_line": null,
+            "start_side": null,
+            "updated_at": "2021-07-18T20:08:15Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671891018",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4292#discussion_r671891240"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4292"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671891240"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n                # not all template types are convertible\r\n                return None\r\n```",
+            "commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "created_at": "2021-07-18T20:09:48Z",
+            "diff_hunk": "@@ -3780,31 +3780,39 @@ def can_coerce_from_pyobject(self, env):\n             return True\n         return False\n \n+    def _get_conversion_tags_context_cls(self, env, tags, context):\n+        # modifies tags and context, returns the cls name or False (if it's not convertible)\n+        for ix, T in enumerate(self.templates or []):\n+            if ix >= builtin_cpp_conversions[self.cname]:\n+                if not isinstance(T, TemplatePlaceholderType):\n+                    tags.append(T.specialization_name())\n+                continue\n+            if not T.create_to_py_utility_code(env):\n+                return False",
+            "html_url": "https://github.com/cython/cython/pull/4292#discussion_r671891240",
+            "id": 671891240,
+            "line": 3791,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg5MTI0MA==",
+            "original_commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "original_line": 3791,
+            "original_position": 12,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 12,
+            "pull_request_review_id": 709057733,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4292",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2021-07-18T20:16:31Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671891240",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4292#discussion_r671891589"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4292"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671891589"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "The method is called `_get_…` but changes its input arguments. That seems fishy. There's more than one function in here, I'd say.",
+            "commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "created_at": "2021-07-18T20:12:52Z",
+            "diff_hunk": "@@ -3780,31 +3780,39 @@ def can_coerce_from_pyobject(self, env):\n             return True\n         return False\n \n+    def _get_conversion_tags_context_cls(self, env, tags, context):\n+        # modifies tags and context, returns the cls name or False (if it's not convertible)\n+        for ix, T in enumerate(self.templates or []):\n+            if ix >= builtin_cpp_conversions[self.cname]:\n+                if not isinstance(T, TemplatePlaceholderType):\n+                    tags.append(T.specialization_name())\n+                continue\n+            if not T.create_to_py_utility_code(env):\n+                return False\n+            tags.append(T.specialization_name())\n+\n+        context['Tp'] = self",
+            "html_url": "https://github.com/cython/cython/pull/4292#discussion_r671891589",
+            "id": 671891589,
+            "line": 3794,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg5MTU4OQ==",
+            "original_commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "original_line": 3794,
+            "original_position": 15,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 15,
+            "pull_request_review_id": 709057733,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4292",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2021-07-18T20:16:31Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671891589",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4292#discussion_r671891685"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4292"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671891685"
+                }
+            },
+            "author_association": "COLLABORATOR",
+            "body": "Possibly this should be split into a validation function that just does\r\n\r\n```\r\n<loop>:\r\n    if not T.create_to_py_utility_code(env):\r\n        return False\r\n```\r\n\r\nand a tag/context/cname generation function that does the rest. Which is possibly what you meant by:\r\n\r\n> ISTM that the loop over the templates is really two separate loops, for example.\r\n\r\nI'll wait to see how much this change breaks first though",
+            "commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "created_at": "2021-07-18T20:13:52Z",
+            "diff_hunk": "@@ -3780,31 +3780,39 @@ def can_coerce_from_pyobject(self, env):\n             return True\n         return False\n \n+    def _get_conversion_tags_context_cls(self, env, tags, context):\n+        # modifies tags and context, returns the cls name or False (if it's not convertible)\n+        for ix, T in enumerate(self.templates or []):\n+            if ix >= builtin_cpp_conversions[self.cname]:\n+                if not isinstance(T, TemplatePlaceholderType):\n+                    tags.append(T.specialization_name())\n+                continue\n+            if not T.create_to_py_utility_code(env):\n+                return False\n+            tags.append(T.specialization_name())",
+            "html_url": "https://github.com/cython/cython/pull/4292#discussion_r671891685",
+            "id": 671891685,
+            "line": 3792,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg5MTY4NQ==",
+            "original_commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "original_line": 3792,
+            "original_position": 13,
+            "original_start_line": 3783,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 13,
+            "pull_request_review_id": 709057979,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4292",
+            "side": "RIGHT",
+            "start_line": 3783,
             "start_side": "RIGHT",
-            "updated_at": "2021-07-18T20:33:27Z",
-            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671893949",
+            "updated_at": "2021-07-18T20:13:52Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671891685",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4292#discussion_r671891730"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4292"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671891730"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Did you really mean to use `Tp` as a type name here? Does that work?",
+            "commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "created_at": "2021-07-18T20:14:20Z",
+            "diff_hunk": "@@ -4,66 +4,47 @@\n #################### string.from_py ####################\n \n cdef extern from *:\n-    cdef cppclass string \"{{type}}\":\n-        string() except +\n-        string(char* c_str, size_t size) except +\n     cdef const char* __Pyx_PyObject_AsStringAndSize(object, Py_ssize_t*) except NULL\n \n @cname(\"{{cname}}\")\n-cdef string {{cname}}(object o) except *:\n+cdef Tp {{cname}}(object o) except *:\n     cdef Py_ssize_t length = 0\n     cdef const char* data = __Pyx_PyObject_AsStringAndSize(o, &length)\n-    return string(data, length)\n+    return Tp(data, length)\n \n \n #################### string.to_py ####################\n \n-#cimport cython\n-#from libcpp.string cimport string\n-cdef extern from *:\n-    cdef cppclass string \"{{type}}\":\n-        char* data()\n-        size_t size()\n-\n {{for py_type in ['PyObject', 'PyUnicode', 'PyStr', 'PyBytes', 'PyByteArray']}}\n cdef extern from *:\n     cdef object __Pyx_{{py_type}}_FromStringAndSize(const char*, size_t)\n \n @cname(\"{{cname.replace(\"PyObject\", py_type, 1)}}\")\n-cdef inline object {{cname.replace(\"PyObject\", py_type, 1)}}(const string& s):\n+cdef inline object {{cname.replace(\"PyObject\", py_type, 1)}}(const Tp& s):\n     return __Pyx_{{py_type}}_FromStringAndSize(s.data(), s.size())\n {{endfor}}\n \n \n #################### vector.from_py ####################\n \n-cdef extern from *:\n-    cdef cppclass vector \"std::vector\" [T]:\n-        void push_back(T&) except +\n-\n @cname(\"{{cname}}\")\n-cdef vector[X] {{cname}}(object o) except *:\n-    cdef vector[X] v\n+cdef Tp {{cname}}(object o) except *:",
+            "html_url": "https://github.com/cython/cython/pull/4292#discussion_r671891730",
+            "id": 671891730,
+            "line": 31,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg5MTczMA==",
+            "original_commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "original_line": 31,
+            "original_position": 47,
+            "original_start_line": null,
+            "path": "Cython/Utility/CppConvert.pyx",
+            "position": 47,
+            "pull_request_review_id": 709057733,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4292",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2021-07-18T20:16:31Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671891730",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4292#discussion_r671892291"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4292"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/671892291"
+                }
+            },
+            "author_association": "COLLABORATOR",
+            "body": "Yes it seems to work. It's extracted from the context in exactly the same way that `X` used to be.",
+            "commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "created_at": "2021-07-18T20:19:32Z",
+            "diff_hunk": "@@ -4,66 +4,47 @@\n #################### string.from_py ####################\n \n cdef extern from *:\n-    cdef cppclass string \"{{type}}\":\n-        string() except +\n-        string(char* c_str, size_t size) except +\n     cdef const char* __Pyx_PyObject_AsStringAndSize(object, Py_ssize_t*) except NULL\n \n @cname(\"{{cname}}\")\n-cdef string {{cname}}(object o) except *:\n+cdef Tp {{cname}}(object o) except *:\n     cdef Py_ssize_t length = 0\n     cdef const char* data = __Pyx_PyObject_AsStringAndSize(o, &length)\n-    return string(data, length)\n+    return Tp(data, length)\n \n \n #################### string.to_py ####################\n \n-#cimport cython\n-#from libcpp.string cimport string\n-cdef extern from *:\n-    cdef cppclass string \"{{type}}\":\n-        char* data()\n-        size_t size()\n-\n {{for py_type in ['PyObject', 'PyUnicode', 'PyStr', 'PyBytes', 'PyByteArray']}}\n cdef extern from *:\n     cdef object __Pyx_{{py_type}}_FromStringAndSize(const char*, size_t)\n \n @cname(\"{{cname.replace(\"PyObject\", py_type, 1)}}\")\n-cdef inline object {{cname.replace(\"PyObject\", py_type, 1)}}(const string& s):\n+cdef inline object {{cname.replace(\"PyObject\", py_type, 1)}}(const Tp& s):\n     return __Pyx_{{py_type}}_FromStringAndSize(s.data(), s.size())\n {{endfor}}\n \n \n #################### vector.from_py ####################\n \n-cdef extern from *:\n-    cdef cppclass vector \"std::vector\" [T]:\n-        void push_back(T&) except +\n-\n @cname(\"{{cname}}\")\n-cdef vector[X] {{cname}}(object o) except *:\n-    cdef vector[X] v\n+cdef Tp {{cname}}(object o) except *:",
+            "html_url": "https://github.com/cython/cython/pull/4292#discussion_r671892291",
+            "id": 671892291,
+            "in_reply_to_id": 671891730,
+            "line": 31,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY3MTg5MjI5MQ==",
+            "original_commit_id": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "original_line": 31,
+            "original_position": 47,
+            "original_start_line": null,
+            "path": "Cython/Utility/CppConvert.pyx",
+            "position": 47,
+            "pull_request_review_id": 709058358,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4292",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2021-07-18T20:19:32Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/671892291",
             "user": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
                 "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -434,7 +601,7 @@
             }
         }
     ],
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/4273/comments",
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/4292/comments",
     "commit_data": [
         {
             "author": {
@@ -457,25 +624,25 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/bf645cba60e9915a945b453376b5d745fed264e1/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/3f28ac2595df4bff650d6d28bc225457abfc9af5/comments",
             "commit": {
                 "author": {
-                    "date": "2021-07-07T21:38:16Z",
+                    "date": "2021-07-18T14:58:38Z",
                     "email": "dw-git@d-woods.co.uk",
                     "name": "da-woods"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2021-07-07T21:38:16Z",
+                    "date": "2021-07-18T14:58:38Z",
                     "email": "dw-git@d-woods.co.uk",
                     "name": "da-woods"
                 },
-                "message": "Add missing multiset class to the standard library bindings\n\nIt's largely just copied from set because it has basically\nthe same interface.",
+                "message": "Conversion of C++ containers with optional templates\n\ne.g. with the allocator specified, or with a hash function or\npredicate etc. It needs to generate a separate version of the\nconversion code for each variation of the container.\n\nFixes #4166",
                 "tree": {
-                    "sha": "ef913e603ef05f46b65b40c6d458354aea7b39c4",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/ef913e603ef05f46b65b40c6d458354aea7b39c4"
+                    "sha": "82cfd0acc7686b9b4169a3c8ef30745e8b8fbec6",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/82cfd0acc7686b9b4169a3c8ef30745e8b8fbec6"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/bf645cba60e9915a945b453376b5d745fed264e1",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/3f28ac2595df4bff650d6d28bc225457abfc9af5",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -503,17 +670,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             },
-            "html_url": "https://github.com/cython/cython/commit/bf645cba60e9915a945b453376b5d745fed264e1",
-            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6YmY2NDVjYmE2MGU5OTE1YTk0NWI0NTMzNzZiNWQ3NDVmZWQyNjRlMQ==",
+            "html_url": "https://github.com/cython/cython/commit/3f28ac2595df4bff650d6d28bc225457abfc9af5",
+            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6M2YyOGFjMjU5NWRmNGJmZjY1MGQ2ZDI4YmMyMjU0NTdhYmZjOWFmNQ==",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/559ef7494ffb386a308f74b707560edbabe3f15d",
-                    "sha": "559ef7494ffb386a308f74b707560edbabe3f15d",
-                    "url": "https://api.github.com/repos/cython/cython/commits/559ef7494ffb386a308f74b707560edbabe3f15d"
+                    "html_url": "https://github.com/cython/cython/commit/8552e3d3ffe9fe4f3f8dab82119ed839990dadda",
+                    "sha": "8552e3d3ffe9fe4f3f8dab82119ed839990dadda",
+                    "url": "https://api.github.com/repos/cython/cython/commits/8552e3d3ffe9fe4f3f8dab82119ed839990dadda"
                 }
             ],
-            "sha": "bf645cba60e9915a945b453376b5d745fed264e1",
-            "url": "https://api.github.com/repos/cython/cython/commits/bf645cba60e9915a945b453376b5d745fed264e1"
+            "sha": "3f28ac2595df4bff650d6d28bc225457abfc9af5",
+            "url": "https://api.github.com/repos/cython/cython/commits/3f28ac2595df4bff650d6d28bc225457abfc9af5"
         },
         {
             "author": {
@@ -536,25 +703,25 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/eec4dc5d043f31795cd9c7f5d49556cd09a762a1/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/d2ae1779f23ca0758d2308152261ddd9cce285e3/comments",
             "commit": {
                 "author": {
-                    "date": "2021-07-09T18:12:12Z",
+                    "date": "2021-07-18T15:11:36Z",
                     "email": "dw-git@d-woods.co.uk",
                     "name": "da-woods"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2021-07-09T18:12:12Z",
+                    "date": "2021-07-18T15:11:36Z",
                     "email": "dw-git@d-woods.co.uk",
                     "name": "da-woods"
                 },
-                "message": "Added a token test",
+                "message": "Code style",
                 "tree": {
-                    "sha": "fea9bf60386d09a2426b9775e16c2a5abe43e1b3",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/fea9bf60386d09a2426b9775e16c2a5abe43e1b3"
+                    "sha": "e0d345e9e6a78194412209d03024696c12ad07bb",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/e0d345e9e6a78194412209d03024696c12ad07bb"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/eec4dc5d043f31795cd9c7f5d49556cd09a762a1",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/d2ae1779f23ca0758d2308152261ddd9cce285e3",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -582,17 +749,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             },
-            "html_url": "https://github.com/cython/cython/commit/eec4dc5d043f31795cd9c7f5d49556cd09a762a1",
-            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6ZWVjNGRjNWQwNDNmMzE3OTVjZDljN2Y1ZDQ5NTU2Y2QwOWE3NjJhMQ==",
+            "html_url": "https://github.com/cython/cython/commit/d2ae1779f23ca0758d2308152261ddd9cce285e3",
+            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6ZDJhZTE3NzlmMjNjYTA3NThkMjMwODE1MjI2MWRkZDljY2UyODVlMw==",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/bf645cba60e9915a945b453376b5d745fed264e1",
-                    "sha": "bf645cba60e9915a945b453376b5d745fed264e1",
-                    "url": "https://api.github.com/repos/cython/cython/commits/bf645cba60e9915a945b453376b5d745fed264e1"
+                    "html_url": "https://github.com/cython/cython/commit/3f28ac2595df4bff650d6d28bc225457abfc9af5",
+                    "sha": "3f28ac2595df4bff650d6d28bc225457abfc9af5",
+                    "url": "https://api.github.com/repos/cython/cython/commits/3f28ac2595df4bff650d6d28bc225457abfc9af5"
                 }
             ],
-            "sha": "eec4dc5d043f31795cd9c7f5d49556cd09a762a1",
-            "url": "https://api.github.com/repos/cython/cython/commits/eec4dc5d043f31795cd9c7f5d49556cd09a762a1"
+            "sha": "d2ae1779f23ca0758d2308152261ddd9cce285e3",
+            "url": "https://api.github.com/repos/cython/cython/commits/d2ae1779f23ca0758d2308152261ddd9cce285e3"
         },
         {
             "author": {
@@ -615,25 +782,25 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/71feb1a4cfe723e5c049f81d2f00d1deefeb83fc/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/86915c49caee9f03b82d82f27d1dbf5af12effae/comments",
             "commit": {
                 "author": {
-                    "date": "2021-07-09T18:24:27Z",
+                    "date": "2021-07-18T20:04:37Z",
                     "email": "dw-git@d-woods.co.uk",
                     "name": "da-woods"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2021-07-09T18:24:27Z",
+                    "date": "2021-07-18T20:04:37Z",
                     "email": "dw-git@d-woods.co.uk",
                     "name": "da-woods"
                 },
-                "message": "Add unordered_multiset (and tests)",
+                "message": "Use converted type directly rather than redeclaring it",
                 "tree": {
-                    "sha": "250854291849fd7d7381007773934fb044397de9",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/250854291849fd7d7381007773934fb044397de9"
+                    "sha": "e7e15f03f90957b8026e15b02a2c33bebaf342fb",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/e7e15f03f90957b8026e15b02a2c33bebaf342fb"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/71feb1a4cfe723e5c049f81d2f00d1deefeb83fc",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/86915c49caee9f03b82d82f27d1dbf5af12effae",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -661,184 +828,26 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             },
-            "html_url": "https://github.com/cython/cython/commit/71feb1a4cfe723e5c049f81d2f00d1deefeb83fc",
-            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6NzFmZWIxYTRjZmU3MjNlNWMwNDlmODFkMmYwMGQxZGVlZmViODNmYw==",
+            "html_url": "https://github.com/cython/cython/commit/86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6ODY5MTVjNDljYWVlOWYwM2I4MmQ4MmYyN2QxZGJmNWFmMTJlZmZhZQ==",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/eec4dc5d043f31795cd9c7f5d49556cd09a762a1",
-                    "sha": "eec4dc5d043f31795cd9c7f5d49556cd09a762a1",
-                    "url": "https://api.github.com/repos/cython/cython/commits/eec4dc5d043f31795cd9c7f5d49556cd09a762a1"
+                    "html_url": "https://github.com/cython/cython/commit/d2ae1779f23ca0758d2308152261ddd9cce285e3",
+                    "sha": "d2ae1779f23ca0758d2308152261ddd9cce285e3",
+                    "url": "https://api.github.com/repos/cython/cython/commits/d2ae1779f23ca0758d2308152261ddd9cce285e3"
                 }
             ],
-            "sha": "71feb1a4cfe723e5c049f81d2f00d1deefeb83fc",
-            "url": "https://api.github.com/repos/cython/cython/commits/71feb1a4cfe723e5c049f81d2f00d1deefeb83fc"
-        },
-        {
-            "author": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
-                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-                "followers_url": "https://api.github.com/users/scoder/followers",
-                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/scoder",
-                "id": 491659,
-                "login": "scoder",
-                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-                "organizations_url": "https://api.github.com/users/scoder/orgs",
-                "received_events_url": "https://api.github.com/users/scoder/received_events",
-                "repos_url": "https://api.github.com/users/scoder/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/scoder"
-            },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/37e6e3d2fbb6e886fed31a7f63d96e0769e77e22/comments",
-            "commit": {
-                "author": {
-                    "date": "2021-07-18T20:31:42Z",
-                    "email": "stefan_ml@behnel.de",
-                    "name": "scoder"
-                },
-                "comment_count": 0,
-                "committer": {
-                    "date": "2021-07-18T20:31:42Z",
-                    "email": "noreply@github.com",
-                    "name": "GitHub"
-                },
-                "message": "Add some empty lines in the declarations to visually separate different sections.",
-                "tree": {
-                    "sha": "101d96109d0ffa31f873a2e8dd5a0c957a50af4b",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/101d96109d0ffa31f873a2e8dd5a0c957a50af4b"
-                },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/37e6e3d2fbb6e886fed31a7f63d96e0769e77e22",
-                "verification": {
-                    "payload": "tree 101d96109d0ffa31f873a2e8dd5a0c957a50af4b\nparent 71feb1a4cfe723e5c049f81d2f00d1deefeb83fc\nauthor scoder <stefan_ml@behnel.de> 1626640302 +0200\ncommitter GitHub <noreply@github.com> 1626640302 +0200\n\nAdd some empty lines in the declarations to visually separate different sections.",
-                    "reason": "valid",
-                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJg9I+uCRBK7hj4Ov3rIwAAAfMIABsqX+ZmhXXMhezBKw7x0AuX\nB4bek45GAUwPDAsbCEhroSg7zKTdoGm1S9+ZYDr+6Ylpk31tvogjyaVB5nL+Y07q\nbDgyLtbIs57RGsjdOCxWMhBnIF+sBW6TdlvTJC8Eo/j7urMPAk7014BIEgkOwpaV\nf8inhOIbpeHo+KL+k7lw4wTtBLcI/x7lyRjSbzHA97S9tOearOfgJ2+zXOnvxbXY\nAx4PIdP+FrgJcBj+O51/YeWXQ3Asu7YSev7n2WPK/DDuqM06PjFN1OVUdmwQXPGy\nyRs+oIglj2MhxzO4LwsHp7Z0aUR+HlsDmbqO8bVqbAnsiq586QD54DGlK8jd1Gk=\n=Ed7X\n-----END PGP SIGNATURE-----\n",
-                    "verified": true
-                }
-            },
-            "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
-                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
-                "followers_url": "https://api.github.com/users/web-flow/followers",
-                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
-                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/web-flow",
-                "id": 19864447,
-                "login": "web-flow",
-                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
-                "organizations_url": "https://api.github.com/users/web-flow/orgs",
-                "received_events_url": "https://api.github.com/users/web-flow/received_events",
-                "repos_url": "https://api.github.com/users/web-flow/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/web-flow"
-            },
-            "html_url": "https://github.com/cython/cython/commit/37e6e3d2fbb6e886fed31a7f63d96e0769e77e22",
-            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6MzdlNmUzZDJmYmI2ZTg4NmZlZDMxYTdmNjNkOTZlMDc2OWU3N2UyMg==",
-            "parents": [
-                {
-                    "html_url": "https://github.com/cython/cython/commit/71feb1a4cfe723e5c049f81d2f00d1deefeb83fc",
-                    "sha": "71feb1a4cfe723e5c049f81d2f00d1deefeb83fc",
-                    "url": "https://api.github.com/repos/cython/cython/commits/71feb1a4cfe723e5c049f81d2f00d1deefeb83fc"
-                }
-            ],
-            "sha": "37e6e3d2fbb6e886fed31a7f63d96e0769e77e22",
-            "url": "https://api.github.com/repos/cython/cython/commits/37e6e3d2fbb6e886fed31a7f63d96e0769e77e22"
-        },
-        {
-            "author": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
-                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
-                "followers_url": "https://api.github.com/users/da-woods/followers",
-                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
-                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/da-woods",
-                "id": 10536947,
-                "login": "da-woods",
-                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
-                "organizations_url": "https://api.github.com/users/da-woods/orgs",
-                "received_events_url": "https://api.github.com/users/da-woods/received_events",
-                "repos_url": "https://api.github.com/users/da-woods/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/da-woods"
-            },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/8850cb19d25480ebf2e574ca5afb5b16233a7a5f/comments",
-            "commit": {
-                "author": {
-                    "date": "2021-07-18T20:33:43Z",
-                    "email": "dw-git@d-woods.co.uk",
-                    "name": "da-woods"
-                },
-                "comment_count": 0,
-                "committer": {
-                    "date": "2021-07-18T20:33:43Z",
-                    "email": "noreply@github.com",
-                    "name": "GitHub"
-                },
-                "message": "Update tests/run/cpp_stl_multiset.pyx",
-                "tree": {
-                    "sha": "63668e0bc327570cc2fce8e8350c35646d7ab7f2",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/63668e0bc327570cc2fce8e8350c35646d7ab7f2"
-                },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/8850cb19d25480ebf2e574ca5afb5b16233a7a5f",
-                "verification": {
-                    "payload": "tree 63668e0bc327570cc2fce8e8350c35646d7ab7f2\nparent 37e6e3d2fbb6e886fed31a7f63d96e0769e77e22\nauthor da-woods <dw-git@d-woods.co.uk> 1626640423 +0100\ncommitter GitHub <noreply@github.com> 1626640423 +0100\n\nUpdate tests/run/cpp_stl_multiset.pyx",
-                    "reason": "valid",
-                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJg9JAnCRBK7hj4Ov3rIwAAjWcIAKx4GTdB/0fogiYmHPUUMOcv\nRlGWS6z0vFfN1FHfN0q2c0H7panSaOeKgYRj8shgwv/RKDJnxfMZuz+IdE02CieU\nHp3mzXYknHGczhqUNdePcSbFN9RReIW45uky8tfnwZeXvVhGGFhtaaRH6odx1yPy\ngvYo4OHCdhMiKuV5tPtzJINfLWULOpTRIWrzb9G/DpBKYMLTDUK57rQ9XSaDRHhv\nDW+hYDXfkECZb4yrBE9biqwTtOBO1CrG2RPVNXasaNUrN69mQFtEMxR8W2TiOkv1\n++W9zH2RmOjQTOyHIiSWoQfZ0fVneh6AN7IiDqXW8AzzROBBk5ASits4On0zUiU=\n=tzPX\n-----END PGP SIGNATURE-----\n",
-                    "verified": true
-                }
-            },
-            "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
-                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
-                "followers_url": "https://api.github.com/users/web-flow/followers",
-                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
-                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/web-flow",
-                "id": 19864447,
-                "login": "web-flow",
-                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
-                "organizations_url": "https://api.github.com/users/web-flow/orgs",
-                "received_events_url": "https://api.github.com/users/web-flow/received_events",
-                "repos_url": "https://api.github.com/users/web-flow/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/web-flow"
-            },
-            "html_url": "https://github.com/cython/cython/commit/8850cb19d25480ebf2e574ca5afb5b16233a7a5f",
-            "node_id": "MDY6Q29tbWl0MzUzMjE5Njc6ODg1MGNiMTlkMjU0ODBlYmYyZTU3NGNhNWFmYjViMTYyMzNhN2E1Zg==",
-            "parents": [
-                {
-                    "html_url": "https://github.com/cython/cython/commit/37e6e3d2fbb6e886fed31a7f63d96e0769e77e22",
-                    "sha": "37e6e3d2fbb6e886fed31a7f63d96e0769e77e22",
-                    "url": "https://api.github.com/repos/cython/cython/commits/37e6e3d2fbb6e886fed31a7f63d96e0769e77e22"
-                }
-            ],
-            "sha": "8850cb19d25480ebf2e574ca5afb5b16233a7a5f",
-            "url": "https://api.github.com/repos/cython/cython/commits/8850cb19d25480ebf2e574ca5afb5b16233a7a5f"
+            "sha": "86915c49caee9f03b82d82f27d1dbf5af12effae",
+            "url": "https://api.github.com/repos/cython/cython/commits/86915c49caee9f03b82d82f27d1dbf5af12effae"
         }
     ],
-    "commits_url": "https://api.github.com/repos/cython/cython/pulls/4273/commits",
-    "created_at": "2021-07-07T21:39:41Z",
-    "diff_url": "https://github.com/cython/cython/pull/4273.diff",
+    "commits_url": "https://api.github.com/repos/cython/cython/pulls/4292/commits",
+    "created_at": "2021-07-18T15:01:46Z",
+    "diff_url": "https://github.com/cython/cython/pull/4292.diff",
     "draft": false,
     "head": {
-        "label": "da-woods:multiset",
-        "ref": "multiset",
+        "label": "da-woods:cpp_conversions_optional_args",
+        "ref": "cpp_conversions_optional_args",
         "repo": {
             "archive_url": "https://api.github.com/repos/da-woods/cython/{archive_format}{/ref}",
             "archived": false,
@@ -939,7 +948,7 @@
             "watchers": 1,
             "watchers_count": 1
         },
-        "sha": "8850cb19d25480ebf2e574ca5afb5b16233a7a5f",
+        "sha": "86915c49caee9f03b82d82f27d1dbf5af12effae",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -961,90 +970,26 @@
             "url": "https://api.github.com/users/da-woods"
         }
     },
-    "html_url": "https://github.com/cython/cython/pull/4273",
-    "id": 685529874,
-    "issue_url": "https://api.github.com/repos/cython/cython/issues/4273",
-    "labels": [
-        {
-            "color": "f9d0c4",
-            "default": false,
-            "description": null,
-            "id": 414805136,
-            "name": "C++",
-            "node_id": "MDU6TGFiZWw0MTQ4MDUxMzY=",
-            "url": "https://api.github.com/repos/cython/cython/labels/C++"
-        },
-        {
-            "color": "444444",
-            "default": false,
-            "description": null,
-            "id": 425561823,
-            "name": "Library",
-            "node_id": "MDU6TGFiZWw0MjU1NjE4MjM=",
-            "url": "https://api.github.com/repos/cython/cython/labels/Library"
-        },
-        {
-            "color": "c2e0c6",
-            "default": false,
-            "description": null,
-            "id": 414805463,
-            "name": "feature",
-            "node_id": "MDU6TGFiZWw0MTQ4MDU0NjM=",
-            "url": "https://api.github.com/repos/cython/cython/labels/feature"
-        }
-    ],
+    "html_url": "https://github.com/cython/cython/pull/4292",
+    "id": 692102583,
+    "issue_url": "https://api.github.com/repos/cython/cython/issues/4292",
+    "labels": [],
     "locked": false,
-    "merge_commit_sha": "3050637d434a45e775d94b46d96fce90f0b4e70b",
-    "merged_at": "2021-07-19T07:17:00Z",
-    "milestone": {
-        "closed_at": null,
-        "closed_issues": 426,
-        "created_at": "2018-08-18T06:33:08Z",
-        "creator": {
-            "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
-            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-            "followers_url": "https://api.github.com/users/scoder/followers",
-            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-            "gravatar_id": "",
-            "html_url": "https://github.com/scoder",
-            "id": 491659,
-            "login": "scoder",
-            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-            "organizations_url": "https://api.github.com/users/scoder/orgs",
-            "received_events_url": "https://api.github.com/users/scoder/received_events",
-            "repos_url": "https://api.github.com/users/scoder/repos",
-            "site_admin": false,
-            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-            "type": "User",
-            "url": "https://api.github.com/users/scoder"
-        },
-        "description": "Goals:\r\n– New version scheme: 3.x instead of 0.x.\r\n– Change default `language_level` from `2` to `3`.\r\n– Change default for `binding` directive from `False` to `True`.\r\n– Fix some Python compatibility issues (if possible, allowing for breaking changes).\r\n",
-        "due_on": null,
-        "html_url": "https://github.com/cython/cython/milestone/58",
-        "id": 3580387,
-        "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
-        "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
-        "number": 58,
-        "open_issues": 28,
-        "state": "open",
-        "title": "3.0",
-        "updated_at": "2021-07-19T07:46:52Z",
-        "url": "https://api.github.com/repos/cython/cython/milestones/58"
-    },
-    "node_id": "MDExOlB1bGxSZXF1ZXN0Njg1NTI5ODc0",
-    "number": 4273,
-    "patch_url": "https://github.com/cython/cython/pull/4273.patch",
+    "merge_commit_sha": "5d2cdf68416875a9b6c8e4938ab1cdb35e4420db",
+    "merged_at": null,
+    "milestone": null,
+    "node_id": "MDExOlB1bGxSZXF1ZXN0NjkyMTAyNTgz",
+    "number": 4292,
+    "patch_url": "https://github.com/cython/cython/pull/4292.patch",
     "requested_reviewers": [],
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
-    "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/4273/comments",
-    "state": "closed",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/8850cb19d25480ebf2e574ca5afb5b16233a7a5f",
-    "title": "Add missing multiset class to the standard library bindings",
-    "updated_at": "2021-07-19T07:26:18Z",
-    "url": "https://api.github.com/repos/cython/cython/pulls/4273",
+    "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/4292/comments",
+    "state": "open",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/86915c49caee9f03b82d82f27d1dbf5af12effae",
+    "title": "Conversion of C++ containers with optional templates",
+    "updated_at": "2021-07-18T20:53:41Z",
+    "url": "https://api.github.com/repos/cython/cython/pulls/4292",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
         "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
