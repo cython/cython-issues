@@ -91,8 +91,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 969,
-            "open_issues_count": 969,
+            "open_issues": 975,
+            "open_issues_count": 975,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -115,11 +115,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2021-08-11T13:41:18Z",
+            "pushed_at": "2021-08-16T12:35:21Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
             "size": 62622,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 6292,
+            "stargazers_count": 6304,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -128,10 +128,10 @@
             "tags_url": "https://api.github.com/repos/cython/cython/tags",
             "teams_url": "https://api.github.com/repos/cython/cython/teams",
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2021-08-11T10:52:31Z",
+            "updated_at": "2021-08-16T19:42:04Z",
             "url": "https://api.github.com/repos/cython/cython",
-            "watchers": 6292,
-            "watchers_count": 6292
+            "watchers": 6304,
+            "watchers_count": 6304
         },
         "sha": "c7dc24bc0a39af708976fb0a4bf63d2ee407badb",
         "user": {
@@ -4342,6 +4342,118 @@
                 "type": "User",
                 "url": "https://api.github.com/users/0dminnimda"
             }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4324#discussion_r689687235"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4324"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/689687235"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "@scoder Are you ok with the current implementation? If not, then we need to make sure that we replace the default optimization argument with a new one when we ascribe it to the end.",
+            "commit_id": "f13e5702c61ef28f4073f2a7c79163cf4f534d04",
+            "created_at": "2021-08-16T16:32:07Z",
+            "diff_hunk": "@@ -3,125 +3,164 @@\n GCC_VERSION=${GCC_VERSION:=8}\n \n # Set up compilers\n-if [ \"${OS_NAME##ubuntu*}\" == \"\" -a \"$TEST_CODE_STYLE\" != \"1\" ]; then\n+if [[ $TEST_CODE_STYLE == \"1\" ]]; then\n+  echo \"Skipping compiler setup\"\n+elif [[ $OSTYPE == \"linux-gnu\"* ]]; then\n+  echo \"Setting up linux compiler\"\n   echo \"Installing requirements [apt]\"\n   sudo apt-add-repository -y \"ppa:ubuntu-toolchain-r/test\"\n   sudo apt update -y -q\n   sudo apt install -y -q ccache gdb python-dbg python3-dbg gcc-$GCC_VERSION || exit 1\n-  if [ -z \"${BACKEND##*cpp*}\" ]; then\n+  if [[ $BACKEND == *\"cpp\"* ]]; then\n     sudo apt install -y -q g++-$GCC_VERSION || exit 1\n+    ALTERNATIVE_ARGS=\" --slave /usr/bin/g++ g++ /usr/bin/g++-$GCC_VERSION\"\n   fi\n   sudo /usr/sbin/update-ccache-symlinks\n   echo \"/usr/lib/ccache\" >> $GITHUB_PATH # export ccache to path\n \n-  sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-$GCC_VERSION 60 $(if [ -z \"${BACKEND##*cpp*}\" ]; then echo \" --slave /usr/bin/g++ g++ /usr/bin/g++-$GCC_VERSION\"; fi)\n+  sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-$GCC_VERSION 60 $ALTERNATIVE_ARGS\n \n   export CC=\"gcc\"\n-  if [ -z \"${BACKEND##*cpp*}\" ]; then\n+  if [[ $BACKEND == *\"cpp\"* ]]; then\n     sudo update-alternatives --set g++ /usr/bin/g++-$GCC_VERSION\n     export CXX=\"g++\"\n   fi\n-fi\n-if [ \"${OS_NAME##macos*}\" == \"\" ]; then\n+elif [[ $OSTYPE == \"darwin\"* ]]; then\n+  echo \"Setting up macos compiler\"\n   export CC=\"clang -Wno-deprecated-declarations\"\n   export CXX=\"clang++ -stdlib=libc++ -Wno-deprecated-declarations\"\n fi\n \n # Set up miniconda\n-if [ \"$STACKLESS\" == \"true\" ]; then\n+if [[ $STACKLESS == \"true\" ]]; then\n   echo \"Installing stackless python\"\n   #conda install --quiet --yes nomkl --file=test-requirements.txt --file=test-requirements-cpython.txt\n   conda config --add channels stackless\n   conda install --quiet --yes stackless || exit 1\n fi\n \n+PYTHON_SYS_VERSION=$(python -c 'import sys; print(sys.version)')\n+\n # Log versions in use\n echo \"====================\"\n echo \"|VERSIONS INSTALLED|\"\n echo \"====================\"\n-python -c 'import sys; print(\"Python %s\" % (sys.version,))'\n-if [ \"$CC\" ]; then\n-  which ${CC%% *}\n-  ${CC%% *} --version\n-fi\n-if [ \"$CXX\" ]; then\n+echo \"Python $PYTHON_SYS_VERSION\"\n+if [[ $CXX ]]; then\n   which ${CXX%% *}\n   ${CXX%% *} --version\n fi\n+if [[ $CC ]]; then\n+  which ${CC%% *}\n+  ${CC%% *} --version\n+fi\n echo \"====================\"\n \n # Install python requirements\n echo \"Installing requirements [python]\"\n-if [ -z \"${PYTHON_VERSION##2.7}\" ]; then\n+if [[ $PYTHON_VERSION == \"2.7\"* ]]; then\n   pip install wheel || exit 1\n   pip install -r test-requirements-27.txt || exit 1\n-elif [ -z \"${PYTHON_VERSION##3.[45]*}\" ]; then\n+elif [[ $PYTHON_VERSION == \"3.\"[45]* ]]; then\n   python -m pip install wheel || exit 1\n   python -m pip install -r test-requirements-34.txt || exit 1\n else\n   python -m pip install -U pip setuptools wheel || exit 1\n \n-  if [ -n \"${PYTHON_VERSION##*-dev}\" ]; then\n+  if [[ $PYTHON_VERSION == *\"-dev\" || $COVERAGE == \"1\" ]]; then\n     python -m pip install -r test-requirements.txt || exit 1\n \n-    if [ \"${PYTHON_VERSION##pypy*}\" -a \"${PYTHON_VERSION##3.[4789]*}\" ]; then\n+    if [[ $PYTHON_VERSION == \"pypy\"* && $PYTHON_VERSION == \"3.\"[4789]* ]]; then\n       python -m pip install -r test-requirements-cpython.txt || exit 1\n     fi\n   fi\n fi\n \n-if [ \"$TEST_CODE_STYLE\" == \"1\" ]; then\n-  STYLE_ARGS=\"--no-unit --no-doctest --no-file --no-pyregr --no-examples\";\n+if [[ $TEST_CODE_STYLE == \"1\" ]]; then\n+  STYLE_ARGS=\"--no-unit --no-doctest --no-file --no-pyregr --no-examples\"\n   python -m pip install -r doc-requirements.txt || exit 1\n else\n-  STYLE_ARGS=\"--no-code-style\";\n+  STYLE_ARGS=\"--no-code-style\"\n \n   # Install more requirements\n-  if [ -n \"${PYTHON_VERSION##*-dev}\" ]; then\n-    if [ -z \"${BACKEND##*cpp*}\" ]; then\n+  if [[ $PYTHON_VERSION == *\"-dev\" ]]; then\n+    if [[ $BACKEND == *\"cpp\"* ]]; then\n       echo \"WARNING: Currently not installing pythran due to compatibility issues\"\n       # python -m pip install pythran==0.9.5 || exit 1\n-    fi\n-\n-    if [ \"$BACKEND\" != \"cpp\" -a -n \"${PYTHON_VERSION##pypy*}\" -a -n \"${PYTHON_VERSION##2*}\" -a -n \"${PYTHON_VERSION##*3.4}\" ]; then\n+    elif [[ $PYTHON_VERSION == \"pypy\"* && $PYTHON_VERSION == \"2\"* && $PYTHON_VERSION == *\"3.4\" ]]; then\n       python -m pip install mypy || exit 1\n     fi\n   fi\n fi\n \n # Run tests\n+echo \"==== Running tests ====\"\n ccache -s 2>/dev/null || true\n export PATH=\"/usr/lib/ccache:$PATH\"\n \n-if [ \"$NO_CYTHON_COMPILE\" != \"1\" -a -n \"${PYTHON_VERSION##pypy*}\" ]; then\n-  CFLAGS=\"-O2 -ggdb -Wall -Wextra $(python -c 'import sys; print(\"-fno-strict-aliasing\" if sys.version_info[0] == 2 else \"\")')\" \\\n-  python setup.py build_ext -i \\\n-          $(if [ \"$COVERAGE\" == \"1\" ]; then echo \" --cython-coverage\"; fi) \\\n-          $(if [ \"$CYTHON_COMPILE_ALL\" == \"1\" ]; then echo \" --cython-compile-all\"; fi) \\\n-          $(python -c 'import sys; print(\"-j5\" if sys.version_info >= (3,5) else \"\")') \\\n-      || exit 1\n-  if [ -z \"$COVERAGE\" -a -z \"$STACKLESS\" -a -z \"$LIMITED_API\" -a -z \"$CYTHON_COMPILE_ALL\" -a -z \"$EXTRA_CFLAGS\" -a -n \"${BACKEND//*cpp*}\" ]; then\n+if [[ \"$OSTYPE\" == \"msys\" ]]; then  # for MSVC cl\n+  # /wd will disable warning\n+  # 4711 warns that function `x` selected for automatic inline expansion\n+  # 4127 warns that conditional expression is constant, should be fixed here https://github.com/cython/cython/pull/4317\n+  # (off by default) 5045 warns that Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified\n+  # (off by default) 4820 warns about the code in Python\\3.9.6\\x64\\include ...\n+  WARNARGS=\"/W4 /wd4711 /wd4127 /wd5045 /wd4820\"\n+  DEBUG_INFO=\"/Z7\"\n+  NO_OPTIMIZATION=\"-Od\"\n+else\n+  WARNARGS=\"-Wall -Wextra\"\n+  DEBUG_INFO=\"-ggdb\"\n+  NO_OPTIMIZATION=\"-O0\"",
+            "html_url": "https://github.com/cython/cython/pull/4324#discussion_r689687235",
+            "id": 689687235,
+            "in_reply_to_id": 684609333,
+            "line": null,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY4OTY4NzIzNQ==",
+            "original_commit_id": "c43e4ac69eaac34f51cb8ddf3f5cb9b47ec6f896",
+            "original_line": 113,
+            "original_position": 144,
+            "original_start_line": 111,
+            "path": "Tools/ci-run.sh",
+            "position": null,
+            "pull_request_review_id": 730914707,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4324",
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "updated_at": "2021-08-16T16:32:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/689687235",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/52697657?v=4",
+                "events_url": "https://api.github.com/users/0dminnimda/events{/privacy}",
+                "followers_url": "https://api.github.com/users/0dminnimda/followers",
+                "following_url": "https://api.github.com/users/0dminnimda/following{/other_user}",
+                "gists_url": "https://api.github.com/users/0dminnimda/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/0dminnimda",
+                "id": 52697657,
+                "login": "0dminnimda",
+                "node_id": "MDQ6VXNlcjUyNjk3NjU3",
+                "organizations_url": "https://api.github.com/users/0dminnimda/orgs",
+                "received_events_url": "https://api.github.com/users/0dminnimda/received_events",
+                "repos_url": "https://api.github.com/users/0dminnimda/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/0dminnimda/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/0dminnimda/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/0dminnimda"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4324#discussion_r689691769"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4324"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/689691769"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "> We can have `windows_bugs_38.txt` and `windows_bugs_39.txt`.\r\n\r\n@scoder Are there any new features we need to implement for this to work?  Or can we get it out of the box?",
+            "commit_id": "f13e5702c61ef28f4073f2a7c79163cf4f534d04",
+            "created_at": "2021-08-16T16:38:22Z",
+            "diff_hunk": "@@ -196,15 +196,30 @@ jobs:\n             backend: cpp\n             env: { MACOSX_DEPLOYMENT_TARGET: 10.14 }\n \n+        exclude:\n+          # fails github.com/cython/cython/issues/3450\n+          - os: windows-2019\n+            python-version: 3.9",
+            "html_url": "https://github.com/cython/cython/pull/4324#discussion_r689691769",
+            "id": 689691769,
+            "in_reply_to_id": 681320526,
+            "line": 202,
+            "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDY4OTY5MTc2OQ==",
+            "original_commit_id": "c43e4ac69eaac34f51cb8ddf3f5cb9b47ec6f896",
+            "original_line": 202,
+            "original_position": 35,
+            "original_start_line": 199,
+            "path": ".github/workflows/ci.yml",
+            "position": 35,
+            "pull_request_review_id": 730920294,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4324",
+            "side": "RIGHT",
+            "start_line": 199,
+            "start_side": "RIGHT",
+            "updated_at": "2021-08-16T16:38:22Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/689691769",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/52697657?v=4",
+                "events_url": "https://api.github.com/users/0dminnimda/events{/privacy}",
+                "followers_url": "https://api.github.com/users/0dminnimda/followers",
+                "following_url": "https://api.github.com/users/0dminnimda/following{/other_user}",
+                "gists_url": "https://api.github.com/users/0dminnimda/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/0dminnimda",
+                "id": 52697657,
+                "login": "0dminnimda",
+                "node_id": "MDQ6VXNlcjUyNjk3NjU3",
+                "organizations_url": "https://api.github.com/users/0dminnimda/orgs",
+                "received_events_url": "https://api.github.com/users/0dminnimda/received_events",
+                "repos_url": "https://api.github.com/users/0dminnimda/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/0dminnimda/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/0dminnimda/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/0dminnimda"
+            }
         }
     ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4324/comments",
@@ -7596,9 +7708,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/0dminnimda/cython/pulls{/number}",
-            "pushed_at": "2021-08-11T13:37:14Z",
+            "pushed_at": "2021-08-14T09:31:19Z",
             "releases_url": "https://api.github.com/repos/0dminnimda/cython/releases{/id}",
-            "size": 63153,
+            "size": 63189,
             "ssh_url": "git@github.com:0dminnimda/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/0dminnimda/cython/stargazers",
@@ -7654,7 +7766,7 @@
     "state": "open",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/f13e5702c61ef28f4073f2a7c79163cf4f534d04",
     "title": "Make GitHub Actions work on Windows",
-    "updated_at": "2021-08-11T13:02:11Z",
+    "updated_at": "2021-08-16T16:38:22Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/4324",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/52697657?v=4",
