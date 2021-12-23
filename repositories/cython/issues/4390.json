@@ -4,7 +4,7 @@
     "assignees": [],
     "author_association": "COLLABORATOR",
     "body": "<!--\r\n**PLEASE READ THIS FIRST:**\r\n- Do not use the bug and feature tracker for support requests. Use the `cython-users` mailing list instead.\r\n- Did you search for similar issues already? Please do, it helps to save us precious time that we otherwise could not invest into development.\r\n- Did you try the latest master branch or pre-release? It might already have what you want to report. Also see the [Changelog](https://github.com/cython/cython/blob/master/CHANGES.rst) regarding recent changes.\r\n-->\r\n\r\nCopied from the users mailing list (https://groups.google.com/g/cython-users/c/VNuQKATGuss)\r\n\r\nI'm running cython (cloned from github mid-May 2021) and Python 3.6/3.7.9.  I've encountered an issue with circular imports, one that Python runs without a problem.  At its simplest, it's the following sequence of operations:\r\n\r\n```\r\nimport A.B         \r\n  from . import C      # <-- in A/B.py\r\n    from . import D    # <-- in A/C.py\r\n      from . import C  # <-- in A/D.py\r\n```\r\n\r\nIf you run this scenario in CPython, it runs without error, but if I compile all the .py files into C extensions using Cython, the last import fails with the error:\r\n\r\n> `ImportError: cannot import name C`\r\n\r\nEach of the above statements seems to be implemented by Cython with a pair of `__Pyx_Import` and `__Pyx_ImportFrom` calls.  The `__Pyx_Import` call attempts to do the import, and returns the parent package (in all cases above, it returns `A`).  The `__Pyx_ImportFrom` call just looks inside the returned module for an attribute with the requested name (`C`, or `D` in the above examples).  If the requested name ('C') in `__Pyx_ImportFrom` is actually a module that has not finished initializing yet, then it is not yet set as an attribute in its parent ('A') so this fails.\r\n\r\nIn CPython, I think, if the above attribute access (i.e. not `hasattr(A, 'C')`) fails, then it checks if it is a module (i.e. `__import__('A.C')`) probably to address this exact case.  Any chance `__Pyx_ImportFrom` could do this too to mimic CPython behavior?  Obviously the above scenario is silly, but the pattern shows up in an existing library that I'm trying to embed into a static Python interpreter and it seems like it is supported by the language.\r\n\r\nBelow is a list of commands that will generate the source files and test the above scenario on CentOS/RedHat 7, presumably minimal changes for other Linux variants.  Thanks for your help!\r\n\r\n```\r\nmkdir circular_import\r\ncd circular_import\r\nmkdir -p src/A\r\nmkdir -p install/A\r\necho \"from . import C\" > src/A/B.py\r\necho \"from . import D\" > src/A/C.py\r\necho \"from . import C\" > src/A/D.py\r\nfor i in A/{B,C,D} ; do cython src/\"${i}\".py ; gcc -shared -pthread -fPIC -fwrapv -O2 -Wall -fno-strict-aliasing -I/usr/include/python3.6m -o install/\"${i}\".so src/\"${i}\".c ; done\r\n\r\n(cd src && echo \"import A.B\" | python3 )  # succeeds\r\n(cd install && echo \"import A.B\" | python3 )  # fails\r\n```",
-    "closed_at": null,
+    "closed_at": "2021-12-18T11:49:28Z",
     "comment_data": [
         {
             "author_association": "CONTRIBUTOR",
@@ -287,6 +287,36 @@
             "node_id": "MIE_lADOABDGAc48Weg3zwAAAAFX9r8w",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/5770755888"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": "617a9592726e5d779a1de2973c83f510e0d4c7d6",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/617a9592726e5d779a1de2973c83f510e0d4c7d6",
+            "created_at": "2021-12-18T11:49:28Z",
+            "event": "closed",
+            "id": 5787945015,
+            "node_id": "CE_lADOABDGAc48Weg3zwAAAAFY_Qg3",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/5787945015"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/4390/events",
@@ -316,7 +346,7 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 512,
+        "closed_issues": 519,
         "created_at": "2018-08-18T06:33:08Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -345,10 +375,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
         "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
         "number": 58,
-        "open_issues": 32,
+        "open_issues": 30,
         "state": "open",
         "title": "3.0",
-        "updated_at": "2021-12-15T11:43:27Z",
+        "updated_at": "2021-12-18T11:49:28Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
     "node_id": "I_kwDOABDGAc48Weg3",
@@ -367,10 +397,10 @@
         "url": "https://api.github.com/repos/cython/cython/issues/4390/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4390/timeline",
     "title": "[BUG] Partially loaded circular imports don't import",
-    "updated_at": "2021-12-15T11:43:18Z",
+    "updated_at": "2021-12-18T11:49:28Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4390",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
