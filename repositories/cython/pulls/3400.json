@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1227,
-            "forks_count": 1227,
+            "forks": 1231,
+            "forks_count": 1231,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -93,8 +93,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1009,
-            "open_issues_count": 1009,
+            "open_issues": 1016,
+            "open_issues_count": 1016,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -117,11 +117,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2022-01-05T23:50:14Z",
+            "pushed_at": "2022-01-11T15:19:51Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 63283,
+            "size": 63365,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 6642,
+            "stargazers_count": 6659,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -140,11 +140,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2022-01-06T14:30:48Z",
+            "updated_at": "2022-01-11T13:40:58Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 6642,
-            "watchers_count": 6642
+            "watchers": 6659,
+            "watchers_count": 6659
         },
         "sha": "c25c87d71107e634162302f7f61a119eff539a48",
         "user": {
@@ -17200,6 +17200,476 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3400#discussion_r781196686"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3400"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/781196686"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "`kw_only` is a new option added to Python 3.10 we should probably support.\r\n```suggestion\r\n                 kw_only=None\r\n                 **additional_kwds):\r\n```",
+            "commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "created_at": "2022-01-10T13:36:46Z",
+            "diff_hunk": "@@ -0,0 +1,718 @@\n+# functions to transform a c class into a dataclass\n+\n+from collections import OrderedDict\n+\n+from . import ExprNodes\n+from . import Nodes\n+from . import PyrexTypes\n+from . import UtilNodes\n+from . import Builtin\n+from . import Naming\n+from .Errors import error, warning\n+from .Code import UtilityCode, TempitaUtilityCode\n+from .Visitor import VisitorTransform\n+from .StringEncoding import BytesLiteral, EncodedString\n+from .TreeFragment import TreeFragment\n+from .ParseTreeTransforms import (NormalizeTree, SkipDeclarations, AnalyseDeclarationsTransform,\n+                                  MarkClosureVisitor)\n+from textwrap import dedent\n+\n+def make_dataclasses_module_callnode(pos):\n+    python_utility_code = UtilityCode.load_cached(\"Dataclasses_fallback\", \"Dataclasses.py\")\n+    python_utility_code = EncodedString(python_utility_code.impl)\n+    loader_utilitycode = TempitaUtilityCode.load_cached(\n+        \"SpecificModuleLoader\", \"Dataclasses.c\",\n+        context={'cname': \"dataclasses\", 'py_code': python_utility_code.as_c_string_literal()})\n+    return ExprNodes.PythonCapiCallNode(\n+        pos, \"__Pyx_Load_dataclasses_Module\",\n+        PyrexTypes.CFuncType(PyrexTypes.py_object_type, []),\n+        utility_code=loader_utilitycode,\n+        args=[],\n+    )\n+\n+_INTERNAL_DEFAULTSHOLDER_NAME = EncodedString('__pyx_dataclass_defaults')\n+\n+class RemoveAssignmentsToNames(VisitorTransform, SkipDeclarations):\n+    \"\"\"\n+    Cython (and Python) normally treats\n+\n+    class A:\n+         x = 1\n+\n+    as generating a class attribute. However for dataclasses the `= 1` should be interpreted as\n+    a default value to initialize an instance attribute with.\n+    This transform therefore removes the `x=1` assignment so that the class attribute isn't\n+    generated, while recording what it has removed so that it can be used in the initialization.\n+    \"\"\"\n+    def __init__(self, names):\n+        super(RemoveAssignmentsToNames, self).__init__()\n+        self.names = names\n+        self.removed_assignments = {}\n+\n+    def visit_CClassNode(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+    def visit_PyClassNode(self, node):\n+        return node  # go no further\n+\n+    def visit_FuncDefNode(self, node):\n+        return node  # go no further\n+\n+    def visit_SingleAssignmentNode(self, node):\n+        if node.lhs.is_name and node.lhs.name in self.names:\n+            if node.lhs.name in self.removed_assignments:\n+                warning(node.pos, (\"Multiple assignments for '%s' in dataclass; \"\n+                                   \"using most recent\") % node.lhs.name, 1)\n+            self.removed_assignments[node.lhs.name] = node.rhs\n+            return []\n+        return node\n+\n+    # I believe cascaded assignment is always a syntax error with annotations\n+    # so there's no need to define visit_CascadedAssignmentNode\n+\n+    def visit_Node(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+class _MISSING_TYPE(object):\n+    pass\n+MISSING = _MISSING_TYPE()\n+\n+\n+class Field(object):\n+    \"\"\"\n+    Field is based on the dataclasses.field class from the standard library module.\n+    It is used internally during the generation of Cython dataclasses to keep track\n+    of the settings for individual attributes.\n+\n+    Attributes of this class are stored as nodes so they can be used in code construction\n+    more readily (i.e. we store BoolNode rather than bool)\n+    \"\"\"\n+    default = MISSING\n+    default_factory = MISSING\n+    private = False\n+    # default values are defined by the CPython dataclasses.field\n+    def __init__(self, pos, default=MISSING, default_factory=MISSING,\n+                 repr=None, hash=None, init=None,\n+                 compare=None, metadata=None,\n+                 is_initvar=False, is_classvar=False,\n+                 **additional_kwds):",
+            "html_url": "https://github.com/cython/cython/pull/3400#discussion_r781196686",
+            "id": 781196686,
+            "line": 100,
+            "node_id": "PRRC_kwDOABDGAc4ukB2O",
+            "original_commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "original_line": 100,
+            "original_position": 100,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Dataclass.py",
+            "position": 100,
+            "pull_request_review_id": 847825998,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3400",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/781196686/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-01-10T14:14:34Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/781196686",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/38372706?v=4",
+                "events_url": "https://api.github.com/users/Bluenix2/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Bluenix2/followers",
+                "following_url": "https://api.github.com/users/Bluenix2/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Bluenix2/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Bluenix2",
+                "id": 38372706,
+                "login": "Bluenix2",
+                "node_id": "MDQ6VXNlcjM4MzcyNzA2",
+                "organizations_url": "https://api.github.com/users/Bluenix2/orgs",
+                "received_events_url": "https://api.github.com/users/Bluenix2/received_events",
+                "repos_url": "https://api.github.com/users/Bluenix2/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Bluenix2/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Bluenix2/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Bluenix2"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3400#discussion_r781198364"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3400"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/781198364"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "There is some special behavior when `_` is typed as a special \"keyword sentinel\" that we should respect so the best default would be None.\r\n```suggestion\r\nself.kw_only = kw_only or ExprNodes.NoneNode(pos)\r\n\r\n```",
+            "commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "created_at": "2022-01-10T13:39:00Z",
+            "diff_hunk": "@@ -0,0 +1,718 @@\n+# functions to transform a c class into a dataclass\n+\n+from collections import OrderedDict\n+\n+from . import ExprNodes\n+from . import Nodes\n+from . import PyrexTypes\n+from . import UtilNodes\n+from . import Builtin\n+from . import Naming\n+from .Errors import error, warning\n+from .Code import UtilityCode, TempitaUtilityCode\n+from .Visitor import VisitorTransform\n+from .StringEncoding import BytesLiteral, EncodedString\n+from .TreeFragment import TreeFragment\n+from .ParseTreeTransforms import (NormalizeTree, SkipDeclarations, AnalyseDeclarationsTransform,\n+                                  MarkClosureVisitor)\n+from textwrap import dedent\n+\n+def make_dataclasses_module_callnode(pos):\n+    python_utility_code = UtilityCode.load_cached(\"Dataclasses_fallback\", \"Dataclasses.py\")\n+    python_utility_code = EncodedString(python_utility_code.impl)\n+    loader_utilitycode = TempitaUtilityCode.load_cached(\n+        \"SpecificModuleLoader\", \"Dataclasses.c\",\n+        context={'cname': \"dataclasses\", 'py_code': python_utility_code.as_c_string_literal()})\n+    return ExprNodes.PythonCapiCallNode(\n+        pos, \"__Pyx_Load_dataclasses_Module\",\n+        PyrexTypes.CFuncType(PyrexTypes.py_object_type, []),\n+        utility_code=loader_utilitycode,\n+        args=[],\n+    )\n+\n+_INTERNAL_DEFAULTSHOLDER_NAME = EncodedString('__pyx_dataclass_defaults')\n+\n+class RemoveAssignmentsToNames(VisitorTransform, SkipDeclarations):\n+    \"\"\"\n+    Cython (and Python) normally treats\n+\n+    class A:\n+         x = 1\n+\n+    as generating a class attribute. However for dataclasses the `= 1` should be interpreted as\n+    a default value to initialize an instance attribute with.\n+    This transform therefore removes the `x=1` assignment so that the class attribute isn't\n+    generated, while recording what it has removed so that it can be used in the initialization.\n+    \"\"\"\n+    def __init__(self, names):\n+        super(RemoveAssignmentsToNames, self).__init__()\n+        self.names = names\n+        self.removed_assignments = {}\n+\n+    def visit_CClassNode(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+    def visit_PyClassNode(self, node):\n+        return node  # go no further\n+\n+    def visit_FuncDefNode(self, node):\n+        return node  # go no further\n+\n+    def visit_SingleAssignmentNode(self, node):\n+        if node.lhs.is_name and node.lhs.name in self.names:\n+            if node.lhs.name in self.removed_assignments:\n+                warning(node.pos, (\"Multiple assignments for '%s' in dataclass; \"\n+                                   \"using most recent\") % node.lhs.name, 1)\n+            self.removed_assignments[node.lhs.name] = node.rhs\n+            return []\n+        return node\n+\n+    # I believe cascaded assignment is always a syntax error with annotations\n+    # so there's no need to define visit_CascadedAssignmentNode\n+\n+    def visit_Node(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+class _MISSING_TYPE(object):\n+    pass\n+MISSING = _MISSING_TYPE()\n+\n+\n+class Field(object):\n+    \"\"\"\n+    Field is based on the dataclasses.field class from the standard library module.\n+    It is used internally during the generation of Cython dataclasses to keep track\n+    of the settings for individual attributes.\n+\n+    Attributes of this class are stored as nodes so they can be used in code construction\n+    more readily (i.e. we store BoolNode rather than bool)\n+    \"\"\"\n+    default = MISSING\n+    default_factory = MISSING\n+    private = False\n+    # default values are defined by the CPython dataclasses.field\n+    def __init__(self, pos, default=MISSING, default_factory=MISSING,\n+                 repr=None, hash=None, init=None,\n+                 compare=None, metadata=None,\n+                 is_initvar=False, is_classvar=False,\n+                 **additional_kwds):\n+        if default is not MISSING:\n+            self.default = default\n+        if default_factory is not MISSING:\n+            self.default_factory = default_factory\n+        self.repr = repr or ExprNodes.BoolNode(pos, value=True)\n+        self.hash = hash or ExprNodes.NoneNode(pos)\n+        self.init = init or ExprNodes.BoolNode(pos, value=True)\n+        self.compare = compare or ExprNodes.BoolNode(pos, value=True)\n+        self.metadata = metadata or ExprNodes.NoneNode(pos)\n+        self.is_initvar = is_initvar\n+        self.is_classvar = is_classvar\n+",
+            "html_url": "https://github.com/cython/cython/pull/3400#discussion_r781198364",
+            "id": 781198364,
+            "line": 112,
+            "node_id": "PRRC_kwDOABDGAc4ukCQc",
+            "original_commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "original_line": 112,
+            "original_position": 112,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Dataclass.py",
+            "position": 112,
+            "pull_request_review_id": 847825998,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3400",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/781198364/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-01-10T14:14:34Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/781198364",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/38372706?v=4",
+                "events_url": "https://api.github.com/users/Bluenix2/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Bluenix2/followers",
+                "following_url": "https://api.github.com/users/Bluenix2/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Bluenix2/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Bluenix2",
+                "id": 38372706,
+                "login": "Bluenix2",
+                "node_id": "MDQ6VXNlcjM4MzcyNzA2",
+                "organizations_url": "https://api.github.com/users/Bluenix2/orgs",
+                "received_events_url": "https://api.github.com/users/Bluenix2/received_events",
+                "repos_url": "https://api.github.com/users/Bluenix2/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Bluenix2/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Bluenix2/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Bluenix2"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3400#discussion_r781213685"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3400"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/781213685"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "This is primarily what will need to be adjusted for `kw_only`",
+            "commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "created_at": "2022-01-10T13:58:14Z",
+            "diff_hunk": "@@ -0,0 +1,718 @@\n+# functions to transform a c class into a dataclass\n+\n+from collections import OrderedDict\n+\n+from . import ExprNodes\n+from . import Nodes\n+from . import PyrexTypes\n+from . import UtilNodes\n+from . import Builtin\n+from . import Naming\n+from .Errors import error, warning\n+from .Code import UtilityCode, TempitaUtilityCode\n+from .Visitor import VisitorTransform\n+from .StringEncoding import BytesLiteral, EncodedString\n+from .TreeFragment import TreeFragment\n+from .ParseTreeTransforms import (NormalizeTree, SkipDeclarations, AnalyseDeclarationsTransform,\n+                                  MarkClosureVisitor)\n+from textwrap import dedent\n+\n+def make_dataclasses_module_callnode(pos):\n+    python_utility_code = UtilityCode.load_cached(\"Dataclasses_fallback\", \"Dataclasses.py\")\n+    python_utility_code = EncodedString(python_utility_code.impl)\n+    loader_utilitycode = TempitaUtilityCode.load_cached(\n+        \"SpecificModuleLoader\", \"Dataclasses.c\",\n+        context={'cname': \"dataclasses\", 'py_code': python_utility_code.as_c_string_literal()})\n+    return ExprNodes.PythonCapiCallNode(\n+        pos, \"__Pyx_Load_dataclasses_Module\",\n+        PyrexTypes.CFuncType(PyrexTypes.py_object_type, []),\n+        utility_code=loader_utilitycode,\n+        args=[],\n+    )\n+\n+_INTERNAL_DEFAULTSHOLDER_NAME = EncodedString('__pyx_dataclass_defaults')\n+\n+class RemoveAssignmentsToNames(VisitorTransform, SkipDeclarations):\n+    \"\"\"\n+    Cython (and Python) normally treats\n+\n+    class A:\n+         x = 1\n+\n+    as generating a class attribute. However for dataclasses the `= 1` should be interpreted as\n+    a default value to initialize an instance attribute with.\n+    This transform therefore removes the `x=1` assignment so that the class attribute isn't\n+    generated, while recording what it has removed so that it can be used in the initialization.\n+    \"\"\"\n+    def __init__(self, names):\n+        super(RemoveAssignmentsToNames, self).__init__()\n+        self.names = names\n+        self.removed_assignments = {}\n+\n+    def visit_CClassNode(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+    def visit_PyClassNode(self, node):\n+        return node  # go no further\n+\n+    def visit_FuncDefNode(self, node):\n+        return node  # go no further\n+\n+    def visit_SingleAssignmentNode(self, node):\n+        if node.lhs.is_name and node.lhs.name in self.names:\n+            if node.lhs.name in self.removed_assignments:\n+                warning(node.pos, (\"Multiple assignments for '%s' in dataclass; \"\n+                                   \"using most recent\") % node.lhs.name, 1)\n+            self.removed_assignments[node.lhs.name] = node.rhs\n+            return []\n+        return node\n+\n+    # I believe cascaded assignment is always a syntax error with annotations\n+    # so there's no need to define visit_CascadedAssignmentNode\n+\n+    def visit_Node(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+class _MISSING_TYPE(object):\n+    pass\n+MISSING = _MISSING_TYPE()\n+\n+\n+class Field(object):\n+    \"\"\"\n+    Field is based on the dataclasses.field class from the standard library module.\n+    It is used internally during the generation of Cython dataclasses to keep track\n+    of the settings for individual attributes.\n+\n+    Attributes of this class are stored as nodes so they can be used in code construction\n+    more readily (i.e. we store BoolNode rather than bool)\n+    \"\"\"\n+    default = MISSING\n+    default_factory = MISSING\n+    private = False\n+    # default values are defined by the CPython dataclasses.field\n+    def __init__(self, pos, default=MISSING, default_factory=MISSING,\n+                 repr=None, hash=None, init=None,\n+                 compare=None, metadata=None,\n+                 is_initvar=False, is_classvar=False,\n+                 **additional_kwds):\n+        if default is not MISSING:\n+            self.default = default\n+        if default_factory is not MISSING:\n+            self.default_factory = default_factory\n+        self.repr = repr or ExprNodes.BoolNode(pos, value=True)\n+        self.hash = hash or ExprNodes.NoneNode(pos)\n+        self.init = init or ExprNodes.BoolNode(pos, value=True)\n+        self.compare = compare or ExprNodes.BoolNode(pos, value=True)\n+        self.metadata = metadata or ExprNodes.NoneNode(pos)\n+        self.is_initvar = is_initvar\n+        self.is_classvar = is_classvar\n+\n+        for k, v in additional_kwds.items():\n+            # There should not be any additional keywords!\n+            error(v.pos, \"cython.dataclasses.field() got an unexpected keyword argument '%s'\" % k)\n+\n+        for field_name in (\"repr\", \"hash\", \"init\", \"compare\", \"metadata\"):\n+            field_value = getattr(self, field_name)\n+            if not field_value.is_literal:\n+                error(field_value.pos,\n+                      \"cython.dataclasses.field parameter '%s' must be a literal value\" % field_name)\n+\n+\n+def process_class_get_fields(node):\n+    import operator\n+    var_entries = node.scope.var_entries\n+    # order of definition is used in the dataclass\n+    var_entries = sorted(var_entries, key=operator.attrgetter('pos'))\n+    var_names = [entry.name for entry in var_entries]\n+\n+    # don't treat `x = 1` as an assignment of a class attribute within the dataclass\n+    transform = RemoveAssignmentsToNames(var_names)\n+    transform(node)\n+\n+    if node.base_type and node.base_type.dataclass_fields:\n+        fields = node.base_type.dataclass_fields.copy()\n+    else:\n+        fields = OrderedDict()\n+\n+    for entry in var_entries:\n+        name = entry.name\n+        is_initvar = (entry.type.is_special_python_type_constructor and\n+                      entry.type.name == \"dataclasses.InitVar\")\n+        # TODO - classvars aren't included in \"var_entries\" so are missed here\n+        # and thus this code is never triggered\n+        is_classvar = (entry.type.is_special_python_type_constructor and\n+                       entry.type.name == \"typing.ClassVar\")\n+        if name in transform.removed_assignments:\n+            assignment = transform.removed_assignments[name]\n+            if (isinstance(assignment, ExprNodes.CallNode)\n+                    and assignment.function.as_cython_attribute() == \"dataclasses.field\"):\n+                # I believe most of this is well-enforced when it's treated as a directive\n+                # but it doesn't hurt to make sure\n+                if (not isinstance(assignment, ExprNodes.GeneralCallNode)\n+                        or not isinstance(assignment.positional_args, ExprNodes.TupleNode)\n+                        or assignment.positional_args.args\n+                        or not isinstance(assignment.keyword_args, ExprNodes.DictNode)):\n+                    error(assignment.pos, \"Call to 'cython.dataclasses.field' must only consist \"\n+                          \"of compile-time keyword arguments\")\n+                    continue\n+                keyword_args = assignment.keyword_args.as_python_dict()\n+                if 'default' in keyword_args and 'default_factory' in keyword_args:\n+                    error(assignment.pos, \"cannot specify both default and default_factory\")\n+                    continue\n+                field = Field(node.pos, **keyword_args)\n+            else:\n+                if isinstance(assignment, ExprNodes.CallNode):\n+                    func = assignment.function\n+                    if ((func.is_name and func.name == \"field\")\n+                            or (func.is_attribute and func.attribute == \"field\")):\n+                        warning(assignment.pos, \"Do you mean cython.dataclasses.field instead?\", 1)\n+                if assignment.type in [Builtin.list_type, Builtin.dict_type, Builtin.set_type]:\n+                    # The standard library module generates a TypeError at runtime\n+                    # in this situation.\n+                    # Error message is copied from CPython\n+                    error(assignment.pos, \"mutable default <class '{0}'> for field {1} is not allowed: \"\n+                          \"use default_factory\".format(assignment.type.name, name))\n+\n+                field = Field(node.pos, default=assignment)\n+        else:\n+            field = Field(node.pos)\n+        field.is_initvar = is_initvar\n+        field.is_classvar = is_classvar\n+        if entry.visibility == \"private\":\n+            field.private = True\n+        fields[name] = field\n+    node.entry.type.dataclass_fields = fields\n+    return fields\n+\n+def handle_cclass_dataclass(node, dataclass_args, analyse_decs_transform):\n+    # default argument values from https://docs.python.org/3/library/dataclasses.html\n+    kwargs = dict(init=True, repr=True, eq=True,\n+                  order=False, unsafe_hash=False, frozen=False)\n+    if dataclass_args is not None:\n+        if dataclass_args[0]:\n+            error(node.pos, \"cython.dataclasses.dataclass takes no positional arguments\")\n+        for k, v in dataclass_args[1].items():\n+            if k not in kwargs:\n+                error(node.pos,\n+                      \"cython.dataclasses.dataclass() got an unexpected keyword argument '%s'\" % k)\n+            if not isinstance(v, ExprNodes.BoolNode):\n+                error(node.pos,\n+                      \"Arguments passed to cython.dataclasses.dataclass must be True or False\")\n+            kwargs[k] = v\n+\n+    fields = process_class_get_fields(node)\n+\n+    dataclass_module = make_dataclasses_module_callnode(node.pos)\n+\n+    # create __dataclass_params__ attribute. I try to use the exact\n+    # `_DataclassParams` class defined in the standard library module if at all possible\n+    # for maximum duck-typing compatibility.\n+    dataclass_params_func = ExprNodes.AttributeNode(node.pos, obj=dataclass_module,\n+                                                    attribute=EncodedString(\"_DataclassParams\"))\n+    dataclass_params_keywords = ExprNodes.DictNode.from_pairs(\n+        node.pos,\n+        [ (ExprNodes.IdentifierStringNode(node.pos, value=EncodedString(k)),\n+           ExprNodes.BoolNode(node.pos, value=v))\n+          for k, v in kwargs.items() ])\n+    dataclass_params = ExprNodes.GeneralCallNode(node.pos,\n+                                                 function = dataclass_params_func,\n+                                                 positional_args = ExprNodes.TupleNode(node.pos, args=[]),\n+                                                 keyword_args = dataclass_params_keywords)\n+    dataclass_params_assignment = Nodes.SingleAssignmentNode(\n+        node.pos,\n+        lhs = ExprNodes.NameNode(node.pos, name=EncodedString(\"__dataclass_params__\")),\n+        rhs = dataclass_params)\n+\n+    dataclass_fields_stats = _set_up_dataclass_fields(node, fields, dataclass_module)\n+\n+    stats = Nodes.StatListNode(node.pos,\n+                               stats=[dataclass_params_assignment] + dataclass_fields_stats)\n+\n+    code_lines = []\n+    placeholders = {}\n+    extra_stats = []\n+    for cl, ph, es in [ generate_init_code(kwargs['init'], node, fields),\n+                        generate_repr_code(kwargs['repr'], node, fields),\n+                        generate_eq_code(kwargs['eq'], node, fields),\n+                        generate_order_code(kwargs['order'], node, fields),\n+                        generate_hash_code(kwargs['unsafe_hash'], kwargs['eq'], kwargs['frozen'], node, fields) ]:\n+        code_lines.append(cl)\n+        placeholders.update(ph)\n+        extra_stats.extend(extra_stats)\n+\n+    code_lines = \"\\n\".join(code_lines)\n+    code_tree = TreeFragment(code_lines, level='c_class', pipeline=[NormalizeTree(node.scope)]\n+                            ).substitute(placeholders)\n+\n+    stats.stats += (code_tree.stats + extra_stats)\n+\n+    # turn off annotation typing, so all arguments to __init__ are accepted as\n+    # generic objects and thus can accept _HAS_DEFAULT_FACTORY.\n+    # Type conversion comes later\n+    comp_directives = Nodes.CompilerDirectivesNode(node.pos,\n+        directives=node.scope.directives.copy(),\n+        body=stats)\n+    comp_directives.directives['annotation_typing'] = False\n+\n+    comp_directives.analyse_declarations(node.scope)\n+    # probably already in this scope, but it doesn't hurt to make sure\n+    analyse_decs_transform.enter_scope(node, node.scope)\n+    analyse_decs_transform.visit(comp_directives)\n+    analyse_decs_transform.exit_scope()\n+\n+    node.body.stats.append(comp_directives)\n+\n+def generate_init_code(init, node, fields):",
+            "html_url": "https://github.com/cython/cython/pull/3400#discussion_r781213685",
+            "id": 781213685,
+            "line": 268,
+            "node_id": "PRRC_kwDOABDGAc4ukF_1",
+            "original_commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "original_line": 268,
+            "original_position": 268,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Dataclass.py",
+            "position": 268,
+            "pull_request_review_id": 847825998,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3400",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/781213685/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-01-10T14:14:34Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/781213685",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/38372706?v=4",
+                "events_url": "https://api.github.com/users/Bluenix2/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Bluenix2/followers",
+                "following_url": "https://api.github.com/users/Bluenix2/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Bluenix2/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Bluenix2",
+                "id": 38372706,
+                "login": "Bluenix2",
+                "node_id": "MDQ6VXNlcjM4MzcyNzA2",
+                "organizations_url": "https://api.github.com/users/Bluenix2/orgs",
+                "received_events_url": "https://api.github.com/users/Bluenix2/received_events",
+                "repos_url": "https://api.github.com/users/Bluenix2/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Bluenix2/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Bluenix2/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Bluenix2"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3400#discussion_r781214503"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3400"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/781214503"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "We sould probably also create a `__matchargs__` attribute for 3.10 pattern matching?",
+            "commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "created_at": "2022-01-10T13:59:13Z",
+            "diff_hunk": "@@ -0,0 +1,718 @@\n+# functions to transform a c class into a dataclass\n+\n+from collections import OrderedDict\n+\n+from . import ExprNodes\n+from . import Nodes\n+from . import PyrexTypes\n+from . import UtilNodes\n+from . import Builtin\n+from . import Naming\n+from .Errors import error, warning\n+from .Code import UtilityCode, TempitaUtilityCode\n+from .Visitor import VisitorTransform\n+from .StringEncoding import BytesLiteral, EncodedString\n+from .TreeFragment import TreeFragment\n+from .ParseTreeTransforms import (NormalizeTree, SkipDeclarations, AnalyseDeclarationsTransform,\n+                                  MarkClosureVisitor)\n+from textwrap import dedent\n+\n+def make_dataclasses_module_callnode(pos):\n+    python_utility_code = UtilityCode.load_cached(\"Dataclasses_fallback\", \"Dataclasses.py\")\n+    python_utility_code = EncodedString(python_utility_code.impl)\n+    loader_utilitycode = TempitaUtilityCode.load_cached(\n+        \"SpecificModuleLoader\", \"Dataclasses.c\",\n+        context={'cname': \"dataclasses\", 'py_code': python_utility_code.as_c_string_literal()})\n+    return ExprNodes.PythonCapiCallNode(\n+        pos, \"__Pyx_Load_dataclasses_Module\",\n+        PyrexTypes.CFuncType(PyrexTypes.py_object_type, []),\n+        utility_code=loader_utilitycode,\n+        args=[],\n+    )\n+\n+_INTERNAL_DEFAULTSHOLDER_NAME = EncodedString('__pyx_dataclass_defaults')\n+\n+class RemoveAssignmentsToNames(VisitorTransform, SkipDeclarations):\n+    \"\"\"\n+    Cython (and Python) normally treats\n+\n+    class A:\n+         x = 1\n+\n+    as generating a class attribute. However for dataclasses the `= 1` should be interpreted as\n+    a default value to initialize an instance attribute with.\n+    This transform therefore removes the `x=1` assignment so that the class attribute isn't\n+    generated, while recording what it has removed so that it can be used in the initialization.\n+    \"\"\"\n+    def __init__(self, names):\n+        super(RemoveAssignmentsToNames, self).__init__()\n+        self.names = names\n+        self.removed_assignments = {}\n+\n+    def visit_CClassNode(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+    def visit_PyClassNode(self, node):\n+        return node  # go no further\n+\n+    def visit_FuncDefNode(self, node):\n+        return node  # go no further\n+\n+    def visit_SingleAssignmentNode(self, node):\n+        if node.lhs.is_name and node.lhs.name in self.names:\n+            if node.lhs.name in self.removed_assignments:\n+                warning(node.pos, (\"Multiple assignments for '%s' in dataclass; \"\n+                                   \"using most recent\") % node.lhs.name, 1)\n+            self.removed_assignments[node.lhs.name] = node.rhs\n+            return []\n+        return node\n+\n+    # I believe cascaded assignment is always a syntax error with annotations\n+    # so there's no need to define visit_CascadedAssignmentNode\n+\n+    def visit_Node(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+class _MISSING_TYPE(object):\n+    pass\n+MISSING = _MISSING_TYPE()\n+\n+\n+class Field(object):\n+    \"\"\"\n+    Field is based on the dataclasses.field class from the standard library module.\n+    It is used internally during the generation of Cython dataclasses to keep track\n+    of the settings for individual attributes.\n+\n+    Attributes of this class are stored as nodes so they can be used in code construction\n+    more readily (i.e. we store BoolNode rather than bool)\n+    \"\"\"\n+    default = MISSING\n+    default_factory = MISSING\n+    private = False\n+    # default values are defined by the CPython dataclasses.field\n+    def __init__(self, pos, default=MISSING, default_factory=MISSING,\n+                 repr=None, hash=None, init=None,\n+                 compare=None, metadata=None,\n+                 is_initvar=False, is_classvar=False,\n+                 **additional_kwds):\n+        if default is not MISSING:\n+            self.default = default\n+        if default_factory is not MISSING:\n+            self.default_factory = default_factory\n+        self.repr = repr or ExprNodes.BoolNode(pos, value=True)\n+        self.hash = hash or ExprNodes.NoneNode(pos)\n+        self.init = init or ExprNodes.BoolNode(pos, value=True)\n+        self.compare = compare or ExprNodes.BoolNode(pos, value=True)\n+        self.metadata = metadata or ExprNodes.NoneNode(pos)\n+        self.is_initvar = is_initvar\n+        self.is_classvar = is_classvar\n+\n+        for k, v in additional_kwds.items():\n+            # There should not be any additional keywords!\n+            error(v.pos, \"cython.dataclasses.field() got an unexpected keyword argument '%s'\" % k)\n+\n+        for field_name in (\"repr\", \"hash\", \"init\", \"compare\", \"metadata\"):\n+            field_value = getattr(self, field_name)\n+            if not field_value.is_literal:\n+                error(field_value.pos,\n+                      \"cython.dataclasses.field parameter '%s' must be a literal value\" % field_name)\n+\n+\n+def process_class_get_fields(node):\n+    import operator\n+    var_entries = node.scope.var_entries\n+    # order of definition is used in the dataclass\n+    var_entries = sorted(var_entries, key=operator.attrgetter('pos'))\n+    var_names = [entry.name for entry in var_entries]\n+\n+    # don't treat `x = 1` as an assignment of a class attribute within the dataclass\n+    transform = RemoveAssignmentsToNames(var_names)\n+    transform(node)\n+\n+    if node.base_type and node.base_type.dataclass_fields:\n+        fields = node.base_type.dataclass_fields.copy()\n+    else:\n+        fields = OrderedDict()\n+\n+    for entry in var_entries:\n+        name = entry.name\n+        is_initvar = (entry.type.is_special_python_type_constructor and\n+                      entry.type.name == \"dataclasses.InitVar\")\n+        # TODO - classvars aren't included in \"var_entries\" so are missed here\n+        # and thus this code is never triggered\n+        is_classvar = (entry.type.is_special_python_type_constructor and\n+                       entry.type.name == \"typing.ClassVar\")\n+        if name in transform.removed_assignments:\n+            assignment = transform.removed_assignments[name]\n+            if (isinstance(assignment, ExprNodes.CallNode)\n+                    and assignment.function.as_cython_attribute() == \"dataclasses.field\"):\n+                # I believe most of this is well-enforced when it's treated as a directive\n+                # but it doesn't hurt to make sure\n+                if (not isinstance(assignment, ExprNodes.GeneralCallNode)\n+                        or not isinstance(assignment.positional_args, ExprNodes.TupleNode)\n+                        or assignment.positional_args.args\n+                        or not isinstance(assignment.keyword_args, ExprNodes.DictNode)):\n+                    error(assignment.pos, \"Call to 'cython.dataclasses.field' must only consist \"\n+                          \"of compile-time keyword arguments\")\n+                    continue\n+                keyword_args = assignment.keyword_args.as_python_dict()\n+                if 'default' in keyword_args and 'default_factory' in keyword_args:\n+                    error(assignment.pos, \"cannot specify both default and default_factory\")\n+                    continue\n+                field = Field(node.pos, **keyword_args)\n+            else:\n+                if isinstance(assignment, ExprNodes.CallNode):\n+                    func = assignment.function\n+                    if ((func.is_name and func.name == \"field\")\n+                            or (func.is_attribute and func.attribute == \"field\")):\n+                        warning(assignment.pos, \"Do you mean cython.dataclasses.field instead?\", 1)\n+                if assignment.type in [Builtin.list_type, Builtin.dict_type, Builtin.set_type]:\n+                    # The standard library module generates a TypeError at runtime\n+                    # in this situation.\n+                    # Error message is copied from CPython\n+                    error(assignment.pos, \"mutable default <class '{0}'> for field {1} is not allowed: \"\n+                          \"use default_factory\".format(assignment.type.name, name))\n+\n+                field = Field(node.pos, default=assignment)\n+        else:\n+            field = Field(node.pos)\n+        field.is_initvar = is_initvar\n+        field.is_classvar = is_classvar\n+        if entry.visibility == \"private\":\n+            field.private = True\n+        fields[name] = field\n+    node.entry.type.dataclass_fields = fields\n+    return fields\n+\n+def handle_cclass_dataclass(node, dataclass_args, analyse_decs_transform):\n+    # default argument values from https://docs.python.org/3/library/dataclasses.html\n+    kwargs = dict(init=True, repr=True, eq=True,\n+                  order=False, unsafe_hash=False, frozen=False)\n+    if dataclass_args is not None:\n+        if dataclass_args[0]:\n+            error(node.pos, \"cython.dataclasses.dataclass takes no positional arguments\")\n+        for k, v in dataclass_args[1].items():\n+            if k not in kwargs:\n+                error(node.pos,\n+                      \"cython.dataclasses.dataclass() got an unexpected keyword argument '%s'\" % k)\n+            if not isinstance(v, ExprNodes.BoolNode):\n+                error(node.pos,\n+                      \"Arguments passed to cython.dataclasses.dataclass must be True or False\")\n+            kwargs[k] = v\n+\n+    fields = process_class_get_fields(node)\n+\n+    dataclass_module = make_dataclasses_module_callnode(node.pos)\n+\n+    # create __dataclass_params__ attribute. I try to use the exact\n+    # `_DataclassParams` class defined in the standard library module if at all possible\n+    # for maximum duck-typing compatibility.\n+    dataclass_params_func = ExprNodes.AttributeNode(node.pos, obj=dataclass_module,\n+                                                    attribute=EncodedString(\"_DataclassParams\"))",
+            "html_url": "https://github.com/cython/cython/pull/3400#discussion_r781214503",
+            "id": 781214503,
+            "line": 214,
+            "node_id": "PRRC_kwDOABDGAc4ukGMn",
+            "original_commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "original_line": 214,
+            "original_position": 214,
+            "original_start_line": 210,
+            "path": "Cython/Compiler/Dataclass.py",
+            "position": 214,
+            "pull_request_review_id": 847825998,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3400",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/781214503/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 210,
+            "start_side": "RIGHT",
+            "updated_at": "2022-01-10T14:14:34Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/781214503",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/38372706?v=4",
+                "events_url": "https://api.github.com/users/Bluenix2/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Bluenix2/followers",
+                "following_url": "https://api.github.com/users/Bluenix2/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Bluenix2/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Bluenix2",
+                "id": 38372706,
+                "login": "Bluenix2",
+                "node_id": "MDQ6VXNlcjM4MzcyNzA2",
+                "organizations_url": "https://api.github.com/users/Bluenix2/orgs",
+                "received_events_url": "https://api.github.com/users/Bluenix2/received_events",
+                "repos_url": "https://api.github.com/users/Bluenix2/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Bluenix2/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Bluenix2/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Bluenix2"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3400#discussion_r781218660"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3400"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/781218660"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "```suggestion\r\n    # default argument values from https://docs.python.org/3/library/dataclasses.html\r\n    kwargs = dict(init=True, repr=True, eq=True,\r\n                  order=False, unsafe_hash=False, frozen=False,\r\n                  match_args=True, kw_only=False, slots=False)\r\n```",
+            "commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "created_at": "2022-01-10T14:04:21Z",
+            "diff_hunk": "@@ -0,0 +1,718 @@\n+# functions to transform a c class into a dataclass\n+\n+from collections import OrderedDict\n+\n+from . import ExprNodes\n+from . import Nodes\n+from . import PyrexTypes\n+from . import UtilNodes\n+from . import Builtin\n+from . import Naming\n+from .Errors import error, warning\n+from .Code import UtilityCode, TempitaUtilityCode\n+from .Visitor import VisitorTransform\n+from .StringEncoding import BytesLiteral, EncodedString\n+from .TreeFragment import TreeFragment\n+from .ParseTreeTransforms import (NormalizeTree, SkipDeclarations, AnalyseDeclarationsTransform,\n+                                  MarkClosureVisitor)\n+from textwrap import dedent\n+\n+def make_dataclasses_module_callnode(pos):\n+    python_utility_code = UtilityCode.load_cached(\"Dataclasses_fallback\", \"Dataclasses.py\")\n+    python_utility_code = EncodedString(python_utility_code.impl)\n+    loader_utilitycode = TempitaUtilityCode.load_cached(\n+        \"SpecificModuleLoader\", \"Dataclasses.c\",\n+        context={'cname': \"dataclasses\", 'py_code': python_utility_code.as_c_string_literal()})\n+    return ExprNodes.PythonCapiCallNode(\n+        pos, \"__Pyx_Load_dataclasses_Module\",\n+        PyrexTypes.CFuncType(PyrexTypes.py_object_type, []),\n+        utility_code=loader_utilitycode,\n+        args=[],\n+    )\n+\n+_INTERNAL_DEFAULTSHOLDER_NAME = EncodedString('__pyx_dataclass_defaults')\n+\n+class RemoveAssignmentsToNames(VisitorTransform, SkipDeclarations):\n+    \"\"\"\n+    Cython (and Python) normally treats\n+\n+    class A:\n+         x = 1\n+\n+    as generating a class attribute. However for dataclasses the `= 1` should be interpreted as\n+    a default value to initialize an instance attribute with.\n+    This transform therefore removes the `x=1` assignment so that the class attribute isn't\n+    generated, while recording what it has removed so that it can be used in the initialization.\n+    \"\"\"\n+    def __init__(self, names):\n+        super(RemoveAssignmentsToNames, self).__init__()\n+        self.names = names\n+        self.removed_assignments = {}\n+\n+    def visit_CClassNode(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+    def visit_PyClassNode(self, node):\n+        return node  # go no further\n+\n+    def visit_FuncDefNode(self, node):\n+        return node  # go no further\n+\n+    def visit_SingleAssignmentNode(self, node):\n+        if node.lhs.is_name and node.lhs.name in self.names:\n+            if node.lhs.name in self.removed_assignments:\n+                warning(node.pos, (\"Multiple assignments for '%s' in dataclass; \"\n+                                   \"using most recent\") % node.lhs.name, 1)\n+            self.removed_assignments[node.lhs.name] = node.rhs\n+            return []\n+        return node\n+\n+    # I believe cascaded assignment is always a syntax error with annotations\n+    # so there's no need to define visit_CascadedAssignmentNode\n+\n+    def visit_Node(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+class _MISSING_TYPE(object):\n+    pass\n+MISSING = _MISSING_TYPE()\n+\n+\n+class Field(object):\n+    \"\"\"\n+    Field is based on the dataclasses.field class from the standard library module.\n+    It is used internally during the generation of Cython dataclasses to keep track\n+    of the settings for individual attributes.\n+\n+    Attributes of this class are stored as nodes so they can be used in code construction\n+    more readily (i.e. we store BoolNode rather than bool)\n+    \"\"\"\n+    default = MISSING\n+    default_factory = MISSING\n+    private = False\n+    # default values are defined by the CPython dataclasses.field\n+    def __init__(self, pos, default=MISSING, default_factory=MISSING,\n+                 repr=None, hash=None, init=None,\n+                 compare=None, metadata=None,\n+                 is_initvar=False, is_classvar=False,\n+                 **additional_kwds):\n+        if default is not MISSING:\n+            self.default = default\n+        if default_factory is not MISSING:\n+            self.default_factory = default_factory\n+        self.repr = repr or ExprNodes.BoolNode(pos, value=True)\n+        self.hash = hash or ExprNodes.NoneNode(pos)\n+        self.init = init or ExprNodes.BoolNode(pos, value=True)\n+        self.compare = compare or ExprNodes.BoolNode(pos, value=True)\n+        self.metadata = metadata or ExprNodes.NoneNode(pos)\n+        self.is_initvar = is_initvar\n+        self.is_classvar = is_classvar\n+\n+        for k, v in additional_kwds.items():\n+            # There should not be any additional keywords!\n+            error(v.pos, \"cython.dataclasses.field() got an unexpected keyword argument '%s'\" % k)\n+\n+        for field_name in (\"repr\", \"hash\", \"init\", \"compare\", \"metadata\"):\n+            field_value = getattr(self, field_name)\n+            if not field_value.is_literal:\n+                error(field_value.pos,\n+                      \"cython.dataclasses.field parameter '%s' must be a literal value\" % field_name)\n+\n+\n+def process_class_get_fields(node):\n+    import operator\n+    var_entries = node.scope.var_entries\n+    # order of definition is used in the dataclass\n+    var_entries = sorted(var_entries, key=operator.attrgetter('pos'))\n+    var_names = [entry.name for entry in var_entries]\n+\n+    # don't treat `x = 1` as an assignment of a class attribute within the dataclass\n+    transform = RemoveAssignmentsToNames(var_names)\n+    transform(node)\n+\n+    if node.base_type and node.base_type.dataclass_fields:\n+        fields = node.base_type.dataclass_fields.copy()\n+    else:\n+        fields = OrderedDict()\n+\n+    for entry in var_entries:\n+        name = entry.name\n+        is_initvar = (entry.type.is_special_python_type_constructor and\n+                      entry.type.name == \"dataclasses.InitVar\")\n+        # TODO - classvars aren't included in \"var_entries\" so are missed here\n+        # and thus this code is never triggered\n+        is_classvar = (entry.type.is_special_python_type_constructor and\n+                       entry.type.name == \"typing.ClassVar\")\n+        if name in transform.removed_assignments:\n+            assignment = transform.removed_assignments[name]\n+            if (isinstance(assignment, ExprNodes.CallNode)\n+                    and assignment.function.as_cython_attribute() == \"dataclasses.field\"):\n+                # I believe most of this is well-enforced when it's treated as a directive\n+                # but it doesn't hurt to make sure\n+                if (not isinstance(assignment, ExprNodes.GeneralCallNode)\n+                        or not isinstance(assignment.positional_args, ExprNodes.TupleNode)\n+                        or assignment.positional_args.args\n+                        or not isinstance(assignment.keyword_args, ExprNodes.DictNode)):\n+                    error(assignment.pos, \"Call to 'cython.dataclasses.field' must only consist \"\n+                          \"of compile-time keyword arguments\")\n+                    continue\n+                keyword_args = assignment.keyword_args.as_python_dict()\n+                if 'default' in keyword_args and 'default_factory' in keyword_args:\n+                    error(assignment.pos, \"cannot specify both default and default_factory\")\n+                    continue\n+                field = Field(node.pos, **keyword_args)\n+            else:\n+                if isinstance(assignment, ExprNodes.CallNode):\n+                    func = assignment.function\n+                    if ((func.is_name and func.name == \"field\")\n+                            or (func.is_attribute and func.attribute == \"field\")):\n+                        warning(assignment.pos, \"Do you mean cython.dataclasses.field instead?\", 1)\n+                if assignment.type in [Builtin.list_type, Builtin.dict_type, Builtin.set_type]:\n+                    # The standard library module generates a TypeError at runtime\n+                    # in this situation.\n+                    # Error message is copied from CPython\n+                    error(assignment.pos, \"mutable default <class '{0}'> for field {1} is not allowed: \"\n+                          \"use default_factory\".format(assignment.type.name, name))\n+\n+                field = Field(node.pos, default=assignment)\n+        else:\n+            field = Field(node.pos)\n+        field.is_initvar = is_initvar\n+        field.is_classvar = is_classvar\n+        if entry.visibility == \"private\":\n+            field.private = True\n+        fields[name] = field\n+    node.entry.type.dataclass_fields = fields\n+    return fields\n+\n+def handle_cclass_dataclass(node, dataclass_args, analyse_decs_transform):\n+    # default argument values from https://docs.python.org/3/library/dataclasses.html\n+    kwargs = dict(init=True, repr=True, eq=True,\n+                  order=False, unsafe_hash=False, frozen=False)",
+            "html_url": "https://github.com/cython/cython/pull/3400#discussion_r781218660",
+            "id": 781218660,
+            "line": 193,
+            "node_id": "PRRC_kwDOABDGAc4ukHNk",
+            "original_commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "original_line": 193,
+            "original_position": 193,
+            "original_start_line": 191,
+            "path": "Cython/Compiler/Dataclass.py",
+            "position": 193,
+            "pull_request_review_id": 847825998,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3400",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/781218660/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 191,
+            "start_side": "RIGHT",
+            "updated_at": "2022-01-10T14:14:34Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/781218660",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/38372706?v=4",
+                "events_url": "https://api.github.com/users/Bluenix2/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Bluenix2/followers",
+                "following_url": "https://api.github.com/users/Bluenix2/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Bluenix2/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Bluenix2",
+                "id": 38372706,
+                "login": "Bluenix2",
+                "node_id": "MDQ6VXNlcjM4MzcyNzA2",
+                "organizations_url": "https://api.github.com/users/Bluenix2/orgs",
+                "received_events_url": "https://api.github.com/users/Bluenix2/received_events",
+                "repos_url": "https://api.github.com/users/Bluenix2/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Bluenix2/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Bluenix2/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Bluenix2"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3400#discussion_r781221129"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3400"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/781221129"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "This will need to handle keyword arguments right?",
+            "commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "created_at": "2022-01-10T14:07:38Z",
+            "diff_hunk": "@@ -0,0 +1,718 @@\n+# functions to transform a c class into a dataclass\n+\n+from collections import OrderedDict\n+\n+from . import ExprNodes\n+from . import Nodes\n+from . import PyrexTypes\n+from . import UtilNodes\n+from . import Builtin\n+from . import Naming\n+from .Errors import error, warning\n+from .Code import UtilityCode, TempitaUtilityCode\n+from .Visitor import VisitorTransform\n+from .StringEncoding import BytesLiteral, EncodedString\n+from .TreeFragment import TreeFragment\n+from .ParseTreeTransforms import (NormalizeTree, SkipDeclarations, AnalyseDeclarationsTransform,\n+                                  MarkClosureVisitor)\n+from textwrap import dedent\n+\n+def make_dataclasses_module_callnode(pos):\n+    python_utility_code = UtilityCode.load_cached(\"Dataclasses_fallback\", \"Dataclasses.py\")\n+    python_utility_code = EncodedString(python_utility_code.impl)\n+    loader_utilitycode = TempitaUtilityCode.load_cached(\n+        \"SpecificModuleLoader\", \"Dataclasses.c\",\n+        context={'cname': \"dataclasses\", 'py_code': python_utility_code.as_c_string_literal()})\n+    return ExprNodes.PythonCapiCallNode(\n+        pos, \"__Pyx_Load_dataclasses_Module\",\n+        PyrexTypes.CFuncType(PyrexTypes.py_object_type, []),\n+        utility_code=loader_utilitycode,\n+        args=[],\n+    )\n+\n+_INTERNAL_DEFAULTSHOLDER_NAME = EncodedString('__pyx_dataclass_defaults')\n+\n+class RemoveAssignmentsToNames(VisitorTransform, SkipDeclarations):\n+    \"\"\"\n+    Cython (and Python) normally treats\n+\n+    class A:\n+         x = 1\n+\n+    as generating a class attribute. However for dataclasses the `= 1` should be interpreted as\n+    a default value to initialize an instance attribute with.\n+    This transform therefore removes the `x=1` assignment so that the class attribute isn't\n+    generated, while recording what it has removed so that it can be used in the initialization.\n+    \"\"\"\n+    def __init__(self, names):\n+        super(RemoveAssignmentsToNames, self).__init__()\n+        self.names = names\n+        self.removed_assignments = {}\n+\n+    def visit_CClassNode(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+    def visit_PyClassNode(self, node):\n+        return node  # go no further\n+\n+    def visit_FuncDefNode(self, node):\n+        return node  # go no further\n+\n+    def visit_SingleAssignmentNode(self, node):\n+        if node.lhs.is_name and node.lhs.name in self.names:\n+            if node.lhs.name in self.removed_assignments:\n+                warning(node.pos, (\"Multiple assignments for '%s' in dataclass; \"\n+                                   \"using most recent\") % node.lhs.name, 1)\n+            self.removed_assignments[node.lhs.name] = node.rhs\n+            return []\n+        return node\n+\n+    # I believe cascaded assignment is always a syntax error with annotations\n+    # so there's no need to define visit_CascadedAssignmentNode\n+\n+    def visit_Node(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+class _MISSING_TYPE(object):\n+    pass\n+MISSING = _MISSING_TYPE()\n+\n+\n+class Field(object):\n+    \"\"\"\n+    Field is based on the dataclasses.field class from the standard library module.\n+    It is used internally during the generation of Cython dataclasses to keep track\n+    of the settings for individual attributes.\n+\n+    Attributes of this class are stored as nodes so they can be used in code construction\n+    more readily (i.e. we store BoolNode rather than bool)\n+    \"\"\"\n+    default = MISSING\n+    default_factory = MISSING\n+    private = False\n+    # default values are defined by the CPython dataclasses.field\n+    def __init__(self, pos, default=MISSING, default_factory=MISSING,\n+                 repr=None, hash=None, init=None,\n+                 compare=None, metadata=None,\n+                 is_initvar=False, is_classvar=False,\n+                 **additional_kwds):\n+        if default is not MISSING:\n+            self.default = default\n+        if default_factory is not MISSING:\n+            self.default_factory = default_factory\n+        self.repr = repr or ExprNodes.BoolNode(pos, value=True)\n+        self.hash = hash or ExprNodes.NoneNode(pos)\n+        self.init = init or ExprNodes.BoolNode(pos, value=True)\n+        self.compare = compare or ExprNodes.BoolNode(pos, value=True)\n+        self.metadata = metadata or ExprNodes.NoneNode(pos)\n+        self.is_initvar = is_initvar\n+        self.is_classvar = is_classvar\n+\n+        for k, v in additional_kwds.items():\n+            # There should not be any additional keywords!\n+            error(v.pos, \"cython.dataclasses.field() got an unexpected keyword argument '%s'\" % k)\n+\n+        for field_name in (\"repr\", \"hash\", \"init\", \"compare\", \"metadata\"):\n+            field_value = getattr(self, field_name)\n+            if not field_value.is_literal:\n+                error(field_value.pos,\n+                      \"cython.dataclasses.field parameter '%s' must be a literal value\" % field_name)\n+\n+\n+def process_class_get_fields(node):\n+    import operator\n+    var_entries = node.scope.var_entries\n+    # order of definition is used in the dataclass\n+    var_entries = sorted(var_entries, key=operator.attrgetter('pos'))\n+    var_names = [entry.name for entry in var_entries]\n+\n+    # don't treat `x = 1` as an assignment of a class attribute within the dataclass\n+    transform = RemoveAssignmentsToNames(var_names)\n+    transform(node)\n+\n+    if node.base_type and node.base_type.dataclass_fields:\n+        fields = node.base_type.dataclass_fields.copy()\n+    else:\n+        fields = OrderedDict()\n+\n+    for entry in var_entries:\n+        name = entry.name\n+        is_initvar = (entry.type.is_special_python_type_constructor and\n+                      entry.type.name == \"dataclasses.InitVar\")\n+        # TODO - classvars aren't included in \"var_entries\" so are missed here\n+        # and thus this code is never triggered\n+        is_classvar = (entry.type.is_special_python_type_constructor and\n+                       entry.type.name == \"typing.ClassVar\")\n+        if name in transform.removed_assignments:\n+            assignment = transform.removed_assignments[name]\n+            if (isinstance(assignment, ExprNodes.CallNode)\n+                    and assignment.function.as_cython_attribute() == \"dataclasses.field\"):\n+                # I believe most of this is well-enforced when it's treated as a directive\n+                # but it doesn't hurt to make sure\n+                if (not isinstance(assignment, ExprNodes.GeneralCallNode)\n+                        or not isinstance(assignment.positional_args, ExprNodes.TupleNode)\n+                        or assignment.positional_args.args\n+                        or not isinstance(assignment.keyword_args, ExprNodes.DictNode)):\n+                    error(assignment.pos, \"Call to 'cython.dataclasses.field' must only consist \"\n+                          \"of compile-time keyword arguments\")\n+                    continue\n+                keyword_args = assignment.keyword_args.as_python_dict()\n+                if 'default' in keyword_args and 'default_factory' in keyword_args:\n+                    error(assignment.pos, \"cannot specify both default and default_factory\")\n+                    continue\n+                field = Field(node.pos, **keyword_args)\n+            else:\n+                if isinstance(assignment, ExprNodes.CallNode):\n+                    func = assignment.function\n+                    if ((func.is_name and func.name == \"field\")\n+                            or (func.is_attribute and func.attribute == \"field\")):\n+                        warning(assignment.pos, \"Do you mean cython.dataclasses.field instead?\", 1)\n+                if assignment.type in [Builtin.list_type, Builtin.dict_type, Builtin.set_type]:\n+                    # The standard library module generates a TypeError at runtime\n+                    # in this situation.\n+                    # Error message is copied from CPython\n+                    error(assignment.pos, \"mutable default <class '{0}'> for field {1} is not allowed: \"\n+                          \"use default_factory\".format(assignment.type.name, name))\n+\n+                field = Field(node.pos, default=assignment)\n+        else:\n+            field = Field(node.pos)\n+        field.is_initvar = is_initvar\n+        field.is_classvar = is_classvar\n+        if entry.visibility == \"private\":\n+            field.private = True\n+        fields[name] = field\n+    node.entry.type.dataclass_fields = fields\n+    return fields\n+\n+def handle_cclass_dataclass(node, dataclass_args, analyse_decs_transform):\n+    # default argument values from https://docs.python.org/3/library/dataclasses.html\n+    kwargs = dict(init=True, repr=True, eq=True,\n+                  order=False, unsafe_hash=False, frozen=False)\n+    if dataclass_args is not None:\n+        if dataclass_args[0]:\n+            error(node.pos, \"cython.dataclasses.dataclass takes no positional arguments\")\n+        for k, v in dataclass_args[1].items():\n+            if k not in kwargs:\n+                error(node.pos,\n+                      \"cython.dataclasses.dataclass() got an unexpected keyword argument '%s'\" % k)\n+            if not isinstance(v, ExprNodes.BoolNode):\n+                error(node.pos,\n+                      \"Arguments passed to cython.dataclasses.dataclass must be True or False\")\n+            kwargs[k] = v\n+\n+    fields = process_class_get_fields(node)\n+\n+    dataclass_module = make_dataclasses_module_callnode(node.pos)\n+\n+    # create __dataclass_params__ attribute. I try to use the exact\n+    # `_DataclassParams` class defined in the standard library module if at all possible\n+    # for maximum duck-typing compatibility.\n+    dataclass_params_func = ExprNodes.AttributeNode(node.pos, obj=dataclass_module,\n+                                                    attribute=EncodedString(\"_DataclassParams\"))\n+    dataclass_params_keywords = ExprNodes.DictNode.from_pairs(\n+        node.pos,\n+        [ (ExprNodes.IdentifierStringNode(node.pos, value=EncodedString(k)),\n+           ExprNodes.BoolNode(node.pos, value=v))\n+          for k, v in kwargs.items() ])\n+    dataclass_params = ExprNodes.GeneralCallNode(node.pos,\n+                                                 function = dataclass_params_func,\n+                                                 positional_args = ExprNodes.TupleNode(node.pos, args=[]),\n+                                                 keyword_args = dataclass_params_keywords)\n+    dataclass_params_assignment = Nodes.SingleAssignmentNode(\n+        node.pos,\n+        lhs = ExprNodes.NameNode(node.pos, name=EncodedString(\"__dataclass_params__\")),\n+        rhs = dataclass_params)\n+\n+    dataclass_fields_stats = _set_up_dataclass_fields(node, fields, dataclass_module)\n+\n+    stats = Nodes.StatListNode(node.pos,\n+                               stats=[dataclass_params_assignment] + dataclass_fields_stats)\n+\n+    code_lines = []\n+    placeholders = {}\n+    extra_stats = []\n+    for cl, ph, es in [ generate_init_code(kwargs['init'], node, fields),\n+                        generate_repr_code(kwargs['repr'], node, fields),\n+                        generate_eq_code(kwargs['eq'], node, fields),\n+                        generate_order_code(kwargs['order'], node, fields),\n+                        generate_hash_code(kwargs['unsafe_hash'], kwargs['eq'], kwargs['frozen'], node, fields) ]:\n+        code_lines.append(cl)\n+        placeholders.update(ph)\n+        extra_stats.extend(extra_stats)\n+\n+    code_lines = \"\\n\".join(code_lines)\n+    code_tree = TreeFragment(code_lines, level='c_class', pipeline=[NormalizeTree(node.scope)]\n+                            ).substitute(placeholders)\n+\n+    stats.stats += (code_tree.stats + extra_stats)\n+\n+    # turn off annotation typing, so all arguments to __init__ are accepted as\n+    # generic objects and thus can accept _HAS_DEFAULT_FACTORY.\n+    # Type conversion comes later\n+    comp_directives = Nodes.CompilerDirectivesNode(node.pos,\n+        directives=node.scope.directives.copy(),\n+        body=stats)\n+    comp_directives.directives['annotation_typing'] = False\n+\n+    comp_directives.analyse_declarations(node.scope)\n+    # probably already in this scope, but it doesn't hurt to make sure\n+    analyse_decs_transform.enter_scope(node, node.scope)\n+    analyse_decs_transform.visit(comp_directives)\n+    analyse_decs_transform.exit_scope()\n+\n+    node.body.stats.append(comp_directives)\n+\n+def generate_init_code(init, node, fields):\n+    \"\"\"\n+    All of these \"generate_*_code\" functions return a tuple of:\n+    - code string\n+    - placeholder dict (often empty)\n+    - stat list (often empty)\n+    which can then be combined later and processed once.\n+\n+    Notes on CPython generated \"__init__\":\n+    * Implemented in `_init_fn`.\n+    * The use of the `dataclasses._HAS_DEFAULT_FACTORY` sentinel value as\n+      the default argument for fields that need constructing with a factory\n+      function is copied from the CPython implementation. (`None` isn't\n+      suitable because it could also be a value for the user to pass.)\n+      There's no real reason why it needs importing from the dataclasses module\n+      though - it could equally be a value generated by Cython when the module loads.\n+    * seen_default and the associated error message are copied directly from Python\n+    * Call to user-defined __post_init__ function (if it exists) is copied from\n+      CPython.\n+    \"\"\"\n+    if not init or node.scope.lookup_here(\"__init__\"):\n+        return \"\", {}, []\n+    # selfname behaviour copied from the cpython module\n+    selfname = \"__dataclass_self__\" if \"self\" in fields else \"self\"\n+    args = [selfname]\n+\n+    placeholders = {}\n+    placeholder_count = [0]\n+\n+    # create a temp to get _HAS_DEFAULT_FACTORY\n+    dataclass_module = make_dataclasses_module_callnode(node.pos)\n+    has_default_factory = ExprNodes.AttributeNode(\n+        node.pos,\n+        obj=dataclass_module,\n+        attribute=EncodedString(\"_HAS_DEFAULT_FACTORY\")\n+    )\n+\n+    def get_placeholder_name():\n+        while True:\n+            name = \"INIT_PLACEHOLDER_%s\" % placeholder_count[0]\n+            if (name not in placeholders\n+                    and name not in fields):\n+                # make sure name isn't already used and doesn't\n+                # conflict with a variable name (which is unlikely but possible)\n+                break\n+            placeholder_count[0] += 1\n+        return name\n+\n+    default_factory_placeholder = get_placeholder_name()\n+    placeholders[default_factory_placeholder] = has_default_factory\n+\n+    function_body_code_lines = []\n+\n+    seen_default = False\n+    for name, field in fields.items():\n+        if not field.init.value:\n+            continue\n+        entry = node.scope.lookup(name)\n+        if entry.annotation:\n+            annotation = u\": %s\" % entry.annotation.string.value\n+        else:\n+            annotation = u\"\"\n+        assignment = u''\n+        if field.default is not MISSING or field.default_factory is not MISSING:\n+            seen_default = True\n+            if field.default_factory is not MISSING:\n+                ph_name = default_factory_placeholder\n+            else:\n+                ph_name = get_placeholder_name()\n+                placeholders[ph_name] = field.default  # should be a node\n+            assignment = u\" = %s\" % ph_name\n+        elif seen_default:\n+            error(entry.pos, (\"non-default argument '%s' follows default argument \"\n+                              \"in dataclass __init__\") % name)\n+            return \"\", {}, []\n+\n+        args.append(u\"%s%s%s\" % (name, annotation, assignment))\n+\n+        if field.is_initvar:\n+            continue\n+        elif field.default_factory is MISSING:\n+            if field.init.value:\n+                function_body_code_lines.append(u\"    %s.%s = %s\" % (selfname, name, name))\n+        else:\n+            ph_name = get_placeholder_name()\n+            placeholders[ph_name] = field.default_factory\n+            if field.init.value:\n+                # close to:\n+                # def __init__(self, name=_PLACEHOLDER_VALUE):\n+                #     self.name = name_default_factory() if name is _PLACEHOLDER_VALUE else name\n+                function_body_code_lines.append(u\"    %s.%s = %s() if %s is %s else %s\" % (\n+                    selfname, name, ph_name, name, default_factory_placeholder, name))\n+            else:\n+                # still need to use the default factory to initialize\n+                function_body_code_lines.append(u\"    %s.%s = %s()\"\n+                                  % (selfname, name, ph_name))\n+\n+    args = u\", \".join(args)\n+    func_def = u\"def __init__(%s):\" % args\n+\n+    code_lines = [func_def] + (function_body_code_lines or [\"pass\"])\n+\n+    if node.scope.lookup(\"__post_init__\"):\n+        post_init_vars = \", \".join(name for name, field in fields.items()\n+                                   if field.is_initvar)\n+        code_lines.append(\"    %s.__post_init__(%s)\" % (selfname, post_init_vars))",
+            "html_url": "https://github.com/cython/cython/pull/3400#discussion_r781221129",
+            "id": 781221129,
+            "line": 373,
+            "node_id": "PRRC_kwDOABDGAc4ukH0J",
+            "original_commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "original_line": 373,
+            "original_position": 373,
+            "original_start_line": 370,
+            "path": "Cython/Compiler/Dataclass.py",
+            "position": 373,
+            "pull_request_review_id": 847825998,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3400",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/781221129/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 370,
+            "start_side": "RIGHT",
+            "updated_at": "2022-01-10T14:14:34Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/781221129",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/38372706?v=4",
+                "events_url": "https://api.github.com/users/Bluenix2/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Bluenix2/followers",
+                "following_url": "https://api.github.com/users/Bluenix2/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Bluenix2/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Bluenix2",
+                "id": 38372706,
+                "login": "Bluenix2",
+                "node_id": "MDQ6VXNlcjM4MzcyNzA2",
+                "organizations_url": "https://api.github.com/users/Bluenix2/orgs",
+                "received_events_url": "https://api.github.com/users/Bluenix2/received_events",
+                "repos_url": "https://api.github.com/users/Bluenix2/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Bluenix2/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Bluenix2/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Bluenix2"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/3400#discussion_r781838425"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/3400"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/781838425"
+                }
+            },
+            "author_association": "COLLABORATOR",
+            "body": "The documentation says:\r\n\r\n> It will normally be called as `self.__post_init__()`. However, if any `InitVar` fields are defined, they will also be passed to `__post_init__()` in the order they were defined in the class.\r\n\r\nThat matches what I do (I think). If you have a counter-example then let me know though!",
+            "commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "created_at": "2022-01-11T07:55:32Z",
+            "diff_hunk": "@@ -0,0 +1,718 @@\n+# functions to transform a c class into a dataclass\n+\n+from collections import OrderedDict\n+\n+from . import ExprNodes\n+from . import Nodes\n+from . import PyrexTypes\n+from . import UtilNodes\n+from . import Builtin\n+from . import Naming\n+from .Errors import error, warning\n+from .Code import UtilityCode, TempitaUtilityCode\n+from .Visitor import VisitorTransform\n+from .StringEncoding import BytesLiteral, EncodedString\n+from .TreeFragment import TreeFragment\n+from .ParseTreeTransforms import (NormalizeTree, SkipDeclarations, AnalyseDeclarationsTransform,\n+                                  MarkClosureVisitor)\n+from textwrap import dedent\n+\n+def make_dataclasses_module_callnode(pos):\n+    python_utility_code = UtilityCode.load_cached(\"Dataclasses_fallback\", \"Dataclasses.py\")\n+    python_utility_code = EncodedString(python_utility_code.impl)\n+    loader_utilitycode = TempitaUtilityCode.load_cached(\n+        \"SpecificModuleLoader\", \"Dataclasses.c\",\n+        context={'cname': \"dataclasses\", 'py_code': python_utility_code.as_c_string_literal()})\n+    return ExprNodes.PythonCapiCallNode(\n+        pos, \"__Pyx_Load_dataclasses_Module\",\n+        PyrexTypes.CFuncType(PyrexTypes.py_object_type, []),\n+        utility_code=loader_utilitycode,\n+        args=[],\n+    )\n+\n+_INTERNAL_DEFAULTSHOLDER_NAME = EncodedString('__pyx_dataclass_defaults')\n+\n+class RemoveAssignmentsToNames(VisitorTransform, SkipDeclarations):\n+    \"\"\"\n+    Cython (and Python) normally treats\n+\n+    class A:\n+         x = 1\n+\n+    as generating a class attribute. However for dataclasses the `= 1` should be interpreted as\n+    a default value to initialize an instance attribute with.\n+    This transform therefore removes the `x=1` assignment so that the class attribute isn't\n+    generated, while recording what it has removed so that it can be used in the initialization.\n+    \"\"\"\n+    def __init__(self, names):\n+        super(RemoveAssignmentsToNames, self).__init__()\n+        self.names = names\n+        self.removed_assignments = {}\n+\n+    def visit_CClassNode(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+    def visit_PyClassNode(self, node):\n+        return node  # go no further\n+\n+    def visit_FuncDefNode(self, node):\n+        return node  # go no further\n+\n+    def visit_SingleAssignmentNode(self, node):\n+        if node.lhs.is_name and node.lhs.name in self.names:\n+            if node.lhs.name in self.removed_assignments:\n+                warning(node.pos, (\"Multiple assignments for '%s' in dataclass; \"\n+                                   \"using most recent\") % node.lhs.name, 1)\n+            self.removed_assignments[node.lhs.name] = node.rhs\n+            return []\n+        return node\n+\n+    # I believe cascaded assignment is always a syntax error with annotations\n+    # so there's no need to define visit_CascadedAssignmentNode\n+\n+    def visit_Node(self, node):\n+        self.visitchildren(node)\n+        return node\n+\n+class _MISSING_TYPE(object):\n+    pass\n+MISSING = _MISSING_TYPE()\n+\n+\n+class Field(object):\n+    \"\"\"\n+    Field is based on the dataclasses.field class from the standard library module.\n+    It is used internally during the generation of Cython dataclasses to keep track\n+    of the settings for individual attributes.\n+\n+    Attributes of this class are stored as nodes so they can be used in code construction\n+    more readily (i.e. we store BoolNode rather than bool)\n+    \"\"\"\n+    default = MISSING\n+    default_factory = MISSING\n+    private = False\n+    # default values are defined by the CPython dataclasses.field\n+    def __init__(self, pos, default=MISSING, default_factory=MISSING,\n+                 repr=None, hash=None, init=None,\n+                 compare=None, metadata=None,\n+                 is_initvar=False, is_classvar=False,\n+                 **additional_kwds):\n+        if default is not MISSING:\n+            self.default = default\n+        if default_factory is not MISSING:\n+            self.default_factory = default_factory\n+        self.repr = repr or ExprNodes.BoolNode(pos, value=True)\n+        self.hash = hash or ExprNodes.NoneNode(pos)\n+        self.init = init or ExprNodes.BoolNode(pos, value=True)\n+        self.compare = compare or ExprNodes.BoolNode(pos, value=True)\n+        self.metadata = metadata or ExprNodes.NoneNode(pos)\n+        self.is_initvar = is_initvar\n+        self.is_classvar = is_classvar\n+\n+        for k, v in additional_kwds.items():\n+            # There should not be any additional keywords!\n+            error(v.pos, \"cython.dataclasses.field() got an unexpected keyword argument '%s'\" % k)\n+\n+        for field_name in (\"repr\", \"hash\", \"init\", \"compare\", \"metadata\"):\n+            field_value = getattr(self, field_name)\n+            if not field_value.is_literal:\n+                error(field_value.pos,\n+                      \"cython.dataclasses.field parameter '%s' must be a literal value\" % field_name)\n+\n+\n+def process_class_get_fields(node):\n+    import operator\n+    var_entries = node.scope.var_entries\n+    # order of definition is used in the dataclass\n+    var_entries = sorted(var_entries, key=operator.attrgetter('pos'))\n+    var_names = [entry.name for entry in var_entries]\n+\n+    # don't treat `x = 1` as an assignment of a class attribute within the dataclass\n+    transform = RemoveAssignmentsToNames(var_names)\n+    transform(node)\n+\n+    if node.base_type and node.base_type.dataclass_fields:\n+        fields = node.base_type.dataclass_fields.copy()\n+    else:\n+        fields = OrderedDict()\n+\n+    for entry in var_entries:\n+        name = entry.name\n+        is_initvar = (entry.type.is_special_python_type_constructor and\n+                      entry.type.name == \"dataclasses.InitVar\")\n+        # TODO - classvars aren't included in \"var_entries\" so are missed here\n+        # and thus this code is never triggered\n+        is_classvar = (entry.type.is_special_python_type_constructor and\n+                       entry.type.name == \"typing.ClassVar\")\n+        if name in transform.removed_assignments:\n+            assignment = transform.removed_assignments[name]\n+            if (isinstance(assignment, ExprNodes.CallNode)\n+                    and assignment.function.as_cython_attribute() == \"dataclasses.field\"):\n+                # I believe most of this is well-enforced when it's treated as a directive\n+                # but it doesn't hurt to make sure\n+                if (not isinstance(assignment, ExprNodes.GeneralCallNode)\n+                        or not isinstance(assignment.positional_args, ExprNodes.TupleNode)\n+                        or assignment.positional_args.args\n+                        or not isinstance(assignment.keyword_args, ExprNodes.DictNode)):\n+                    error(assignment.pos, \"Call to 'cython.dataclasses.field' must only consist \"\n+                          \"of compile-time keyword arguments\")\n+                    continue\n+                keyword_args = assignment.keyword_args.as_python_dict()\n+                if 'default' in keyword_args and 'default_factory' in keyword_args:\n+                    error(assignment.pos, \"cannot specify both default and default_factory\")\n+                    continue\n+                field = Field(node.pos, **keyword_args)\n+            else:\n+                if isinstance(assignment, ExprNodes.CallNode):\n+                    func = assignment.function\n+                    if ((func.is_name and func.name == \"field\")\n+                            or (func.is_attribute and func.attribute == \"field\")):\n+                        warning(assignment.pos, \"Do you mean cython.dataclasses.field instead?\", 1)\n+                if assignment.type in [Builtin.list_type, Builtin.dict_type, Builtin.set_type]:\n+                    # The standard library module generates a TypeError at runtime\n+                    # in this situation.\n+                    # Error message is copied from CPython\n+                    error(assignment.pos, \"mutable default <class '{0}'> for field {1} is not allowed: \"\n+                          \"use default_factory\".format(assignment.type.name, name))\n+\n+                field = Field(node.pos, default=assignment)\n+        else:\n+            field = Field(node.pos)\n+        field.is_initvar = is_initvar\n+        field.is_classvar = is_classvar\n+        if entry.visibility == \"private\":\n+            field.private = True\n+        fields[name] = field\n+    node.entry.type.dataclass_fields = fields\n+    return fields\n+\n+def handle_cclass_dataclass(node, dataclass_args, analyse_decs_transform):\n+    # default argument values from https://docs.python.org/3/library/dataclasses.html\n+    kwargs = dict(init=True, repr=True, eq=True,\n+                  order=False, unsafe_hash=False, frozen=False)\n+    if dataclass_args is not None:\n+        if dataclass_args[0]:\n+            error(node.pos, \"cython.dataclasses.dataclass takes no positional arguments\")\n+        for k, v in dataclass_args[1].items():\n+            if k not in kwargs:\n+                error(node.pos,\n+                      \"cython.dataclasses.dataclass() got an unexpected keyword argument '%s'\" % k)\n+            if not isinstance(v, ExprNodes.BoolNode):\n+                error(node.pos,\n+                      \"Arguments passed to cython.dataclasses.dataclass must be True or False\")\n+            kwargs[k] = v\n+\n+    fields = process_class_get_fields(node)\n+\n+    dataclass_module = make_dataclasses_module_callnode(node.pos)\n+\n+    # create __dataclass_params__ attribute. I try to use the exact\n+    # `_DataclassParams` class defined in the standard library module if at all possible\n+    # for maximum duck-typing compatibility.\n+    dataclass_params_func = ExprNodes.AttributeNode(node.pos, obj=dataclass_module,\n+                                                    attribute=EncodedString(\"_DataclassParams\"))\n+    dataclass_params_keywords = ExprNodes.DictNode.from_pairs(\n+        node.pos,\n+        [ (ExprNodes.IdentifierStringNode(node.pos, value=EncodedString(k)),\n+           ExprNodes.BoolNode(node.pos, value=v))\n+          for k, v in kwargs.items() ])\n+    dataclass_params = ExprNodes.GeneralCallNode(node.pos,\n+                                                 function = dataclass_params_func,\n+                                                 positional_args = ExprNodes.TupleNode(node.pos, args=[]),\n+                                                 keyword_args = dataclass_params_keywords)\n+    dataclass_params_assignment = Nodes.SingleAssignmentNode(\n+        node.pos,\n+        lhs = ExprNodes.NameNode(node.pos, name=EncodedString(\"__dataclass_params__\")),\n+        rhs = dataclass_params)\n+\n+    dataclass_fields_stats = _set_up_dataclass_fields(node, fields, dataclass_module)\n+\n+    stats = Nodes.StatListNode(node.pos,\n+                               stats=[dataclass_params_assignment] + dataclass_fields_stats)\n+\n+    code_lines = []\n+    placeholders = {}\n+    extra_stats = []\n+    for cl, ph, es in [ generate_init_code(kwargs['init'], node, fields),\n+                        generate_repr_code(kwargs['repr'], node, fields),\n+                        generate_eq_code(kwargs['eq'], node, fields),\n+                        generate_order_code(kwargs['order'], node, fields),\n+                        generate_hash_code(kwargs['unsafe_hash'], kwargs['eq'], kwargs['frozen'], node, fields) ]:\n+        code_lines.append(cl)\n+        placeholders.update(ph)\n+        extra_stats.extend(extra_stats)\n+\n+    code_lines = \"\\n\".join(code_lines)\n+    code_tree = TreeFragment(code_lines, level='c_class', pipeline=[NormalizeTree(node.scope)]\n+                            ).substitute(placeholders)\n+\n+    stats.stats += (code_tree.stats + extra_stats)\n+\n+    # turn off annotation typing, so all arguments to __init__ are accepted as\n+    # generic objects and thus can accept _HAS_DEFAULT_FACTORY.\n+    # Type conversion comes later\n+    comp_directives = Nodes.CompilerDirectivesNode(node.pos,\n+        directives=node.scope.directives.copy(),\n+        body=stats)\n+    comp_directives.directives['annotation_typing'] = False\n+\n+    comp_directives.analyse_declarations(node.scope)\n+    # probably already in this scope, but it doesn't hurt to make sure\n+    analyse_decs_transform.enter_scope(node, node.scope)\n+    analyse_decs_transform.visit(comp_directives)\n+    analyse_decs_transform.exit_scope()\n+\n+    node.body.stats.append(comp_directives)\n+\n+def generate_init_code(init, node, fields):\n+    \"\"\"\n+    All of these \"generate_*_code\" functions return a tuple of:\n+    - code string\n+    - placeholder dict (often empty)\n+    - stat list (often empty)\n+    which can then be combined later and processed once.\n+\n+    Notes on CPython generated \"__init__\":\n+    * Implemented in `_init_fn`.\n+    * The use of the `dataclasses._HAS_DEFAULT_FACTORY` sentinel value as\n+      the default argument for fields that need constructing with a factory\n+      function is copied from the CPython implementation. (`None` isn't\n+      suitable because it could also be a value for the user to pass.)\n+      There's no real reason why it needs importing from the dataclasses module\n+      though - it could equally be a value generated by Cython when the module loads.\n+    * seen_default and the associated error message are copied directly from Python\n+    * Call to user-defined __post_init__ function (if it exists) is copied from\n+      CPython.\n+    \"\"\"\n+    if not init or node.scope.lookup_here(\"__init__\"):\n+        return \"\", {}, []\n+    # selfname behaviour copied from the cpython module\n+    selfname = \"__dataclass_self__\" if \"self\" in fields else \"self\"\n+    args = [selfname]\n+\n+    placeholders = {}\n+    placeholder_count = [0]\n+\n+    # create a temp to get _HAS_DEFAULT_FACTORY\n+    dataclass_module = make_dataclasses_module_callnode(node.pos)\n+    has_default_factory = ExprNodes.AttributeNode(\n+        node.pos,\n+        obj=dataclass_module,\n+        attribute=EncodedString(\"_HAS_DEFAULT_FACTORY\")\n+    )\n+\n+    def get_placeholder_name():\n+        while True:\n+            name = \"INIT_PLACEHOLDER_%s\" % placeholder_count[0]\n+            if (name not in placeholders\n+                    and name not in fields):\n+                # make sure name isn't already used and doesn't\n+                # conflict with a variable name (which is unlikely but possible)\n+                break\n+            placeholder_count[0] += 1\n+        return name\n+\n+    default_factory_placeholder = get_placeholder_name()\n+    placeholders[default_factory_placeholder] = has_default_factory\n+\n+    function_body_code_lines = []\n+\n+    seen_default = False\n+    for name, field in fields.items():\n+        if not field.init.value:\n+            continue\n+        entry = node.scope.lookup(name)\n+        if entry.annotation:\n+            annotation = u\": %s\" % entry.annotation.string.value\n+        else:\n+            annotation = u\"\"\n+        assignment = u''\n+        if field.default is not MISSING or field.default_factory is not MISSING:\n+            seen_default = True\n+            if field.default_factory is not MISSING:\n+                ph_name = default_factory_placeholder\n+            else:\n+                ph_name = get_placeholder_name()\n+                placeholders[ph_name] = field.default  # should be a node\n+            assignment = u\" = %s\" % ph_name\n+        elif seen_default:\n+            error(entry.pos, (\"non-default argument '%s' follows default argument \"\n+                              \"in dataclass __init__\") % name)\n+            return \"\", {}, []\n+\n+        args.append(u\"%s%s%s\" % (name, annotation, assignment))\n+\n+        if field.is_initvar:\n+            continue\n+        elif field.default_factory is MISSING:\n+            if field.init.value:\n+                function_body_code_lines.append(u\"    %s.%s = %s\" % (selfname, name, name))\n+        else:\n+            ph_name = get_placeholder_name()\n+            placeholders[ph_name] = field.default_factory\n+            if field.init.value:\n+                # close to:\n+                # def __init__(self, name=_PLACEHOLDER_VALUE):\n+                #     self.name = name_default_factory() if name is _PLACEHOLDER_VALUE else name\n+                function_body_code_lines.append(u\"    %s.%s = %s() if %s is %s else %s\" % (\n+                    selfname, name, ph_name, name, default_factory_placeholder, name))\n+            else:\n+                # still need to use the default factory to initialize\n+                function_body_code_lines.append(u\"    %s.%s = %s()\"\n+                                  % (selfname, name, ph_name))\n+\n+    args = u\", \".join(args)\n+    func_def = u\"def __init__(%s):\" % args\n+\n+    code_lines = [func_def] + (function_body_code_lines or [\"pass\"])\n+\n+    if node.scope.lookup(\"__post_init__\"):\n+        post_init_vars = \", \".join(name for name, field in fields.items()\n+                                   if field.is_initvar)\n+        code_lines.append(\"    %s.__post_init__(%s)\" % (selfname, post_init_vars))",
+            "html_url": "https://github.com/cython/cython/pull/3400#discussion_r781838425",
+            "id": 781838425,
+            "in_reply_to_id": 781221129,
+            "line": 373,
+            "node_id": "PRRC_kwDOABDGAc4umehZ",
+            "original_commit_id": "a25b746532149f254ca28b4ef1567ea230d967aa",
+            "original_line": 373,
+            "original_position": 373,
+            "original_start_line": 370,
+            "path": "Cython/Compiler/Dataclass.py",
+            "position": 373,
+            "pull_request_review_id": 848787477,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/3400",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/781838425/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 370,
+            "start_side": "RIGHT",
+            "updated_at": "2022-01-11T07:55:32Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/781838425",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
         }
     ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3400/comments",
@@ -24893,7 +25363,7 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "74d7d1968cad2a66d653d31572f8a35a516121d3",
+    "merge_commit_sha": "a290e3348c33812d68d3e28fdc7fdf6ff3e39a19",
     "merged_at": null,
     "milestone": {
         "closed_at": null,
@@ -24926,10 +25396,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
         "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
         "number": 58,
-        "open_issues": 33,
+        "open_issues": 34,
         "state": "open",
         "title": "3.0",
-        "updated_at": "2022-01-05T16:26:52Z",
+        "updated_at": "2022-01-07T09:14:50Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
     "node_id": "MDExOlB1bGxSZXF1ZXN0Mzg1MTk5NDgz",
@@ -24942,7 +25412,7 @@
     "state": "open",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/a25b746532149f254ca28b4ef1567ea230d967aa",
     "title": "cdef dataclasses",
-    "updated_at": "2022-01-05T21:32:11Z",
+    "updated_at": "2022-01-11T07:55:32Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/3400",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
