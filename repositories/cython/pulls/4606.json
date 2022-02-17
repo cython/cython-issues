@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/4606"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/39c0406eee4caa87bf387307a26812a60e5e8ed7"
+            "href": "https://api.github.com/repos/cython/cython/statuses/ba32dc50ede55cbae84f81dfcc9c1861ded92ad2"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1241,
-            "forks_count": 1241,
+            "forks": 1242,
+            "forks_count": 1242,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -93,8 +93,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1039,
-            "open_issues_count": 1039,
+            "open_issues": 1040,
+            "open_issues_count": 1040,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -117,11 +117,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2022-02-10T13:37:16Z",
+            "pushed_at": "2022-02-13T14:10:25Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
             "size": 65476,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 6777,
+            "stargazers_count": 6784,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -140,11 +140,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2022-02-10T11:38:11Z",
+            "updated_at": "2022-02-13T09:03:45Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 6777,
-            "watchers_count": 6777
+            "watchers": 6784,
+            "watchers_count": 6784
         },
         "sha": "b1b23de4c7bb90db47353de04ba87c9bdb149890",
         "user": {
@@ -170,7 +170,211 @@
     },
     "body": "The previous implementation was mostly unaware of the parsing context, whether C types were allowed at all or not. It returned what it found most appropriate. This was often wrong, e.g. for `Optional[float]`, where the Python `float` type is required in order to support None values.\r\n\r\nThis PR cleans this up and uses a status flag on the current scope to decide whether the analysis happens in a context that allows C types or whether the Python types should be preferred on ambiguity. Compatible types can also switch back and forth along the analysis path, specifically `float` / C `double`, `bool` / `bint` and `complex` / `double complex`. Since there is more than one such type, this equivalence was added to the type system.\r\n\r\nSee https://github.com/cython/cython/issues/3883",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4606#discussion_r805049804"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4606"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/805049804"
+                }
+            },
+            "author_association": "COLLABORATOR",
+            "body": "```suggestion\r\n                is_cdef = 0\r\n                if not type.is_pyobject:\r\n                    type = type.equivalent_type or py_object_type\r\n```\r\n\r\nThis is sufficient to get the annotation_typing and cdef_class_dataclasses tests to compile successfully on my PC. Both tests look to need minor tweaks to get them to pass after that (but that's stuff like the line numbers on warnings rather that real problems)",
+            "commit_id": "ba32dc50ede55cbae84f81dfcc9c1861ded92ad2",
+            "created_at": "2022-02-11T22:34:24Z",
+            "diff_hunk": "@@ -2301,17 +2329,15 @@ def get_refcounted_entries(self, include_weakref=False,\n         return have_entries, (py_attrs, py_buffers, memoryview_slices)\n \n     def declare_var(self, name, type, pos,\n-                    cname = None, visibility = 'private',\n-                    api = 0, in_pxd = 0, is_cdef = 0):\n+                    cname=None, visibility='private',\n+                    api=False, in_pxd=False, is_cdef=False, pytyping_modifiers=None):\n         name = self.mangle_class_private_name(name)\n \n-        if type.python_type_constructor_name == \"typing.ClassVar\":\n-            is_cdef = 0\n-            type = type.resolve()\n-\n-        if (type.python_type_constructor_name == \"dataclasses.InitVar\" and\n-                'dataclasses.dataclass' not in self.directives):\n-            error(pos, \"Use of cython.dataclasses.InitVar does not make sense outside a dataclass\")\n+        if pytyping_modifiers:\n+            if \"typing.ClassVar\" in pytyping_modifiers:\n+                is_cdef = 0",
+            "html_url": "https://github.com/cython/cython/pull/4606#discussion_r805049804",
+            "id": 805049804,
+            "line": 2338,
+            "node_id": "PRRC_kwDOABDGAc4v_BXM",
+            "original_commit_id": "39c0406eee4caa87bf387307a26812a60e5e8ed7",
+            "original_line": 2338,
+            "original_position": 207,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Symtab.py",
+            "position": 207,
+            "pull_request_review_id": 880743837,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4606",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/805049804/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-02-11T22:34:25Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/805049804",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4606#discussion_r805170982"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4606"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/805170982"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Eventually, I would like to allow C types here. Not for the class variable but for its usage, type inference, etc.\r\nHowever, it seems that that time isn't now.\r\nI don't think requiring an object type here is a regression in any way. It's just a missing feature.\r\nLet's see if it works. Do you think we should issue a warning here? If users request a C type, and Cython overrides it, I think they should know.",
+            "commit_id": "ba32dc50ede55cbae84f81dfcc9c1861ded92ad2",
+            "created_at": "2022-02-12T15:14:11Z",
+            "diff_hunk": "@@ -2301,17 +2329,15 @@ def get_refcounted_entries(self, include_weakref=False,\n         return have_entries, (py_attrs, py_buffers, memoryview_slices)\n \n     def declare_var(self, name, type, pos,\n-                    cname = None, visibility = 'private',\n-                    api = 0, in_pxd = 0, is_cdef = 0):\n+                    cname=None, visibility='private',\n+                    api=False, in_pxd=False, is_cdef=False, pytyping_modifiers=None):\n         name = self.mangle_class_private_name(name)\n \n-        if type.python_type_constructor_name == \"typing.ClassVar\":\n-            is_cdef = 0\n-            type = type.resolve()\n-\n-        if (type.python_type_constructor_name == \"dataclasses.InitVar\" and\n-                'dataclasses.dataclass' not in self.directives):\n-            error(pos, \"Use of cython.dataclasses.InitVar does not make sense outside a dataclass\")\n+        if pytyping_modifiers:\n+            if \"typing.ClassVar\" in pytyping_modifiers:\n+                is_cdef = 0",
+            "html_url": "https://github.com/cython/cython/pull/4606#discussion_r805170982",
+            "id": 805170982,
+            "in_reply_to_id": 805049804,
+            "line": 2338,
+            "node_id": "PRRC_kwDOABDGAc4v_e8m",
+            "original_commit_id": "39c0406eee4caa87bf387307a26812a60e5e8ed7",
+            "original_line": 2338,
+            "original_position": 207,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Symtab.py",
+            "position": 207,
+            "pull_request_review_id": 880863985,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4606",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/805170982/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-02-12T15:14:12Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/805170982",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/4606#discussion_r805173929"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/4606"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/805173929"
+                }
+            },
+            "author_association": "COLLABORATOR",
+            "body": "I think a warning is probably a good idea.\r\n\r\nPossibly an error for anything that genuinely can't be replaced by a Python object too?",
+            "commit_id": "ba32dc50ede55cbae84f81dfcc9c1861ded92ad2",
+            "created_at": "2022-02-12T15:43:18Z",
+            "diff_hunk": "@@ -2301,17 +2329,15 @@ def get_refcounted_entries(self, include_weakref=False,\n         return have_entries, (py_attrs, py_buffers, memoryview_slices)\n \n     def declare_var(self, name, type, pos,\n-                    cname = None, visibility = 'private',\n-                    api = 0, in_pxd = 0, is_cdef = 0):\n+                    cname=None, visibility='private',\n+                    api=False, in_pxd=False, is_cdef=False, pytyping_modifiers=None):\n         name = self.mangle_class_private_name(name)\n \n-        if type.python_type_constructor_name == \"typing.ClassVar\":\n-            is_cdef = 0\n-            type = type.resolve()\n-\n-        if (type.python_type_constructor_name == \"dataclasses.InitVar\" and\n-                'dataclasses.dataclass' not in self.directives):\n-            error(pos, \"Use of cython.dataclasses.InitVar does not make sense outside a dataclass\")\n+        if pytyping_modifiers:\n+            if \"typing.ClassVar\" in pytyping_modifiers:\n+                is_cdef = 0",
+            "html_url": "https://github.com/cython/cython/pull/4606#discussion_r805173929",
+            "id": 805173929,
+            "in_reply_to_id": 805049804,
+            "line": 2338,
+            "node_id": "PRRC_kwDOABDGAc4v_fqp",
+            "original_commit_id": "39c0406eee4caa87bf387307a26812a60e5e8ed7",
+            "original_line": 2338,
+            "original_position": 207,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Symtab.py",
+            "position": 207,
+            "pull_request_review_id": 880866321,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/4606",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/805173929/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-02-12T15:43:18Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/805173929",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4606/comments",
     "commit_data": [
         {
@@ -1515,6 +1719,85 @@
             ],
             "sha": "39c0406eee4caa87bf387307a26812a60e5e8ed7",
             "url": "https://api.github.com/repos/cython/cython/commits/39c0406eee4caa87bf387307a26812a60e5e8ed7"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/ba32dc50ede55cbae84f81dfcc9c1861ded92ad2/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-02-12T15:14:52Z",
+                    "email": "stefan_ml@behnel.de",
+                    "name": "scoder"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-02-12T15:14:52Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Force ClassVar[...] types to be object types.\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
+                "tree": {
+                    "sha": "d402739daa888de25520bcbc25a42bff15c009c4",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/d402739daa888de25520bcbc25a42bff15c009c4"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/ba32dc50ede55cbae84f81dfcc9c1861ded92ad2",
+                "verification": {
+                    "payload": "tree d402739daa888de25520bcbc25a42bff15c009c4\nparent 39c0406eee4caa87bf387307a26812a60e5e8ed7\nauthor scoder <stefan_ml@behnel.de> 1644678892 +0100\ncommitter GitHub <noreply@github.com> 1644678892 +0100\n\nForce ClassVar[...] types to be object types.\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJiB87sCRBK7hj4Ov3rIwAAlLwIAB0ov2kjKxj99PNH9f/gq0uX\nUKDmuRxbCRGPbbNXhX+cLJgeaZOQ6bmJFhaBlsgeOA3fFDfboJsOSzFUyCkRoqj2\nb44T5EdwC1Ia2LbSSJyFUj9XV77VCKhcQ2yXuJ15gzvn/BhzFm/UXUFDymWCAiW+\niZt/MylYV12FVtlYHikw2GYUxkUGzsJIUU0+1+2x3rdsEXtO92bNK9lgzgoK+ykH\n60+rj6pqgYXyjbNbmKmADETKDIrKqhT+hSYKzObvE+2hPwo3SAioxx5IQJhTng8O\nRJl+xOHlezZl/f15TOruRJiA8S69l1IXeXzPaBRB+dzazIKxaLo0jucAyflkMh8=\n=mXKr\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/ba32dc50ede55cbae84f81dfcc9c1861ded92ad2",
+            "node_id": "C_kwDOACXZ0toAKGJhMzJkYzUwZWRlNTVjYmFlODRmODFkZmNjOWMxODYxZGVkOTJhZDI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/39c0406eee4caa87bf387307a26812a60e5e8ed7",
+                    "sha": "39c0406eee4caa87bf387307a26812a60e5e8ed7",
+                    "url": "https://api.github.com/repos/cython/cython/commits/39c0406eee4caa87bf387307a26812a60e5e8ed7"
+                }
+            ],
+            "sha": "ba32dc50ede55cbae84f81dfcc9c1861ded92ad2",
+            "url": "https://api.github.com/repos/cython/cython/commits/ba32dc50ede55cbae84f81dfcc9c1861ded92ad2"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/4606/commits",
@@ -1608,9 +1891,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/scoder/cython/pulls{/number}",
-            "pushed_at": "2022-02-10T13:14:25Z",
+            "pushed_at": "2022-02-12T15:31:09Z",
             "releases_url": "https://api.github.com/repos/scoder/cython/releases{/id}",
-            "size": 65601,
+            "size": 65627,
             "ssh_url": "git@github.com:scoder/cython.git",
             "stargazers_count": 9,
             "stargazers_url": "https://api.github.com/repos/scoder/cython/stargazers",
@@ -1628,7 +1911,7 @@
             "watchers": 9,
             "watchers_count": 9
         },
-        "sha": "39c0406eee4caa87bf387307a26812a60e5e8ed7",
+        "sha": "ba32dc50ede55cbae84f81dfcc9c1861ded92ad2",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
             "events_url": "https://api.github.com/users/scoder/events{/privacy}",
@@ -1674,11 +1957,11 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "75c1a8a7037afc8d5a1c586256caef8f39f9c1cf",
+    "merge_commit_sha": "6fcdf512a33d2fc995be2a3c2e08b55d7e4c7daa",
     "merged_at": null,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 554,
+        "closed_issues": 556,
         "created_at": "2018-08-18T06:33:08Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -1707,10 +1990,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
         "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
         "number": 58,
-        "open_issues": 38,
+        "open_issues": 36,
         "state": "open",
         "title": "3.0",
-        "updated_at": "2022-02-08T12:10:56Z",
+        "updated_at": "2022-02-10T22:22:09Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
     "node_id": "PR_kwDOABDGAc4xzhDM",
@@ -1721,9 +2004,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/4606/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/39c0406eee4caa87bf387307a26812a60e5e8ed7",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/ba32dc50ede55cbae84f81dfcc9c1861ded92ad2",
     "title": "Fix annotation type analysis for Python \"typing\" types",
-    "updated_at": "2022-02-10T13:14:27Z",
+    "updated_at": "2022-02-12T15:43:18Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/4606",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
