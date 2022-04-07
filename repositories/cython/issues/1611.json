@@ -3,7 +3,7 @@
     "assignee": null,
     "assignees": [],
     "author_association": "NONE",
-    "body": "[We](https://github.com/SFTtech/openage)'d like to see support for variadic template arguments, such as this:\r\n\r\ntest.h:\r\n``` cpp\r\ntemplate<typename RetT, typename ... VARARGS>\r\nRetT foo(VARARGS ...);\r\n```\r\n\r\ntest.pyx:\r\n``` cython\r\ncdef extern from \"test.h\":\r\n    cdef RetT foo[RetT, ... VARARGS](... VARARGS)\r\n\r\ndef test():\r\n    cdef int i = foo[int, float, int](1, 2.5, 3)\r\n```\r\n\r\nThis would allow Cython's `libcpp` to easily support many of C++11's new types, including `std::tuple` and `std::function`.\r\n\r\nSupport for the latter in particular would prove quite useful in passing around function pointers between Cython and C++.\r\n\r\n\r\nWe have tried to implement this feature ourselfes, but we're entirely unfamiliar with Cython's codebase, and all our attempts ended in unsatisfactorily hacky, unstable code. We believe that any experienced Cython developer would be able to properly implement this in a matter of a few hours, as it seems like a rather minor feature.\r\n\r\nThe current workaround for the non-existance of this feature involves typedefs for every possible number of arguments, like this:\r\n\r\n``` cpp\r\ntemplate<typename ... Ts>\r\nstruct S {};\r\n\r\nusing S0 = S<>;\r\n\r\ntemplate<typename T0>\r\nusing S1 = S<T0>;\r\n\r\ntemplate<typename T0, typename T1>\r\nusing S2 = S<T0, T1>;\r\n\r\ntemplate<typename T0, typename T1, typename T2>\r\nusing S3 = S<T0, T1, T2>;\r\n```\r\n\r\nthen exporting all of S0, S1, ... individually in the `.pxd` file.\r\n\r\n[This is inconvenient, but acceptable](https://github.com/SFTtech/openage/blob/0dd8667f6accdfbd9473f920a58c4f2d52db4cae/libopenage/pyinterface/functional.h).\r\n\r\nNow assume that `S` has a member function `f`:\r\n\r\n``` cpp\r\ntemplate<typename ... Us>\r\nvoid f(Ts..., Us ...);\r\n```\r\n\r\nDue to the nature of C++, the same trick as above does not work, and the user will be forced to clutter the C++ code with a function body for every possible `len(Us)`. Even worse, the `.pxd` file will now contain a quadratic number of wrappers (one for every possible combination of `len(Ts)`, `len(Us)`), all of them extremely prone to mistakes.",
+    "body": "[We](https://github.com/SFTtech/openage)'d like to see support for variadic template arguments, such as this:\r\n\r\ntest.h:\r\n``` cpp\r\ntemplate<typename RetT, typename ... VARARGS>\r\nRetT foo(VARARGS ...);\r\n```\r\n\r\ntest.pyx:\r\n``` cython\r\ncdef extern from \"test.h\":\r\n    cdef RetT foo[RetT, ... VARARGS](VARARGS ...)\r\n\r\ndef test():\r\n    cdef int i = foo[int, float, int](1, 2.5, 3)\r\n```\r\n\r\nThis would allow Cython's `libcpp` to easily support many of C++11's new types, including `std::tuple` and `std::function`.\r\n\r\nSupport for the latter in particular would prove quite useful in passing around function pointers between Cython and C++.\r\n\r\n\r\nWe have tried to implement this feature ourselfes, but we're entirely unfamiliar with Cython's codebase, and all our attempts ended in unsatisfactorily hacky, unstable code. We believe that any experienced Cython developer would be able to properly implement this in a matter of a few hours, as it seems like a rather minor feature.\r\n\r\nThe current workaround for the non-existance of this feature involves typedefs for every possible number of arguments, like this:\r\n\r\n``` cpp\r\ntemplate<typename ... Ts>\r\nstruct S {};\r\n\r\nusing S0 = S<>;\r\n\r\ntemplate<typename T0>\r\nusing S1 = S<T0>;\r\n\r\ntemplate<typename T0, typename T1>\r\nusing S2 = S<T0, T1>;\r\n\r\ntemplate<typename T0, typename T1, typename T2>\r\nusing S3 = S<T0, T1, T2>;\r\n```\r\n\r\nthen exporting all of S0, S1, ... individually in the `.pxd` file.\r\n\r\n[This is inconvenient, but acceptable](https://github.com/SFTtech/openage/blob/0dd8667f6accdfbd9473f920a58c4f2d52db4cae/libopenage/pyinterface/functional.h).\r\n\r\nNow assume that `S` has a member function `f`:\r\n\r\n``` cpp\r\ntemplate<typename ... Us>\r\nvoid f(Ts..., Us ...);\r\n```\r\n\r\nDue to the nature of C++, the same trick as above does not work, and the user will be forced to clutter the C++ code with a function body for every possible `len(Us)`. Even worse, the `.pxd` file will now contain a quadratic number of wrappers (one for every possible combination of `len(Ts)`, `len(Us)`), all of them extremely prone to mistakes.",
     "closed_at": null,
     "comment_data": [
         {
@@ -15,6 +15,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/1611",
             "node_id": "MDEyOklzc3VlQ29tbWVudDI4NjcwOTYzNw==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/286709637/reactions"
+            },
             "updated_at": "2017-03-15T11:02:51Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/286709637",
             "user": {
@@ -47,6 +59,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/1611",
             "node_id": "MDEyOklzc3VlQ29tbWVudDI4Njc3MDU2OQ==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/286770569/reactions"
+            },
             "updated_at": "2017-03-15T15:05:38Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/286770569",
             "user": {
@@ -79,6 +103,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/1611",
             "node_id": "MDEyOklzc3VlQ29tbWVudDI4NjgxMjEyNA==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/286812124/reactions"
+            },
             "updated_at": "2017-03-15T17:09:37Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/286812124",
             "user": {
@@ -178,10 +214,23 @@
     "node_id": "MDU6SXNzdWUyMDk2MDYzOTg=",
     "number": 1611,
     "performed_via_github_app": null,
+    "reactions": {
+        "+1": 10,
+        "-1": 0,
+        "confused": 0,
+        "eyes": 0,
+        "heart": 0,
+        "hooray": 0,
+        "laugh": 0,
+        "rocket": 0,
+        "total_count": 10,
+        "url": "https://api.github.com/repos/cython/cython/issues/1611/reactions"
+    },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
+    "timeline_url": "https://api.github.com/repos/cython/cython/issues/1611/timeline",
     "title": "Variadic template support",
-    "updated_at": "2021-08-22T12:29:20Z",
+    "updated_at": "2022-04-04T15:42:04Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1611",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/673543?v=4",
