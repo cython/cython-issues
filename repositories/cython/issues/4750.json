@@ -4,7 +4,7 @@
     "assignees": [],
     "author_association": "CONTRIBUTOR",
     "body": "Hello up there. I'm writing a custom string class. I already know that behaviour of `__add__` is different in between Cython 3 and Cython < 3. In particular I'm aware that Cython < 3 does not install user-provided `__radd__` into class's arithmetic methods.\r\n\r\nhttps://cython.readthedocs.io/en/latest/src/userguide/migrating_to_cy30.html#arithmetic-special-methods\r\n\r\nSo for my class to support both Cython 3 and Cython < 3, in my `__add__` I wanted to add explicit check for \"reverted\" `__add__` call and manually invoke my `__radd__` in that case. But, as the test program shows, that manual `__radd__` invocation completely misses provided `__radd__` code definition, and, seemingly just wrongly calls `__radd__` from underlying base class.\r\n\r\nPlease find details of the bug below:\r\n\r\n\r\n**To Reproduce**\r\nCode to reproduce the behaviour:\r\n\r\n```cython\r\n# cython: language_level=3\r\n\r\ncdef class MyStr(unicode):\r\n\r\n    def __repr__(self):\r\n        return \"u(\" + unicode.__repr__(self) + \")\"\r\n\r\n    def __add__(a, b):\r\n        print('Add', type(a), type(b))\r\n\r\n        # Support for Cython 2 as Cython < 3 does not support __radd__:\r\n        # https://cython.readthedocs.io/en/latest/src/userguide/migrating_to_cy30.html#arithmetic-special-methods\r\n        if type(a) is not MyStr:\r\n            assert type(b) is MyStr, type(b)\r\n            return b.__radd__(a)\r\n\r\n        return MyStr(unicode.__add__(a, b))\r\n\r\n\r\n    def __radd__(b, a):\r\n        # a.__add__(b) returned NotImplementedError, e.g. for unicode.__add__(MyStr)\r\n        print('RAdd', type(b), type(a))\r\n        return MyStr(unicode(a).__add__(b))\r\n\r\n\r\n\r\n\r\na = MyStr(u'a')\r\nb = u'b'\r\n\r\nprint('a+b:', repr(a + b))\r\nprint('b+a:', repr(b + a))\r\n```\r\n\r\n**Expected behavior**\r\n\r\nWith Cython 3 it does work ok as expected:\r\n\r\n```console\r\n$ cythonize -i radd.pyx && python -c 'import radd'\r\nCompiling /home/kirr/tmp/trashme/radd.pyx because it changed.\r\n[1/1] Cythonizing /home/kirr/tmp/trashme/radd.pyx\r\n...\r\n\r\nAdd <class 'radd.MyStr'> <class 'str'>\r\na+b: u('ab')\r\nRAdd <class 'radd.MyStr'> <class 'str'>\r\nb+a: u('ba')\r\n```\r\n```console\r\n$ cython --version\r\nCython version 3.0.0a10\r\n```\r\n\r\nHowever with Cython `0.29.28-21-g60ca7eb74` (today's 0.29.x) it fails with RecursionError because provided `__radd__` is never called:\r\n\r\n```console\r\n$ cython --version\r\nCython version 0.29.28\r\n\r\n$ cythonize -i radd.pyx && python -c 'import radd'\r\nCompiling /home/kirr/tmp/trashme/radd.pyx because it changed.\r\n[1/1] Cythonizing /home/kirr/tmp/trashme/radd.pyx\r\n...\r\n\r\nAdd <class 'radd.MyStr'> <class 'str'>\r\na+b: u('ab')\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\n...\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nAdd <class 'str'> <class 'radd.MyStr'>\r\nTraceback (most recent call last):\r\n  File \"<string>\", line 1, in <module>\r\n  File \"radd.pyx\", line 32, in init radd\r\n    print('b+a:', repr(b + a))\r\n  File \"radd.pyx\", line 15, in radd.MyStr.__add__\r\n    return b.__radd__(a)\r\n  File \"radd.pyx\", line 15, in radd.MyStr.__add__\r\n    return b.__radd__(a)\r\n  File \"radd.pyx\", line 15, in radd.MyStr.__add__\r\n    return b.__radd__(a)\r\n  [Previous line repeated 986 more times]\r\n  File \"radd.pyx\", line 9, in radd.MyStr.__add__\r\n    print('Add', type(a), type(b))\r\nRecursionError: maximum recursion depth exceeded while calling a Python object\r\n```\r\n\r\n**Environment (please complete the following information):**\r\n - OS: Linux\r\n - Python version: 3.9.2\r\n - Cython version: 0.29.28-21-g60ca7eb74\r\n\r\n\r\nThanks beforehand,\r\nKirill",
-    "closed_at": null,
+    "closed_at": "2022-05-11T22:00:06Z",
     "comment_data": [
         {
             "author_association": "MEMBER",
@@ -865,6 +865,36 @@
             "node_id": "MIE_lADOABDGAc5IA2xbzwAAAAGF3Bkd",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/6540761373"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": "fe98838ca28dff29d6b6d8c074c43290c9554ead",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/fe98838ca28dff29d6b6d8c074c43290c9554ead",
+            "created_at": "2022-05-11T22:00:07Z",
+            "event": "closed",
+            "id": 6593882642,
+            "node_id": "CE_lADOABDGAc5IA2xbzwAAAAGJBqoS",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/6593882642"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/4750/events",
@@ -894,7 +924,7 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 19,
+        "closed_issues": 21,
         "created_at": "2022-02-24T15:44:23Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -923,10 +953,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/89/labels",
         "node_id": "MI_kwDOABDGAc4Adaee",
         "number": 89,
-        "open_issues": 2,
+        "open_issues": 0,
         "state": "open",
         "title": "0.29.29",
-        "updated_at": "2022-05-03T21:53:57Z",
+        "updated_at": "2022-05-11T22:00:07Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/89"
     },
     "node_id": "I_kwDOABDGAc5IA2xb",
@@ -945,10 +975,10 @@
         "url": "https://api.github.com/repos/cython/cython/issues/4750/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4750/timeline",
     "title": "[BUG] 0.29.x: cdef class misses definition of __radd__, even if __radd__ is *explicitly* invoked",
-    "updated_at": "2022-05-03T13:32:39Z",
+    "updated_at": "2022-05-11T22:00:07Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4750",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/1794248?v=4",
