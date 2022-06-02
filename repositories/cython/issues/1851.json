@@ -5,8 +5,53 @@
     "author_association": "NONE",
     "body": "Example:\r\n\r\nc++:\r\n```c++\r\nclass SqBufferIoStream : public SqIoStream {\r\npublic:\r\n\tstatic std::shared_ptr<SqBufferIoStream> Open(const std::string& data);\r\n\tstatic std::shared_ptr<SqBufferIoStream> Open();\r\n};\r\n```\r\n\r\n\r\ncython:\r\n```python\r\ncdef extern from \"SqBufferIoStream.h\":\r\n    cdef cppclass SqBufferIoStream:\r\n        @staticmethod\r\n        shared_ptr[SqBufferIoStream] Open(const string s)\r\n        @staticmethod\r\n        shared_ptr[SqBufferIoStream] Open()\r\n```\r\n\r\n```\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n        for command, description in c_map:\r\n            p_map[command] = description\r\n        return p_map\r\n\r\n    def executeCommand(self, command, parameters):\r\n        cdef shared_ptr[SqInputStream] b = dynamic_pointer_cast[SqInputStream, SqBufferIoStream](SqBufferIoStream.Open(_json.dumps(parameters)))\r\n                                                                                                                     ^\r\n------------------------------------------------------------\r\n\r\nSqFoundationTypes.pyx:200:118: Call with wrong number of arguments (expected 0, got 1)\r\n```\r\n\r\nIf I change to:\r\n```python \r\ncdef extern from \"SqBufferIoStream.h\":\r\n    cdef cppclass SqBufferIoStream:\r\n        @staticmethod\r\n        shared_ptr[SqBufferIoStream] Open()\r\n        @staticmethod\r\n        shared_ptr[SqBufferIoStream] Open(const string s)\r\n```\r\n\r\n```\r\nError compiling Cython file:\r\n------------------------------------------------------------\r\n\r\n    def executeCommand(self, command, parameters):\r\n        cdef shared_ptr[SqInputStream] b = dynamic_pointer_cast[SqInputStream, SqBufferIoStream](SqBufferIoStream.Open(_json.dumps(parameters)))\r\n        cdef SqKeyValueList data = SqJsonParser.ParseAsSqValue(b).get().GetKeyValueList()\r\n        cdef SqKeyValueList c_kvl = self.c_this.get().ExecuteCommand(command, data)\r\n        cdef shared_ptr[SqBufferIoStream] buf = SqBufferIoStream.Open()\r\n                                                                    ^\r\n------------------------------------------------------------\r\n\r\nSqFoundationTypes.pyx:203:69: Call with wrong number of arguments (expected 1, got 0)\r\n```\r\n\r\nVersion:\r\n```\r\ncython --version\r\nCython version 0.25.2\r\n```\r\n\r\n",
     "closed_at": "2021-05-03T21:17:51Z",
-    "comment_data": [],
-    "comments": 0,
+    "comment_data": [
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "As a workaround until 3.0 is released here's how I solved it for my case using the example above:\r\n\r\n```cython\r\ncdef extern from \"SqBufferIoStream.h\":\r\n    cdef cppclass SqBufferIoStream:\r\n        @staticmethod\r\n        shared_ptr[SqBufferIoStream] Open1 \"Open\"(const string s)\r\n        @staticmethod\r\n        shared_ptr[SqBufferIoStream] Open0 \"Open\"()\r\n```\r\n\r\nThen just call it as `Open1` or `Open0` in the cython code and it will emit the correct code in the c++ file.",
+            "created_at": "2022-05-28T04:51:28Z",
+            "html_url": "https://github.com/cython/cython/issues/1851#issuecomment-1140173021",
+            "id": 1140173021,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1851",
+            "node_id": "IC_kwDOABDGAc5D9ajd",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1140173021/reactions"
+            },
+            "updated_at": "2022-05-28T04:51:28Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1140173021",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1644286?v=4",
+                "events_url": "https://api.github.com/users/matham/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matham/followers",
+                "following_url": "https://api.github.com/users/matham/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matham/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matham",
+                "id": 1644286,
+                "login": "matham",
+                "node_id": "MDQ6VXNlcjE2NDQyODY=",
+                "organizations_url": "https://api.github.com/users/matham/orgs",
+                "received_events_url": "https://api.github.com/users/matham/received_events",
+                "repos_url": "https://api.github.com/users/matham/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matham/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matham/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matham"
+            }
+        }
+    ],
+    "comments": 1,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1851/comments",
     "created_at": "2017-08-31T13:35:29Z",
     "event_data": [
@@ -252,6 +297,7 @@
             "id": 4680259647,
             "node_id": "MDExOkNsb3NlZEV2ZW50NDY4MDI1OTY0Nw==",
             "performed_via_github_app": null,
+            "state_reason": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/4680259647"
         },
         {
@@ -394,26 +440,26 @@
             "color": "444444",
             "default": false,
             "description": null,
-            "id": 425558824,
-            "name": "Type Analysis",
-            "node_id": "MDU6TGFiZWw0MjU1NTg4MjQ=",
-            "url": "https://api.github.com/repos/cython/cython/labels/Type%20Analysis"
+            "id": 425553654,
+            "name": "defect",
+            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
         },
         {
             "color": "444444",
             "default": false,
             "description": null,
-            "id": 425553654,
-            "name": "defect",
-            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
-            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+            "id": 425558824,
+            "name": "Type Analysis",
+            "node_id": "MDU6TGFiZWw0MjU1NTg4MjQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Type%20Analysis"
         }
     ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/1851/labels{/name}",
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 359,
+        "closed_issues": 606,
         "created_at": "2018-08-18T06:33:08Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -442,19 +488,33 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
         "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
         "number": 58,
-        "open_issues": 23,
+        "open_issues": 41,
         "state": "open",
         "title": "3.0",
-        "updated_at": "2021-05-03T21:18:34Z",
+        "updated_at": "2022-05-29T14:06:20Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
     "node_id": "MDU6SXNzdWUyNTQzMzY2ODU=",
     "number": 1851,
     "performed_via_github_app": null,
+    "reactions": {
+        "+1": 0,
+        "-1": 0,
+        "confused": 0,
+        "eyes": 0,
+        "heart": 0,
+        "hooray": 0,
+        "laugh": 0,
+        "rocket": 0,
+        "total_count": 0,
+        "url": "https://api.github.com/repos/cython/cython/issues/1851/reactions"
+    },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "closed",
+    "state_reason": "completed",
+    "timeline_url": "https://api.github.com/repos/cython/cython/issues/1851/timeline",
     "title": "Multiple static functions, with same name and different parameters in a class will only expose one",
-    "updated_at": "2021-05-03T21:18:23Z",
+    "updated_at": "2022-05-28T04:51:29Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1851",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/375704?v=4",
