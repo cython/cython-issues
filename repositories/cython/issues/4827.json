@@ -4,7 +4,7 @@
     "assignees": [],
     "author_association": "CONTRIBUTOR",
     "body": "Versions:\r\n\r\n* Cython ``0.29`` branch: commit [c0dfb9c2f592b7e0ece90ec83fbadcf6e6da3d47](https://github.com/cython/cython/commit/c0dfb9c2f592b7e0ece90ec83fbadcf6e6da3d47) (May 17, 2022)\r\n* Python 3.11.0b3+: commit [a848a9894d](https://github.com/python/cpython/commit/a848a9894d2b23386512df875a29c0ff6353e78f) (Jun  6 2022)\r\n\r\n\r\nReproducer, ``myext.pyx``:\r\n\r\n```\r\n# cython: language_level=3\r\ncdef extern from \"Python.h\":\r\n    ctypedef class types.CodeType [object PyCodeObject]:\r\n        pass\r\n```\r\n\r\nBuild the extension (I make the assumption that ``cythonize`` uses Python 3.11):\r\n\r\n```\r\ncythonize -i myext.pyx\r\n```\r\n\r\nImporting the C extension fails:\r\n\r\n```\r\n$ python3.11 -c 'import myext'\r\nTraceback (most recent call last):\r\n  File \"<string>\", line 1, in <module>\r\n  File \"myext.pyx\", line 1, in init myext\r\n    # cython: language_level=3\r\n                               \r\nValueError: types.CodeType size changed, may indicate binary incompatibility. Expected 168 from C header, got 160 from PyObject\r\n```\r\n\r\nTo get Python 3.11 with Cython, you can use for example:\r\n\r\n```\r\nwget https://www.python.org/ftp/python/3.11.0/Python-3.11.0b3.tar.xz\r\ntar -xf Python-3.11.0b3.tar.xz\r\ncd Python-3.11.0b3\r\n./configure --prefix /opt/py311\r\nmake\r\nmake install\r\ncd ..\r\n/opt/py311/bin/python3.11 -m pip install Cython\r\n```\r\n\r\nThen use ``/opt/py311/bin/cythonize``. You can use a different prefix.\r\n\r\n---\r\n\r\nThe problem is that ``tp_basicsize`` of ``&PyCode_Type`` is 160 bytes, whereas and ``sizeof(PyCodeObject)`` is 168 bytes.\r\n\r\n---\r\n\r\nIssue discovered when on my PR to update gevent to Python 3.11: https://github.com/gevent/gevent/pull/1872#issuecomment-1146149244\r\n\r\n@hroncok proposed a Cython pull request in Fedora: https://src.fedoraproject.org/rpms/Cython/pull-request/35\r\n\r\nI am working on reworking @hroncok's PR to propose a PR to the master branch of Cython.\r\n\r\ncc @encukou who helped to debug this tedious issue.",
-    "closed_at": null,
+    "closed_at": "2022-07-31T05:25:50Z",
     "comment_data": [
         {
             "author_association": "CONTRIBUTOR",
@@ -841,9 +841,53 @@
                 "type": "User",
                 "url": "https://api.github.com/users/encukou"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "This has been resolved by weakening the conditions in https://github.com/cython/cython/pull/4894",
+            "created_at": "2022-07-31T05:25:42Z",
+            "html_url": "https://github.com/cython/cython/issues/4827#issuecomment-1200351929",
+            "id": 1200351929,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4827",
+            "node_id": "IC_kwDOABDGAc5Hi-q5",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 1,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 1,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1200351929/reactions"
+            },
+            "updated_at": "2022-07-31T05:25:42Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1200351929",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
         }
     ],
-    "comments": 19,
+    "comments": 20,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4827/comments",
     "created_at": "2022-06-07T13:04:26Z",
     "event_data": [
@@ -1369,6 +1413,37 @@
             "performed_via_github_app": null,
             "state_reason": "reopened",
             "url": "https://api.github.com/repos/cython/cython/issues/events/7006113568"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2022-07-31T05:25:50Z",
+            "event": "closed",
+            "id": 7095864407,
+            "node_id": "CE_lADOABDGAc5LS_BczwAAAAGm8kxX",
+            "performed_via_github_app": null,
+            "state_reason": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/7095864407"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/4827/events",
@@ -1398,7 +1473,7 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 639,
+        "closed_issues": 677,
         "created_at": "2018-08-18T06:33:08Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -1427,10 +1502,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
         "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
         "number": 58,
-        "open_issues": 43,
+        "open_issues": 40,
         "state": "open",
         "title": "3.0",
-        "updated_at": "2022-07-19T06:53:36Z",
+        "updated_at": "2022-08-11T20:18:31Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
     "node_id": "I_kwDOABDGAc5LS_Bc",
@@ -1449,11 +1524,11 @@
         "url": "https://api.github.com/repos/cython/cython/issues/4827/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
-    "state_reason": "reopened",
+    "state": "closed",
+    "state_reason": "completed",
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4827/timeline",
     "title": "[BUG] Using types.CodeType in Python 3.11 fails with ValueError: types.CodeType size changed, may indicate binary incompatibility. Expected 168 from C header, got 160 from PyObject",
-    "updated_at": "2022-07-18T09:52:09Z",
+    "updated_at": "2022-07-31T05:25:50Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4827",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/194129?v=4",

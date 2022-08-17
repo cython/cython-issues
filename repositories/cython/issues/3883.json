@@ -4,10 +4,10 @@
     "assignees": [],
     "author_association": "MEMBER",
     "body": "In Cython, `def func(list arg)` allows `arg` to be `None`. In Python's PEP-484 `typing` universe, `def func(arg: list)` excludes `None` and passing `None` requires the spelling `def func(arg: Optional[list])`.\r\n\r\nGiven that `Optional[…]` exists, we could change the type analysis of PEP-484 argument annotations to exclude `None` by default (i.e. interpret them as if `not None` was given), since this it is a common source of mistakes (see #2696).  The use of `Optional[]` would then be interpreted as `or None`.\r\n\r\nThis would probably not apply to variable annotations. While [PEP-526](https://www.python.org/dev/peps/pep-0526/) doesn't seem to mention the topic anywhere explicitly, it seems hard to prevent variables from being set to None, and it has a runtime impact to prevent that case. Also, it does not seem very useful to actively prevent users from setting variables to None.\r\n\r\nAlso note that there is the issue of subtypes, which Python typing allows but Cython typing rejects. This difference would probably remain.",
-    "closed_at": null,
+    "closed_at": "2022-07-31T15:04:10Z",
     "comment_data": [
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "Some of the problem here is identifying `typing.Optional`. It's fairly easy when you have an annotation of `typing.Optional` but as far as I can tell there isn't an easy mechanism to do it for `from typing import Optional` or `import typing as not_typing; somevar: not_typing.Optional[int]`.\r\n\r\nI'm trying to get this to work for https://github.com/cython/cython/pull/3400. If I get something satisfactory I'll try to make a PR for it on its own, because it'd probably be useful here too.",
             "created_at": "2020-10-18T19:58:55Z",
             "html_url": "https://github.com/cython/cython/issues/3883#issuecomment-711413859",
@@ -95,7 +95,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "> @da-woods Should we allow this at all?\r\n\r\nI don't see why not. You have to track it anyway because users could name their own global variables `typing` or `Optional` and these shouldn't affect the type. Anyway, the code to allow it already exists and already works so why not allow it?",
             "created_at": "2021-06-29T17:34:39Z",
             "html_url": "https://github.com/cython/cython/issues/3883#issuecomment-870786555",
@@ -227,7 +227,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "@matusvalo yes I think it should",
             "created_at": "2022-01-29T19:49:25Z",
             "html_url": "https://github.com/cython/cython/issues/3883#issuecomment-1024975540",
@@ -447,7 +447,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "I'm not completely sure what the right thing to do is, but it should definitely be tested and documented!\r\n\r\nHaving different rules for cdef functions feels a bit obscure to me.\r\n\r\n`Optional[ctype]` probably should be an error (as you say). For structs it obviously can't work. And I think people would find `Optional[double]` being interpretted as a PyObject to be confusing",
             "created_at": "2022-01-29T22:14:03Z",
             "html_url": "https://github.com/cython/cython/issues/3883#issuecomment-1024996556",
@@ -711,7 +711,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "It was definitely my intent that typing.Tuple should be able to produce C-tuples (and I think this is a reasonable thing to do).\r\n\r\nI think here it shouldn't though, because it should require `cython.int` and `cython.float`? Sorry about that... I probably should have spotted this.",
             "created_at": "2022-01-30T20:17:12Z",
             "html_url": "https://github.com/cython/cython/issues/3883#issuecomment-1025222161",
@@ -755,7 +755,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "So my view: `AnnotationNode.analyse_type_annotation` seems to have a specific workaround for int/long/float which applies directly to the annotation.\r\n\r\n```\r\nif annotation.is_name and not annotation.cython_attribute and annotation.name in ('int', 'long', 'float'):\r\n```\r\n\r\nThese subscripted types can end up with fairly deeply nested types, which we want to detect these in. That suggests we'd be better passing an `safe_annotation_typing` flag to `analyse_as_type` and then using that flag to decide what types to keep, rather than doing it all in the method of `AnnotationNode`?\r\n\r\n",
             "created_at": "2022-01-30T20:43:27Z",
             "html_url": "https://github.com/cython/cython/issues/3883#issuecomment-1025226745",
@@ -931,7 +931,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "`Set[int]` presumably refers to `set` in both cases (because we can't do much with the container contents). I think `Tuple` is the only container where we try to make use of the element types (with ctuples).",
             "created_at": "2022-02-02T07:11:54Z",
             "html_url": "https://github.com/cython/cython/issues/3883#issuecomment-1027647345",
@@ -1107,7 +1107,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "I'd be reluctant to start substituting C++ containers for Python types. There's two set implementations for C++ (`set` and `unordered_set`), and they have different internal designs and different performance characteristics, and different requirements for what they hold. I believe the Python set is probably closer to `unordered_set`. It also creates a copy (which often wouldn't be wanted).\r\n\r\nI think I agree that file-type shouldn't affect interpretation. Mainly because I think it'd be a complicated rule that'd be hard to explain and end up confusing people (so it'd need a very good justification why it's needed)",
             "created_at": "2022-02-02T22:37:53Z",
             "html_url": "https://github.com/cython/cython/issues/3883#issuecomment-1028424229",
@@ -1369,9 +1369,97 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "This issue is largely done I think?",
+            "created_at": "2022-07-31T09:53:35Z",
+            "html_url": "https://github.com/cython/cython/issues/3883#issuecomment-1200390406",
+            "id": 1200390406,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3883",
+            "node_id": "IC_kwDOABDGAc5HjIEG",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1200390406/reactions"
+            },
+            "updated_at": "2022-07-31T09:53:35Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1200390406",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "I think so, too. Let's close it.",
+            "created_at": "2022-07-31T15:04:10Z",
+            "html_url": "https://github.com/cython/cython/issues/3883#issuecomment-1200442474",
+            "id": 1200442474,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3883",
+            "node_id": "IC_kwDOABDGAc5HjUxq",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1200442474/reactions"
+            },
+            "updated_at": "2022-07-31T15:04:10Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1200442474",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
         }
     ],
-    "comments": 31,
+    "comments": 33,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3883/comments",
     "created_at": "2020-10-18T06:32:02Z",
     "event_data": [
@@ -1752,6 +1840,7 @@
             "id": 5975462041,
             "node_id": "CE_lADOABDGAc4rJnEBzwAAAAFkKlCZ",
             "performed_via_github_app": null,
+            "state_reason": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/5975462041"
         },
         {
@@ -1842,6 +1931,7 @@
             "id": 5975575856,
             "node_id": "REE_lADOABDGAc4rJnEBzwAAAAFkLA0w",
             "performed_via_github_app": null,
+            "state_reason": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/5975575856"
         },
         {
@@ -2083,6 +2173,97 @@
             "node_id": "REFE_lADOABDGAc4rJnEBzwAAAAFoIyME",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/6042100484"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": "2b3559b484662705a09a8f3ef1f45acea96c2cdf",
+            "commit_url": "https://api.github.com/repos/scoder/cython/commits/2b3559b484662705a09a8f3ef1f45acea96c2cdf",
+            "created_at": "2022-02-24T19:09:37Z",
+            "event": "referenced",
+            "id": 6134377135,
+            "node_id": "REFE_lADOABDGAc4rJnEBzwAAAAFtoyqv",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/6134377135"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": "31d40c8c62acef9509675155fe5b5bb8e48dba5a",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/31d40c8c62acef9509675155fe5b5bb8e48dba5a",
+            "created_at": "2022-07-11T05:45:20Z",
+            "event": "referenced",
+            "id": 6966650772,
+            "node_id": "REFE_lADOABDGAc4rJnEBzwAAAAGfPqeU",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/6966650772"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2022-07-31T15:04:10Z",
+            "event": "closed",
+            "id": 7096439722,
+            "node_id": "CE_lADOABDGAc4rJnEBzwAAAAGm-xOq",
+            "performed_via_github_app": null,
+            "state_reason": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/7096439722"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/3883/events",
@@ -2121,7 +2302,7 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 556,
+        "closed_issues": 677,
         "created_at": "2018-08-18T06:33:08Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -2143,24 +2324,24 @@
             "type": "User",
             "url": "https://api.github.com/users/scoder"
         },
-        "description": "Goals:\r\n– New version scheme: 3.x instead of 0.x.\r\n– Change default `language_level` from `2` to `3`.\r\n– Change default for `binding` directive from `False` to `True`.\r\n– Fix some Python compatibility issues (if possible, allowing for breaking changes).\r\n",
+        "description": "Goals:\r\n– New version scheme: 3.x instead of 0.x.\r\n– Change default `language_level` from `2` to `3str`.\r\n– Change default for `binding` directive from `False` to `True`.\r\n– Fix some Python compatibility issues (if possible, allowing for breaking changes).\r\n",
         "due_on": null,
         "html_url": "https://github.com/cython/cython/milestone/58",
         "id": 3580387,
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
         "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
         "number": 58,
-        "open_issues": 36,
+        "open_issues": 40,
         "state": "open",
         "title": "3.0",
-        "updated_at": "2022-02-10T22:22:09Z",
+        "updated_at": "2022-08-11T20:18:31Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
     "node_id": "MDU6SXNzdWU3MjM5Mzk1ODU=",
     "number": 3883,
     "performed_via_github_app": null,
     "reactions": {
-        "+1": 4,
+        "+1": 5,
         "-1": 0,
         "confused": 0,
         "eyes": 0,
@@ -2168,14 +2349,15 @@
         "hooray": 0,
         "laugh": 0,
         "rocket": 0,
-        "total_count": 4,
+        "total_count": 5,
         "url": "https://api.github.com/repos/cython/cython/issues/3883/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
+    "state_reason": "completed",
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/3883/timeline",
     "title": "[ENH] Implement \"typing.Optional[]\" and give it Python semantics (\"not None\" vs. \"or None\")",
-    "updated_at": "2022-02-10T13:15:04Z",
+    "updated_at": "2022-07-31T15:04:10Z",
     "url": "https://api.github.com/repos/cython/cython/issues/3883",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
