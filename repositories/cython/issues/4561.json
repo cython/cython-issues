@@ -227,7 +227,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "I just get link errors when I try to import it:\r\n\r\n```\r\nundefined symbol: _ZTV21__pyx_t_4mod2_myclass\r\n```\r\n\r\nI'd be a little worried that you've done something odd to make it link and your errors are due to that.",
             "created_at": "2022-01-07T18:59:17Z",
             "html_url": "https://github.com/cython/cython/issues/4561#issuecomment-1007657433",
@@ -236,7 +236,7 @@
             "node_id": "IC_kwDOABDGAc48D6HZ",
             "performed_via_github_app": null,
             "reactions": {
-                "+1": 0,
+                "+1": 1,
                 "-1": 0,
                 "confused": 0,
                 "eyes": 0,
@@ -244,7 +244,7 @@
                 "hooray": 0,
                 "laugh": 0,
                 "rocket": 0,
-                "total_count": 0,
+                "total_count": 1,
                 "url": "https://api.github.com/repos/cython/cython/issues/comments/1007657433/reactions"
             },
             "updated_at": "2022-01-07T18:59:17Z",
@@ -284,11 +284,11 @@
                 "-1": 0,
                 "confused": 0,
                 "eyes": 0,
-                "heart": 1,
+                "heart": 2,
                 "hooray": 0,
                 "laugh": 0,
                 "rocket": 0,
-                "total_count": 1,
+                "total_count": 2,
                 "url": "https://api.github.com/repos/cython/cython/issues/comments/1007658472/reactions"
             },
             "updated_at": "2022-01-07T19:00:47Z",
@@ -315,7 +315,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "Yes - almost certainly that. The line that'll be segfaulting will be:\r\n\r\n```\r\n__Pyx_INCREF(__pyx_int_0);\r\n```\r\n\r\n(i.e. Cython has created a global constant for the Python int 0). Because you've linked it in an odd way, but never actually imported `mod2` that variable isn't initialized.",
             "created_at": "2022-01-07T19:01:15Z",
             "html_url": "https://github.com/cython/cython/issues/4561#issuecomment-1007658824",
@@ -403,7 +403,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "It isn't particularly obvious how to do it. For the `myapi` function it's handled via: \r\n\r\n```\r\n__Pyx_ImportFunction(__pyx_t_1, \"myapi\", (void (**)(void))&__pyx_f_4mod2_myapi, \"void (void)\") < 0)\r\n```\r\n\r\nbut I don't think it's possible to do a similar thing for a C++ class (especially for things like destructors, which are invoked automatically so we can't just write a wrapper function to call them)",
             "created_at": "2022-01-07T19:32:23Z",
             "html_url": "https://github.com/cython/cython/issues/4561#issuecomment-1007681448",
@@ -621,9 +621,53 @@
                 "type": "User",
                 "url": "https://api.github.com/users/datdinhquoc"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "I have a rough plan for how this might work:\r\n\r\n1. `cppclass` member functions (including constructors, destructors, operators, etc.) are actually implemented outside the class in a non-member cdef function that can be imported through the existing `__Pyx_ImportFunction` mechanism.\r\n2. Simple inline wrapper functions are generated both in the original module and in the module that the cppclass class is cimported from. E.g.\r\n    ```\r\n    cdef cppclass C:\r\n       C(int val)\r\n       void f()\r\n    ```\r\n    generates something like\r\n    ```c++\r\n    class C {\r\n      C(int val) { C_init_impl(*this, val); }\r\n      void f() { f_impl(*this, val); }\r\n    };\r\n    ```\r\n    in *every* module that uses it. `C_init_impl` and `f_impl` are only generated in the module the class is defined in.",
+            "created_at": "2022-08-24T18:32:57Z",
+            "html_url": "https://github.com/cython/cython/issues/4561#issuecomment-1226088554",
+            "id": 1226088554,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4561",
+            "node_id": "IC_kwDOABDGAc5JFKBq",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1226088554/reactions"
+            },
+            "updated_at": "2022-08-24T18:32:57Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1226088554",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
         }
     ],
-    "comments": 14,
+    "comments": 15,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4561/comments",
     "created_at": "2022-01-07T13:30:45Z",
     "event_data": [
@@ -961,9 +1005,10 @@
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
+    "state_reason": null,
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4561/timeline",
     "title": "Allow sharing C++ classes across modules",
-    "updated_at": "2022-01-08T07:52:01Z",
+    "updated_at": "2022-08-24T18:32:57Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4561",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/40449395?v=4",
