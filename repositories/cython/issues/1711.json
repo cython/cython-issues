@@ -93,9 +93,53 @@
                 "type": "User",
                 "url": "https://api.github.com/users/ozars"
             }
+        },
+        {
+            "author_association": "NONE",
+            "body": "If should be noted that the current handling of `LDFLAGS` is **not** sufficient to properly link shared libraries into cython extensions on most platforms (including Linux) because file order matters to the linker, and the LDFLAGS get included in the wrong place. Consider this minimal example where I have a file `/tmp/math.pxd` which says:\r\n```\r\ncdef extern from \"math.h\":\r\n     float sinf(float x)\r\n```\r\nand a test module `/tmp/text.pyx` that says:\r\n```\r\ncimport math\r\n\r\ncpdef float sin2(float x):\r\n      return math.sinf(x)\r\n```\r\nIf I compile this with the command `LDFLAGS=\"-lm\" cythonize -f -i test.pyx` then the compiler uses the following linking command:\r\n```\r\narm-linux-gnueabihf-gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions -Wl,-z,relro -g -fwrapv -O2 -lm /tmp/tmp2399tgsa/tmp/test.o -L/usr/lib -o build/lib.linux-armv7l-cpython-39/test.cpython-39-arm-linux-gnueabihf.so\r\n```\r\nNote the `-lm` is inserted *before* the reference to `test.o`. If I then run `ldd test.cpython-39-arm-linux-gnueabihf.so` I get the following output:\r\n```\r\n\tlinux-vdso.so.1 (0x7eea3000)\r\n\t/usr/lib/arm-linux-gnueabihf/libarmmem-${PLATFORM}.so => /usr/lib/arm-linux-gnueabihf/libarmmem-v7l.so (0x76f0f000)\r\n\tlibc.so.6 => /lib/arm-linux-gnueabihf/libc.so.6 (0x76dbb000)\r\n\t/lib/ld-linux-armhf.so.3 (0x76f38000)\r\n```\r\nNote that there is no mention of `libm.so`.\r\n\r\nIf on the other hand I change the link command to the following, with the `-lm` *after* the `test.o`:\r\n```\r\narm-linux-gnueabihf-gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions -Wl,-z,relro -g -fwrapv -O2 test.o -lm -L/usr/lib -o build/lib.linux-armv7l-cpython-39/test.so\r\n```\r\nthen the output of `ldd test.so` is:\r\n```\r\n\tlinux-vdso.so.1 (0x7eb4f000)\r\n\t/usr/lib/arm-linux-gnueabihf/libarmmem-${PLATFORM}.so => /usr/lib/arm-linux-gnueabihf/libarmmem-v7l.so (0x76f11000)\r\n\tlibm.so.6 => /lib/arm-linux-gnueabihf/libm.so.6 (0x76ea2000)\r\n\tlibc.so.6 => /lib/arm-linux-gnueabihf/libc.so.6 (0x76d4e000)\r\n\t/lib/ld-linux-armhf.so.3 (0x76f3a000)\r\n```\r\n\r\nThis is because file order matters to the linker. As it stands there is no straightforward way to use the command line `cythonize` to build a module that needs to reference other shared libraries.\r\n\r\nAs a result it would be *very* helpful at the very least for `cythonize` to support a `--libraries` flag to allow the specification of additional libraries to link against.\r\n\r\n***Note:*** In the above example, importing the `test` module works, but **only** by virtue of the fact that `libm.so.6` is already loaded by Python. If you had a real world case where you are trying to use any library that is not already loaded by Python then it will fail.",
+            "created_at": "2022-09-01T20:08:52Z",
+            "html_url": "https://github.com/cython/cython/issues/1711#issuecomment-1234729063",
+            "id": 1234729063,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/1711",
+            "node_id": "IC_kwDOABDGAc5JmHhn",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1234729063/reactions"
+            },
+            "updated_at": "2022-09-01T20:13:33Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1234729063",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/4205868?v=4",
+                "events_url": "https://api.github.com/users/nickovs/events{/privacy}",
+                "followers_url": "https://api.github.com/users/nickovs/followers",
+                "following_url": "https://api.github.com/users/nickovs/following{/other_user}",
+                "gists_url": "https://api.github.com/users/nickovs/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/nickovs",
+                "id": 4205868,
+                "login": "nickovs",
+                "node_id": "MDQ6VXNlcjQyMDU4Njg=",
+                "organizations_url": "https://api.github.com/users/nickovs/orgs",
+                "received_events_url": "https://api.github.com/users/nickovs/received_events",
+                "repos_url": "https://api.github.com/users/nickovs/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/nickovs/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/nickovs/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/nickovs"
+            }
         }
     ],
-    "comments": 2,
+    "comments": 3,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/1711/comments",
     "created_at": "2017-05-21T22:59:38Z",
     "event_data": [
@@ -312,7 +356,7 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 677,
+        "closed_issues": 682,
         "created_at": "2018-08-18T06:33:08Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -344,7 +388,7 @@
         "open_issues": 40,
         "state": "open",
         "title": "3.0",
-        "updated_at": "2022-08-11T20:18:31Z",
+        "updated_at": "2022-08-20T11:11:09Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
     "node_id": "MDU6SXNzdWUyMzAyNTUwNTc=",
@@ -367,7 +411,7 @@
     "state_reason": "completed",
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/1711/timeline",
     "title": "Make the cythonize command line more useful",
-    "updated_at": "2022-08-05T09:32:35Z",
+    "updated_at": "2022-09-01T20:13:33Z",
     "url": "https://api.github.com/repos/cython/cython/issues/1711",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/836839?v=4",

@@ -140,7 +140,7 @@
         },
         {
             "author_association": "NONE",
-            "body": "I've narrowed this down even further. To reiterate, this currently fails to compile if `data` is defined in the `@cython.locals` decorator:\r\n```cython\r\nret = tuple(n % j for j in data[\"primes\"] if j <= boundary)\r\n```\r\nBut if you put another pair of parenthesis around the comprehension, then it works fine:\r\n```cython\r\nret = tuple((n % j for j in data[\"primes\"] if j <= boundary))\r\n```\r\nAnd the issue does not occur if you remove the tuple cast, so it's an issue with casting a generator to a tuple while using a single pair of parenthesis",
+            "body": "I've narrowed this down even further. To reiterate, this currently fails to compile if `data` is defined in the `@cython.locals` decorator:\r\n```cython\r\nret = tuple(n % j for j in data[\"primes\"] if j <= boundary)\r\n```\r\nBut if you put another pair of parenthesis around the comprehension, then it works fine:\r\n```cython\r\nret = tuple((n % j for j in data[\"primes\"] if j <= boundary))\r\n```\r\nAnd the issue does not occur if you remove the tuple cast, so it's an issue with casting a generator to a tuple while using a single pair of parenthesis, or something related to generator comprehension with dictionaries? Not really sure what's happening here",
             "created_at": "2022-08-31T14:21:21Z",
             "html_url": "https://github.com/cython/cython/issues/5001#issuecomment-1233005189",
             "id": 1233005189,
@@ -159,7 +159,7 @@
                 "total_count": 0,
                 "url": "https://api.github.com/repos/cython/cython/issues/comments/1233005189/reactions"
             },
-            "updated_at": "2022-08-31T14:21:21Z",
+            "updated_at": "2022-08-31T16:03:07Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/1233005189",
             "user": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/14364070?v=4",
@@ -181,9 +181,53 @@
                 "type": "User",
                 "url": "https://api.github.com/users/HunterAP23"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "Thanks for the detailed investigation. I think what's happening with `cython.locals` is that it's essentially redeclaring it in the decorator. Kind of like\r\n\r\n```\r\n# I know this isn't valid syntax, but it's just to illustrate the point\r\nret = tuple(cdef dict data; n % j for j in data[\"primes\"] if j <= boundary)\r\n```\r\n\r\nHow far `locals` declarations should propagate into other scopes is kind of an awkward question - we probably would want a locals declaration of `j` to work for example. But \"redeclaring\" `data` here probably makes little sense.\r\n\r\n------------------------------------\r\n\r\nI'm not quite sure why the extra pair of brackets make a difference. Possibly it's just causing the compile to miss an optimization somewhere. I expect there's a specific optimization for generator expression directly filling a tuple, and if the problem is a combination of that and the `locals` declaration. But I could be wrong - I haven't looked in detail",
+            "created_at": "2022-08-31T17:00:58Z",
+            "html_url": "https://github.com/cython/cython/issues/5001#issuecomment-1233192926",
+            "id": 1233192926,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/5001",
+            "node_id": "IC_kwDOABDGAc5JgQfe",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1233192926/reactions"
+            },
+            "updated_at": "2022-08-31T17:00:58Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1233192926",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
         }
     ],
-    "comments": 4,
+    "comments": 5,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/5001/comments",
     "created_at": "2022-08-31T06:33:51Z",
     "event_data": [
@@ -249,7 +293,7 @@
     "state_reason": null,
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/5001/timeline",
     "title": "[BUG] Failed compilation when casting a generator to a tuple",
-    "updated_at": "2022-08-31T14:21:21Z",
+    "updated_at": "2022-08-31T17:00:58Z",
     "url": "https://api.github.com/repos/cython/cython/issues/5001",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/14364070?v=4",
