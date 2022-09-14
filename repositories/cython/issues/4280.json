@@ -4,10 +4,10 @@
     "assignees": [],
     "author_association": "MEMBER",
     "body": "**Is your feature request related to a problem? Please describe.**\r\nC functions that do not return Python objects cannot currently propagate exceptions by default but require an explicit `except` clause. In Python code, declared return types default to safe exception propagation instead. Both should behave the same.\r\n```cython\r\ncdef int func():\r\n    raise TypeError  # is not propagated\r\n\r\n@cython.cfunc\r\ndef pyfunc() -> cython.int:\r\n    raise TypeError  # is propagated\r\n\r\ncdef int no_exc_func():\r\n    return 0  # no exception raised\r\n\r\ncdef extern from *:\r\n    int no_exc_cfunc()  # no exception expected\r\n```\r\n\r\n**Describe the solution you'd like**\r\nC functions should also propagate their exceptions by default.\r\n```cython\r\ncdef int func():\r\n    raise TypeError  # CHANGE: should get propagated as with `except? -1`, the default exception value.\r\n\r\n@cython.exceptval(check=False)\r\ncdef int func():\r\n    raise TypeError  # is not propagated\r\n\r\ncdef int no_exc_func():\r\n    return 0  # CHANGE: no exception raised, but tested by caller\r\n\r\ncdef int explicit_no_exc_func() noexcept:    # <- CHANGE\r\n    return 0  # no exception raised, and not tested by caller\r\n\r\ncdef extern from *:\r\n    int no_exc_cfunc()  # unclear - should exceptions also be expected for `extern` functions?\r\n```\r\n\r\nQuestions:\r\n* non-extern `cdef` functions declared in `.pxd` files should probably be affected, too, since they should match the implementation in the corresponding `.pyx` / `.py` file.\r\n* C functions defined in `cdef extern` blocks are unlikely to benefit from this change. Can we live with keeping them different?\r\n\r\nAlso see\r\nhttps://github.com/cython/cython/issues/3580\r\nhttps://github.com/cython/cython/issues/933\r\n",
-    "closed_at": null,
+    "closed_at": "2022-09-10T13:55:17Z",
     "comment_data": [
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "> ```cython\r\n>     raise TypeError  # CHANGE: should get propagated as with `except -1`, the default exception value.\r\n> ```\r\n\r\nPresumably `except?-1` (i.e -1 may not be the exception value)",
             "created_at": "2021-07-13T16:52:10Z",
             "html_url": "https://github.com/cython/cython/issues/4280#issuecomment-879246049",
@@ -403,7 +403,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "I had a thought on this: would it apply to  `cdef extern` functions? I mostly think it shouldn't (because the vast majority of `cdef extern` functions don't raise Python exceptions) but I do like the consistency that they should behave in the same way as defined `cdef` functions.",
             "created_at": "2021-10-07T17:19:28Z",
             "html_url": "https://github.com/cython/cython/issues/4280#issuecomment-937997248",
@@ -447,7 +447,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "> \r\n> \r\n> This will rarely be used. We could add, say, `except -`, but you don't need syntax as long as there is a way to do it.\r\n\r\nI have to say I like the `noexcept` suggestion for this much better (and not just because it matches C++). I find `except -` quite cryptic and it relies on a single character that's visually sparse and easy to overlook.",
             "created_at": "2021-10-10T01:16:14Z",
             "html_url": "https://github.com/cython/cython/issues/4280#issuecomment-939386404",
@@ -931,7 +931,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "I'm generally in favour of consistency I think. And consistency only adds unnecessary checks - it shouldn't break much. I think the other option is too many unintuitive rules.\r\n\r\nOne note: an `except *` function pointer should be able to store a `noexcept` function. I'm not sure if it is currently, but it could be made compatible. That suggests that most code should continue to work, even if function others are assumed to need an exception check by default.",
             "created_at": "2022-03-19T22:06:27Z",
             "html_url": "https://github.com/cython/cython/issues/4280#issuecomment-1073119260",
@@ -975,7 +975,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "One other point: for a Cython-implemented function returning an `int` we can implicitly add `except? -1` (because Cython controls the error code). However for an `extern` function it probably has to be `except *` (because it could use anything as an error code).\r\n\r\nSo it's dificult to be completely consistent ",
             "created_at": "2022-03-19T22:10:58Z",
             "html_url": "https://github.com/cython/cython/issues/4280#issuecomment-1073119999",
@@ -1107,7 +1107,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "> [*] that's also the main reason why `extern` functions may seem special enough to break the rules to make them easier to use. For them, it feels the other way round. If we assign them exception propagation features by default, many users may end up with inefficient code without knowing. In the same way that it's easy to forget to declare exception propagation on `cdef` functions, it's easy to forget to declare _no_ exception propagation on blocks of `extern` functions.\r\n\r\nI was tempted to agree, but looking closer at the example above, I think the consistency should win out, and that the inefficiency of forgetting the `noexcept` should be solved with announcements, documentation (perhaps even warnings that always show up during a transition period, unless suppressed by a flag) etc.\r\n\r\nThese functions are still being imported into cython after all, where the project \"sets the rules\". It's IMO a legitimate desire for cython to to require `noexcept`, and it's equally legitimate to add that requirement in 3.0. Not that it'll be _fun_, but looking at the example, it's IMO abundantly clear what the healthier longterm choice would be.",
             "created_at": "2022-03-20T23:10:53Z",
             "html_url": "https://github.com/cython/cython/issues/4280#issuecomment-1073368866",
@@ -1151,7 +1151,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "FWIW I think I'm currently leaning towards \"treat extern functions differently (and assume they don't throw)\". On the basis that:\r\n* I don't think most people think of a Cython-defined `cdef` function and an extern function as the same thing, so I don't think it'll actually catch too many people out.\r\n* The vast majority of extern functions don't throw (except for the Python C API, and most people use Cython's wrapping of that anyway).\r\n* The people using extern functions that do throw should hopefully mostly know what they're doing and be thinking about this stuff actively (\"hopefully\" is doing a lot of work in this sentence though)\r\n* It's very, very rare to access a Cython-defined `cdef` function with `cdef extern...` - almost everyone uses `cimport` so that's one less cause for confusion.\r\n\r\nI'm not sure that opinion brings us any closer to agreement though.",
             "created_at": "2022-04-13T17:34:32Z",
             "html_url": "https://github.com/cython/cython/issues/4280#issuecomment-1098311752",
@@ -1239,7 +1239,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "> FWIW I think I'm currently leaning towards \"treat extern functions differently (and assume they don't throw)\".\r\n> [...]\r\n> I'm not sure that opinion brings us any closer to agreement though.\r\n\r\nHappy to retract my preference if that furthers finding a solution; it could well be that I'm falling into the trap of \"a foolish consistency\".",
             "created_at": "2022-04-13T21:34:57Z",
             "html_url": "https://github.com/cython/cython/issues/4280#issuecomment-1098510213",
@@ -1503,7 +1503,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "> If the pointer is not going to refer to a raising function, then calling through it would now be a little slower, which can be resolved by adding the `noexcept` marker (which, again, we should also allow in Cython 0.29.x). And that would be visible from `cython -a`.\r\n\r\nYes, although this should be combined with https://github.com/cython/cython/issues/4689 so that we can point to non-raising functions with a raising function pointer.\r\n\r\n> For pragmatic reasons, I'm leaning towards argument 1). Users seem more likely to implement a function and then need a pointer to it, than to point to extern functions. I think that should guide the semantics. The remaining cases can be handled with better error messages on assignments that point to the right fix.\r\n\r\nI think what is quite common is to implement a Cython function (which'll now raise) and pass it to a C function (which may not be expecting an exception). Therefore...\r\n\r\n> If there are no objections to this, then the decision is to make function pointers behave like Cython implemented functions.\r\n\r\nNo objections, but I think we should add a strongly worded warning for function pointers passed to extern functions that don't have an exception specification. That's potentially somewhere where it has the potential to go wrong and where users should be thinking \"what happens to my exception\". (I don't think we should warn about the a lack of exception specification anywhere else)",
             "created_at": "2022-04-16T07:29:19Z",
             "html_url": "https://github.com/cython/cython/issues/4280#issuecomment-1100594707",
@@ -1895,6 +1895,37 @@
             "node_id": "SE_lADOABDGAc44N4FizwAAAAF_6OSI",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/6440936584"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2022-09-10T13:55:17Z",
+            "event": "closed",
+            "id": 7360967250,
+            "node_id": "CE_lADOABDGAc44N4FizwAAAAG2v3JS",
+            "performed_via_github_app": null,
+            "state_reason": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/7360967250"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/4280/events",
@@ -1933,7 +1964,7 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 579,
+        "closed_issues": 693,
         "created_at": "2018-08-18T06:33:08Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -1955,17 +1986,17 @@
             "type": "User",
             "url": "https://api.github.com/users/scoder"
         },
-        "description": "Goals:\r\n– New version scheme: 3.x instead of 0.x.\r\n– Change default `language_level` from `2` to `3`.\r\n– Change default for `binding` directive from `False` to `True`.\r\n– Fix some Python compatibility issues (if possible, allowing for breaking changes).\r\n",
+        "description": "Goals:\r\n– New version scheme: 3.x instead of 0.x.\r\n– Change default `language_level` from `2` to `3str`.\r\n– Change default for `binding` directive from `False` to `True`.\r\n– Fix some Python compatibility issues (if possible, allowing for breaking changes).\r\n",
         "due_on": null,
         "html_url": "https://github.com/cython/cython/milestone/58",
         "id": 3580387,
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
         "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
         "number": 58,
-        "open_issues": 42,
+        "open_issues": 39,
         "state": "open",
         "title": "3.0",
-        "updated_at": "2022-04-16T07:30:45Z",
+        "updated_at": "2022-09-10T13:55:17Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
     "node_id": "MDU6SXNzdWU5NDMxNjE2OTg=",
@@ -1984,10 +2015,11 @@
         "url": "https://api.github.com/repos/cython/cython/issues/4280/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
+    "state_reason": "completed",
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4280/timeline",
     "title": "[ENH] C functions should propagate exceptions by default",
-    "updated_at": "2022-04-16T07:29:19Z",
+    "updated_at": "2022-09-10T13:55:17Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4280",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
