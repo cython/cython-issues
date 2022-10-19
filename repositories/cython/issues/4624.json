@@ -7,7 +7,7 @@
     "closed_at": null,
     "comment_data": [
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "I think might apply to the other class decorators too (e.g. `cython.final`, `cython.autopickle`, `no_gc_clear`). Not completely sure though, but I think I've seen this before with other combinations.",
             "created_at": "2022-02-07T21:25:29Z",
             "html_url": "https://github.com/cython/cython/issues/4624#issuecomment-1031941293",
@@ -227,7 +227,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "> So in this case you consider the correct code to be having @cython.cclass closest to the class, as if cdef was moved to the line above yeah?\r\n\r\nThat's definitely how I'd look at it - it should be made a class first, then made a cython dataclass after that.\r\n\r\nIf we're disallowing it, I do think we should have a good clear error message though (e.g. \"`cython.cclass` should be the innermost decorator\") so at least the nobody wastes too much time trying to think about the fix.",
             "created_at": "2022-02-08T23:08:02Z",
             "html_url": "https://github.com/cython/cython/issues/4624#issuecomment-1033151634",
@@ -271,7 +271,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": ">  this one because there's no real logic in the decorators\r\n\r\nI'd argue that there's actually quite a bit of logic in the `dataclass` decorator (both Cython and Python). As an example, imagine you have another decorator that does something to `__annotations__` or maybe adds an `__init__` function. The order would make a big difference to what Python's `dataclass` does",
             "created_at": "2022-02-08T23:12:31Z",
             "html_url": "https://github.com/cython/cython/issues/4624#issuecomment-1033154394",
@@ -401,9 +401,97 @@
                 "type": "User",
                 "url": "https://api.github.com/users/Bluenix2"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "> > Extension dataclasses (`cdef dataclass`) in Pure Python mode has to be ordered with the `cython.cclass` decorator inner-most to the class.\r\n> \r\n> I think it makes sense to require that. `@cclass` on a dataclass is different from `@dataclass` on a cdef class. Obviously shouldn't crash but give an appropriate error message.\r\n\r\nI revised my opinion on this. It is easy to forget `@cython.cclass` when using `@cython.dataclasses.dataclass`, and difficult to notice, because it keeps working the same way, just with a Python dataclass.\r\n\r\n`@cclass` should be implied for `@cython.dataclasses.dataclass`.\r\n\r\nWe can still require `@cclass` for Python's own `@dataclass` decorator to distinguish between Python dataclasses and Cython dataclasses. In fact, Cython's separate decorator seems redundant, given that we can make the distinction based on `@cclass` being used together with Python's `@dataclass` decorator or not. I think that's a much simpler way to distinguish between Python dataclasses and extension type dataclasses.",
+            "created_at": "2022-10-14T09:16:42Z",
+            "html_url": "https://github.com/cython/cython/issues/4624#issuecomment-1278725160",
+            "id": 1278725160,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4624",
+            "node_id": "IC_kwDOABDGAc5MN8wo",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1278725160/reactions"
+            },
+            "updated_at": "2022-10-14T09:16:42Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1278725160",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "> It is easy to forget `@cython.cclass` when using `@cython.dataclasses.dataclass`, and difficult to notice, because it keeps working the same way, just with a Python dataclass.\r\n\r\nI think it just does nothing rather than making it a Python dataclass. But either way it's easy to miss and the current behaviour isn't helpful.\r\n\r\n> In fact, Cython's separate decorator seems redundant, given that we can make the distinction based on `@cclass` being used together with Python's `@dataclass` decorator or not.\r\n\r\nI'm slightly undecided on this. Although on balance I think it's probably the best thing to do.\r\n* In favour it does seem a lot more straightforward. I struggle to remember what needs importing from `@cython.dataclasses.*` and what should be imported from `dataclasses`, and I really should know.\r\n* Against: I'm slightly uncomfortable with \"taking over\" someone else's module and imposing our own behaviour on it.",
+            "created_at": "2022-10-15T18:56:02Z",
+            "html_url": "https://github.com/cython/cython/issues/4624#issuecomment-1279808726",
+            "id": 1279808726,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4624",
+            "node_id": "IC_kwDOABDGAc5MSFTW",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1279808726/reactions"
+            },
+            "updated_at": "2022-10-15T18:56:02Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1279808726",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
         }
     ],
-    "comments": 9,
+    "comments": 11,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4624/comments",
     "created_at": "2022-02-07T21:11:38Z",
     "event_data": [
@@ -476,9 +564,10 @@
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
+    "state_reason": null,
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4624/timeline",
     "title": "[BUG] Odd behavior of `cython.dataclasses.dataclass()` decorator",
-    "updated_at": "2022-02-13T22:02:51Z",
+    "updated_at": "2022-10-15T18:56:02Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4624",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/38372706?v=4",
