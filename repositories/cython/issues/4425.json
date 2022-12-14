@@ -2,7 +2,7 @@
     "active_lock_reason": null,
     "assignee": null,
     "assignees": [],
-    "author_association": "COLLABORATOR",
+    "author_association": "MEMBER",
     "body": "<!--\r\n**PLEASE READ THIS FIRST:**\r\n- Do not use the bug and feature tracker for support requests. Use the `cython-users` mailing list instead.\r\n- Did you search for similar issues already? Please do, it helps to save us precious time that we otherwise could not invest into development.\r\n- Did you try the latest master branch or pre-release? It might already have what you want to report. Also see the [Changelog](https://github.com/cython/cython/blob/master/CHANGES.rst) regarding recent changes.\r\n-->\r\n\r\n**Describe the bug**\r\n\r\nIt takes a very long time for the C compiler to run on large files like ExprNodes.py and Nodes.py. This is seen in the CI `-all` tests repeatedly timing out (although partly this is because we can't compile them in parallel on Python 2.7)\r\n\r\nOne possible indicator is the warning from gcc:\r\n\r\n> `note: variable tracking size limit exceeded with ‘-fvar-tracking-assignments’, retrying without`\r\n\r\n(although that could potentially be toggled independently or the limit increased)\r\n\r\nObviously it's inevitable that a big Cython file will generate a big C file and that a big C file will take a while to compile, but potentially we could do better.\r\n\r\nThere's a few gcc flags to try to profile compilation time (https://stackoverflow.com/questions/13559818/profiling-the-c-compilation-process), and they suggest that the module init function (where all the module-level user code goes) is the main culprit (unsurprisingly)\r\n\r\n**Environment (please complete the following information):**\r\n - Linux, CI, most obviously in Python 2.7\r\n\r\n**Additional context**\r\n\r\nI tried a couple of approaches to fix the problem.\r\n\r\n1. First I created small sub-scopes within the module init function. https://github.com/da-woods/cython/tree/morelocaltemps. This didn't achieve any speedup or get rid of the warning, but may be worth using some of the change for other reasons (https://github.com/da-woods/cython/commit/c9014165baaf56bf3af0e08971f7e3eda46b428e#commitcomment-57239451)\r\n2. Second, I tried to split each stat at module-level into a separate function (https://github.com/cython/cython/pull/4386). This gave appreciable speed-ups for large modules. However the PR was very intended as a proof of concept with little attention to code quality....\r\n\r\nI think a variant of the second approach is probably worthwhile. My current thought that we shouldn't do it on a \"per-stat\" basis but maybe give each class creation a separate function (that's easy to do for `cdef` classes, slightly harder for regular classes). That would likely give the appropriate granularity and keep things grouped in logical units.",
     "closed_at": null,
     "comment_data": [
@@ -51,7 +51,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "> Looking around a bit, [it seems](https://gcc.gnu.org/wiki/Var_Tracking_Assignments) that variable tracking is mostly a debugging feature. Would be nice to locally disable it somehow, but I can't find a way to do that. In any case, the fact that large files break that feature shouldn't trouble us.\r\n\r\nYeah - I also looked and couldn't find a way to disable it locally\r\n\r\n> \r\n> I feel inclined to give a low priority to this issue. Not zero – if we can reduce the C compiler runtime, cool (also in terms of CO2 emissions), but it's only really an issue for very large modules, which are rare for simply practical reasons.\r\n\r\nI agree - I was only really interested because it's causing the python 2.7 -all jobs to time out. I mainly created the issue because I _wasn't_ planning to do any more on it for now and wanted to record where I'd got to before forgetting it. So low priority!\r\n\r\n",
             "created_at": "2021-10-24T09:58:41Z",
             "html_url": "https://github.com/cython/cython/issues/4425#issuecomment-950295024",
@@ -139,7 +139,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "On my laptop (just running `test_unicode`) I get\r\n\r\nclang:\r\n```\r\ncompile-c   :    45.93 sec  (   1, 45.928 / run) - slowest: 'c:test_unicode' (45.93s)\r\ncompile-cpp :    42.76 sec  (   1, 42.757 / run) - slowest: 'cpp:test_unicode' (42.76s)\r\n```\r\n\r\ngcc\r\n```\r\ncompile-c   :    57.95 sec  (   1, 57.948 / run) - slowest: 'c:test_unicode' (57.95s)\r\ncompile-cpp :    48.91 sec  (   1, 48.909 / run) - slowest: 'cpp:test_unicode' (48.91s)\r\n```\r\n\r\n(that's with `CLAGS=-Og`, just because `-O0` produces a lot of warnings when I use it).\r\n\r\nI'd say there's `ccache` is probably doing something here?",
             "created_at": "2021-10-25T17:43:05Z",
             "html_url": "https://github.com/cython/cython/issues/4425#issuecomment-951155889",
@@ -269,9 +269,53 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             }
+        },
+        {
+            "author_association": "NONE",
+            "body": "For python-flint I notice a 50% slowdown in compilation time for Cython 3.0.0a11 compared to Cython 0.29.32 (https://github.com/fredrik-johansson/python-flint/pull/29#issuecomment-1351215409).\r\n\r\nIt goes from ~1 minute to ~1.5 minutes for a full `setup.py build_ext --inplace` so it's not a huge problem in python-flint's case but it seems like a regression that I guess could have bigger impact for some other projects.",
+            "created_at": "2022-12-14T14:22:59Z",
+            "html_url": "https://github.com/cython/cython/issues/4425#issuecomment-1351490288",
+            "id": 1351490288,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4425",
+            "node_id": "IC_kwDOABDGAc5Qjhrw",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1351490288/reactions"
+            },
+            "updated_at": "2022-12-14T14:22:59Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1351490288",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1159732?v=4",
+                "events_url": "https://api.github.com/users/oscarbenjamin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/oscarbenjamin/followers",
+                "following_url": "https://api.github.com/users/oscarbenjamin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/oscarbenjamin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/oscarbenjamin",
+                "id": 1159732,
+                "login": "oscarbenjamin",
+                "node_id": "MDQ6VXNlcjExNTk3MzI=",
+                "organizations_url": "https://api.github.com/users/oscarbenjamin/orgs",
+                "received_events_url": "https://api.github.com/users/oscarbenjamin/received_events",
+                "repos_url": "https://api.github.com/users/oscarbenjamin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/oscarbenjamin"
+            }
         }
     ],
-    "comments": 6,
+    "comments": 7,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4425/comments",
     "created_at": "2021-10-23T13:52:15Z",
     "event_data": [
@@ -344,9 +388,10 @@
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
+    "state_reason": null,
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4425/timeline",
     "title": "[BUG] Large files compile very slowly in the C compiler",
-    "updated_at": "2021-12-18T16:57:39Z",
+    "updated_at": "2022-12-14T14:22:59Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4425",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",

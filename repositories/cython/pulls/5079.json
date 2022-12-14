@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/5079"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/3cf52c88e613354aca2e2adec50c921dd35ba6a3"
+            "href": "https://api.github.com/repos/cython/cython/statuses/155474ceb51dd49c9e52a957e587c041725d25d1"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1343,
-            "forks_count": 1343,
+            "forks": 1344,
+            "forks_count": 1344,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1130,
-            "open_issues_count": 1130,
+            "open_issues": 1124,
+            "open_issues_count": 1124,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -118,11 +118,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2022-12-07T09:12:24Z",
+            "pushed_at": "2022-12-12T08:34:54Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 66219,
+            "size": 66582,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 7498,
+            "stargazers_count": 7506,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,14 +141,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2022-12-07T13:34:05Z",
+            "updated_at": "2022-12-12T10:10:05Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 7498,
-            "watchers_count": 7498,
+            "watchers": 7506,
+            "watchers_count": 7506,
             "web_commit_signoff_required": false
         },
-        "sha": "171ce959441cc5a96fd3e917b5a08ba4ffb0e0aa",
+        "sha": "f109a57212c5078757b0ea0f847f01b86eb19912",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -187,7 +187,7 @@
             },
             "author_association": "MEMBER",
             "body": "Based on a very quick look:\r\n\r\n1. You could reasonably extend this to cimported modules (if it was easy).\r\n2. Cython has a bit of infrastructure to track `as_cython_attribute` to work out what things come from the `cython` module. I'm not sure whether it'll be available here though because annotations are ignored fairly early.\r\n\r\nBut this seems like a good initial level for what we treat was needing an elevated warning.",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-10-13T20:35:12Z",
             "diff_hunk": "@@ -14258,6 +14258,14 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+            if isinstance(annotation, NameNode):\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\", level=1)\n+            if isinstance(annotation, AttributeNode):\n+                module_scope = annotation.obj.analyse_as_module(env)\n+                if module_scope and module_scope.name == 'cython' and not module_scope.lookup_type(annotation.attribute):",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r995099010",
@@ -254,7 +254,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Here, I wanted also to test the following case:\r\n```python\r\nfoo7: cython.bar = 1\r\n```\r\nBut it yields following warnings:\r\n```\r\n14:16: Unknown type declaration 'cython.bar' in annotation, ignoring\r\n25:10: 'cpdef_method' redeclared\r\n36:10: 'cpdef_cname_method' redeclared\r\n977:29: Ambiguous exception value, same as default return value: 0\r\n1018:46: Ambiguous exception value, same as default return value: 0\r\n1108:29: Ambiguous exception value, same as default return value: 0\r\n```\r\n\r\nNot sure why there are additional warnings. It is the reason why it is not included in the test...",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-11-16T21:25:24Z",
             "diff_hunk": "@@ -0,0 +1,22 @@\n+# mode: error\n+# tag: warnings\n+\n+import cython\n+import typing\n+from cython.cimports.libc import stdint\n+\n+\n+def main():\n+    foo1: typing.Tuple = None\n+    foo1: typing.Bar = None\n+    foo2: Bar = 1  # warning\n+    foo3: int = 1\n+    foo4: cython.int = 1\n+    foo5: stdint.bar = 5  # warning\n+    foo6: object = 1",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1024521439",
@@ -321,7 +321,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "implemented",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-11-16T21:26:02Z",
             "diff_hunk": "@@ -14258,6 +14258,14 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+            if isinstance(annotation, NameNode):\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\", level=1)\n+            if isinstance(annotation, AttributeNode):\n+                module_scope = annotation.obj.analyse_as_module(env)\n+                if module_scope and module_scope.name == 'cython' and not module_scope.lookup_type(annotation.attribute):",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1024521900",
@@ -389,7 +389,7 @@
             },
             "author_association": "MEMBER",
             "body": "That looks like utility code, but I'm not sure from what.\r\n\r\n(Will have a proper look at this PR at some point fairly soon...)",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-11-16T21:46:15Z",
             "diff_hunk": "@@ -0,0 +1,22 @@\n+# mode: error\n+# tag: warnings\n+\n+import cython\n+import typing\n+from cython.cimports.libc import stdint\n+\n+\n+def main():\n+    foo1: typing.Tuple = None\n+    foo1: typing.Bar = None\n+    foo2: Bar = 1  # warning\n+    foo3: int = 1\n+    foo4: cython.int = 1\n+    foo5: stdint.bar = 5  # warning\n+    foo6: object = 1",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1024537553",
@@ -457,19 +457,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n```",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-12-07T12:52:00Z",
             "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1042166598",
             "id": 1042166598,
-            "line": 14274,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc4-HjNG",
             "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
             "original_line": 14274,
             "original_position": 4,
             "original_start_line": null,
             "path": "Cython/Compiler/ExprNodes.py",
-            "position": 4,
+            "position": null,
             "pull_request_review_id": 1208361790,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
             "reactions": {
@@ -524,19 +524,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n            if annotation.is_name:\r\n```",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-12-07T12:52:32Z",
             "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+\n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if isinstance(annotation, NameNode):",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1042167164",
             "id": 1042167164,
-            "line": 14276,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc4-HjV8",
             "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
             "original_line": 14276,
             "original_position": 7,
             "original_start_line": null,
             "path": "Cython/Compiler/ExprNodes.py",
-            "position": 7,
+            "position": null,
             "pull_request_review_id": 1208361790,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
             "reactions": {
@@ -591,19 +591,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n            elif annotation.is_attribute:\r\n```",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-12-07T12:53:16Z",
             "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+\n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if isinstance(annotation, NameNode):\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif isinstance(annotation, AttributeNode):",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1042167884",
             "id": 1042167884,
-            "line": 14280,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc4-HjhM",
             "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
             "original_line": 14280,
             "original_position": 11,
             "original_start_line": null,
             "path": "Cython/Compiler/ExprNodes.py",
-            "position": 11,
+            "position": null,
             "pull_request_review_id": 1208361790,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
             "reactions": {
@@ -658,19 +658,19 @@
             },
             "author_association": "MEMBER",
             "body": "Unknown attribute names on the special `cython` module should already be handled elsewhere. Not sure if this case is required (e.g. because we ignore annotations in that check or so).",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-12-07T12:59:17Z",
             "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+\n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if isinstance(annotation, NameNode):\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif isinstance(annotation, AttributeNode):\n+                # Validate annotation in form `var: module.type`\n+                if not env.lookup(annotation.obj.name):\n+                    # `module` is undeclared\n+                    warning(annotation.pos,\n+                            \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),\n+                            level=1)\n+                elif annotation.obj.is_cython_module:",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1042174044",
             "id": 1042174044,
-            "line": 14287,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc4-HlBc",
             "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
             "original_line": 14287,
             "original_position": 18,
             "original_start_line": null,
             "path": "Cython/Compiler/ExprNodes.py",
-            "position": 18,
+            "position": null,
             "pull_request_review_id": 1208361790,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
             "reactions": {
@@ -725,19 +725,19 @@
             },
             "author_association": "MEMBER",
             "body": "I'm not sure this is necessarily referring to a module. And even if it was, looking up the attribute name in the current scope won't find the name in that module. There's `typing` module support now, so we might want to special case that. And the `.entry` of the attribute's object might also give hints.",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-12-07T13:02:09Z",
             "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+\n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if isinstance(annotation, NameNode):\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif isinstance(annotation, AttributeNode):\n+                # Validate annotation in form `var: module.type`\n+                if not env.lookup(annotation.obj.name):",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1042176818",
             "id": 1042176818,
-            "line": 14282,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc4-Hlsy",
             "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
             "original_line": 14282,
             "original_position": 13,
             "original_start_line": 14281,
             "path": "Cython/Compiler/ExprNodes.py",
-            "position": 13,
+            "position": null,
             "pull_request_review_id": 1208361790,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
             "reactions": {
@@ -753,7 +753,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/1042176818/reactions"
             },
             "side": "RIGHT",
-            "start_line": 14281,
+            "start_line": null,
             "start_side": "RIGHT",
             "updated_at": "2022-12-07T13:10:03Z",
             "url": "https://api.github.com/repos/cython/cython/pulls/comments/1042176818",
@@ -792,19 +792,19 @@
             },
             "author_association": "MEMBER",
             "body": "We already called `annotation.analyse_as_type()` above, that failed and brought us here.",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-12-07T13:03:55Z",
             "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+\n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if isinstance(annotation, NameNode):\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif isinstance(annotation, AttributeNode):\n+                # Validate annotation in form `var: module.type`\n+                if not env.lookup(annotation.obj.name):\n+                    # `module` is undeclared\n+                    warning(annotation.pos,\n+                            \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),\n+                            level=1)\n+                elif annotation.obj.is_cython_module:\n+                    # `module` is cython\n+                    module_scope = annotation.obj.analyse_as_module(env)\n+                    if module_scope and not module_scope.lookup_type(annotation.attribute):\n+                        warning(annotation.pos,\n+                                \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),\n+                                level=1)\n+                else:\n+                    module_scope = annotation.obj.analyse_as_module(env)\n+                    if module_scope and module_scope.pxd_file_loaded and not annotation.analyse_as_type(env):",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1042178580",
             "id": 1042178580,
-            "line": 14296,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc4-HmIU",
             "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
             "original_line": 14296,
             "original_position": 27,
             "original_start_line": null,
             "path": "Cython/Compiler/ExprNodes.py",
-            "position": 27,
+            "position": null,
             "pull_request_review_id": 1208361790,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
             "reactions": {
@@ -859,19 +859,19 @@
             },
             "author_association": "MEMBER",
             "body": "I wonder if this suggestion even makes sense. Users probably meant to use a `cython.*` type here, not a Python type.",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-12-07T13:06:25Z",
             "diff_hunk": "@@ -15,7 +15,7 @@ cdef class C:\n _WARNINGS = \"\"\"\n 9:7: Found Python 2.x type 'long' in a Python annotation. Did you mean to use 'cython.long'?\n 10:7: Found C type 'Py_ssize_t' in a Python annotation. Did you mean to use a Python type?",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1042181035",
             "id": 1042181035,
-            "line": 17,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc4-Hmur",
             "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
             "original_line": 17,
             "original_position": 3,
             "original_start_line": null,
             "path": "tests/errors/dataclass_e5.pyx",
-            "position": 3,
+            "position": null,
             "pull_request_review_id": 1208361790,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
             "reactions": {
@@ -926,7 +926,7 @@
             },
             "author_association": "MEMBER",
             "body": "Yes, sadly, we have a couple of utility code files that report warnings. We should eventually make those internal (or, rather, fix them).",
-            "commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
             "created_at": "2022-12-07T13:09:38Z",
             "diff_hunk": "@@ -0,0 +1,22 @@\n+# mode: error\n+# tag: warnings\n+\n+import cython\n+import typing\n+from cython.cimports.libc import stdint\n+\n+\n+def main():\n+    foo1: typing.Tuple = None\n+    foo1: typing.Bar = None\n+    foo2: Bar = 1  # warning\n+    foo3: int = 1\n+    foo4: cython.int = 1\n+    foo5: stdint.bar = 5  # warning\n+    foo6: object = 1",
             "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1042184054",
@@ -978,6 +978,889 @@
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045086731"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045086731"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Yes, in pure python mode, any annotation that is not recognized in cython is silently ignored and python object is used by default. E.g.:\r\n```python\r\n@cython.cfunc\r\ndef bar(a: cython.bar) -> cython.void:\r\n    print(a)\r\n```\r\nIs compiled silently on master branch to:\r\n```c\r\nstatic void __pyx_f_4test_bar(PyObject *__pyx_v_a) {\r\n```\r\n The scope of this PR is to  print warning for the cases where we are sure that the annotation is broken. So in this case the PR produces the same C code but raises a warning:\r\n\r\n```\r\n cython -3a test.py\r\nwarning: test.py:4:17: Unknown type declaration 'cython.bar' in annotation, ignoring\r\n```\r\n@scoder do you think this check should go elsewhere where this case is handled (and ignored)? My personal opinion is that this warnings should be handled in one single place.",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-10T13:37:47Z",
+            "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+\n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if isinstance(annotation, NameNode):\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif isinstance(annotation, AttributeNode):\n+                # Validate annotation in form `var: module.type`\n+                if not env.lookup(annotation.obj.name):\n+                    # `module` is undeclared\n+                    warning(annotation.pos,\n+                            \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),\n+                            level=1)\n+                elif annotation.obj.is_cython_module:",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045086731",
+            "id": 1045086731,
+            "in_reply_to_id": 1042174044,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4-SsIL",
+            "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "original_line": 14287,
+            "original_position": 18,
+            "original_start_line": null,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 1212569337,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045086731/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-10T13:37:47Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045086731",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045087439"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045087439"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "fixed.",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-10T13:44:01Z",
+            "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+\n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if isinstance(annotation, NameNode):\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif isinstance(annotation, AttributeNode):\n+                # Validate annotation in form `var: module.type`\n+                if not env.lookup(annotation.obj.name):\n+                    # `module` is undeclared\n+                    warning(annotation.pos,\n+                            \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),\n+                            level=1)\n+                elif annotation.obj.is_cython_module:\n+                    # `module` is cython\n+                    module_scope = annotation.obj.analyse_as_module(env)\n+                    if module_scope and not module_scope.lookup_type(annotation.attribute):\n+                        warning(annotation.pos,\n+                                \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),\n+                                level=1)\n+                else:\n+                    module_scope = annotation.obj.analyse_as_module(env)\n+                    if module_scope and module_scope.pxd_file_loaded and not annotation.analyse_as_type(env):",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045087439",
+            "id": 1045087439,
+            "in_reply_to_id": 1042178580,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4-SsTP",
+            "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "original_line": 14296,
+            "original_position": 27,
+            "original_start_line": null,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 1212569900,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045087439/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-10T13:44:01Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045087439",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045087637"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045087637"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "> I wonder if this suggestion even makes sense.\r\n\r\nIf I understand this comment is connected to this line:\r\n```\r\n10:7: Found C type 'Py_ssize_t' in a Python annotation. Did you mean to use a Python type?\r\n```\r\nShould I fix it in this PR?",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-10T13:46:15Z",
+            "diff_hunk": "@@ -15,7 +15,7 @@ cdef class C:\n _WARNINGS = \"\"\"\n 9:7: Found Python 2.x type 'long' in a Python annotation. Did you mean to use 'cython.long'?\n 10:7: Found C type 'Py_ssize_t' in a Python annotation. Did you mean to use a Python type?",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045087637",
+            "id": 1045087637,
+            "in_reply_to_id": 1042181035,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4-SsWV",
+            "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "original_line": 17,
+            "original_position": 3,
+            "original_start_line": null,
+            "path": "tests/errors/dataclass_e5.pyx",
+            "position": null,
+            "pull_request_review_id": 1212570091,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045087637/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-10T13:46:30Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045087637",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045088563"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045088563"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "I am pretty new to Cython code-base so maybe here I need a help. This test:\r\n\r\n```python\r\nif not env.lookup(annotation.obj.name):\r\n    # `module` is undeclared\r\n    warning(annotation.pos, ...)\r\n```\r\n\r\nis checking whether for the annotation expression `A.B`  if the `A` name is known/defined. If not, it is raising the warning. Is this incorrect? It is pretty the same as previous test:\r\n```\r\nif not env.lookup(annotation.name):\r\n    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\r\n```",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-10T13:54:56Z",
+            "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+\n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if isinstance(annotation, NameNode):\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif isinstance(annotation, AttributeNode):\n+                # Validate annotation in form `var: module.type`\n+                if not env.lookup(annotation.obj.name):",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045088563",
+            "id": 1045088563,
+            "in_reply_to_id": 1042176818,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4-Sskz",
+            "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "original_line": 14282,
+            "original_position": 13,
+            "original_start_line": 14281,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 1212570896,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045088563/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "updated_at": "2022-12-10T14:00:50Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045088563",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045220962"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045220962"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Not sure if this is quite the point that scoder was making, but\r\n\r\n```\r\nannotation.obj.name\r\n```\r\n\r\ncould fail. `annotation.obj` isn't necessarily a name node. Some (non-exhaustive) examples:\r\n\r\n```\r\nmod.a.b  # I think obj will be mod.a\r\nfunc().b  # obj will be func()  - I can't imagine many times this'll be a useful annotation for Cython, but it shouldn't crash!\r\n(1 + x).b  # again, unlikely\r\n```\r\n\r\nThere's no need to produce a sensible message for all of these, but they shouldn't crash",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-11T12:00:37Z",
+            "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+\n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if isinstance(annotation, NameNode):\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif isinstance(annotation, AttributeNode):\n+                # Validate annotation in form `var: module.type`\n+                if not env.lookup(annotation.obj.name):",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045220962",
+            "id": 1045220962,
+            "in_reply_to_id": 1042176818,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4-TM5i",
+            "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "original_line": 14282,
+            "original_position": 13,
+            "original_start_line": 14281,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 1212685227,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045220962/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "updated_at": "2022-12-11T12:21:26Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045220962",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045221152"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045221152"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I agree with Matus here - I think this is fine (and looks to be tested)",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-11T12:01:46Z",
+            "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+\n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if isinstance(annotation, NameNode):\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif isinstance(annotation, AttributeNode):\n+                # Validate annotation in form `var: module.type`\n+                if not env.lookup(annotation.obj.name):\n+                    # `module` is undeclared\n+                    warning(annotation.pos,\n+                            \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),\n+                            level=1)\n+                elif annotation.obj.is_cython_module:",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045221152",
+            "id": 1045221152,
+            "in_reply_to_id": 1042174044,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4-TM8g",
+            "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "original_line": 14287,
+            "original_position": 18,
+            "original_start_line": null,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 1212685227,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045221152/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-11T12:21:26Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045221152",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045221643"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045221643"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I think it'd be in scope to improve it in the PR (i.e. it isn't necessary, but it'd be welcome).",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-11T12:04:59Z",
+            "diff_hunk": "@@ -15,7 +15,7 @@ cdef class C:\n _WARNINGS = \"\"\"\n 9:7: Found Python 2.x type 'long' in a Python annotation. Did you mean to use 'cython.long'?\n 10:7: Found C type 'Py_ssize_t' in a Python annotation. Did you mean to use a Python type?",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045221643",
+            "id": 1045221643,
+            "in_reply_to_id": 1042181035,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4-TNEL",
+            "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "original_line": 17,
+            "original_position": 3,
+            "original_start_line": null,
+            "path": "tests/errors/dataclass_e5.pyx",
+            "position": null,
+            "pull_request_review_id": 1212685227,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045221643/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-11T14:33:16Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045221643",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045224124"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045224124"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "So I think what's happening here is that missing an attribute lookup on `cython` causes it to cause `CythonScope.load_cythonscope` which loads \"TestClass\" and some memoryview code. I think this is harmless (because it does get dropped) but does cause the warnings. Running it outside the test suite gives:\r\n\r\n```\r\nwarning: TestClass:25:10: 'cpdef_method' redeclared \r\nwarning: TestClass:36:10: 'cpdef_cname_method' redeclared \r\nwarning: View.MemoryView:977:29: Ambiguous exception value, same as default return value: 0\r\nwarning: View.MemoryView:1018:46: Ambiguous exception value, same as default return value: 0\r\nwarning: View.MemoryView:1108:29: Ambiguous exception value, same as default return value: 0\r\n```\r\n\r\nWhat we've done before: in the `_WARNINGS` string you can have comments and the warnings don't need to be in order. So just add these warnings with a comment at the end of the list of warnings:\r\n\r\n```\r\n# Spurious warnings from utility code - not part of the core test\r\n25:10: 'cpdef_method' redeclared\r\n36:10: 'cpdef_cname_method' redeclared  \r\n977:29: Ambiguous exception value, same as default return value: 0\r\n1018:46: Ambiguous exception value, same as default return value: 0\r\n1108:29: Ambiguous exception value, same as default return value: 0\r\n\"\"\"\r\n```",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-11T12:20:50Z",
+            "diff_hunk": "@@ -0,0 +1,22 @@\n+# mode: error\n+# tag: warnings\n+\n+import cython\n+import typing\n+from cython.cimports.libc import stdint\n+\n+\n+def main():\n+    foo1: typing.Tuple = None\n+    foo1: typing.Bar = None\n+    foo2: Bar = 1  # warning\n+    foo3: int = 1\n+    foo4: cython.int = 1\n+    foo5: stdint.bar = 5  # warning\n+    foo6: object = 1",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045224124",
+            "id": 1045224124,
+            "in_reply_to_id": 1024521439,
+            "line": 16,
+            "node_id": "PRRC_kwDOABDGAc4-TNq8",
+            "original_commit_id": "e88e098d7011d63fc16c1b524a268657f265c2c5",
+            "original_line": 16,
+            "original_position": 16,
+            "original_start_line": null,
+            "path": "tests/errors/pure_warnings.py",
+            "position": 16,
+            "pull_request_review_id": 1212685227,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045224124/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-11T12:21:26Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045224124",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045253922"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045253922"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "The other thing that might help - the `AnnotationNode` stores a string representation of the annotation already so you don't necessarily need to construct the string yourself. Not sure whether that lets you simplify too much might it might be useful",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-11T15:39:39Z",
+            "diff_hunk": "@@ -14272,7 +14272,32 @@ def analyse_type_annotation(self, env, assigned_value=None):\n             arg_type = annotation.analyse_as_type(env)\n \n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if annotation.is_name:\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif annotation.is_attribute:\n+                # Validate annotation in form `var: module.type`\n+                if not env.lookup(annotation.obj.name):\n+                    # `module` is undeclared\n+                    warning(annotation.pos,\n+                            \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),\n+                            level=1)\n+                elif annotation.obj.is_cython_module:\n+                    # `module` is cython\n+                    module_scope = annotation.obj.analyse_as_module(env)\n+                    if module_scope and not module_scope.lookup_type(annotation.attribute):\n+                        warning(annotation.pos,\n+                                \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),\n+                                level=1)\n+                else:\n+                    module_scope = annotation.obj.analyse_as_module(env)\n+                    if module_scope and module_scope.pxd_file_loaded:\n+                        warning(annotation.pos,\n+                                \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045253922",
+            "id": 1045253922,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4-TU8i",
+            "original_commit_id": "6887fbff62d2d3deb0c055030f0da7f811380923",
+            "original_line": 14297,
+            "original_position": 27,
+            "original_start_line": null,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 1212715438,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045253922/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-11T15:39:39Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045253922",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045288531"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045288531"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Fixed as proposed by @da-woods.",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-11T19:58:29Z",
+            "diff_hunk": "@@ -0,0 +1,22 @@\n+# mode: error\n+# tag: warnings\n+\n+import cython\n+import typing\n+from cython.cimports.libc import stdint\n+\n+\n+def main():\n+    foo1: typing.Tuple = None\n+    foo1: typing.Bar = None\n+    foo2: Bar = 1  # warning\n+    foo3: int = 1\n+    foo4: cython.int = 1\n+    foo5: stdint.bar = 5  # warning\n+    foo6: object = 1",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045288531",
+            "id": 1045288531,
+            "in_reply_to_id": 1024521439,
+            "line": 16,
+            "node_id": "PRRC_kwDOABDGAc4-TdZT",
+            "original_commit_id": "e88e098d7011d63fc16c1b524a268657f265c2c5",
+            "original_line": 16,
+            "original_position": 16,
+            "original_start_line": null,
+            "path": "tests/errors/pure_warnings.py",
+            "position": 16,
+            "pull_request_review_id": 1212747214,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045288531/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-11T19:58:29Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045288531",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045296981"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045296981"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Fixed.",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-11T21:10:09Z",
+            "diff_hunk": "@@ -14272,7 +14272,32 @@ def analyse_type_annotation(self, env, assigned_value=None):\n             arg_type = annotation.analyse_as_type(env)\n \n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if annotation.is_name:\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif annotation.is_attribute:\n+                # Validate annotation in form `var: module.type`\n+                if not env.lookup(annotation.obj.name):\n+                    # `module` is undeclared\n+                    warning(annotation.pos,\n+                            \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),\n+                            level=1)\n+                elif annotation.obj.is_cython_module:\n+                    # `module` is cython\n+                    module_scope = annotation.obj.analyse_as_module(env)\n+                    if module_scope and not module_scope.lookup_type(annotation.attribute):\n+                        warning(annotation.pos,\n+                                \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),\n+                                level=1)\n+                else:\n+                    module_scope = annotation.obj.analyse_as_module(env)\n+                    if module_scope and module_scope.pxd_file_loaded:\n+                        warning(annotation.pos,\n+                                \"Unknown type declaration '%s.%s' in annotation, ignoring\" % (annotation.obj.name, annotation.attribute),",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045296981",
+            "id": 1045296981,
+            "in_reply_to_id": 1045253922,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4-TfdV",
+            "original_commit_id": "6887fbff62d2d3deb0c055030f0da7f811380923",
+            "original_line": 14297,
+            "original_position": 27,
+            "original_start_line": null,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 1212754881,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045296981/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-11T21:10:10Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045296981",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045299191"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045299191"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Now I understand. I have limited the validation  only when `annotation.obj.is_name` is true. So for simplicity we won't manage all nasty corner cases. Let me know if you a fine with this solution.",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-11T21:26:57Z",
+            "diff_hunk": "@@ -14271,8 +14271,34 @@ def analyse_type_annotation(self, env, assigned_value=None):\n         with env.new_c_type_context(in_c_type_context=explicit_ctype):\n             arg_type = annotation.analyse_as_type(env)\n \n+\n         if arg_type is None:\n-            warning(annotation.pos, \"Unknown type declaration in annotation, ignoring\")\n+            if isinstance(annotation, NameNode):\n+                # Validate annotation in form `var: type`\n+                if not env.lookup(annotation.name):\n+                    warning(annotation.pos, \"Unknown type declaration '%s' in annotation, ignoring\" % annotation.name, level=1)\n+            elif isinstance(annotation, AttributeNode):\n+                # Validate annotation in form `var: module.type`\n+                if not env.lookup(annotation.obj.name):",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045299191",
+            "id": 1045299191,
+            "in_reply_to_id": 1042176818,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4-Tf_3",
+            "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "original_line": 14282,
+            "original_position": 13,
+            "original_start_line": 14281,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 1212756932,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045299191/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "updated_at": "2022-12-11T21:26:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045299191",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5079#discussion_r1045305087"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5079"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1045305087"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Fixed to : \r\n```\r\nFound C type 'Py_ssize_t' in a Python annotation. Did you mean to use a 'cython.Py_ssize_t'?\r\n```\r\nBut @da-woods does this warning have any meaning except unitests? `warning()` call is missing `level=` hence it is raised **only during unittests**:\r\n\r\n```\r\n(cython39) matus@MacBook-Pro:~/dev/cython/test$ cat test.py\r\nimport cython\r\n\r\ndef main():\r\n    a: Py_ssize_t = 6\r\n(cython39) matus@MacBook-Pro:~/dev/cython/test$ cython -3 test.py\r\nwarning: test.py:4:7: Unknown type declaration 'Py_ssize_t' in annotation, ignoring\r\n```",
+            "commit_id": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "created_at": "2022-12-11T22:10:48Z",
+            "diff_hunk": "@@ -15,7 +15,7 @@ cdef class C:\n _WARNINGS = \"\"\"\n 9:7: Found Python 2.x type 'long' in a Python annotation. Did you mean to use 'cython.long'?\n 10:7: Found C type 'Py_ssize_t' in a Python annotation. Did you mean to use a Python type?",
+            "html_url": "https://github.com/cython/cython/pull/5079#discussion_r1045305087",
+            "id": 1045305087,
+            "in_reply_to_id": 1042181035,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4-Thb_",
+            "original_commit_id": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+            "original_line": 17,
+            "original_position": 3,
+            "original_start_line": null,
+            "path": "tests/errors/dataclass_e5.pyx",
+            "position": null,
+            "pull_request_review_id": 1212762257,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5079",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045305087/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-11T22:11:28Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1045305087",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
             }
         }
     ],
@@ -1624,6 +2507,638 @@
             ],
             "sha": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
             "url": "https://api.github.com/repos/cython/cython/commits/3cf52c88e613354aca2e2adec50c921dd35ba6a3"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/096fd82365d77da93b887cb7d8cdd953e0c6af97/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-09T07:35:47Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-09T07:35:47Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Apply suggestions from code review\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "8376358c33adee85de3e4f01d38818927feea251",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/8376358c33adee85de3e4f01d38818927feea251"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/096fd82365d77da93b887cb7d8cdd953e0c6af97",
+                "verification": {
+                    "payload": "tree 8376358c33adee85de3e4f01d38818927feea251\nparent 3cf52c88e613354aca2e2adec50c921dd35ba6a3\nauthor Matus Valo <matusvalo@users.noreply.github.com> 1670571347 +0100\ncommitter GitHub <noreply@github.com> 1670571347 +0100\n\nApply suggestions from code review\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJjkuVTCRBK7hj4Ov3rIwAAhaEIABNDjDy9vcCn1CGWYbalqflC\nW2+FTDbtSthNPe0adcHThlyRGDpWhR4CrfyNdWZ4/ZvqJ9y+BSbapaB1A1U0isLY\nX8scpKRQH9t9rb0ADVArzRM27QcKeGS5yhE4jFkTX53PHqpZLHvsQ5iUQknBufAb\n/B2ln8WfVU1QNMgNi3cr+GvAsUJJqHnXMrWs/dpbGDgu7vZwDSsiFJ8GxE1sxVYC\ntrNapTUK7/CwmlMWvByw1ADCtdTvfusInE/KMHodmZGgW7wXHBParJ9wuUI+7s8X\njN46vAjuY7hWRYzRHDtjumfvYcsIv3LlFoFrumoBV+wsfTazrsZ7JCz9uTsI420=\n=3mjA\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/096fd82365d77da93b887cb7d8cdd953e0c6af97",
+            "node_id": "C_kwDOFL4z49oAKDA5NmZkODIzNjVkNzdkYTkzYjg4N2NiN2Q4Y2RkOTUzZTBjNmFmOTc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+                    "sha": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+                    "url": "https://api.github.com/repos/cython/cython/commits/3cf52c88e613354aca2e2adec50c921dd35ba6a3"
+                }
+            ],
+            "sha": "096fd82365d77da93b887cb7d8cdd953e0c6af97",
+            "url": "https://api.github.com/repos/cython/cython/commits/096fd82365d77da93b887cb7d8cdd953e0c6af97"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/20047b1c6b66cab2f1569066f491540263941ab5/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-10T13:43:41Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-10T13:43:41Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Simplify if statement",
+                "tree": {
+                    "sha": "720494814529906fb13be50f6a5cc0747d90317d",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/720494814529906fb13be50f6a5cc0747d90317d"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/20047b1c6b66cab2f1569066f491540263941ab5",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "html_url": "https://github.com/cython/cython/commit/20047b1c6b66cab2f1569066f491540263941ab5",
+            "node_id": "C_kwDOFL4z49oAKDIwMDQ3YjFjNmI2NmNhYjJmMTU2OTA2NmY0OTE1NDAyNjM5NDFhYjU",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/096fd82365d77da93b887cb7d8cdd953e0c6af97",
+                    "sha": "096fd82365d77da93b887cb7d8cdd953e0c6af97",
+                    "url": "https://api.github.com/repos/cython/cython/commits/096fd82365d77da93b887cb7d8cdd953e0c6af97"
+                }
+            ],
+            "sha": "20047b1c6b66cab2f1569066f491540263941ab5",
+            "url": "https://api.github.com/repos/cython/cython/commits/20047b1c6b66cab2f1569066f491540263941ab5"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/6887fbff62d2d3deb0c055030f0da7f811380923/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-10T21:46:39Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-10T21:46:39Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Improve tests",
+                "tree": {
+                    "sha": "c8032076df4fadc510768342222b48625ceb7d7a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/c8032076df4fadc510768342222b48625ceb7d7a"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/6887fbff62d2d3deb0c055030f0da7f811380923",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "html_url": "https://github.com/cython/cython/commit/6887fbff62d2d3deb0c055030f0da7f811380923",
+            "node_id": "C_kwDOFL4z49oAKDY4ODdmYmZmNjJkMmQzZGViMGMwNTUwMzBmMGRhN2Y4MTEzODA5MjM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/20047b1c6b66cab2f1569066f491540263941ab5",
+                    "sha": "20047b1c6b66cab2f1569066f491540263941ab5",
+                    "url": "https://api.github.com/repos/cython/cython/commits/20047b1c6b66cab2f1569066f491540263941ab5"
+                }
+            ],
+            "sha": "6887fbff62d2d3deb0c055030f0da7f811380923",
+            "url": "https://api.github.com/repos/cython/cython/commits/6887fbff62d2d3deb0c055030f0da7f811380923"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/26ffbbec6e32db33a06ad86991646bd4c8e3770a/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-11T19:57:54Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-11T19:57:54Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Add cython.bar case to tests",
+                "tree": {
+                    "sha": "a368fb2d9bf631302a5c8f3bac3c1c258f20217b",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a368fb2d9bf631302a5c8f3bac3c1c258f20217b"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/26ffbbec6e32db33a06ad86991646bd4c8e3770a",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "html_url": "https://github.com/cython/cython/commit/26ffbbec6e32db33a06ad86991646bd4c8e3770a",
+            "node_id": "C_kwDOFL4z49oAKDI2ZmZiYmVjNmUzMmRiMzNhMDZhZDg2OTkxNjQ2YmQ0YzhlMzc3MGE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/6887fbff62d2d3deb0c055030f0da7f811380923",
+                    "sha": "6887fbff62d2d3deb0c055030f0da7f811380923",
+                    "url": "https://api.github.com/repos/cython/cython/commits/6887fbff62d2d3deb0c055030f0da7f811380923"
+                }
+            ],
+            "sha": "26ffbbec6e32db33a06ad86991646bd4c8e3770a",
+            "url": "https://api.github.com/repos/cython/cython/commits/26ffbbec6e32db33a06ad86991646bd4c8e3770a"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/358f049b3a66758ff9e26cfd1d356df6553eaf67/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-11T21:09:27Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-11T21:09:27Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Use self.string.value in warning text",
+                "tree": {
+                    "sha": "137fc7e14805d4aec4f1c648d9d481139986384a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/137fc7e14805d4aec4f1c648d9d481139986384a"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/358f049b3a66758ff9e26cfd1d356df6553eaf67",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "html_url": "https://github.com/cython/cython/commit/358f049b3a66758ff9e26cfd1d356df6553eaf67",
+            "node_id": "C_kwDOFL4z49oAKDM1OGYwNDliM2E2Njc1OGZmOWUyNmNmZDFkMzU2ZGY2NTUzZWFmNjc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/26ffbbec6e32db33a06ad86991646bd4c8e3770a",
+                    "sha": "26ffbbec6e32db33a06ad86991646bd4c8e3770a",
+                    "url": "https://api.github.com/repos/cython/cython/commits/26ffbbec6e32db33a06ad86991646bd4c8e3770a"
+                }
+            ],
+            "sha": "358f049b3a66758ff9e26cfd1d356df6553eaf67",
+            "url": "https://api.github.com/repos/cython/cython/commits/358f049b3a66758ff9e26cfd1d356df6553eaf67"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/17e303a94e040346d0ff00d0e4efff116e8d0f71/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-11T21:24:49Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-11T21:24:49Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Validate attribute annotation only when `annotation.obj.is_name` is True",
+                "tree": {
+                    "sha": "59d3b6641192e25b57819c13425743bc1243517d",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/59d3b6641192e25b57819c13425743bc1243517d"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/17e303a94e040346d0ff00d0e4efff116e8d0f71",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "html_url": "https://github.com/cython/cython/commit/17e303a94e040346d0ff00d0e4efff116e8d0f71",
+            "node_id": "C_kwDOFL4z49oAKDE3ZTMwM2E5NGUwNDAzNDZkMGZmMDBkMGU0ZWZmZjExNmU4ZDBmNzE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/358f049b3a66758ff9e26cfd1d356df6553eaf67",
+                    "sha": "358f049b3a66758ff9e26cfd1d356df6553eaf67",
+                    "url": "https://api.github.com/repos/cython/cython/commits/358f049b3a66758ff9e26cfd1d356df6553eaf67"
+                }
+            ],
+            "sha": "17e303a94e040346d0ff00d0e4efff116e8d0f71",
+            "url": "https://api.github.com/repos/cython/cython/commits/17e303a94e040346d0ff00d0e4efff116e8d0f71"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/8b69eb06bf3c8c26754305740dd0e21b10fce7f7/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-11T21:38:02Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-11T21:40:03Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Move logic to separate method",
+                "tree": {
+                    "sha": "21a0f2d20463b6ce2a4f2f477b29fa7cd0b0390a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/21a0f2d20463b6ce2a4f2f477b29fa7cd0b0390a"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/8b69eb06bf3c8c26754305740dd0e21b10fce7f7",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "html_url": "https://github.com/cython/cython/commit/8b69eb06bf3c8c26754305740dd0e21b10fce7f7",
+            "node_id": "C_kwDOFL4z49oAKDhiNjllYjA2YmYzYzhjMjY3NTQzMDU3NDBkZDBlMjFiMTBmY2U3Zjc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/17e303a94e040346d0ff00d0e4efff116e8d0f71",
+                    "sha": "17e303a94e040346d0ff00d0e4efff116e8d0f71",
+                    "url": "https://api.github.com/repos/cython/cython/commits/17e303a94e040346d0ff00d0e4efff116e8d0f71"
+                }
+            ],
+            "sha": "8b69eb06bf3c8c26754305740dd0e21b10fce7f7",
+            "url": "https://api.github.com/repos/cython/cython/commits/8b69eb06bf3c8c26754305740dd0e21b10fce7f7"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/155474ceb51dd49c9e52a957e587c041725d25d1/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-11T22:07:01Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-11T22:07:01Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Improve annotation warning in NameNode",
+                "tree": {
+                    "sha": "29d552e328ec8756945e8171fad2686c357e1fc6",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/29d552e328ec8756945e8171fad2686c357e1fc6"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/155474ceb51dd49c9e52a957e587c041725d25d1",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "html_url": "https://github.com/cython/cython/commit/155474ceb51dd49c9e52a957e587c041725d25d1",
+            "node_id": "C_kwDOFL4z49oAKDE1NTQ3NGNlYjUxZGQ0OWM5ZTUyYTk1N2U1ODdjMDQxNzI1ZDI1ZDE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/8b69eb06bf3c8c26754305740dd0e21b10fce7f7",
+                    "sha": "8b69eb06bf3c8c26754305740dd0e21b10fce7f7",
+                    "url": "https://api.github.com/repos/cython/cython/commits/8b69eb06bf3c8c26754305740dd0e21b10fce7f7"
+                }
+            ],
+            "sha": "155474ceb51dd49c9e52a957e587c041725d25d1",
+            "url": "https://api.github.com/repos/cython/cython/commits/155474ceb51dd49c9e52a957e587c041725d25d1"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/5079/commits",
@@ -1718,9 +3233,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/matusvalo/cython/pulls{/number}",
-            "pushed_at": "2022-12-06T14:45:34Z",
+            "pushed_at": "2022-12-11T22:07:05Z",
             "releases_url": "https://api.github.com/repos/matusvalo/cython/releases{/id}",
-            "size": 66313,
+            "size": 67097,
             "ssh_url": "git@github.com:matusvalo/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/matusvalo/cython/stargazers",
@@ -1739,7 +3254,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+        "sha": "155474ceb51dd49c9e52a957e587c041725d25d1",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
             "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
@@ -1766,7 +3281,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/5079",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "e0eed3f194c6b8f9ab23f55bf5abcf8fccbea86c",
+    "merge_commit_sha": "6fda4630d4319e20d66783c0c02c7b10953042ff",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc5Aiqxs",
@@ -1777,9 +3292,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/5079/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/3cf52c88e613354aca2e2adec50c921dd35ba6a3",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/155474ceb51dd49c9e52a957e587c041725d25d1",
     "title": "Show warning when annotation type is unknown",
-    "updated_at": "2022-12-07T13:10:03Z",
+    "updated_at": "2022-12-11T22:11:28Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/5079",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
