@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/5184"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/c3921b5e175d739d7b701c56ee947c2581ed2f85"
+            "href": "https://api.github.com/repos/cython/cython/statuses/093387e9f8c7507bbffcb22ef09fe57018541c3f"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1344,
-            "forks_count": 1344,
+            "forks": 1346,
+            "forks_count": 1346,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -118,11 +118,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2022-12-26T21:22:47Z",
+            "pushed_at": "2023-01-02T00:14:28Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 66925,
+            "size": 66702,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 7533,
+            "stargazers_count": 7551,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,11 +141,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2022-12-27T11:18:34Z",
+            "updated_at": "2023-01-02T04:15:29Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 7533,
-            "watchers_count": 7533,
+            "watchers": 7551,
+            "watchers_count": 7551,
             "web_commit_signoff_required": false
         },
         "sha": "24f73ec9bec2f184d5766805ef5c92b2b7fa9473",
@@ -187,19 +187,19 @@
             },
             "author_association": "MEMBER",
             "body": "I think I need to exclude this file from the Mac/Clang tests (although I'm not sure how)",
-            "commit_id": "c3921b5e175d739d7b701c56ee947c2581ed2f85",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
             "created_at": "2022-12-26T19:03:07Z",
             "diff_hunk": "@@ -0,0 +1,18 @@\n+from cython.parallel cimport parallel",
             "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1057322910",
             "id": 1057322910,
-            "line": 1,
+            "line": 3,
             "node_id": "PRRC_kwDOABDGAc4_BXee",
             "original_commit_id": "c3921b5e175d739d7b701c56ee947c2581ed2f85",
             "original_line": 1,
             "original_position": 1,
             "original_start_line": null,
             "path": "docs/examples/tutorial/parallelization/manual_work.pyx",
-            "position": 1,
+            "position": 3,
             "pull_request_review_id": 1230203370,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
             "reactions": {
@@ -238,6 +238,1083 @@
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1058819617"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1058819617"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "```suggestion\r\n            total = total + /* some indexing code */;\r\n```",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T08:48:27Z",
+            "diff_hunk": "@@ -0,0 +1,274 @@\n+.. _parallel-tutorial:\n+\n+=================================\n+Writing parallel code with Cython\n+=================================\n+\n+One method of speeding up your Cython code is parallelization:\n+you write code that can be run on multiple cores of your CPU simultaneously.\n+For code that lends itself to parallelization this can produce quite\n+dramatic speed-ups, equal to the number of cores your CPU has (for example\n+a 4× speed-up on a 4-core CPU).\n+\n+This tutorial assumes that you are already familiar with Cython's \n+:ref:`\"typed memoryviews\"<memoryviews>` (since code using memoryviews is often\n+the sort of code that's easy to parallelize with Cython), and also that you're\n+somewhat familiar with the pitfalls of writing parallel code in general\n+(it aims to be a Cython tutorial rather than a complete introduction\n+to parallel programming).\n+\n+Before starting, a few notes:\n+\n+- Not all code can be parallelized - for some code the algorithm simply\n+  relies on being executed in order and you should not attempt to\n+  parallelize it.  A cumulative sum is a good example.\n+  \n+- Not all code is worth parallelizing.  There's a reasonable amount of\n+  overhead in starting a parallel section and so you need to make sure\n+  that you're operating on enough data to make this overhead worthwhile.\n+  Additionally, make sure that you are doing actual work on the data!\n+  Multiple threads simply reading the same data tends not to parallelize\n+  too well.  If in doubt, time it.\n+\n+- Cython requires the contents of parallel blocks to be ``nogil``.  If\n+  your algorithm requires access to Python objects then it may not be\n+  suitable for parallelization.\n+  \n+- Cython's inbuilt parallelization uses the OpenMP constructs\n+  ``omp parallel for`` and ``omp parallel``.  These are ideal\n+  for parallelizing relatively small, self-contained blocks of code\n+  (especially loops).  However, If you want to use other models of \n+  parallelization such as spawning and waiting for tasks, or \n+  off-loading some \"side work\" to a continuously running secondary \n+  thread, then you might be better using other methods (such as \n+  Python's ``threading`` module).\n+  \n+- Actually implementing your parallel Cython code should probably be \n+  one of the last steps in your optimization.  You should start with\n+  some working serial code first.  However, it's worth planning for\n+  early since it may affect your choice of algorithm.\n+\n+This tutorial does not aim to explore all the options available to\n+customize parallelization.  See the\n+:ref:`main parallelism documentation<parallel>` for details.\n+You should also be aware that a lot of the choices Cython makes\n+about how your code is parallelized are fairly fixed and if you want\n+specific OpenMP behaviour that Cython doesn't provide by default you\n+may be better writing it in C yourself.\n+  \n+Element-wise parallel operations\n+================================\n+\n+The easiest and most common parallel operation in Cython is to\n+iterate across an array element-wise, performing the same\n+operation on each array element.  In the simple example\n+below we calculate the ``sin`` of every element in an array:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx\n+\n+To compile these examples you need to make sure that OpenMP is enabled with the\n+compile and link flags. On GCC this is ``-fopenmp`` while on MSVC it is\n+``/openmp``. The :ref:`main parallelism documentation<parallel>` gives\n+an example ``setup.py`` file.\n+\n+We parallelize the outermost loop.  This is usually a good idea\n+since there is some overhead to entering and leaving a parallel block.\n+However, you should also consider the likely size of your arrays.\n+If ``input`` usually had a size of ``(2, 10000000)`` then parallelizing\n+over the dimension of length ``2`` would likely be a worse choice.\n+\n+The body of the loop itself is ``nogil`` - i.e. you cannot perform\n+\"Python\" operations.  This is a fairly strong limitation and if you\n+find that you need to use the GIL then it is likely that Cython's\n+parallelization features are not suitable for you.  It is possible\n+to throw exceptions from within the loop, however -- Cython simply\n+regains the GIL and raises an exception, then terminates the loop\n+on all threads.\n+\n+It's necessary to explicitly type the loop variable ``i``  as a\n+C integer.  For a non-parallel loop Cython can infer this, but it\n+does not currently infer the loop variable for parallel loops, \n+so not typing ``i`` will lead to compile errors since it will be\n+a Python object and so unusable without the GIL.\n+\n+The C code generated is shown below, for the benefit of experienced\n+users of OpenMP. It is simplified a little for readability here:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j)\n+        for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_9; __pyx_t_8++){\n+            i = __pyx_t_8;\n+            / * body goes here */\n+        }\n+    }\n+    \n+Private variables\n+-----------------\n+\n+One useful point to note from the generated C code above - variables\n+used in the loops like ``i`` and ``j`` are marked as ``firstprivate``\n+and ``lastprivate``.  Within the loop each thread has its own copy of\n+the data, the data is initialized\n+according to its value before the loop, and after the loop the \"global\"\n+copy is set equal to the last iteration (i.e. as if the loop were run\n+in serial).\n+\n+The basic rules that Cython applies are:\n+\n+- C scalar variables within a ``prange`` block are made \n+  ``firstprivate`` and ``lastprivate``,\n+\n+- C scalar variables assigned within a  \n+  :ref:```parallel`` block<parallel-block>`\n+  are ``private`` (which means they can't be used to pass data in\n+  and out of the block),\n+\n+- array variables (e.g. memoryviews) are not made private.  Instead\n+  Cython assumes that you have structured your loop so that each iteration\n+  is acting on different data,\n+\n+- Python objects are also not made private, although access to them\n+  is controlled via Python's GIL.\n+\n+Cython does not currently provide much opportunity of override these\n+choices.\n+  \n+Reductions\n+==========\n+\n+The second most common parallel operation in Cython is the \"reduction\"\n+operation.  A common example is to accumulate a sum over the whole\n+array, such as in the calculation of a vector norm below:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/norm.pyx\n+\n+Cython is able to infer reductions for ``+=``, ``*=``, ``-=``,\n+``&=``, ``|=``, and ``^=``.  These only apply to C scalar variables\n+so you cannot easily reduce a 2D memoryview to a 1D memoryview for\n+example.\n+\n+The C code generated is approximately:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel reduction(+:total)\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            i = __pyx_t_2;\n+            total = total + / * some indexing code */;",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1058819617",
+            "id": 1058819617,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4_HE4h",
+            "original_commit_id": "c3921b5e175d739d7b701c56ee947c2581ed2f85",
+            "original_line": 162,
+            "original_position": 162,
+            "original_start_line": null,
+            "path": "docs/src/tutorial/parallelization.rst",
+            "position": null,
+            "pull_request_review_id": 1232302160,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1058819617/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T09:12:33Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1058819617",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1058819865"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1058819865"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "```suggestion\r\n            /* body goes here */\r\n```",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T08:48:56Z",
+            "diff_hunk": "@@ -0,0 +1,274 @@\n+.. _parallel-tutorial:\n+\n+=================================\n+Writing parallel code with Cython\n+=================================\n+\n+One method of speeding up your Cython code is parallelization:\n+you write code that can be run on multiple cores of your CPU simultaneously.\n+For code that lends itself to parallelization this can produce quite\n+dramatic speed-ups, equal to the number of cores your CPU has (for example\n+a 4× speed-up on a 4-core CPU).\n+\n+This tutorial assumes that you are already familiar with Cython's \n+:ref:`\"typed memoryviews\"<memoryviews>` (since code using memoryviews is often\n+the sort of code that's easy to parallelize with Cython), and also that you're\n+somewhat familiar with the pitfalls of writing parallel code in general\n+(it aims to be a Cython tutorial rather than a complete introduction\n+to parallel programming).\n+\n+Before starting, a few notes:\n+\n+- Not all code can be parallelized - for some code the algorithm simply\n+  relies on being executed in order and you should not attempt to\n+  parallelize it.  A cumulative sum is a good example.\n+  \n+- Not all code is worth parallelizing.  There's a reasonable amount of\n+  overhead in starting a parallel section and so you need to make sure\n+  that you're operating on enough data to make this overhead worthwhile.\n+  Additionally, make sure that you are doing actual work on the data!\n+  Multiple threads simply reading the same data tends not to parallelize\n+  too well.  If in doubt, time it.\n+\n+- Cython requires the contents of parallel blocks to be ``nogil``.  If\n+  your algorithm requires access to Python objects then it may not be\n+  suitable for parallelization.\n+  \n+- Cython's inbuilt parallelization uses the OpenMP constructs\n+  ``omp parallel for`` and ``omp parallel``.  These are ideal\n+  for parallelizing relatively small, self-contained blocks of code\n+  (especially loops).  However, If you want to use other models of \n+  parallelization such as spawning and waiting for tasks, or \n+  off-loading some \"side work\" to a continuously running secondary \n+  thread, then you might be better using other methods (such as \n+  Python's ``threading`` module).\n+  \n+- Actually implementing your parallel Cython code should probably be \n+  one of the last steps in your optimization.  You should start with\n+  some working serial code first.  However, it's worth planning for\n+  early since it may affect your choice of algorithm.\n+\n+This tutorial does not aim to explore all the options available to\n+customize parallelization.  See the\n+:ref:`main parallelism documentation<parallel>` for details.\n+You should also be aware that a lot of the choices Cython makes\n+about how your code is parallelized are fairly fixed and if you want\n+specific OpenMP behaviour that Cython doesn't provide by default you\n+may be better writing it in C yourself.\n+  \n+Element-wise parallel operations\n+================================\n+\n+The easiest and most common parallel operation in Cython is to\n+iterate across an array element-wise, performing the same\n+operation on each array element.  In the simple example\n+below we calculate the ``sin`` of every element in an array:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx\n+\n+To compile these examples you need to make sure that OpenMP is enabled with the\n+compile and link flags. On GCC this is ``-fopenmp`` while on MSVC it is\n+``/openmp``. The :ref:`main parallelism documentation<parallel>` gives\n+an example ``setup.py`` file.\n+\n+We parallelize the outermost loop.  This is usually a good idea\n+since there is some overhead to entering and leaving a parallel block.\n+However, you should also consider the likely size of your arrays.\n+If ``input`` usually had a size of ``(2, 10000000)`` then parallelizing\n+over the dimension of length ``2`` would likely be a worse choice.\n+\n+The body of the loop itself is ``nogil`` - i.e. you cannot perform\n+\"Python\" operations.  This is a fairly strong limitation and if you\n+find that you need to use the GIL then it is likely that Cython's\n+parallelization features are not suitable for you.  It is possible\n+to throw exceptions from within the loop, however -- Cython simply\n+regains the GIL and raises an exception, then terminates the loop\n+on all threads.\n+\n+It's necessary to explicitly type the loop variable ``i``  as a\n+C integer.  For a non-parallel loop Cython can infer this, but it\n+does not currently infer the loop variable for parallel loops, \n+so not typing ``i`` will lead to compile errors since it will be\n+a Python object and so unusable without the GIL.\n+\n+The C code generated is shown below, for the benefit of experienced\n+users of OpenMP. It is simplified a little for readability here:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j)\n+        for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_9; __pyx_t_8++){\n+            i = __pyx_t_8;\n+            / * body goes here */",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1058819865",
+            "id": 1058819865,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4_HE8Z",
+            "original_commit_id": "c3921b5e175d739d7b701c56ee947c2581ed2f85",
+            "original_line": 104,
+            "original_position": 104,
+            "original_start_line": null,
+            "path": "docs/src/tutorial/parallelization.rst",
+            "position": null,
+            "pull_request_review_id": 1232302160,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1058819865/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T09:12:33Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1058819865",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1058825589"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1058825589"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "```suggestion\r\n  :ref:`parallel block<parallel-block>`\r\n```\r\n\r\nSphinx cannot do this formatting within link reference unfortunately.",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T08:59:39Z",
+            "diff_hunk": "@@ -0,0 +1,274 @@\n+.. _parallel-tutorial:\n+\n+=================================\n+Writing parallel code with Cython\n+=================================\n+\n+One method of speeding up your Cython code is parallelization:\n+you write code that can be run on multiple cores of your CPU simultaneously.\n+For code that lends itself to parallelization this can produce quite\n+dramatic speed-ups, equal to the number of cores your CPU has (for example\n+a 4× speed-up on a 4-core CPU).\n+\n+This tutorial assumes that you are already familiar with Cython's \n+:ref:`\"typed memoryviews\"<memoryviews>` (since code using memoryviews is often\n+the sort of code that's easy to parallelize with Cython), and also that you're\n+somewhat familiar with the pitfalls of writing parallel code in general\n+(it aims to be a Cython tutorial rather than a complete introduction\n+to parallel programming).\n+\n+Before starting, a few notes:\n+\n+- Not all code can be parallelized - for some code the algorithm simply\n+  relies on being executed in order and you should not attempt to\n+  parallelize it.  A cumulative sum is a good example.\n+  \n+- Not all code is worth parallelizing.  There's a reasonable amount of\n+  overhead in starting a parallel section and so you need to make sure\n+  that you're operating on enough data to make this overhead worthwhile.\n+  Additionally, make sure that you are doing actual work on the data!\n+  Multiple threads simply reading the same data tends not to parallelize\n+  too well.  If in doubt, time it.\n+\n+- Cython requires the contents of parallel blocks to be ``nogil``.  If\n+  your algorithm requires access to Python objects then it may not be\n+  suitable for parallelization.\n+  \n+- Cython's inbuilt parallelization uses the OpenMP constructs\n+  ``omp parallel for`` and ``omp parallel``.  These are ideal\n+  for parallelizing relatively small, self-contained blocks of code\n+  (especially loops).  However, If you want to use other models of \n+  parallelization such as spawning and waiting for tasks, or \n+  off-loading some \"side work\" to a continuously running secondary \n+  thread, then you might be better using other methods (such as \n+  Python's ``threading`` module).\n+  \n+- Actually implementing your parallel Cython code should probably be \n+  one of the last steps in your optimization.  You should start with\n+  some working serial code first.  However, it's worth planning for\n+  early since it may affect your choice of algorithm.\n+\n+This tutorial does not aim to explore all the options available to\n+customize parallelization.  See the\n+:ref:`main parallelism documentation<parallel>` for details.\n+You should also be aware that a lot of the choices Cython makes\n+about how your code is parallelized are fairly fixed and if you want\n+specific OpenMP behaviour that Cython doesn't provide by default you\n+may be better writing it in C yourself.\n+  \n+Element-wise parallel operations\n+================================\n+\n+The easiest and most common parallel operation in Cython is to\n+iterate across an array element-wise, performing the same\n+operation on each array element.  In the simple example\n+below we calculate the ``sin`` of every element in an array:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx\n+\n+To compile these examples you need to make sure that OpenMP is enabled with the\n+compile and link flags. On GCC this is ``-fopenmp`` while on MSVC it is\n+``/openmp``. The :ref:`main parallelism documentation<parallel>` gives\n+an example ``setup.py`` file.\n+\n+We parallelize the outermost loop.  This is usually a good idea\n+since there is some overhead to entering and leaving a parallel block.\n+However, you should also consider the likely size of your arrays.\n+If ``input`` usually had a size of ``(2, 10000000)`` then parallelizing\n+over the dimension of length ``2`` would likely be a worse choice.\n+\n+The body of the loop itself is ``nogil`` - i.e. you cannot perform\n+\"Python\" operations.  This is a fairly strong limitation and if you\n+find that you need to use the GIL then it is likely that Cython's\n+parallelization features are not suitable for you.  It is possible\n+to throw exceptions from within the loop, however -- Cython simply\n+regains the GIL and raises an exception, then terminates the loop\n+on all threads.\n+\n+It's necessary to explicitly type the loop variable ``i``  as a\n+C integer.  For a non-parallel loop Cython can infer this, but it\n+does not currently infer the loop variable for parallel loops, \n+so not typing ``i`` will lead to compile errors since it will be\n+a Python object and so unusable without the GIL.\n+\n+The C code generated is shown below, for the benefit of experienced\n+users of OpenMP. It is simplified a little for readability here:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j)\n+        for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_9; __pyx_t_8++){\n+            i = __pyx_t_8;\n+            / * body goes here */\n+        }\n+    }\n+    \n+Private variables\n+-----------------\n+\n+One useful point to note from the generated C code above - variables\n+used in the loops like ``i`` and ``j`` are marked as ``firstprivate``\n+and ``lastprivate``.  Within the loop each thread has its own copy of\n+the data, the data is initialized\n+according to its value before the loop, and after the loop the \"global\"\n+copy is set equal to the last iteration (i.e. as if the loop were run\n+in serial).\n+\n+The basic rules that Cython applies are:\n+\n+- C scalar variables within a ``prange`` block are made \n+  ``firstprivate`` and ``lastprivate``,\n+\n+- C scalar variables assigned within a  \n+  :ref:```parallel`` block<parallel-block>`",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1058825589",
+            "id": 1058825589,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4_HGV1",
+            "original_commit_id": "c3921b5e175d739d7b701c56ee947c2581ed2f85",
+            "original_line": 125,
+            "original_position": 125,
+            "original_start_line": null,
+            "path": "docs/src/tutorial/parallelization.rst",
+            "position": null,
+            "pull_request_review_id": 1232302160,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1058825589/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T09:13:33Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1058825589",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1058826512"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1058826512"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Since this is tutorial, I think we should exactly mention how to compile examples - e.g. provide exact cythonize command or provide setup.py file. ",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T09:01:39Z",
+            "diff_hunk": "@@ -0,0 +1,274 @@\n+.. _parallel-tutorial:\n+\n+=================================\n+Writing parallel code with Cython\n+=================================\n+\n+One method of speeding up your Cython code is parallelization:\n+you write code that can be run on multiple cores of your CPU simultaneously.\n+For code that lends itself to parallelization this can produce quite\n+dramatic speed-ups, equal to the number of cores your CPU has (for example\n+a 4× speed-up on a 4-core CPU).\n+\n+This tutorial assumes that you are already familiar with Cython's \n+:ref:`\"typed memoryviews\"<memoryviews>` (since code using memoryviews is often\n+the sort of code that's easy to parallelize with Cython), and also that you're\n+somewhat familiar with the pitfalls of writing parallel code in general\n+(it aims to be a Cython tutorial rather than a complete introduction\n+to parallel programming).\n+\n+Before starting, a few notes:\n+\n+- Not all code can be parallelized - for some code the algorithm simply\n+  relies on being executed in order and you should not attempt to\n+  parallelize it.  A cumulative sum is a good example.\n+  \n+- Not all code is worth parallelizing.  There's a reasonable amount of\n+  overhead in starting a parallel section and so you need to make sure\n+  that you're operating on enough data to make this overhead worthwhile.\n+  Additionally, make sure that you are doing actual work on the data!\n+  Multiple threads simply reading the same data tends not to parallelize\n+  too well.  If in doubt, time it.\n+\n+- Cython requires the contents of parallel blocks to be ``nogil``.  If\n+  your algorithm requires access to Python objects then it may not be\n+  suitable for parallelization.\n+  \n+- Cython's inbuilt parallelization uses the OpenMP constructs\n+  ``omp parallel for`` and ``omp parallel``.  These are ideal\n+  for parallelizing relatively small, self-contained blocks of code\n+  (especially loops).  However, If you want to use other models of \n+  parallelization such as spawning and waiting for tasks, or \n+  off-loading some \"side work\" to a continuously running secondary \n+  thread, then you might be better using other methods (such as \n+  Python's ``threading`` module).\n+  \n+- Actually implementing your parallel Cython code should probably be \n+  one of the last steps in your optimization.  You should start with\n+  some working serial code first.  However, it's worth planning for\n+  early since it may affect your choice of algorithm.\n+\n+This tutorial does not aim to explore all the options available to\n+customize parallelization.  See the\n+:ref:`main parallelism documentation<parallel>` for details.\n+You should also be aware that a lot of the choices Cython makes\n+about how your code is parallelized are fairly fixed and if you want\n+specific OpenMP behaviour that Cython doesn't provide by default you\n+may be better writing it in C yourself.\n+  \n+Element-wise parallel operations\n+================================\n+\n+The easiest and most common parallel operation in Cython is to\n+iterate across an array element-wise, performing the same\n+operation on each array element.  In the simple example\n+below we calculate the ``sin`` of every element in an array:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx\n+\n+To compile these examples you need to make sure that OpenMP is enabled with the\n+compile and link flags. On GCC this is ``-fopenmp`` while on MSVC it is",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1058826512",
+            "id": 1058826512,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4_HGkQ",
+            "original_commit_id": "c3921b5e175d739d7b701c56ee947c2581ed2f85",
+            "original_line": 70,
+            "original_position": 70,
+            "original_start_line": null,
+            "path": "docs/src/tutorial/parallelization.rst",
+            "position": null,
+            "pull_request_review_id": 1232302160,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 1,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 1,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1058826512/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T09:12:33Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1058826512",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059110817"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059110817"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "```suggestion\r\n.. tabs::\r\n\r\n    .. group-tab:: Cython\r\n\r\n        .. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx\r\n\r\n    .. group-tab:: Pure Python\r\n\r\n        .. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.py\r\n```",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T19:09:08Z",
+            "diff_hunk": "@@ -0,0 +1,319 @@\n+.. _parallel-tutorial:\n+\n+=================================\n+Writing parallel code with Cython\n+=================================\n+\n+.. include::\n+    ../two-syntax-variants-used\n+\n+One method of speeding up your Cython code is parallelization:\n+you write code that can be run on multiple cores of your CPU simultaneously.\n+For code that lends itself to parallelization this can produce quite\n+dramatic speed-ups, equal to the number of cores your CPU has (for example\n+a 4× speed-up on a 4-core CPU).\n+\n+This tutorial assumes that you are already familiar with Cython's \n+:ref:`\"typed memoryviews\"<memoryviews>` (since code using memoryviews is often\n+the sort of code that's easy to parallelize with Cython), and also that you're\n+somewhat familiar with the pitfalls of writing parallel code in general\n+(it aims to be a Cython tutorial rather than a complete introduction\n+to parallel programming).\n+\n+Before starting, a few notes:\n+\n+- Not all code can be parallelized - for some code the algorithm simply\n+  relies on being executed in order and you should not attempt to\n+  parallelize it.  A cumulative sum is a good example.\n+  \n+- Not all code is worth parallelizing.  There's a reasonable amount of\n+  overhead in starting a parallel section and so you need to make sure\n+  that you're operating on enough data to make this overhead worthwhile.\n+  Additionally, make sure that you are doing actual work on the data!\n+  Multiple threads simply reading the same data tends not to parallelize\n+  too well.  If in doubt, time it.\n+\n+- Cython requires the contents of parallel blocks to be ``nogil``.  If\n+  your algorithm requires access to Python objects then it may not be\n+  suitable for parallelization.\n+  \n+- Cython's inbuilt parallelization uses the OpenMP constructs\n+  ``omp parallel for`` and ``omp parallel``.  These are ideal\n+  for parallelizing relatively small, self-contained blocks of code\n+  (especially loops).  However, If you want to use other models of \n+  parallelization such as spawning and waiting for tasks, or \n+  off-loading some \"side work\" to a continuously running secondary \n+  thread, then you might be better using other methods (such as \n+  Python's ``threading`` module).\n+  \n+- Actually implementing your parallel Cython code should probably be \n+  one of the last steps in your optimization.  You should start with\n+  some working serial code first.  However, it's worth planning for\n+  early since it may affect your choice of algorithm.\n+\n+This tutorial does not aim to explore all the options available to\n+customize parallelization.  See the\n+:ref:`main parallelism documentation<parallel>` for details.\n+You should also be aware that a lot of the choices Cython makes\n+about how your code is parallelized are fairly fixed and if you want\n+specific OpenMP behaviour that Cython doesn't provide by default you\n+may be better writing it in C yourself.\n+\n+Compilation\n+===========\n+\n+OpenMP requires support from your C/C++ compiler. This support is\n+usually enabled through a special command-line argument:\n+on GCC this is ``-fopenmp`` while on MSVC it is\n+``/openmp``. If your compiler doesn't support OpenMP (or if you\n+forget to pass the argument) then the code will usually still\n+compile but will not run in parallel.\n+\n+The following ``setup.py`` file can be used to compile the\n+examples in this tutorial:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/setup.py\n+\n+Element-wise parallel operations\n+================================\n+\n+The easiest and most common parallel operation in Cython is to\n+iterate across an array element-wise, performing the same\n+operation on each array element.  In the simple example\n+below we calculate the ``sin`` of every element in an array:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059110817",
+            "id": 1059110817,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4_IL-h",
+            "original_commit_id": "30f3204330138ff35fcbe705f87a4951598a3b36",
+            "original_line": 85,
+            "original_position": 85,
+            "original_start_line": null,
+            "path": "docs/src/tutorial/parallelization.rst",
+            "position": null,
+            "pull_request_review_id": 1232713060,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059110817/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T19:09:49Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059110817",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059114199"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059114199"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "```suggestion\r\n        .. literalinclude:: ../../examples/tutorial/parallelization/manual_work.pyx\r\n           :lines: 2-\r\n```",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T19:18:52Z",
+            "diff_hunk": "@@ -0,0 +1,319 @@\n+.. _parallel-tutorial:\n+\n+=================================\n+Writing parallel code with Cython\n+=================================\n+\n+.. include::\n+    ../two-syntax-variants-used\n+\n+One method of speeding up your Cython code is parallelization:\n+you write code that can be run on multiple cores of your CPU simultaneously.\n+For code that lends itself to parallelization this can produce quite\n+dramatic speed-ups, equal to the number of cores your CPU has (for example\n+a 4× speed-up on a 4-core CPU).\n+\n+This tutorial assumes that you are already familiar with Cython's \n+:ref:`\"typed memoryviews\"<memoryviews>` (since code using memoryviews is often\n+the sort of code that's easy to parallelize with Cython), and also that you're\n+somewhat familiar with the pitfalls of writing parallel code in general\n+(it aims to be a Cython tutorial rather than a complete introduction\n+to parallel programming).\n+\n+Before starting, a few notes:\n+\n+- Not all code can be parallelized - for some code the algorithm simply\n+  relies on being executed in order and you should not attempt to\n+  parallelize it.  A cumulative sum is a good example.\n+  \n+- Not all code is worth parallelizing.  There's a reasonable amount of\n+  overhead in starting a parallel section and so you need to make sure\n+  that you're operating on enough data to make this overhead worthwhile.\n+  Additionally, make sure that you are doing actual work on the data!\n+  Multiple threads simply reading the same data tends not to parallelize\n+  too well.  If in doubt, time it.\n+\n+- Cython requires the contents of parallel blocks to be ``nogil``.  If\n+  your algorithm requires access to Python objects then it may not be\n+  suitable for parallelization.\n+  \n+- Cython's inbuilt parallelization uses the OpenMP constructs\n+  ``omp parallel for`` and ``omp parallel``.  These are ideal\n+  for parallelizing relatively small, self-contained blocks of code\n+  (especially loops).  However, If you want to use other models of \n+  parallelization such as spawning and waiting for tasks, or \n+  off-loading some \"side work\" to a continuously running secondary \n+  thread, then you might be better using other methods (such as \n+  Python's ``threading`` module).\n+  \n+- Actually implementing your parallel Cython code should probably be \n+  one of the last steps in your optimization.  You should start with\n+  some working serial code first.  However, it's worth planning for\n+  early since it may affect your choice of algorithm.\n+\n+This tutorial does not aim to explore all the options available to\n+customize parallelization.  See the\n+:ref:`main parallelism documentation<parallel>` for details.\n+You should also be aware that a lot of the choices Cython makes\n+about how your code is parallelized are fairly fixed and if you want\n+specific OpenMP behaviour that Cython doesn't provide by default you\n+may be better writing it in C yourself.\n+\n+Compilation\n+===========\n+\n+OpenMP requires support from your C/C++ compiler. This support is\n+usually enabled through a special command-line argument:\n+on GCC this is ``-fopenmp`` while on MSVC it is\n+``/openmp``. If your compiler doesn't support OpenMP (or if you\n+forget to pass the argument) then the code will usually still\n+compile but will not run in parallel.\n+\n+The following ``setup.py`` file can be used to compile the\n+examples in this tutorial:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/setup.py\n+\n+Element-wise parallel operations\n+================================\n+\n+The easiest and most common parallel operation in Cython is to\n+iterate across an array element-wise, performing the same\n+operation on each array element.  In the simple example\n+below we calculate the ``sin`` of every element in an array:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx\n+\n+We parallelize the outermost loop.  This is usually a good idea\n+since there is some overhead to entering and leaving a parallel block.\n+However, you should also consider the likely size of your arrays.\n+If ``input`` usually had a size of ``(2, 10000000)`` then parallelizing\n+over the dimension of length ``2`` would likely be a worse choice.\n+\n+The body of the loop itself is ``nogil`` - i.e. you cannot perform\n+\"Python\" operations.  This is a fairly strong limitation and if you\n+find that you need to use the GIL then it is likely that Cython's\n+parallelization features are not suitable for you.  It is possible\n+to throw exceptions from within the loop, however -- Cython simply\n+regains the GIL and raises an exception, then terminates the loop\n+on all threads.\n+\n+It's necessary to explicitly type the loop variable ``i``  as a\n+C integer.  For a non-parallel loop Cython can infer this, but it\n+does not currently infer the loop variable for parallel loops, \n+so not typing ``i`` will lead to compile errors since it will be\n+a Python object and so unusable without the GIL.\n+\n+The C code generated is shown below, for the benefit of experienced\n+users of OpenMP. It is simplified a little for readability here:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j)\n+        for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_9; __pyx_t_8++){\n+            i = __pyx_t_8;\n+            /* body goes here */\n+        }\n+    }\n+    \n+Private variables\n+-----------------\n+\n+One useful point to note from the generated C code above - variables\n+used in the loops like ``i`` and ``j`` are marked as ``firstprivate``\n+and ``lastprivate``.  Within the loop each thread has its own copy of\n+the data, the data is initialized\n+according to its value before the loop, and after the loop the \"global\"\n+copy is set equal to the last iteration (i.e. as if the loop were run\n+in serial).\n+\n+The basic rules that Cython applies are:\n+\n+- C scalar variables within a ``prange`` block are made \n+  ``firstprivate`` and ``lastprivate``,\n+\n+- C scalar variables assigned within a  \n+  :ref:`parallel block<parallel-block>`\n+  are ``private`` (which means they can't be used to pass data in\n+  and out of the block),\n+\n+- array variables (e.g. memoryviews) are not made private.  Instead\n+  Cython assumes that you have structured your loop so that each iteration\n+  is acting on different data,\n+\n+- Python objects are also not made private, although access to them\n+  is controlled via Python's GIL.\n+\n+Cython does not currently provide much opportunity of override these\n+choices.\n+  \n+Reductions\n+==========\n+\n+The second most common parallel operation in Cython is the \"reduction\"\n+operation.  A common example is to accumulate a sum over the whole\n+array, such as in the calculation of a vector norm below:\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/norm.pyx\n+\n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/norm.py\n+\n+Cython is able to infer reductions for ``+=``, ``*=``, ``-=``,\n+``&=``, ``|=``, and ``^=``.  These only apply to C scalar variables\n+so you cannot easily reduce a 2D memoryview to a 1D memoryview for\n+example.\n+\n+The C code generated is approximately:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel reduction(+:total)\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            i = __pyx_t_2;\n+            total = total + /* some indexing code */;\n+            \n+        }\n+    }\n+\n+.. _parallel-block:\n+    \n+``parallel`` blocks\n+===================\n+\n+Much less frequently used than ``prange`` is Cython's ``parallel``\n+operator.  ``parallel`` generates a block of code that is run simultaneously\n+on multiple threads at once.  Unlike ``prange``, however, work is\n+not automatically divided between threads.\n+\n+Here we present three common uses for the ``parallel`` block:\n+\n+Stringing together prange blocks\n+--------------------------------\n+\n+There is some overhead in entering and leaving a parallelized section.\n+Therefore, if you have multiple parallel sections with small\n+serial sections in between it can be more efficient to\n+write one large parallel block.  Any small serial\n+sections are duplicated, but the overhead is reduced.\n+\n+In the example below we do an in-place normalization of a vector.\n+The first parallel loop calculates the norm, the second parallel\n+loop applies the norm to the vector, and we avoid jumping in and out of serial\n+code in between.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/normalize.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/normalize.py\n+\n+The C code is approximately:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel private(norm) reduction(+:total)\n+    {\n+        /* some calculations of array size... */\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            /* ... */\n+        }\n+        norm = sqrt(total);\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            /* ... */\n+        }\n+    }\n+\n+Allocating \"scratch space\" for each thread\n+------------------------------------------\n+\n+Suppose that each thread requires a small amount of scratch space\n+to work in.  They cannot share scratch space because that would\n+lead to data races.  In this case the allocation and deallocation\n+is done in a parallel section (so occurs on a per-thread basis)\n+surrounding a loop which then uses the scratch space.\n+\n+Our example here uses C++ to find the median of each column in\n+a 2D array (just a parallel version of ``numpy.median(x, axis=0)``).\n+We must reorder each column to find the median of it, but don't want\n+to modify the input array.  Therefore, we allocate a C++ vector per\n+thread to use as scratch space, and work in that.  For efficiency\n+the vector is allocated outside the ``prange`` loop.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/median.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/median.py\n+\n+In the generated code the ``scratch`` variable is marked as\n+``private`` in the outer parallel block.  A rough outline is:\n+\n+.. code-block:: C++\n+\n+    #pragma omp parallel private(scratch)\n+    {\n+        scratch = new std::vector<double> ((x.shape[0]))\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j) lastprivate(median_it)\n+        for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_10; __pyx_t_9++){\n+            i = __pyx_t_9;\n+            /* implementation goes here */\n+        }\n+        /* some exception handling detail omitted */\n+        delete scratch;\n+    }\n+\n+Performing different tasks on each thread\n+-----------------------------------------\n+\n+Finally, if you manually specify the number of threads and\n+then identify each thread using ``omp.get_thread_num()``\n+you can manually split work between threads.  This is\n+a fairly rare use-case in Cython, and probably suggests\n+that the ``threading`` module is more suitable for what\n+you're trying to do.  However it is an option.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/manual_work.pyx",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059114199",
+            "id": 1059114199,
+            "line": 313,
+            "node_id": "PRRC_kwDOABDGAc4_IMzX",
+            "original_commit_id": "30f3204330138ff35fcbe705f87a4951598a3b36",
+            "original_line": 299,
+            "original_position": 299,
+            "original_start_line": null,
+            "path": "docs/src/tutorial/parallelization.rst",
+            "position": 313,
+            "pull_request_review_id": 1232717750,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059114199/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T19:31:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059114199",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059114333"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059114333"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "```suggestion\r\n        .. literalinclude:: ../../examples/tutorial/parallelization/manual_work.py\r\n           :lines: 2-\r\n```",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T19:19:15Z",
+            "diff_hunk": "@@ -0,0 +1,319 @@\n+.. _parallel-tutorial:\n+\n+=================================\n+Writing parallel code with Cython\n+=================================\n+\n+.. include::\n+    ../two-syntax-variants-used\n+\n+One method of speeding up your Cython code is parallelization:\n+you write code that can be run on multiple cores of your CPU simultaneously.\n+For code that lends itself to parallelization this can produce quite\n+dramatic speed-ups, equal to the number of cores your CPU has (for example\n+a 4× speed-up on a 4-core CPU).\n+\n+This tutorial assumes that you are already familiar with Cython's \n+:ref:`\"typed memoryviews\"<memoryviews>` (since code using memoryviews is often\n+the sort of code that's easy to parallelize with Cython), and also that you're\n+somewhat familiar with the pitfalls of writing parallel code in general\n+(it aims to be a Cython tutorial rather than a complete introduction\n+to parallel programming).\n+\n+Before starting, a few notes:\n+\n+- Not all code can be parallelized - for some code the algorithm simply\n+  relies on being executed in order and you should not attempt to\n+  parallelize it.  A cumulative sum is a good example.\n+  \n+- Not all code is worth parallelizing.  There's a reasonable amount of\n+  overhead in starting a parallel section and so you need to make sure\n+  that you're operating on enough data to make this overhead worthwhile.\n+  Additionally, make sure that you are doing actual work on the data!\n+  Multiple threads simply reading the same data tends not to parallelize\n+  too well.  If in doubt, time it.\n+\n+- Cython requires the contents of parallel blocks to be ``nogil``.  If\n+  your algorithm requires access to Python objects then it may not be\n+  suitable for parallelization.\n+  \n+- Cython's inbuilt parallelization uses the OpenMP constructs\n+  ``omp parallel for`` and ``omp parallel``.  These are ideal\n+  for parallelizing relatively small, self-contained blocks of code\n+  (especially loops).  However, If you want to use other models of \n+  parallelization such as spawning and waiting for tasks, or \n+  off-loading some \"side work\" to a continuously running secondary \n+  thread, then you might be better using other methods (such as \n+  Python's ``threading`` module).\n+  \n+- Actually implementing your parallel Cython code should probably be \n+  one of the last steps in your optimization.  You should start with\n+  some working serial code first.  However, it's worth planning for\n+  early since it may affect your choice of algorithm.\n+\n+This tutorial does not aim to explore all the options available to\n+customize parallelization.  See the\n+:ref:`main parallelism documentation<parallel>` for details.\n+You should also be aware that a lot of the choices Cython makes\n+about how your code is parallelized are fairly fixed and if you want\n+specific OpenMP behaviour that Cython doesn't provide by default you\n+may be better writing it in C yourself.\n+\n+Compilation\n+===========\n+\n+OpenMP requires support from your C/C++ compiler. This support is\n+usually enabled through a special command-line argument:\n+on GCC this is ``-fopenmp`` while on MSVC it is\n+``/openmp``. If your compiler doesn't support OpenMP (or if you\n+forget to pass the argument) then the code will usually still\n+compile but will not run in parallel.\n+\n+The following ``setup.py`` file can be used to compile the\n+examples in this tutorial:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/setup.py\n+\n+Element-wise parallel operations\n+================================\n+\n+The easiest and most common parallel operation in Cython is to\n+iterate across an array element-wise, performing the same\n+operation on each array element.  In the simple example\n+below we calculate the ``sin`` of every element in an array:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx\n+\n+We parallelize the outermost loop.  This is usually a good idea\n+since there is some overhead to entering and leaving a parallel block.\n+However, you should also consider the likely size of your arrays.\n+If ``input`` usually had a size of ``(2, 10000000)`` then parallelizing\n+over the dimension of length ``2`` would likely be a worse choice.\n+\n+The body of the loop itself is ``nogil`` - i.e. you cannot perform\n+\"Python\" operations.  This is a fairly strong limitation and if you\n+find that you need to use the GIL then it is likely that Cython's\n+parallelization features are not suitable for you.  It is possible\n+to throw exceptions from within the loop, however -- Cython simply\n+regains the GIL and raises an exception, then terminates the loop\n+on all threads.\n+\n+It's necessary to explicitly type the loop variable ``i``  as a\n+C integer.  For a non-parallel loop Cython can infer this, but it\n+does not currently infer the loop variable for parallel loops, \n+so not typing ``i`` will lead to compile errors since it will be\n+a Python object and so unusable without the GIL.\n+\n+The C code generated is shown below, for the benefit of experienced\n+users of OpenMP. It is simplified a little for readability here:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j)\n+        for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_9; __pyx_t_8++){\n+            i = __pyx_t_8;\n+            /* body goes here */\n+        }\n+    }\n+    \n+Private variables\n+-----------------\n+\n+One useful point to note from the generated C code above - variables\n+used in the loops like ``i`` and ``j`` are marked as ``firstprivate``\n+and ``lastprivate``.  Within the loop each thread has its own copy of\n+the data, the data is initialized\n+according to its value before the loop, and after the loop the \"global\"\n+copy is set equal to the last iteration (i.e. as if the loop were run\n+in serial).\n+\n+The basic rules that Cython applies are:\n+\n+- C scalar variables within a ``prange`` block are made \n+  ``firstprivate`` and ``lastprivate``,\n+\n+- C scalar variables assigned within a  \n+  :ref:`parallel block<parallel-block>`\n+  are ``private`` (which means they can't be used to pass data in\n+  and out of the block),\n+\n+- array variables (e.g. memoryviews) are not made private.  Instead\n+  Cython assumes that you have structured your loop so that each iteration\n+  is acting on different data,\n+\n+- Python objects are also not made private, although access to them\n+  is controlled via Python's GIL.\n+\n+Cython does not currently provide much opportunity of override these\n+choices.\n+  \n+Reductions\n+==========\n+\n+The second most common parallel operation in Cython is the \"reduction\"\n+operation.  A common example is to accumulate a sum over the whole\n+array, such as in the calculation of a vector norm below:\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/norm.pyx\n+\n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/norm.py\n+\n+Cython is able to infer reductions for ``+=``, ``*=``, ``-=``,\n+``&=``, ``|=``, and ``^=``.  These only apply to C scalar variables\n+so you cannot easily reduce a 2D memoryview to a 1D memoryview for\n+example.\n+\n+The C code generated is approximately:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel reduction(+:total)\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            i = __pyx_t_2;\n+            total = total + /* some indexing code */;\n+            \n+        }\n+    }\n+\n+.. _parallel-block:\n+    \n+``parallel`` blocks\n+===================\n+\n+Much less frequently used than ``prange`` is Cython's ``parallel``\n+operator.  ``parallel`` generates a block of code that is run simultaneously\n+on multiple threads at once.  Unlike ``prange``, however, work is\n+not automatically divided between threads.\n+\n+Here we present three common uses for the ``parallel`` block:\n+\n+Stringing together prange blocks\n+--------------------------------\n+\n+There is some overhead in entering and leaving a parallelized section.\n+Therefore, if you have multiple parallel sections with small\n+serial sections in between it can be more efficient to\n+write one large parallel block.  Any small serial\n+sections are duplicated, but the overhead is reduced.\n+\n+In the example below we do an in-place normalization of a vector.\n+The first parallel loop calculates the norm, the second parallel\n+loop applies the norm to the vector, and we avoid jumping in and out of serial\n+code in between.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/normalize.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/normalize.py\n+\n+The C code is approximately:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel private(norm) reduction(+:total)\n+    {\n+        /* some calculations of array size... */\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            /* ... */\n+        }\n+        norm = sqrt(total);\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            /* ... */\n+        }\n+    }\n+\n+Allocating \"scratch space\" for each thread\n+------------------------------------------\n+\n+Suppose that each thread requires a small amount of scratch space\n+to work in.  They cannot share scratch space because that would\n+lead to data races.  In this case the allocation and deallocation\n+is done in a parallel section (so occurs on a per-thread basis)\n+surrounding a loop which then uses the scratch space.\n+\n+Our example here uses C++ to find the median of each column in\n+a 2D array (just a parallel version of ``numpy.median(x, axis=0)``).\n+We must reorder each column to find the median of it, but don't want\n+to modify the input array.  Therefore, we allocate a C++ vector per\n+thread to use as scratch space, and work in that.  For efficiency\n+the vector is allocated outside the ``prange`` loop.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/median.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/median.py\n+\n+In the generated code the ``scratch`` variable is marked as\n+``private`` in the outer parallel block.  A rough outline is:\n+\n+.. code-block:: C++\n+\n+    #pragma omp parallel private(scratch)\n+    {\n+        scratch = new std::vector<double> ((x.shape[0]))\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j) lastprivate(median_it)\n+        for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_10; __pyx_t_9++){\n+            i = __pyx_t_9;\n+            /* implementation goes here */\n+        }\n+        /* some exception handling detail omitted */\n+        delete scratch;\n+    }\n+\n+Performing different tasks on each thread\n+-----------------------------------------\n+\n+Finally, if you manually specify the number of threads and\n+then identify each thread using ``omp.get_thread_num()``\n+you can manually split work between threads.  This is\n+a fairly rare use-case in Cython, and probably suggests\n+that the ``threading`` module is more suitable for what\n+you're trying to do.  However it is an option.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/manual_work.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/manual_work.py",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059114333",
+            "id": 1059114333,
+            "line": 318,
+            "node_id": "PRRC_kwDOABDGAc4_IM1d",
+            "original_commit_id": "30f3204330138ff35fcbe705f87a4951598a3b36",
+            "original_line": 303,
+            "original_position": 303,
+            "original_start_line": null,
+            "path": "docs/src/tutorial/parallelization.rst",
+            "position": 318,
+            "pull_request_review_id": 1232717750,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059114333/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T19:31:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059114333",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059117418"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059117418"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Are we using C++ language in this file? If I am not wrong not, so we can remove this.",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T19:28:19Z",
+            "diff_hunk": "@@ -0,0 +1,38 @@\n+# distutils: language = c++",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059117418",
+            "id": 1059117418,
+            "line": 1,
+            "node_id": "PRRC_kwDOABDGAc4_INlq",
+            "original_commit_id": "30f3204330138ff35fcbe705f87a4951598a3b36",
+            "original_line": 1,
+            "original_position": 1,
+            "original_start_line": null,
+            "path": "docs/examples/tutorial/parallelization/median.py",
+            "position": 1,
+            "pull_request_review_id": 1232717750,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059117418/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T19:31:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059117418",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059117719"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059117719"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Thanks yes I missed that",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T19:29:12Z",
+            "diff_hunk": "@@ -0,0 +1,319 @@\n+.. _parallel-tutorial:\n+\n+=================================\n+Writing parallel code with Cython\n+=================================\n+\n+.. include::\n+    ../two-syntax-variants-used\n+\n+One method of speeding up your Cython code is parallelization:\n+you write code that can be run on multiple cores of your CPU simultaneously.\n+For code that lends itself to parallelization this can produce quite\n+dramatic speed-ups, equal to the number of cores your CPU has (for example\n+a 4× speed-up on a 4-core CPU).\n+\n+This tutorial assumes that you are already familiar with Cython's \n+:ref:`\"typed memoryviews\"<memoryviews>` (since code using memoryviews is often\n+the sort of code that's easy to parallelize with Cython), and also that you're\n+somewhat familiar with the pitfalls of writing parallel code in general\n+(it aims to be a Cython tutorial rather than a complete introduction\n+to parallel programming).\n+\n+Before starting, a few notes:\n+\n+- Not all code can be parallelized - for some code the algorithm simply\n+  relies on being executed in order and you should not attempt to\n+  parallelize it.  A cumulative sum is a good example.\n+  \n+- Not all code is worth parallelizing.  There's a reasonable amount of\n+  overhead in starting a parallel section and so you need to make sure\n+  that you're operating on enough data to make this overhead worthwhile.\n+  Additionally, make sure that you are doing actual work on the data!\n+  Multiple threads simply reading the same data tends not to parallelize\n+  too well.  If in doubt, time it.\n+\n+- Cython requires the contents of parallel blocks to be ``nogil``.  If\n+  your algorithm requires access to Python objects then it may not be\n+  suitable for parallelization.\n+  \n+- Cython's inbuilt parallelization uses the OpenMP constructs\n+  ``omp parallel for`` and ``omp parallel``.  These are ideal\n+  for parallelizing relatively small, self-contained blocks of code\n+  (especially loops).  However, If you want to use other models of \n+  parallelization such as spawning and waiting for tasks, or \n+  off-loading some \"side work\" to a continuously running secondary \n+  thread, then you might be better using other methods (such as \n+  Python's ``threading`` module).\n+  \n+- Actually implementing your parallel Cython code should probably be \n+  one of the last steps in your optimization.  You should start with\n+  some working serial code first.  However, it's worth planning for\n+  early since it may affect your choice of algorithm.\n+\n+This tutorial does not aim to explore all the options available to\n+customize parallelization.  See the\n+:ref:`main parallelism documentation<parallel>` for details.\n+You should also be aware that a lot of the choices Cython makes\n+about how your code is parallelized are fairly fixed and if you want\n+specific OpenMP behaviour that Cython doesn't provide by default you\n+may be better writing it in C yourself.\n+\n+Compilation\n+===========\n+\n+OpenMP requires support from your C/C++ compiler. This support is\n+usually enabled through a special command-line argument:\n+on GCC this is ``-fopenmp`` while on MSVC it is\n+``/openmp``. If your compiler doesn't support OpenMP (or if you\n+forget to pass the argument) then the code will usually still\n+compile but will not run in parallel.\n+\n+The following ``setup.py`` file can be used to compile the\n+examples in this tutorial:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/setup.py\n+\n+Element-wise parallel operations\n+================================\n+\n+The easiest and most common parallel operation in Cython is to\n+iterate across an array element-wise, performing the same\n+operation on each array element.  In the simple example\n+below we calculate the ``sin`` of every element in an array:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059117719",
+            "id": 1059117719,
+            "in_reply_to_id": 1059110817,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4_INqX",
+            "original_commit_id": "30f3204330138ff35fcbe705f87a4951598a3b36",
+            "original_line": 85,
+            "original_position": 85,
+            "original_start_line": null,
+            "path": "docs/src/tutorial/parallelization.rst",
+            "position": null,
+            "pull_request_review_id": 1232722548,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059117719/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T19:29:12Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059117719",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059118169"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059118169"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "I think visually will be better to move comments from examples to separate note section. This will also reduce duplication.\r\n\r\n```suggestion\r\n\r\n.. note::\r\n\r\n    Pure and classic syntax examples are not quite identical\r\n    since pure Python syntax does not support C++ \"new\", so we allocate the\r\n    scratch space slightly differently\r\n\r\n```",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T19:30:37Z",
+            "diff_hunk": "@@ -0,0 +1,319 @@\n+.. _parallel-tutorial:\n+\n+=================================\n+Writing parallel code with Cython\n+=================================\n+\n+.. include::\n+    ../two-syntax-variants-used\n+\n+One method of speeding up your Cython code is parallelization:\n+you write code that can be run on multiple cores of your CPU simultaneously.\n+For code that lends itself to parallelization this can produce quite\n+dramatic speed-ups, equal to the number of cores your CPU has (for example\n+a 4× speed-up on a 4-core CPU).\n+\n+This tutorial assumes that you are already familiar with Cython's \n+:ref:`\"typed memoryviews\"<memoryviews>` (since code using memoryviews is often\n+the sort of code that's easy to parallelize with Cython), and also that you're\n+somewhat familiar with the pitfalls of writing parallel code in general\n+(it aims to be a Cython tutorial rather than a complete introduction\n+to parallel programming).\n+\n+Before starting, a few notes:\n+\n+- Not all code can be parallelized - for some code the algorithm simply\n+  relies on being executed in order and you should not attempt to\n+  parallelize it.  A cumulative sum is a good example.\n+  \n+- Not all code is worth parallelizing.  There's a reasonable amount of\n+  overhead in starting a parallel section and so you need to make sure\n+  that you're operating on enough data to make this overhead worthwhile.\n+  Additionally, make sure that you are doing actual work on the data!\n+  Multiple threads simply reading the same data tends not to parallelize\n+  too well.  If in doubt, time it.\n+\n+- Cython requires the contents of parallel blocks to be ``nogil``.  If\n+  your algorithm requires access to Python objects then it may not be\n+  suitable for parallelization.\n+  \n+- Cython's inbuilt parallelization uses the OpenMP constructs\n+  ``omp parallel for`` and ``omp parallel``.  These are ideal\n+  for parallelizing relatively small, self-contained blocks of code\n+  (especially loops).  However, If you want to use other models of \n+  parallelization such as spawning and waiting for tasks, or \n+  off-loading some \"side work\" to a continuously running secondary \n+  thread, then you might be better using other methods (such as \n+  Python's ``threading`` module).\n+  \n+- Actually implementing your parallel Cython code should probably be \n+  one of the last steps in your optimization.  You should start with\n+  some working serial code first.  However, it's worth planning for\n+  early since it may affect your choice of algorithm.\n+\n+This tutorial does not aim to explore all the options available to\n+customize parallelization.  See the\n+:ref:`main parallelism documentation<parallel>` for details.\n+You should also be aware that a lot of the choices Cython makes\n+about how your code is parallelized are fairly fixed and if you want\n+specific OpenMP behaviour that Cython doesn't provide by default you\n+may be better writing it in C yourself.\n+\n+Compilation\n+===========\n+\n+OpenMP requires support from your C/C++ compiler. This support is\n+usually enabled through a special command-line argument:\n+on GCC this is ``-fopenmp`` while on MSVC it is\n+``/openmp``. If your compiler doesn't support OpenMP (or if you\n+forget to pass the argument) then the code will usually still\n+compile but will not run in parallel.\n+\n+The following ``setup.py`` file can be used to compile the\n+examples in this tutorial:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/setup.py\n+\n+Element-wise parallel operations\n+================================\n+\n+The easiest and most common parallel operation in Cython is to\n+iterate across an array element-wise, performing the same\n+operation on each array element.  In the simple example\n+below we calculate the ``sin`` of every element in an array:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx\n+\n+We parallelize the outermost loop.  This is usually a good idea\n+since there is some overhead to entering and leaving a parallel block.\n+However, you should also consider the likely size of your arrays.\n+If ``input`` usually had a size of ``(2, 10000000)`` then parallelizing\n+over the dimension of length ``2`` would likely be a worse choice.\n+\n+The body of the loop itself is ``nogil`` - i.e. you cannot perform\n+\"Python\" operations.  This is a fairly strong limitation and if you\n+find that you need to use the GIL then it is likely that Cython's\n+parallelization features are not suitable for you.  It is possible\n+to throw exceptions from within the loop, however -- Cython simply\n+regains the GIL and raises an exception, then terminates the loop\n+on all threads.\n+\n+It's necessary to explicitly type the loop variable ``i``  as a\n+C integer.  For a non-parallel loop Cython can infer this, but it\n+does not currently infer the loop variable for parallel loops, \n+so not typing ``i`` will lead to compile errors since it will be\n+a Python object and so unusable without the GIL.\n+\n+The C code generated is shown below, for the benefit of experienced\n+users of OpenMP. It is simplified a little for readability here:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j)\n+        for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_9; __pyx_t_8++){\n+            i = __pyx_t_8;\n+            /* body goes here */\n+        }\n+    }\n+    \n+Private variables\n+-----------------\n+\n+One useful point to note from the generated C code above - variables\n+used in the loops like ``i`` and ``j`` are marked as ``firstprivate``\n+and ``lastprivate``.  Within the loop each thread has its own copy of\n+the data, the data is initialized\n+according to its value before the loop, and after the loop the \"global\"\n+copy is set equal to the last iteration (i.e. as if the loop were run\n+in serial).\n+\n+The basic rules that Cython applies are:\n+\n+- C scalar variables within a ``prange`` block are made \n+  ``firstprivate`` and ``lastprivate``,\n+\n+- C scalar variables assigned within a  \n+  :ref:`parallel block<parallel-block>`\n+  are ``private`` (which means they can't be used to pass data in\n+  and out of the block),\n+\n+- array variables (e.g. memoryviews) are not made private.  Instead\n+  Cython assumes that you have structured your loop so that each iteration\n+  is acting on different data,\n+\n+- Python objects are also not made private, although access to them\n+  is controlled via Python's GIL.\n+\n+Cython does not currently provide much opportunity of override these\n+choices.\n+  \n+Reductions\n+==========\n+\n+The second most common parallel operation in Cython is the \"reduction\"\n+operation.  A common example is to accumulate a sum over the whole\n+array, such as in the calculation of a vector norm below:\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/norm.pyx\n+\n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/norm.py\n+\n+Cython is able to infer reductions for ``+=``, ``*=``, ``-=``,\n+``&=``, ``|=``, and ``^=``.  These only apply to C scalar variables\n+so you cannot easily reduce a 2D memoryview to a 1D memoryview for\n+example.\n+\n+The C code generated is approximately:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel reduction(+:total)\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            i = __pyx_t_2;\n+            total = total + /* some indexing code */;\n+            \n+        }\n+    }\n+\n+.. _parallel-block:\n+    \n+``parallel`` blocks\n+===================\n+\n+Much less frequently used than ``prange`` is Cython's ``parallel``\n+operator.  ``parallel`` generates a block of code that is run simultaneously\n+on multiple threads at once.  Unlike ``prange``, however, work is\n+not automatically divided between threads.\n+\n+Here we present three common uses for the ``parallel`` block:\n+\n+Stringing together prange blocks\n+--------------------------------\n+\n+There is some overhead in entering and leaving a parallelized section.\n+Therefore, if you have multiple parallel sections with small\n+serial sections in between it can be more efficient to\n+write one large parallel block.  Any small serial\n+sections are duplicated, but the overhead is reduced.\n+\n+In the example below we do an in-place normalization of a vector.\n+The first parallel loop calculates the norm, the second parallel\n+loop applies the norm to the vector, and we avoid jumping in and out of serial\n+code in between.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/normalize.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/normalize.py\n+\n+The C code is approximately:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel private(norm) reduction(+:total)\n+    {\n+        /* some calculations of array size... */\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            /* ... */\n+        }\n+        norm = sqrt(total);\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            /* ... */\n+        }\n+    }\n+\n+Allocating \"scratch space\" for each thread\n+------------------------------------------\n+\n+Suppose that each thread requires a small amount of scratch space\n+to work in.  They cannot share scratch space because that would\n+lead to data races.  In this case the allocation and deallocation\n+is done in a parallel section (so occurs on a per-thread basis)\n+surrounding a loop which then uses the scratch space.\n+\n+Our example here uses C++ to find the median of each column in\n+a 2D array (just a parallel version of ``numpy.median(x, axis=0)``).\n+We must reorder each column to find the median of it, but don't want\n+to modify the input array.  Therefore, we allocate a C++ vector per\n+thread to use as scratch space, and work in that.  For efficiency\n+the vector is allocated outside the ``prange`` loop.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/median.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/median.py\n+",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059118169",
+            "id": 1059118169,
+            "line": 275,
+            "node_id": "PRRC_kwDOABDGAc4_INxZ",
+            "original_commit_id": "30f3204330138ff35fcbe705f87a4951598a3b36",
+            "original_line": 267,
+            "original_position": 267,
+            "original_start_line": null,
+            "path": "docs/src/tutorial/parallelization.rst",
+            "position": 275,
+            "pull_request_review_id": 1232717750,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059118169/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T19:31:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059118169",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059118881"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059118881"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "This will remove tag comment connected to CI which should not bother consumer of documentation.",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T19:32:54Z",
+            "diff_hunk": "@@ -0,0 +1,319 @@\n+.. _parallel-tutorial:\n+\n+=================================\n+Writing parallel code with Cython\n+=================================\n+\n+.. include::\n+    ../two-syntax-variants-used\n+\n+One method of speeding up your Cython code is parallelization:\n+you write code that can be run on multiple cores of your CPU simultaneously.\n+For code that lends itself to parallelization this can produce quite\n+dramatic speed-ups, equal to the number of cores your CPU has (for example\n+a 4× speed-up on a 4-core CPU).\n+\n+This tutorial assumes that you are already familiar with Cython's \n+:ref:`\"typed memoryviews\"<memoryviews>` (since code using memoryviews is often\n+the sort of code that's easy to parallelize with Cython), and also that you're\n+somewhat familiar with the pitfalls of writing parallel code in general\n+(it aims to be a Cython tutorial rather than a complete introduction\n+to parallel programming).\n+\n+Before starting, a few notes:\n+\n+- Not all code can be parallelized - for some code the algorithm simply\n+  relies on being executed in order and you should not attempt to\n+  parallelize it.  A cumulative sum is a good example.\n+  \n+- Not all code is worth parallelizing.  There's a reasonable amount of\n+  overhead in starting a parallel section and so you need to make sure\n+  that you're operating on enough data to make this overhead worthwhile.\n+  Additionally, make sure that you are doing actual work on the data!\n+  Multiple threads simply reading the same data tends not to parallelize\n+  too well.  If in doubt, time it.\n+\n+- Cython requires the contents of parallel blocks to be ``nogil``.  If\n+  your algorithm requires access to Python objects then it may not be\n+  suitable for parallelization.\n+  \n+- Cython's inbuilt parallelization uses the OpenMP constructs\n+  ``omp parallel for`` and ``omp parallel``.  These are ideal\n+  for parallelizing relatively small, self-contained blocks of code\n+  (especially loops).  However, If you want to use other models of \n+  parallelization such as spawning and waiting for tasks, or \n+  off-loading some \"side work\" to a continuously running secondary \n+  thread, then you might be better using other methods (such as \n+  Python's ``threading`` module).\n+  \n+- Actually implementing your parallel Cython code should probably be \n+  one of the last steps in your optimization.  You should start with\n+  some working serial code first.  However, it's worth planning for\n+  early since it may affect your choice of algorithm.\n+\n+This tutorial does not aim to explore all the options available to\n+customize parallelization.  See the\n+:ref:`main parallelism documentation<parallel>` for details.\n+You should also be aware that a lot of the choices Cython makes\n+about how your code is parallelized are fairly fixed and if you want\n+specific OpenMP behaviour that Cython doesn't provide by default you\n+may be better writing it in C yourself.\n+\n+Compilation\n+===========\n+\n+OpenMP requires support from your C/C++ compiler. This support is\n+usually enabled through a special command-line argument:\n+on GCC this is ``-fopenmp`` while on MSVC it is\n+``/openmp``. If your compiler doesn't support OpenMP (or if you\n+forget to pass the argument) then the code will usually still\n+compile but will not run in parallel.\n+\n+The following ``setup.py`` file can be used to compile the\n+examples in this tutorial:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/setup.py\n+\n+Element-wise parallel operations\n+================================\n+\n+The easiest and most common parallel operation in Cython is to\n+iterate across an array element-wise, performing the same\n+operation on each array element.  In the simple example\n+below we calculate the ``sin`` of every element in an array:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx\n+\n+We parallelize the outermost loop.  This is usually a good idea\n+since there is some overhead to entering and leaving a parallel block.\n+However, you should also consider the likely size of your arrays.\n+If ``input`` usually had a size of ``(2, 10000000)`` then parallelizing\n+over the dimension of length ``2`` would likely be a worse choice.\n+\n+The body of the loop itself is ``nogil`` - i.e. you cannot perform\n+\"Python\" operations.  This is a fairly strong limitation and if you\n+find that you need to use the GIL then it is likely that Cython's\n+parallelization features are not suitable for you.  It is possible\n+to throw exceptions from within the loop, however -- Cython simply\n+regains the GIL and raises an exception, then terminates the loop\n+on all threads.\n+\n+It's necessary to explicitly type the loop variable ``i``  as a\n+C integer.  For a non-parallel loop Cython can infer this, but it\n+does not currently infer the loop variable for parallel loops, \n+so not typing ``i`` will lead to compile errors since it will be\n+a Python object and so unusable without the GIL.\n+\n+The C code generated is shown below, for the benefit of experienced\n+users of OpenMP. It is simplified a little for readability here:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j)\n+        for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_9; __pyx_t_8++){\n+            i = __pyx_t_8;\n+            /* body goes here */\n+        }\n+    }\n+    \n+Private variables\n+-----------------\n+\n+One useful point to note from the generated C code above - variables\n+used in the loops like ``i`` and ``j`` are marked as ``firstprivate``\n+and ``lastprivate``.  Within the loop each thread has its own copy of\n+the data, the data is initialized\n+according to its value before the loop, and after the loop the \"global\"\n+copy is set equal to the last iteration (i.e. as if the loop were run\n+in serial).\n+\n+The basic rules that Cython applies are:\n+\n+- C scalar variables within a ``prange`` block are made \n+  ``firstprivate`` and ``lastprivate``,\n+\n+- C scalar variables assigned within a  \n+  :ref:`parallel block<parallel-block>`\n+  are ``private`` (which means they can't be used to pass data in\n+  and out of the block),\n+\n+- array variables (e.g. memoryviews) are not made private.  Instead\n+  Cython assumes that you have structured your loop so that each iteration\n+  is acting on different data,\n+\n+- Python objects are also not made private, although access to them\n+  is controlled via Python's GIL.\n+\n+Cython does not currently provide much opportunity of override these\n+choices.\n+  \n+Reductions\n+==========\n+\n+The second most common parallel operation in Cython is the \"reduction\"\n+operation.  A common example is to accumulate a sum over the whole\n+array, such as in the calculation of a vector norm below:\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/norm.pyx\n+\n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/norm.py\n+\n+Cython is able to infer reductions for ``+=``, ``*=``, ``-=``,\n+``&=``, ``|=``, and ``^=``.  These only apply to C scalar variables\n+so you cannot easily reduce a 2D memoryview to a 1D memoryview for\n+example.\n+\n+The C code generated is approximately:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel reduction(+:total)\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            i = __pyx_t_2;\n+            total = total + /* some indexing code */;\n+            \n+        }\n+    }\n+\n+.. _parallel-block:\n+    \n+``parallel`` blocks\n+===================\n+\n+Much less frequently used than ``prange`` is Cython's ``parallel``\n+operator.  ``parallel`` generates a block of code that is run simultaneously\n+on multiple threads at once.  Unlike ``prange``, however, work is\n+not automatically divided between threads.\n+\n+Here we present three common uses for the ``parallel`` block:\n+\n+Stringing together prange blocks\n+--------------------------------\n+\n+There is some overhead in entering and leaving a parallelized section.\n+Therefore, if you have multiple parallel sections with small\n+serial sections in between it can be more efficient to\n+write one large parallel block.  Any small serial\n+sections are duplicated, but the overhead is reduced.\n+\n+In the example below we do an in-place normalization of a vector.\n+The first parallel loop calculates the norm, the second parallel\n+loop applies the norm to the vector, and we avoid jumping in and out of serial\n+code in between.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/normalize.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/normalize.py\n+\n+The C code is approximately:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel private(norm) reduction(+:total)\n+    {\n+        /* some calculations of array size... */\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            /* ... */\n+        }\n+        norm = sqrt(total);\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            /* ... */\n+        }\n+    }\n+\n+Allocating \"scratch space\" for each thread\n+------------------------------------------\n+\n+Suppose that each thread requires a small amount of scratch space\n+to work in.  They cannot share scratch space because that would\n+lead to data races.  In this case the allocation and deallocation\n+is done in a parallel section (so occurs on a per-thread basis)\n+surrounding a loop which then uses the scratch space.\n+\n+Our example here uses C++ to find the median of each column in\n+a 2D array (just a parallel version of ``numpy.median(x, axis=0)``).\n+We must reorder each column to find the median of it, but don't want\n+to modify the input array.  Therefore, we allocate a C++ vector per\n+thread to use as scratch space, and work in that.  For efficiency\n+the vector is allocated outside the ``prange`` loop.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/median.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/median.py\n+\n+In the generated code the ``scratch`` variable is marked as\n+``private`` in the outer parallel block.  A rough outline is:\n+\n+.. code-block:: C++\n+\n+    #pragma omp parallel private(scratch)\n+    {\n+        scratch = new std::vector<double> ((x.shape[0]))\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j) lastprivate(median_it)\n+        for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_10; __pyx_t_9++){\n+            i = __pyx_t_9;\n+            /* implementation goes here */\n+        }\n+        /* some exception handling detail omitted */\n+        delete scratch;\n+    }\n+\n+Performing different tasks on each thread\n+-----------------------------------------\n+\n+Finally, if you manually specify the number of threads and\n+then identify each thread using ``omp.get_thread_num()``\n+you can manually split work between threads.  This is\n+a fairly rare use-case in Cython, and probably suggests\n+that the ``threading`` module is more suitable for what\n+you're trying to do.  However it is an option.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/manual_work.pyx",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059118881",
+            "id": 1059118881,
+            "in_reply_to_id": 1059114199,
+            "line": 313,
+            "node_id": "PRRC_kwDOABDGAc4_IN8h",
+            "original_commit_id": "30f3204330138ff35fcbe705f87a4951598a3b36",
+            "original_line": 299,
+            "original_position": 299,
+            "original_start_line": null,
+            "path": "docs/src/tutorial/parallelization.rst",
+            "position": 313,
+            "pull_request_review_id": 1232724228,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059118881/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T19:32:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059118881",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059118889"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059118889"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "This will remove tag comment connected to CI which should not bother consumer of documentation.",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T19:32:56Z",
+            "diff_hunk": "@@ -0,0 +1,319 @@\n+.. _parallel-tutorial:\n+\n+=================================\n+Writing parallel code with Cython\n+=================================\n+\n+.. include::\n+    ../two-syntax-variants-used\n+\n+One method of speeding up your Cython code is parallelization:\n+you write code that can be run on multiple cores of your CPU simultaneously.\n+For code that lends itself to parallelization this can produce quite\n+dramatic speed-ups, equal to the number of cores your CPU has (for example\n+a 4× speed-up on a 4-core CPU).\n+\n+This tutorial assumes that you are already familiar with Cython's \n+:ref:`\"typed memoryviews\"<memoryviews>` (since code using memoryviews is often\n+the sort of code that's easy to parallelize with Cython), and also that you're\n+somewhat familiar with the pitfalls of writing parallel code in general\n+(it aims to be a Cython tutorial rather than a complete introduction\n+to parallel programming).\n+\n+Before starting, a few notes:\n+\n+- Not all code can be parallelized - for some code the algorithm simply\n+  relies on being executed in order and you should not attempt to\n+  parallelize it.  A cumulative sum is a good example.\n+  \n+- Not all code is worth parallelizing.  There's a reasonable amount of\n+  overhead in starting a parallel section and so you need to make sure\n+  that you're operating on enough data to make this overhead worthwhile.\n+  Additionally, make sure that you are doing actual work on the data!\n+  Multiple threads simply reading the same data tends not to parallelize\n+  too well.  If in doubt, time it.\n+\n+- Cython requires the contents of parallel blocks to be ``nogil``.  If\n+  your algorithm requires access to Python objects then it may not be\n+  suitable for parallelization.\n+  \n+- Cython's inbuilt parallelization uses the OpenMP constructs\n+  ``omp parallel for`` and ``omp parallel``.  These are ideal\n+  for parallelizing relatively small, self-contained blocks of code\n+  (especially loops).  However, If you want to use other models of \n+  parallelization such as spawning and waiting for tasks, or \n+  off-loading some \"side work\" to a continuously running secondary \n+  thread, then you might be better using other methods (such as \n+  Python's ``threading`` module).\n+  \n+- Actually implementing your parallel Cython code should probably be \n+  one of the last steps in your optimization.  You should start with\n+  some working serial code first.  However, it's worth planning for\n+  early since it may affect your choice of algorithm.\n+\n+This tutorial does not aim to explore all the options available to\n+customize parallelization.  See the\n+:ref:`main parallelism documentation<parallel>` for details.\n+You should also be aware that a lot of the choices Cython makes\n+about how your code is parallelized are fairly fixed and if you want\n+specific OpenMP behaviour that Cython doesn't provide by default you\n+may be better writing it in C yourself.\n+\n+Compilation\n+===========\n+\n+OpenMP requires support from your C/C++ compiler. This support is\n+usually enabled through a special command-line argument:\n+on GCC this is ``-fopenmp`` while on MSVC it is\n+``/openmp``. If your compiler doesn't support OpenMP (or if you\n+forget to pass the argument) then the code will usually still\n+compile but will not run in parallel.\n+\n+The following ``setup.py`` file can be used to compile the\n+examples in this tutorial:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/setup.py\n+\n+Element-wise parallel operations\n+================================\n+\n+The easiest and most common parallel operation in Cython is to\n+iterate across an array element-wise, performing the same\n+operation on each array element.  In the simple example\n+below we calculate the ``sin`` of every element in an array:\n+\n+.. literalinclude:: ../../examples/tutorial/parallelization/parallel_sin.pyx\n+\n+We parallelize the outermost loop.  This is usually a good idea\n+since there is some overhead to entering and leaving a parallel block.\n+However, you should also consider the likely size of your arrays.\n+If ``input`` usually had a size of ``(2, 10000000)`` then parallelizing\n+over the dimension of length ``2`` would likely be a worse choice.\n+\n+The body of the loop itself is ``nogil`` - i.e. you cannot perform\n+\"Python\" operations.  This is a fairly strong limitation and if you\n+find that you need to use the GIL then it is likely that Cython's\n+parallelization features are not suitable for you.  It is possible\n+to throw exceptions from within the loop, however -- Cython simply\n+regains the GIL and raises an exception, then terminates the loop\n+on all threads.\n+\n+It's necessary to explicitly type the loop variable ``i``  as a\n+C integer.  For a non-parallel loop Cython can infer this, but it\n+does not currently infer the loop variable for parallel loops, \n+so not typing ``i`` will lead to compile errors since it will be\n+a Python object and so unusable without the GIL.\n+\n+The C code generated is shown below, for the benefit of experienced\n+users of OpenMP. It is simplified a little for readability here:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j)\n+        for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_9; __pyx_t_8++){\n+            i = __pyx_t_8;\n+            /* body goes here */\n+        }\n+    }\n+    \n+Private variables\n+-----------------\n+\n+One useful point to note from the generated C code above - variables\n+used in the loops like ``i`` and ``j`` are marked as ``firstprivate``\n+and ``lastprivate``.  Within the loop each thread has its own copy of\n+the data, the data is initialized\n+according to its value before the loop, and after the loop the \"global\"\n+copy is set equal to the last iteration (i.e. as if the loop were run\n+in serial).\n+\n+The basic rules that Cython applies are:\n+\n+- C scalar variables within a ``prange`` block are made \n+  ``firstprivate`` and ``lastprivate``,\n+\n+- C scalar variables assigned within a  \n+  :ref:`parallel block<parallel-block>`\n+  are ``private`` (which means they can't be used to pass data in\n+  and out of the block),\n+\n+- array variables (e.g. memoryviews) are not made private.  Instead\n+  Cython assumes that you have structured your loop so that each iteration\n+  is acting on different data,\n+\n+- Python objects are also not made private, although access to them\n+  is controlled via Python's GIL.\n+\n+Cython does not currently provide much opportunity of override these\n+choices.\n+  \n+Reductions\n+==========\n+\n+The second most common parallel operation in Cython is the \"reduction\"\n+operation.  A common example is to accumulate a sum over the whole\n+array, such as in the calculation of a vector norm below:\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/norm.pyx\n+\n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/norm.py\n+\n+Cython is able to infer reductions for ``+=``, ``*=``, ``-=``,\n+``&=``, ``|=``, and ``^=``.  These only apply to C scalar variables\n+so you cannot easily reduce a 2D memoryview to a 1D memoryview for\n+example.\n+\n+The C code generated is approximately:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel reduction(+:total)\n+    {\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            i = __pyx_t_2;\n+            total = total + /* some indexing code */;\n+            \n+        }\n+    }\n+\n+.. _parallel-block:\n+    \n+``parallel`` blocks\n+===================\n+\n+Much less frequently used than ``prange`` is Cython's ``parallel``\n+operator.  ``parallel`` generates a block of code that is run simultaneously\n+on multiple threads at once.  Unlike ``prange``, however, work is\n+not automatically divided between threads.\n+\n+Here we present three common uses for the ``parallel`` block:\n+\n+Stringing together prange blocks\n+--------------------------------\n+\n+There is some overhead in entering and leaving a parallelized section.\n+Therefore, if you have multiple parallel sections with small\n+serial sections in between it can be more efficient to\n+write one large parallel block.  Any small serial\n+sections are duplicated, but the overhead is reduced.\n+\n+In the example below we do an in-place normalization of a vector.\n+The first parallel loop calculates the norm, the second parallel\n+loop applies the norm to the vector, and we avoid jumping in and out of serial\n+code in between.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/normalize.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/normalize.py\n+\n+The C code is approximately:\n+\n+.. code-block:: C\n+\n+    #pragma omp parallel private(norm) reduction(+:total)\n+    {\n+        /* some calculations of array size... */\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            /* ... */\n+        }\n+        norm = sqrt(total);\n+        #pragma omp for firstprivate(i) lastprivate(i)\n+        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){\n+            /* ... */\n+        }\n+    }\n+\n+Allocating \"scratch space\" for each thread\n+------------------------------------------\n+\n+Suppose that each thread requires a small amount of scratch space\n+to work in.  They cannot share scratch space because that would\n+lead to data races.  In this case the allocation and deallocation\n+is done in a parallel section (so occurs on a per-thread basis)\n+surrounding a loop which then uses the scratch space.\n+\n+Our example here uses C++ to find the median of each column in\n+a 2D array (just a parallel version of ``numpy.median(x, axis=0)``).\n+We must reorder each column to find the median of it, but don't want\n+to modify the input array.  Therefore, we allocate a C++ vector per\n+thread to use as scratch space, and work in that.  For efficiency\n+the vector is allocated outside the ``prange`` loop.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/median.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/median.py\n+\n+In the generated code the ``scratch`` variable is marked as\n+``private`` in the outer parallel block.  A rough outline is:\n+\n+.. code-block:: C++\n+\n+    #pragma omp parallel private(scratch)\n+    {\n+        scratch = new std::vector<double> ((x.shape[0]))\n+        #pragma omp for firstprivate(i) lastprivate(i) lastprivate(j) lastprivate(median_it)\n+        for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_10; __pyx_t_9++){\n+            i = __pyx_t_9;\n+            /* implementation goes here */\n+        }\n+        /* some exception handling detail omitted */\n+        delete scratch;\n+    }\n+\n+Performing different tasks on each thread\n+-----------------------------------------\n+\n+Finally, if you manually specify the number of threads and\n+then identify each thread using ``omp.get_thread_num()``\n+you can manually split work between threads.  This is\n+a fairly rare use-case in Cython, and probably suggests\n+that the ``threading`` module is more suitable for what\n+you're trying to do.  However it is an option.\n+\n+.. tabs::\n+\n+    .. group-tab:: Cython\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/manual_work.pyx\n+        \n+    .. group-tab:: Pure Python\n+\n+        .. literalinclude:: ../../examples/tutorial/parallelization/manual_work.py",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059118889",
+            "id": 1059118889,
+            "in_reply_to_id": 1059114333,
+            "line": 318,
+            "node_id": "PRRC_kwDOABDGAc4_IN8p",
+            "original_commit_id": "30f3204330138ff35fcbe705f87a4951598a3b36",
+            "original_line": 303,
+            "original_position": 303,
+            "original_start_line": null,
+            "path": "docs/src/tutorial/parallelization.rst",
+            "position": 318,
+            "pull_request_review_id": 1232724241,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059118889/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T19:32:56Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059118889",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059156484"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059156484"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Yes. libcpp",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T21:33:29Z",
+            "diff_hunk": "@@ -0,0 +1,38 @@\n+# distutils: language = c++",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059156484",
+            "id": 1059156484,
+            "in_reply_to_id": 1059117418,
+            "line": 1,
+            "node_id": "PRRC_kwDOABDGAc4_IXIE",
+            "original_commit_id": "30f3204330138ff35fcbe705f87a4951598a3b36",
+            "original_line": 1,
+            "original_position": 1,
+            "original_start_line": null,
+            "path": "docs/examples/tutorial/parallelization/median.py",
+            "position": 1,
+            "pull_request_review_id": 1232774574,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059156484/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-29T21:33:29Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059156484",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059156981"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059156981"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n```",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T21:35:17Z",
+            "diff_hunk": "@@ -0,0 +1,38 @@\n+# distutils: language = c++\n+\n+# Note that the pure and classic syntax examples are not quite identical\n+# since pure Python syntax does not support C++ \"new\", so we allocate the\n+# scratch space slightly differently",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059156981",
+            "id": 1059156981,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4_IXP1",
+            "original_commit_id": "d18fd6620bf76ad512656153bcdd9e723d4333ff",
+            "original_line": 5,
+            "original_position": 5,
+            "original_start_line": 3,
+            "path": "docs/examples/tutorial/parallelization/median.py",
+            "position": null,
+            "pull_request_review_id": 1232775188,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059156981/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "updated_at": "2022-12-29T21:35:18Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059156981",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059157035"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059157035"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n```",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-29T21:35:33Z",
+            "diff_hunk": "@@ -0,0 +1,37 @@\n+# distutils: language = c++\n+\n+# Note that the pure and classic syntax examples are not quite identical\n+# since pure Python syntax does not support C++ \"new\", so we allocate the\n+# scratch space slightly differently",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059157035",
+            "id": 1059157035,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc4_IXQr",
+            "original_commit_id": "d18fd6620bf76ad512656153bcdd9e723d4333ff",
+            "original_line": 5,
+            "original_position": 5,
+            "original_start_line": 3,
+            "path": "docs/examples/tutorial/parallelization/median.pyx",
+            "position": null,
+            "pull_request_review_id": 1232775273,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059157035/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "updated_at": "2022-12-29T21:35:33Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059157035",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5184#discussion_r1059297173"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5184"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1059297173"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Yes I see now. I missed that.",
+            "commit_id": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "created_at": "2022-12-30T08:52:29Z",
+            "diff_hunk": "@@ -0,0 +1,38 @@\n+# distutils: language = c++",
+            "html_url": "https://github.com/cython/cython/pull/5184#discussion_r1059297173",
+            "id": 1059297173,
+            "in_reply_to_id": 1059117418,
+            "line": 1,
+            "node_id": "PRRC_kwDOABDGAc4_I5eV",
+            "original_commit_id": "30f3204330138ff35fcbe705f87a4951598a3b36",
+            "original_line": 1,
+            "original_position": 1,
+            "original_start_line": null,
+            "path": "docs/examples/tutorial/parallelization/median.py",
+            "position": 1,
+            "pull_request_review_id": 1232954234,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5184",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059297173/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "updated_at": "2022-12-30T08:52:29Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1059297173",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
             }
         }
     ],
@@ -479,6 +1556,643 @@
             ],
             "sha": "c3921b5e175d739d7b701c56ee947c2581ed2f85",
             "url": "https://api.github.com/repos/cython/cython/commits/c3921b5e175d739d7b701c56ee947c2581ed2f85"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/5374546b2495a0cae02d0faaa45ff8606193a691/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-29T09:20:35Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-29T09:20:35Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Apply suggestions from code review\n\nCo-authored-by: Matus Valo <matusvalo@users.noreply.github.com>",
+                "tree": {
+                    "sha": "d3ca1613294d9c344f864d22c0dc7fea92e8ce11",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/d3ca1613294d9c344f864d22c0dc7fea92e8ce11"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/5374546b2495a0cae02d0faaa45ff8606193a691",
+                "verification": {
+                    "payload": "tree d3ca1613294d9c344f864d22c0dc7fea92e8ce11\nparent c3921b5e175d739d7b701c56ee947c2581ed2f85\nauthor da-woods <dw-git@d-woods.co.uk> 1672305635 +0000\ncommitter GitHub <noreply@github.com> 1672305635 +0000\n\nApply suggestions from code review\n\nCo-authored-by: Matus Valo <matusvalo@users.noreply.github.com>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJjrVvkCRBK7hj4Ov3rIwAAdsAIABYUIrefCytdDbo9E/KIag4Q\n2uDU9FRxnWjWC4Z3PBVpjTaObqWy8D6ClcEkjEdILHTveIuCopX++ILpyJiZJzVO\nrQ7qlU1ztdPz/5mkLiaPD5m84wLGo/07hvzsKPh4uPBu/DrpLkCSzgRfhD7fl5yb\n7+dPn15Ac5JGPABc8Ru/kfofHimqAZ7MKtz5oXr+XTxJ0ESJh62iuLymRiTfo0I4\n6bY6wzvtbsAeRbMWwYNu8P/CVXPc8VItJOYGMhYp5GUNWoN9YPyeM5zdVEodGiKE\nR2h+h0qL3GTMBfgPf4P4j/a3u8qOsPAvyTTibsBe50UlT/JpbMac+Z8kUr+QF00=\n=cwAL\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/5374546b2495a0cae02d0faaa45ff8606193a691",
+            "node_id": "C_kwDOAhr4b9oAKDUzNzQ1NDZiMjQ5NWEwY2FlMDJkMGZhYWE0NWZmODYwNjE5M2E2OTE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/c3921b5e175d739d7b701c56ee947c2581ed2f85",
+                    "sha": "c3921b5e175d739d7b701c56ee947c2581ed2f85",
+                    "url": "https://api.github.com/repos/cython/cython/commits/c3921b5e175d739d7b701c56ee947c2581ed2f85"
+                }
+            ],
+            "sha": "5374546b2495a0cae02d0faaa45ff8606193a691",
+            "url": "https://api.github.com/repos/cython/cython/commits/5374546b2495a0cae02d0faaa45ff8606193a691"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/c17b1e4c4b2797905ac8870a5ddef97befe31f9d/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-29T12:23:01Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-29T12:23:01Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Add pure Python and a build file",
+                "tree": {
+                    "sha": "997f148cbf4da517deaf4421703fb60c25a551fd",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/997f148cbf4da517deaf4421703fb60c25a551fd"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/c17b1e4c4b2797905ac8870a5ddef97befe31f9d",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/c17b1e4c4b2797905ac8870a5ddef97befe31f9d",
+            "node_id": "C_kwDOAhr4b9oAKGMxN2IxZTRjNGIyNzk3OTA1YWM4ODcwYTVkZGVmOTdiZWZlMzFmOWQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/c3921b5e175d739d7b701c56ee947c2581ed2f85",
+                    "sha": "c3921b5e175d739d7b701c56ee947c2581ed2f85",
+                    "url": "https://api.github.com/repos/cython/cython/commits/c3921b5e175d739d7b701c56ee947c2581ed2f85"
+                }
+            ],
+            "sha": "c17b1e4c4b2797905ac8870a5ddef97befe31f9d",
+            "url": "https://api.github.com/repos/cython/cython/commits/c17b1e4c4b2797905ac8870a5ddef97befe31f9d"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/dbf8ebaa4977e0a15ee7045fadf42e3422fcbd0a/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-29T12:23:41Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-29T12:23:41Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Merge remote-tracking branch 'origin/parallel_tutorial' into parallel_tutorial",
+                "tree": {
+                    "sha": "b887192e2f90d62cef73dc15f5943a675041f632",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/b887192e2f90d62cef73dc15f5943a675041f632"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/dbf8ebaa4977e0a15ee7045fadf42e3422fcbd0a",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/dbf8ebaa4977e0a15ee7045fadf42e3422fcbd0a",
+            "node_id": "C_kwDOAhr4b9oAKGRiZjhlYmFhNDk3N2UwYTE1ZWU3MDQ1ZmFkZjQyZTM0MjJmY2JkMGE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/c17b1e4c4b2797905ac8870a5ddef97befe31f9d",
+                    "sha": "c17b1e4c4b2797905ac8870a5ddef97befe31f9d",
+                    "url": "https://api.github.com/repos/cython/cython/commits/c17b1e4c4b2797905ac8870a5ddef97befe31f9d"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/5374546b2495a0cae02d0faaa45ff8606193a691",
+                    "sha": "5374546b2495a0cae02d0faaa45ff8606193a691",
+                    "url": "https://api.github.com/repos/cython/cython/commits/5374546b2495a0cae02d0faaa45ff8606193a691"
+                }
+            ],
+            "sha": "dbf8ebaa4977e0a15ee7045fadf42e3422fcbd0a",
+            "url": "https://api.github.com/repos/cython/cython/commits/dbf8ebaa4977e0a15ee7045fadf42e3422fcbd0a"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/fd634891ae3fece0b35051a2e0a425795a69be30/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-29T13:52:57Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-29T13:52:57Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Tag with openmp\n\nMight make it work on OSX",
+                "tree": {
+                    "sha": "34b855c7bd23e21402b53cbd75dd738e72076d54",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/34b855c7bd23e21402b53cbd75dd738e72076d54"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/fd634891ae3fece0b35051a2e0a425795a69be30",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/fd634891ae3fece0b35051a2e0a425795a69be30",
+            "node_id": "C_kwDOAhr4b9oAKGZkNjM0ODkxYWUzZmVjZTBiMzUwNTFhMmUwYTQyNTc5NWE2OWJlMzA",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/dbf8ebaa4977e0a15ee7045fadf42e3422fcbd0a",
+                    "sha": "dbf8ebaa4977e0a15ee7045fadf42e3422fcbd0a",
+                    "url": "https://api.github.com/repos/cython/cython/commits/dbf8ebaa4977e0a15ee7045fadf42e3422fcbd0a"
+                }
+            ],
+            "sha": "fd634891ae3fece0b35051a2e0a425795a69be30",
+            "url": "https://api.github.com/repos/cython/cython/commits/fd634891ae3fece0b35051a2e0a425795a69be30"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/30f3204330138ff35fcbe705f87a4951598a3b36/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-29T13:56:20Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-29T13:56:20Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Fix code style",
+                "tree": {
+                    "sha": "438efe0d8b790187baf538c6c40ccffa161eb568",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/438efe0d8b790187baf538c6c40ccffa161eb568"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/30f3204330138ff35fcbe705f87a4951598a3b36",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/30f3204330138ff35fcbe705f87a4951598a3b36",
+            "node_id": "C_kwDOAhr4b9oAKDMwZjMyMDQzMzAxMzhmZjM1ZmNiZTcwNWY4N2E0OTUxNTk4YTNiMzY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/fd634891ae3fece0b35051a2e0a425795a69be30",
+                    "sha": "fd634891ae3fece0b35051a2e0a425795a69be30",
+                    "url": "https://api.github.com/repos/cython/cython/commits/fd634891ae3fece0b35051a2e0a425795a69be30"
+                }
+            ],
+            "sha": "30f3204330138ff35fcbe705f87a4951598a3b36",
+            "url": "https://api.github.com/repos/cython/cython/commits/30f3204330138ff35fcbe705f87a4951598a3b36"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/68e429db29c99a8bba3b341f998ac6aebd383287/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-29T19:29:21Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-29T19:29:21Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Update docs/src/tutorial/parallelization.rst\n\nCo-authored-by: Matus Valo <matusvalo@users.noreply.github.com>",
+                "tree": {
+                    "sha": "e1a40d8ffce0e00098054a9ccc3ff84e5cc8ac8d",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/e1a40d8ffce0e00098054a9ccc3ff84e5cc8ac8d"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/68e429db29c99a8bba3b341f998ac6aebd383287",
+                "verification": {
+                    "payload": "tree e1a40d8ffce0e00098054a9ccc3ff84e5cc8ac8d\nparent 30f3204330138ff35fcbe705f87a4951598a3b36\nauthor da-woods <dw-git@d-woods.co.uk> 1672342161 +0000\ncommitter GitHub <noreply@github.com> 1672342161 +0000\n\nUpdate docs/src/tutorial/parallelization.rst\n\nCo-authored-by: Matus Valo <matusvalo@users.noreply.github.com>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJjreqRCRBK7hj4Ov3rIwAA32oIAJUUywHrO/uW24GieYmqOqAL\nyUKlFuaHLPdJQxq3Pnh3lW+zBUDHyx3YD9MeFvRYP3mlrgnkBJeWpD2ZP6WYKmp7\n348VwKRFRclqCl7WJa7F3BYYDINT7gpafL/yjjKoAQSCaeTRB5UkWLn3kq8GQNlY\n4mxYNcRAIZDbyMea68RXPqYspxL/3NXNTZ4q6tFY9Fix6YEPoc7a47hMsMrSsoOo\nNFatG73k+EfWUTHYY6bg1RB22rT921MSzmvJnvmRMwEBnq5Du5Jcy+aCOwtvLqDc\nOZ91Edq1HbC9xsr+as6Rc3rdNwZY9y2E/gyithb3XpvJE9/sacExV/Wcxc0iICQ=\n=fzt+\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/68e429db29c99a8bba3b341f998ac6aebd383287",
+            "node_id": "C_kwDOAhr4b9oAKDY4ZTQyOWRiMjljOTlhOGJiYTNiMzQxZjk5OGFjNmFlYmQzODMyODc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/30f3204330138ff35fcbe705f87a4951598a3b36",
+                    "sha": "30f3204330138ff35fcbe705f87a4951598a3b36",
+                    "url": "https://api.github.com/repos/cython/cython/commits/30f3204330138ff35fcbe705f87a4951598a3b36"
+                }
+            ],
+            "sha": "68e429db29c99a8bba3b341f998ac6aebd383287",
+            "url": "https://api.github.com/repos/cython/cython/commits/68e429db29c99a8bba3b341f998ac6aebd383287"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/d18fd6620bf76ad512656153bcdd9e723d4333ff/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-29T21:35:01Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-29T21:35:01Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Apply suggestions from code review\n\nCo-authored-by: Matus Valo <matusvalo@users.noreply.github.com>",
+                "tree": {
+                    "sha": "6d9700618cd30461677f85b9fe0bbe4803ae860a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6d9700618cd30461677f85b9fe0bbe4803ae860a"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/d18fd6620bf76ad512656153bcdd9e723d4333ff",
+                "verification": {
+                    "payload": "tree 6d9700618cd30461677f85b9fe0bbe4803ae860a\nparent 68e429db29c99a8bba3b341f998ac6aebd383287\nauthor da-woods <dw-git@d-woods.co.uk> 1672349701 +0000\ncommitter GitHub <noreply@github.com> 1672349701 +0000\n\nApply suggestions from code review\n\nCo-authored-by: Matus Valo <matusvalo@users.noreply.github.com>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJjrggFCRBK7hj4Ov3rIwAA/AYIAKdE44qcGOa68h2JB2fY9Ygd\nTxW3xLjPzTPI2D7UtmU6cyLbV7sZLUgwWHag+Baoorlt8gaDEDIbLhTpk8+Syzvz\nEHWRbrqD/bGk9O0y407knbyAUOHkpKj+ODgKNpKfNx1a4P0XfzfCetnYns8Gb1nu\n/UOPEamoB2JOmfqYcRU3JTlwrkgRbM0mryWuZvS0PP6BGkcyPWtF+iJxUrYYc0/A\n5e3WZKllgCGW9qR7+IF7SCmMqUSoEZVnZihv061Bmx+QRubJfyPfFsIXRsKbj+pD\nwN+9KcVrwD3DI7f4N6hzaluDdTAcanFXAy2zT0iu9XXbbWQgGXLBWHO/cgy3D28=\n=tMdw\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/d18fd6620bf76ad512656153bcdd9e723d4333ff",
+            "node_id": "C_kwDOAhr4b9oAKGQxOGZkNjYyMGJmNzZhZDUxMjY1NjE1M2JjZGQ5ZTcyM2Q0MzMzZmY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/68e429db29c99a8bba3b341f998ac6aebd383287",
+                    "sha": "68e429db29c99a8bba3b341f998ac6aebd383287",
+                    "url": "https://api.github.com/repos/cython/cython/commits/68e429db29c99a8bba3b341f998ac6aebd383287"
+                }
+            ],
+            "sha": "d18fd6620bf76ad512656153bcdd9e723d4333ff",
+            "url": "https://api.github.com/repos/cython/cython/commits/d18fd6620bf76ad512656153bcdd9e723d4333ff"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/093387e9f8c7507bbffcb22ef09fe57018541c3f/comments",
+            "commit": {
+                "author": {
+                    "date": "2022-12-29T21:35:46Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2022-12-29T21:35:46Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Remove notes from source files",
+                "tree": {
+                    "sha": "9b9a389a2f574f0d6733cd8e706629300dd00ab1",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/9b9a389a2f574f0d6733cd8e706629300dd00ab1"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/093387e9f8c7507bbffcb22ef09fe57018541c3f",
+                "verification": {
+                    "payload": "tree 9b9a389a2f574f0d6733cd8e706629300dd00ab1\nparent d18fd6620bf76ad512656153bcdd9e723d4333ff\nauthor da-woods <dw-git@d-woods.co.uk> 1672349746 +0000\ncommitter GitHub <noreply@github.com> 1672349746 +0000\n\nRemove notes from source files",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJjrggyCRBK7hj4Ov3rIwAAdqIIAIkuBo0mPDCP7qwgGFTiFUuy\n7ly+PFdDIEVM21dbiRGuVpFdwm/394rHgOcxrRNFwGo/pjL2gGw/jvCtwLMskTkl\nf23KSGXyFDoL3XHFIZkYOeTwC0K37/WOGwaC3Zxyv2Rmm2CBpGhuS4vP9PjQpHFr\nbdFNY7y7TeptPuLf/J8nciCogFfNr1ZbkS1FbDrMI8VyhOScOrUaHAtt6WVneLua\n/F6U1NEpp5R3b7gsMcMqlsntaBp6XPipqddWmTK9ohnpRzbj++78KB6ssTARuNfZ\nW/6MwNUHJxuRr39O1PIu5M12zUTXjAtHsMZkIXcXd2v5i+ozo3NWPCs3UNO18jc=\n=cOGu\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "node_id": "C_kwDOAhr4b9oAKDA5MzM4N2U5ZjhjNzUwN2JiZmZjYjIyZWYwOWZlNTcwMTg1NDFjM2Y",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/d18fd6620bf76ad512656153bcdd9e723d4333ff",
+                    "sha": "d18fd6620bf76ad512656153bcdd9e723d4333ff",
+                    "url": "https://api.github.com/repos/cython/cython/commits/d18fd6620bf76ad512656153bcdd9e723d4333ff"
+                }
+            ],
+            "sha": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
+            "url": "https://api.github.com/repos/cython/cython/commits/093387e9f8c7507bbffcb22ef09fe57018541c3f"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/5184/commits",
@@ -573,9 +2287,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2022-12-26T21:22:44Z",
+            "pushed_at": "2023-01-01T11:12:16Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 68894,
+            "size": 68804,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -594,7 +2308,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "c3921b5e175d739d7b701c56ee947c2581ed2f85",
+        "sha": "093387e9f8c7507bbffcb22ef09fe57018541c3f",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -631,7 +2345,7 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "d0990b2b6669fc1862cc0c937e899f7d984462ab",
+    "merge_commit_sha": "103be958847ef52e966092da2ee4fe8bca3881c0",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc5GMd6v",
@@ -642,9 +2356,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/5184/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/c3921b5e175d739d7b701c56ee947c2581ed2f85",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/093387e9f8c7507bbffcb22ef09fe57018541c3f",
     "title": "[docs] Parallelization tutorial",
-    "updated_at": "2022-12-26T19:03:08Z",
+    "updated_at": "2023-01-01T21:39:55Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/5184",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
