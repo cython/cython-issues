@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/5075"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/c7a46691e9eaa8f88447b3a179d42e4577c3adb2"
+            "href": "https://api.github.com/repos/cython/cython/statuses/b4266bf901c0b6f8fa14c79e8e85336800328185"
         }
     },
     "active_lock_reason": null,
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1122,
-            "open_issues_count": 1122,
+            "open_issues": 1121,
+            "open_issues_count": 1121,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -118,11 +118,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2023-01-18T09:03:57Z",
+            "pushed_at": "2023-01-25T13:48:50Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 67155,
+            "size": 66971,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 7601,
+            "stargazers_count": 7617,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,11 +141,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2023-01-18T14:33:00Z",
+            "updated_at": "2023-01-25T14:49:22Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 7601,
-            "watchers_count": 7601,
+            "watchers": 7617,
+            "watchers_count": 7617,
             "web_commit_signoff_required": false
         },
         "sha": "e1364b5a4b546be34829360d0d1471bc33c01262",
@@ -171,7 +171,7 @@
         }
     },
     "body": "The general optimization for unpacking builtin method calls was breaking bound classmethods (with crashes on Py2 and wrong answers on Py3).\r\n\r\nThis PR adds code to handle it. The code is unlikely to be very fast, but my judgement is that this is a rare case and thus it's more important just to get it to work rather than to optimize this case.\r\n\r\nFixes #5051",
-    "closed_at": null,
+    "closed_at": "2023-01-22T12:48:21Z",
     "comment_data": [
         {
             "_links": {
@@ -187,19 +187,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\r\n```",
-            "commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
             "created_at": "2023-01-17T18:31:35Z",
             "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API",
             "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1072640616",
             "id": 1072640616,
-            "line": 2037,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc4_7zJo",
             "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
             "original_line": 2037,
             "original_position": 40,
             "original_start_line": null,
             "path": "Cython/Utility/ObjectHandling.c",
-            "position": 40,
+            "position": null,
             "pull_request_review_id": 1252195011,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
             "reactions": {
@@ -254,19 +254,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n        PyObject *self;\r\n        int self_found;\r\n```",
-            "commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
             "created_at": "2023-01-17T18:33:50Z",
             "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;",
             "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1072644060",
             "id": 1072644060,
-            "line": 2027,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc4_7z_c",
             "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
             "original_line": 2027,
             "original_position": 30,
             "original_start_line": 2026,
             "path": "Cython/Utility/ObjectHandling.c",
-            "position": 30,
+            "position": null,
             "pull_request_review_id": 1252195011,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
             "reactions": {
@@ -282,7 +282,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/1072644060/reactions"
             },
             "side": "RIGHT",
-            "start_line": 2026,
+            "start_line": null,
             "start_side": "RIGHT",
             "updated_at": "2023-01-17T18:44:54Z",
             "url": "https://api.github.com/repos/cython/cython/pulls/comments/1072644060",
@@ -321,7 +321,7 @@
             },
             "author_association": "MEMBER",
             "body": "Would a `staticmethod` work here as a wrapper? That's probably simpler and faster than going through the whole Python compiler.",
-            "commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
             "created_at": "2023-01-17T18:41:32Z",
             "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin",
             "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1072656925",
@@ -388,19 +388,19 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Technically this isn't quite correct, since this wouldn't pass `compiled(ignore=...)` through to `kwds`. But that's fine if we know there's no builtin classmethods using `**kwargs` - does this optimisation occur for extension modules?",
-            "commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
             "created_at": "2023-01-18T00:05:31Z",
             "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin\n+            // type classmethods as of 2022, and they'll mostly be called as\n+            // \"dict.fromkeys\" instead of \"{}.fromkeys\". Therefore it's unlikely to\n+            // be an important pessimization, and it does allow us to keep the\n+            // general \"bound methods of builtin types\" optimization largely unchanged.\n+            PyObject *dict = PyDict_New();\n+            PyObject *compiled = NULL, *unbound_method = NULL;\n+            if (!dict) goto cleanup_failed;\n+            if (PyDict_SetItemString(dict, \"method\", method)) {\n+                Py_DECREF(dict);\n+                goto cleanup_failed;\n+            }\n+            compiled = Py_CompileString(\"lambda ignore, *args, **kwds: method(*args, **kwds)\",",
             "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1072958058",
             "id": 1072958058,
-            "line": 2055,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc4_9Apq",
             "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
             "original_line": 2055,
             "original_position": 58,
             "original_start_line": null,
             "path": "Cython/Utility/ObjectHandling.c",
-            "position": 58,
+            "position": null,
             "pull_request_review_id": 1252641168,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
             "reactions": {
@@ -455,20 +455,20 @@
             },
             "author_association": "MEMBER",
             "body": "The optimization doesn't occur for extension modules - only the genuine builtin classes. I might change it to `_` just to have a name that's a little less likely to be used as a keyword arg in future though (if wrapping with `staticmethod` doesn't work)",
-            "commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
             "created_at": "2023-01-18T07:37:42Z",
             "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin\n+            // type classmethods as of 2022, and they'll mostly be called as\n+            // \"dict.fromkeys\" instead of \"{}.fromkeys\". Therefore it's unlikely to\n+            // be an important pessimization, and it does allow us to keep the\n+            // general \"bound methods of builtin types\" optimization largely unchanged.\n+            PyObject *dict = PyDict_New();\n+            PyObject *compiled = NULL, *unbound_method = NULL;\n+            if (!dict) goto cleanup_failed;\n+            if (PyDict_SetItemString(dict, \"method\", method)) {\n+                Py_DECREF(dict);\n+                goto cleanup_failed;\n+            }\n+            compiled = Py_CompileString(\"lambda ignore, *args, **kwds: method(*args, **kwds)\",",
             "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1073181479",
             "id": 1073181479,
             "in_reply_to_id": 1072958058,
-            "line": 2055,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc4_93Mn",
             "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
             "original_line": 2055,
             "original_position": 58,
             "original_start_line": null,
             "path": "Cython/Utility/ObjectHandling.c",
-            "position": 58,
+            "position": null,
             "pull_request_review_id": 1252952337,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
             "reactions": {
@@ -507,6 +507,754 @@
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5075#discussion_r1073972557"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5075"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1073972557"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I don't think so (or I can't make it work) - I don't think a `staticmethod` ignores the first argument - I think most of what it does is in `__get__` and we're now too late to benefit from that.\r\n\r\nI don't really like what I've currently done though so happy to investigate better alternatives if they exist though",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "created_at": "2023-01-18T19:18:24Z",
+            "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin",
+            "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1073972557",
+            "id": 1073972557,
+            "in_reply_to_id": 1072656925,
+            "line": 2043,
+            "node_id": "PRRC_kwDOABDGAc5AA4VN",
+            "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "original_line": 2043,
+            "original_position": 46,
+            "original_start_line": 2041,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": 46,
+            "pull_request_review_id": 1254153216,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1073972557/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2041,
+            "start_side": "RIGHT",
+            "updated_at": "2023-01-18T19:18:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1073972557",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5075#discussion_r1080572316"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5075"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1080572316"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Something like this should take care of the problem\r\n```c\r\n// pun intended\r\nPyObject *SelflessCall(PyObject *method, PyObject *args, PyObject *kwargs) {\r\n    // selfless_args = ...\r\n    return PyObject_Call(method, selfless_args, kwargs);\r\n}\r\n```\r\n\r\n```c\r\nif (self_found) {\r\n    PyMethodDef def = {\r\n        .ml_name = ...,\r\n        .ml_meth = (PyCFunction)SelflessCall,\r\n        .ml_flags = METH_VARARGS | METH_KEYWORDS,\r\n        .ml_doc = NULL\r\n    };\r\n    target->method = PyCFunction_New(&def, method);\r\n    if (target->method == NULL) goto cleanup_failed;\r\n}\r\n```\r\n\r\nYou can actually pass anything as a second argument for `PyCFunction_New`, and it will appear as the first argument in `SelflessCall`, AFAIK",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "created_at": "2023-01-18T21:25:05Z",
+            "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin",
+            "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1080572316",
+            "id": 1080572316,
+            "in_reply_to_id": 1072656925,
+            "line": 2043,
+            "node_id": "PRRC_kwDOABDGAc5AaDmc",
+            "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "original_line": 2043,
+            "original_position": 46,
+            "original_start_line": 2041,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": 46,
+            "pull_request_review_id": 1260794552,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080572316/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2041,
+            "start_side": "RIGHT",
+            "updated_at": "2023-01-18T21:53:15Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080572316",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/52697657?v=4",
+                "events_url": "https://api.github.com/users/0dminnimda/events{/privacy}",
+                "followers_url": "https://api.github.com/users/0dminnimda/followers",
+                "following_url": "https://api.github.com/users/0dminnimda/following{/other_user}",
+                "gists_url": "https://api.github.com/users/0dminnimda/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/0dminnimda",
+                "id": 52697657,
+                "login": "0dminnimda",
+                "node_id": "MDQ6VXNlcjUyNjk3NjU3",
+                "organizations_url": "https://api.github.com/users/0dminnimda/orgs",
+                "received_events_url": "https://api.github.com/users/0dminnimda/received_events",
+                "repos_url": "https://api.github.com/users/0dminnimda/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/0dminnimda/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/0dminnimda/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/0dminnimda"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5075#discussion_r1080577020"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5075"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1080577020"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Also @scoder  I wonder is there any downsides to assigning them to zeros?\r\nOr is it more about codestyle than anything?",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "created_at": "2023-01-18T21:31:12Z",
+            "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;",
+            "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1080577020",
+            "id": 1080577020,
+            "in_reply_to_id": 1072644060,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc5AaEv8",
+            "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "original_line": 2027,
+            "original_position": 30,
+            "original_start_line": 2026,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": null,
+            "pull_request_review_id": 1260801496,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080577020/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "updated_at": "2023-01-18T21:31:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080577020",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/52697657?v=4",
+                "events_url": "https://api.github.com/users/0dminnimda/events{/privacy}",
+                "followers_url": "https://api.github.com/users/0dminnimda/followers",
+                "following_url": "https://api.github.com/users/0dminnimda/following{/other_user}",
+                "gists_url": "https://api.github.com/users/0dminnimda/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/0dminnimda",
+                "id": 52697657,
+                "login": "0dminnimda",
+                "node_id": "MDQ6VXNlcjUyNjk3NjU3",
+                "organizations_url": "https://api.github.com/users/0dminnimda/orgs",
+                "received_events_url": "https://api.github.com/users/0dminnimda/received_events",
+                "repos_url": "https://api.github.com/users/0dminnimda/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/0dminnimda/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/0dminnimda/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/0dminnimda"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5075#discussion_r1080612021"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5075"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1080612021"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "The `PyMethodDef` needs to be static I think. Although that shouldn't be an insurmountable problem. I'll look into that suggestion...",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "created_at": "2023-01-18T22:09:34Z",
+            "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin",
+            "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1080612021",
+            "id": 1080612021,
+            "in_reply_to_id": 1072656925,
+            "line": 2043,
+            "node_id": "PRRC_kwDOABDGAc5AaNS1",
+            "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "original_line": 2043,
+            "original_position": 46,
+            "original_start_line": 2041,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": 46,
+            "pull_request_review_id": 1260851349,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080612021/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2041,
+            "start_side": "RIGHT",
+            "updated_at": "2023-01-18T22:09:34Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080612021",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5075#discussion_r1080615496"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5075"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1080615496"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Correction, we probably need to pymem_malloc PyMethodDef  and at best have it accounted in custom pyobject alongside method, as PyCFunctionObject does not free PyMethodDef's memory on destruction\r\n\r\n```c\r\nstatic void\r\nmeth_dealloc(PyCFunctionObject *m)\r\n{\r\n    // The Py_TRASHCAN mechanism requires that we be able to\r\n    // call PyObject_GC_UnTrack twice on an object.\r\n    PyObject_GC_UnTrack(m);\r\n    Py_TRASHCAN_BEGIN(m, meth_dealloc);\r\n    if (m->m_weakreflist != NULL) {\r\n        PyObject_ClearWeakRefs((PyObject*) m);\r\n    }\r\n    // Dereference class before m_self: PyCFunction_GET_CLASS accesses\r\n    // PyMethodDef m_ml, which could be kept alive by m_self\r\n    Py_XDECREF(PyCFunction_GET_CLASS(m));\r\n    Py_XDECREF(m->m_self);\r\n    Py_XDECREF(m->m_module);\r\n    PyObject_GC_Del(m);\r\n    Py_TRASHCAN_END;\r\n}\r\n```\r\n\r\nSo, SelflessCaller class? ;)",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "created_at": "2023-01-18T22:14:11Z",
+            "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin",
+            "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1080615496",
+            "id": 1080615496,
+            "in_reply_to_id": 1072656925,
+            "line": 2043,
+            "node_id": "PRRC_kwDOABDGAc5AaOJI",
+            "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "original_line": 2043,
+            "original_position": 46,
+            "original_start_line": 2041,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": 46,
+            "pull_request_review_id": 1260856251,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080615496/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2041,
+            "start_side": "RIGHT",
+            "updated_at": "2023-01-18T22:15:05Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080615496",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/52697657?v=4",
+                "events_url": "https://api.github.com/users/0dminnimda/events{/privacy}",
+                "followers_url": "https://api.github.com/users/0dminnimda/followers",
+                "following_url": "https://api.github.com/users/0dminnimda/following{/other_user}",
+                "gists_url": "https://api.github.com/users/0dminnimda/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/0dminnimda",
+                "id": 52697657,
+                "login": "0dminnimda",
+                "node_id": "MDQ6VXNlcjUyNjk3NjU3",
+                "organizations_url": "https://api.github.com/users/0dminnimda/orgs",
+                "received_events_url": "https://api.github.com/users/0dminnimda/received_events",
+                "repos_url": "https://api.github.com/users/0dminnimda/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/0dminnimda/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/0dminnimda/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/0dminnimda"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5075#discussion_r1080636070"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5075"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1080636070"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Or just a tuple, something like\r\n\r\n```c\r\n...\r\nPyTupleObject *tup = PyTuple_New(2);\r\nPyTuple_SetItem(tup, 0, method);\r\nPyTuple_SetItem(tup, 1, PyCapsule_New((void*)def, NULL, struct_capsule_destructor));\r\n\r\ntarget->method = PyCFunction_New(&def, tup);\r\n```",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "created_at": "2023-01-18T22:37:03Z",
+            "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin",
+            "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1080636070",
+            "id": 1080636070,
+            "in_reply_to_id": 1072656925,
+            "line": 2043,
+            "node_id": "PRRC_kwDOABDGAc5AaTKm",
+            "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "original_line": 2043,
+            "original_position": 46,
+            "original_start_line": 2041,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": 46,
+            "pull_request_review_id": 1260885782,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080636070/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2041,
+            "start_side": "RIGHT",
+            "updated_at": "2023-01-18T22:37:05Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080636070",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/52697657?v=4",
+                "events_url": "https://api.github.com/users/0dminnimda/events{/privacy}",
+                "followers_url": "https://api.github.com/users/0dminnimda/followers",
+                "following_url": "https://api.github.com/users/0dminnimda/following{/other_user}",
+                "gists_url": "https://api.github.com/users/0dminnimda/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/0dminnimda",
+                "id": 52697657,
+                "login": "0dminnimda",
+                "node_id": "MDQ6VXNlcjUyNjk3NjU3",
+                "organizations_url": "https://api.github.com/users/0dminnimda/orgs",
+                "received_events_url": "https://api.github.com/users/0dminnimda/received_events",
+                "repos_url": "https://api.github.com/users/0dminnimda/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/0dminnimda/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/0dminnimda/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/0dminnimda"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5075#discussion_r1080637335"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5075"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1080637335"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Alright, I folded this conversation a little, @da-woods are you ok with the option that I will create anothe PR based on your branch implementing what I've described above and we can merge both then?",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "created_at": "2023-01-18T22:38:47Z",
+            "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin",
+            "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1080637335",
+            "id": 1080637335,
+            "in_reply_to_id": 1072656925,
+            "line": 2043,
+            "node_id": "PRRC_kwDOABDGAc5AaTeX",
+            "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "original_line": 2043,
+            "original_position": 46,
+            "original_start_line": 2041,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": 46,
+            "pull_request_review_id": 1260887222,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080637335/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2041,
+            "start_side": "RIGHT",
+            "updated_at": "2023-01-18T22:38:47Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080637335",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/52697657?v=4",
+                "events_url": "https://api.github.com/users/0dminnimda/events{/privacy}",
+                "followers_url": "https://api.github.com/users/0dminnimda/followers",
+                "following_url": "https://api.github.com/users/0dminnimda/following{/other_user}",
+                "gists_url": "https://api.github.com/users/0dminnimda/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/0dminnimda",
+                "id": 52697657,
+                "login": "0dminnimda",
+                "node_id": "MDQ6VXNlcjUyNjk3NjU3",
+                "organizations_url": "https://api.github.com/users/0dminnimda/orgs",
+                "received_events_url": "https://api.github.com/users/0dminnimda/received_events",
+                "repos_url": "https://api.github.com/users/0dminnimda/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/0dminnimda/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/0dminnimda/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/0dminnimda"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5075#discussion_r1080642063"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5075"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1080642063"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "> The `PyMethodDef` needs to be static I think. Although that shouldn't be an insurmountable problem. I'll look into that suggestion...\r\n\r\nIf the name will always be the same, then yeah, we can make it static global struct\r\nShould it be the same name though, I think about this function more like a wrapper, so it's pribably nice to preserve the name of the original funciton",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "created_at": "2023-01-18T22:46:19Z",
+            "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin",
+            "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1080642063",
+            "id": 1080642063,
+            "in_reply_to_id": 1072656925,
+            "line": 2043,
+            "node_id": "PRRC_kwDOABDGAc5AaUoP",
+            "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "original_line": 2043,
+            "original_position": 46,
+            "original_start_line": 2041,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": 46,
+            "pull_request_review_id": 1260893580,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080642063/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2041,
+            "start_side": "RIGHT",
+            "updated_at": "2023-01-18T22:46:19Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080642063",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/52697657?v=4",
+                "events_url": "https://api.github.com/users/0dminnimda/events{/privacy}",
+                "followers_url": "https://api.github.com/users/0dminnimda/followers",
+                "following_url": "https://api.github.com/users/0dminnimda/following{/other_user}",
+                "gists_url": "https://api.github.com/users/0dminnimda/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/0dminnimda",
+                "id": 52697657,
+                "login": "0dminnimda",
+                "node_id": "MDQ6VXNlcjUyNjk3NjU3",
+                "organizations_url": "https://api.github.com/users/0dminnimda/orgs",
+                "received_events_url": "https://api.github.com/users/0dminnimda/received_events",
+                "repos_url": "https://api.github.com/users/0dminnimda/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/0dminnimda/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/0dminnimda/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/0dminnimda"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5075#discussion_r1080904000"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5075"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1080904000"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "> If the name will always be the same\r\n\r\nI don't think it should be possible to access the name from anywhere external do I'd go with the static version as being simpler.\r\n\r\n> I will create anothe PR based on your branch implementing what I've described above\r\n\r\nYou can do if you want and have time.",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "created_at": "2023-01-19T07:46:32Z",
+            "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin",
+            "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1080904000",
+            "id": 1080904000,
+            "in_reply_to_id": 1072656925,
+            "line": 2043,
+            "node_id": "PRRC_kwDOABDGAc5AbUlA",
+            "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "original_line": 2043,
+            "original_position": 46,
+            "original_start_line": 2041,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": 46,
+            "pull_request_review_id": 1261257193,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080904000/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2041,
+            "start_side": "RIGHT",
+            "updated_at": "2023-01-19T07:46:32Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080904000",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5075#discussion_r1080993205"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5075"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1080993205"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "> I don't think it should be possible to access the name from anywhere external do I'd go with the static version as being simpler.\r\n\r\nYeah, I've looked into that and it seems to be the case\r\n\r\n> You can do if you want and have time.\r\n\r\nI'd like to give it a try I've found this to be an interesting thing to implement",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "created_at": "2023-01-19T09:19:12Z",
+            "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin",
+            "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1080993205",
+            "id": 1080993205,
+            "in_reply_to_id": 1072656925,
+            "line": 2043,
+            "node_id": "PRRC_kwDOABDGAc5AbqW1",
+            "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "original_line": 2043,
+            "original_position": 46,
+            "original_start_line": 2041,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": 46,
+            "pull_request_review_id": 1261389414,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080993205/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2041,
+            "start_side": "RIGHT",
+            "updated_at": "2023-01-19T09:19:12Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1080993205",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/52697657?v=4",
+                "events_url": "https://api.github.com/users/0dminnimda/events{/privacy}",
+                "followers_url": "https://api.github.com/users/0dminnimda/followers",
+                "following_url": "https://api.github.com/users/0dminnimda/following{/other_user}",
+                "gists_url": "https://api.github.com/users/0dminnimda/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/0dminnimda",
+                "id": 52697657,
+                "login": "0dminnimda",
+                "node_id": "MDQ6VXNlcjUyNjk3NjU3",
+                "organizations_url": "https://api.github.com/users/0dminnimda/orgs",
+                "received_events_url": "https://api.github.com/users/0dminnimda/received_events",
+                "repos_url": "https://api.github.com/users/0dminnimda/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/0dminnimda/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/0dminnimda/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/0dminnimda"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5075#discussion_r1081123624"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5075"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1081123624"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Having static PyMethodDef is surely nicer than having dynamic Py_Capsule",
+            "commit_id": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "created_at": "2023-01-19T11:16:26Z",
+            "diff_hunk": "@@ -2000,16 +2000,83 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n     target->method = method;\n #if CYTHON_COMPILING_IN_CPYTHON\n     #if PY_MAJOR_VERSION >= 3\n-    // method descriptor type isn't exported in Py2.x, cannot easily check the type there\n     if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))\n+    #else\n+    // method descriptor type isn't exported in Py2.x, cannot easily check the type there.\n+    // Therefore, reverse the check to the most likely alternative\n+    // (which is returned for class methods)\n+    if (likely(!PyCFunction_Check(method)))\n     #endif\n     {\n         PyMethodDescrObject *descr = (PyMethodDescrObject*) method;\n         target->func = descr->d_method->ml_meth;\n         target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);\n-    }\n+    } else\n+#endif\n+    // bound classmethods need special treatment\n+#if defined(CYTHON_COMPILING_IN_PYPY)\n+    // In these functions are regular methods, so just do\n+    // the self check\n+#elif PY_VERSION_HEX >= 0x03090000\n+    if (PyCFunction_CheckExact(method))\n+#else\n+    if (PyCFunction_Check(method))\n+#endif\n+    {\n+        PyObject *self = NULL;\n+        int self_found = 0;\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+        self = PyObject_GetAttrString(method, \"__self__\");\n+        if (!self) {\n+            PyErr_Clear();\n+        }\n+#else\n+        self = PyCFunction_GET_SELF(method);\n+#endif\n+        self_found = (self && self != Py_None);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        Py_XDECREF(self);\n+#endif\n+        if (self_found) {\n+            // This is almost certainly a pessimization - we have a bound classmethod\n+            // which will be passed \"self\". We therefore just create a lambda function\n+            // to ignore the \"self\" argument. However, there are only 5 builtin",
+            "html_url": "https://github.com/cython/cython/pull/5075#discussion_r1081123624",
+            "id": 1081123624,
+            "in_reply_to_id": 1072656925,
+            "line": 2043,
+            "node_id": "PRRC_kwDOABDGAc5AcKMo",
+            "original_commit_id": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+            "original_line": 2043,
+            "original_position": 46,
+            "original_start_line": 2041,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": 46,
+            "pull_request_review_id": 1261583183,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5075",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1081123624/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2041,
+            "start_side": "RIGHT",
+            "updated_at": "2023-01-19T11:16:26Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1081123624",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/52697657?v=4",
+                "events_url": "https://api.github.com/users/0dminnimda/events{/privacy}",
+                "followers_url": "https://api.github.com/users/0dminnimda/followers",
+                "following_url": "https://api.github.com/users/0dminnimda/following{/other_user}",
+                "gists_url": "https://api.github.com/users/0dminnimda/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/0dminnimda",
+                "id": 52697657,
+                "login": "0dminnimda",
+                "node_id": "MDQ6VXNlcjUyNjk3NjU3",
+                "organizations_url": "https://api.github.com/users/0dminnimda/orgs",
+                "received_events_url": "https://api.github.com/users/0dminnimda/received_events",
+                "repos_url": "https://api.github.com/users/0dminnimda/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/0dminnimda/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/0dminnimda/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/0dminnimda"
             }
         }
     ],
@@ -748,6 +1496,164 @@
             ],
             "sha": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
             "url": "https://api.github.com/repos/cython/cython/commits/c7a46691e9eaa8f88447b3a179d42e4577c3adb2"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/1e3b0090b30c371293a31d73858d111c1ab1b0ae/comments",
+            "commit": {
+                "author": {
+                    "date": "2023-01-18T19:07:59Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2023-01-18T19:07:59Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Apply suggestions from code review\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "e107333822f492c2107d9eda3a1e838f0457b23a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/e107333822f492c2107d9eda3a1e838f0457b23a"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/1e3b0090b30c371293a31d73858d111c1ab1b0ae",
+                "verification": {
+                    "payload": "tree e107333822f492c2107d9eda3a1e838f0457b23a\nparent c7a46691e9eaa8f88447b3a179d42e4577c3adb2\nauthor da-woods <dw-git@d-woods.co.uk> 1674068879 +0000\ncommitter GitHub <noreply@github.com> 1674068879 +0000\n\nApply suggestions from code review\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJjyEOPCRBK7hj4Ov3rIwAA2cIIAF1g+Ok4sOdTcr1obNH2c2eq\nEAMKUdVhmXPE4oWRR8b12ePgPt1KtWex5bwIpsy+agodTIoSpNJpA4iqprEj8rru\nmYT98/QZqqBza8T03uZV9wK3tFirpSEPDNRZOSRyFA1D7zE5dlcp/6tuAdwEmpkx\nj9G/Hj1OGLCrPxo/5H2AD3uCuWNBiSK3FZ06361jfMek5O35+1JlaZPB1uluGui1\nobJNjX0gNtETH4UagbDPDowVBWuhHP46ely6Q9CDwIqQjAGhBIoF5Q1Lq8oPJg+r\nB28VqwNTG5lcJpj7KxNON62GgKacVWAGtJNBDmzrIF5oFGVmJNRh5RcJ4JbdWLE=\n=vNl/\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/1e3b0090b30c371293a31d73858d111c1ab1b0ae",
+            "node_id": "C_kwDOAhr4b9oAKDFlM2IwMDkwYjMwYzM3MTI5M2EzMWQ3Mzg1OGQxMTFjMWFiMWIwYWU",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+                    "sha": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+                    "url": "https://api.github.com/repos/cython/cython/commits/c7a46691e9eaa8f88447b3a179d42e4577c3adb2"
+                }
+            ],
+            "sha": "1e3b0090b30c371293a31d73858d111c1ab1b0ae",
+            "url": "https://api.github.com/repos/cython/cython/commits/1e3b0090b30c371293a31d73858d111c1ab1b0ae"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/b4266bf901c0b6f8fa14c79e8e85336800328185/comments",
+            "commit": {
+                "author": {
+                    "date": "2023-01-18T19:13:19Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2023-01-18T19:13:19Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Rename \"ignore\" argument",
+                "tree": {
+                    "sha": "306f778a4b5e8b0b4ba223c9f8239e53e65b9167",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/306f778a4b5e8b0b4ba223c9f8239e53e65b9167"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/b4266bf901c0b6f8fa14c79e8e85336800328185",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "node_id": "C_kwDOAhr4b9oAKGI0MjY2YmY5MDFjMGI2ZjhmYTE0Yzc5ZThlODUzMzY4MDAzMjgxODU",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/1e3b0090b30c371293a31d73858d111c1ab1b0ae",
+                    "sha": "1e3b0090b30c371293a31d73858d111c1ab1b0ae",
+                    "url": "https://api.github.com/repos/cython/cython/commits/1e3b0090b30c371293a31d73858d111c1ab1b0ae"
+                }
+            ],
+            "sha": "b4266bf901c0b6f8fa14c79e8e85336800328185",
+            "url": "https://api.github.com/repos/cython/cython/commits/b4266bf901c0b6f8fa14c79e8e85336800328185"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/5075/commits",
@@ -842,9 +1748,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2023-01-16T20:54:46Z",
+            "pushed_at": "2023-01-24T10:26:38Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 68879,
+            "size": 68410,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -863,7 +1769,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+        "sha": "b4266bf901c0b6f8fa14c79e8e85336800328185",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -890,7 +1796,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/5075",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "230f711bb55e1e2b49232dad69a8366da6b76b39",
+    "merge_commit_sha": "120dbb97ae045da6d905541c5c9937bab356bfa6",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc5AcvFs",
@@ -900,10 +1806,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/5075/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/c7a46691e9eaa8f88447b3a179d42e4577c3adb2",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/b4266bf901c0b6f8fa14c79e8e85336800328185",
     "title": "Fix builtin bound classmethods",
-    "updated_at": "2023-01-18T07:37:42Z",
+    "updated_at": "2023-01-24T10:26:38Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/5075",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
