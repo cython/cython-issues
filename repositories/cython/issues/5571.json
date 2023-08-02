@@ -3,17 +3,17 @@
     "assignee": null,
     "assignees": [],
     "author_association": "NONE",
-    "body": "### Describe the bug\n\nGiven the MWE below, cython 3.0 will generate invalid c++ code which does not compile.\r\n\r\n```\r\n$ cythonize -i NoneError.pyx\r\nCompiling /home/berneluk/cython3test/NoneError.pyx because it changed.\r\n[1/1] Cythonizing /home/berneluk/cython3test/NoneError.pyx\r\n/home/berneluk/cython3test/.venv/lib/python3.10/site-packages/Cython/Compiler/Main.py:381: FutureWarning: Cython directive 'language_level' not set, using '3str' for now (Py3). This has changed from earlier releases! File: /home/berneluk/cython3test/NoneError.pyx\r\n  tree = Parsing.p_module(s, pxd, full_module_name)\r\nrunning build_ext\r\nbuilding 'NoneError' extension\r\ncreating /home/berneluk/cython3test/tmpymjkwm47/home\r\ncreating /home/berneluk/cython3test/tmpymjkwm47/home/berneluk\r\ncreating /home/berneluk/cython3test/tmpymjkwm47/home/berneluk/cython3test\r\nx86_64-linux-gnu-gcc -Wno-unused-result -Wsign-compare -DNDEBUG -g -fwrapv -O2 -Wall -g -fstack-protector-strong -Wformat -Werror=format-security -g -fwrapv -O2 -g -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2 -fPIC -I/home/berneluk/cython3test/.venv/include -I/usr/include/python3.10 -c /home/berneluk/cython3test/NoneError.cpp -o /home/berneluk/cython3test/tmpymjkwm47/home/berneluk/cython3test/NoneError.o\r\n/home/berneluk/cython3test/NoneError.cpp: In function ‘int __pyx_pymod_exec_NoneError(PyObject*)’:\r\n/home/berneluk/cython3test/NoneError.cpp:4109:37: error: ‘None’ was not declared in this scope\r\n 4109 |   __pyx_k_ = ((std::vector<double> )None);\r\n      |                                     ^~~~\r\nerror: command '/usr/bin/x86_64-linux-gnu-gcc' failed with exit code 1\r\n\r\n```\r\n\r\nThe example is working using cython 0.29.36. There is a workaround for this problem as well, see *additional context*.\n\n### Code to reproduce the behaviour:\n\n```cython\r\n# distutils: language=c++\r\n\r\nfrom libcpp.vector cimport vector\r\n\r\ncdef class Foo:\r\n    def bar(self, vector[double] b = vector[double]()):\r\n        pass\r\n\r\n```\r\n\n\n### Expected behaviour\n\nThis example should generate valid cpp code.\n\n### OS\n\nLinux\n\n### Python version\n\n3.10.6\n\n### Cython version\n\n3.0.0\n\n### Additional context\n\nThis is a weird edge case. Defining the function the exact same way outside of a class compiles, as does initializing a variable like `cdef vector[double] b = vector[double]()`\r\n\r\nThere is a workaround: if one instead chooses `()` as default argument like this, the resulting code is valid and compiles:\r\n```cython\r\n# distutils: language=c++\r\n\r\nfrom libcpp.vector cimport vector\r\n\r\ncdef class Foo:\r\n    def bar(self, vector[double] b = ()):\r\n        pass\r\n```",
-    "closed_at": "2023-07-31T06:59:06Z",
+    "body": "### Describe the bug\r\n\r\nWhen using a property setter that accepts a memory view, Python crashes with the following error:\r\n\r\n```\r\nFatal Python error: __pyx_fatalerror: Acquisition count is -1 (line 16959)\r\nPython runtime state: initialized\r\n\r\nCurrent thread 0x00000001e83a1e00 (most recent call first):\r\n  File \"/private/tmp/cdtmp.l8Y/test.py\", line 7 in <module>\r\n\r\nExtension modules: cython.cimports.libc.math, foo (total: 2)\r\n```\r\n\r\n### Code to reproduce the behaviour:\r\n\r\n```cython\r\n# foo.pyx\r\ncdef class Foo:\r\n    @property\r\n    def bar(self):\r\n        return b'bar'\r\n\r\n    @bar.setter\r\n    def bar(self, const unsigned char[::1] bar):\r\n        pass\r\n```\r\n\r\n```python\r\n# test.py\r\n#!/usr/bin/env python3\r\n\r\nfrom pyximport import install; install()\r\nfrom foo import Foo\r\n\r\nc = Foo()\r\nc.bar = b'some string'  # <-- this crashes\r\n\r\n```\r\n\r\nIn the generated `foo.c`, I can see the following code where `__PYX_XCLEAR_MEMVIEW` is called twice on the same variable which is likely the cause of the bug:\r\n\r\n```c\r\n/* Python wrapper */\r\nstatic int __pyx_pw_3foo_3Foo_3bar_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_arg_bar); /*proto*/\r\nstatic int __pyx_pw_3foo_3Foo_3bar_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_arg_bar) {\r\n  /* ... */\r\n\r\n  /* function exit code */\r\n  __PYX_XCLEAR_MEMVIEW(&__pyx_v_bar, 1);\r\n  __PYX_XCLEAR_MEMVIEW(&__pyx_v_bar, 1);\r\n  __Pyx_RefNannyFinishContext();\r\n  return __pyx_r;\r\n}\r\n```\r\n\r\n### Expected behaviour\r\n\r\nThe code is executed without crashing the Python interpreter.\r\n\r\n### OS\r\n\r\nmacOS\r\n\r\n### Python version\r\n\r\nPython 3.11.4\r\n\r\n### Cython version\r\n\r\nCython version 3.0.0\r\n\r\n### Additional context\r\n\r\nI can also reproduce the error on Debian 11 with Cython 3.0.0 and Python 3.9.2",
+    "closed_at": null,
     "comment_data": [
         {
             "author_association": "MEMBER",
-            "body": "This bisects to ee7ae0b9ce0dea51cf17adf119afe439917ee4c0",
-            "created_at": "2023-07-24T19:34:59Z",
-            "html_url": "https://github.com/cython/cython/issues/5553#issuecomment-1648496251",
-            "id": 1648496251,
-            "issue_url": "https://api.github.com/repos/cython/cython/issues/5553",
-            "node_id": "IC_kwDOABDGAc5iQg57",
+            "body": "So the double `__PYX_XCLEAR_MEMVIEW` isn't right, but it should be safe. The crash is actually on the first one",
+            "created_at": "2023-07-28T17:40:02Z",
+            "html_url": "https://github.com/cython/cython/issues/5571#issuecomment-1656091791",
+            "id": 1656091791,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/5571",
+            "node_id": "IC_kwDOABDGAc5itfSP",
             "performed_via_github_app": null,
             "reactions": {
                 "+1": 0,
@@ -25,10 +25,10 @@
                 "laugh": 0,
                 "rocket": 0,
                 "total_count": 0,
-                "url": "https://api.github.com/repos/cython/cython/issues/comments/1648496251/reactions"
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1656091791/reactions"
             },
-            "updated_at": "2023-07-24T19:34:59Z",
-            "url": "https://api.github.com/repos/cython/cython/issues/comments/1648496251",
+            "updated_at": "2023-07-28T17:40:02Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1656091791",
             "user": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
                 "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -51,13 +51,13 @@
             }
         },
         {
-            "author_association": "MEMBER",
-            "body": "Fixed in https://github.com/cython/cython/commit/292c72c70171720be35b159a9afc9e338633afc5",
-            "created_at": "2023-07-31T06:59:06Z",
-            "html_url": "https://github.com/cython/cython/issues/5553#issuecomment-1657781170",
-            "id": 1657781170,
-            "issue_url": "https://api.github.com/repos/cython/cython/issues/5553",
-            "node_id": "IC_kwDOABDGAc5iz7uy",
+            "author_association": "NONE",
+            "body": "Thank you for debugging the code and creating a patch.",
+            "created_at": "2023-07-31T12:47:46Z",
+            "html_url": "https://github.com/cython/cython/issues/5571#issuecomment-1658310044",
+            "id": 1658310044,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/5571",
+            "node_id": "IC_kwDOABDGAc5i182c",
             "performed_via_github_app": null,
             "reactions": {
                 "+1": 0,
@@ -69,35 +69,35 @@
                 "laugh": 0,
                 "rocket": 0,
                 "total_count": 0,
-                "url": "https://api.github.com/repos/cython/cython/issues/comments/1657781170/reactions"
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1658310044/reactions"
             },
-            "updated_at": "2023-07-31T06:59:06Z",
-            "url": "https://api.github.com/repos/cython/cython/issues/comments/1657781170",
+            "updated_at": "2023-07-31T12:47:46Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1658310044",
             "user": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
-                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
-                "followers_url": "https://api.github.com/users/da-woods/followers",
-                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
-                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "avatar_url": "https://avatars.githubusercontent.com/u/10503880?v=4",
+                "events_url": "https://api.github.com/users/fanosta/events{/privacy}",
+                "followers_url": "https://api.github.com/users/fanosta/followers",
+                "following_url": "https://api.github.com/users/fanosta/following{/other_user}",
+                "gists_url": "https://api.github.com/users/fanosta/gists{/gist_id}",
                 "gravatar_id": "",
-                "html_url": "https://github.com/da-woods",
-                "id": 10536947,
-                "login": "da-woods",
-                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
-                "organizations_url": "https://api.github.com/users/da-woods/orgs",
-                "received_events_url": "https://api.github.com/users/da-woods/received_events",
-                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "html_url": "https://github.com/fanosta",
+                "id": 10503880,
+                "login": "fanosta",
+                "node_id": "MDQ6VXNlcjEwNTAzODgw",
+                "organizations_url": "https://api.github.com/users/fanosta/orgs",
+                "received_events_url": "https://api.github.com/users/fanosta/received_events",
+                "repos_url": "https://api.github.com/users/fanosta/repos",
                 "site_admin": false,
-                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "starred_url": "https://api.github.com/users/fanosta/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/fanosta/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/fanosta"
             }
         }
     ],
     "comments": 2,
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/5553/comments",
-    "created_at": "2023-07-21T16:11:56Z",
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/5571/comments",
+    "created_at": "2023-07-27T15:01:19Z",
     "event_data": [
         {
             "actor": {
@@ -122,16 +122,16 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2023-07-21T19:46:47Z",
+            "created_at": "2023-07-27T17:26:44Z",
             "event": "labeled",
-            "id": 9888450172,
+            "id": 9938713622,
             "label": {
                 "color": "444444",
                 "name": "defect"
             },
-            "node_id": "LE_lADOABDGAc5sPuVHzwAAAAJNZcZ8",
+            "node_id": "LE_lADOABDGAc5swLQhzwAAAAJQZLwW",
             "performed_via_github_app": null,
-            "url": "https://api.github.com/repos/cython/cython/issues/events/9888450172"
+            "url": "https://api.github.com/repos/cython/cython/issues/events/9938713622"
         },
         {
             "actor": {
@@ -156,16 +156,76 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2023-07-21T19:46:47Z",
+            "created_at": "2023-07-27T17:26:44Z",
             "event": "labeled",
-            "id": 9888450179,
+            "id": 9938713626,
             "label": {
                 "color": "444444",
                 "name": "Code Generation"
             },
-            "node_id": "LE_lADOABDGAc5sPuVHzwAAAAJNZcaD",
+            "node_id": "LE_lADOABDGAc5swLQhzwAAAAJQZLwa",
             "performed_via_github_app": null,
-            "url": "https://api.github.com/repos/cython/cython/issues/events/9888450179"
+            "url": "https://api.github.com/repos/cython/cython/issues/events/9938713626"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "commit_id": "537239aa52af623a203b1e7c33c8422d260d1a4f",
+            "commit_url": "https://api.github.com/repos/da-woods/cython/commits/537239aa52af623a203b1e7c33c8422d260d1a4f",
+            "created_at": "2023-07-28T20:37:34Z",
+            "event": "referenced",
+            "id": 9952025115,
+            "node_id": "REFE_lADOABDGAc5swLQhzwAAAAJRL9ob",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/9952025115"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "commit_id": "3e9bb9473f1216d8edb4610b1ca7e1c53bc0b311",
+            "commit_url": "https://api.github.com/repos/da-woods/cython/commits/3e9bb9473f1216d8edb4610b1ca7e1c53bc0b311",
+            "created_at": "2023-07-28T20:38:35Z",
+            "event": "referenced",
+            "id": 9952039165,
+            "node_id": "REFE_lADOABDGAc5swLQhzwAAAAJRMBD9",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/9952039165"
         },
         {
             "actor": {
@@ -190,51 +250,20 @@
             },
             "commit_id": null,
             "commit_url": null,
-            "created_at": "2023-07-30T10:05:22Z",
+            "created_at": "2023-07-30T10:04:01Z",
             "event": "milestoned",
-            "id": 9956494190,
+            "id": 9956492395,
             "milestone": {
                 "title": "3.0.1"
             },
-            "node_id": "MIE_lADOABDGAc5sPuVHzwAAAAJRdAtu",
+            "node_id": "MIE_lADOABDGAc5swLQhzwAAAAJRdARr",
             "performed_via_github_app": null,
-            "url": "https://api.github.com/repos/cython/cython/issues/events/9956494190"
-        },
-        {
-            "actor": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
-                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
-                "followers_url": "https://api.github.com/users/da-woods/followers",
-                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
-                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/da-woods",
-                "id": 10536947,
-                "login": "da-woods",
-                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
-                "organizations_url": "https://api.github.com/users/da-woods/orgs",
-                "received_events_url": "https://api.github.com/users/da-woods/received_events",
-                "repos_url": "https://api.github.com/users/da-woods/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/da-woods"
-            },
-            "commit_id": null,
-            "commit_url": null,
-            "created_at": "2023-07-31T06:59:06Z",
-            "event": "closed",
-            "id": 9959989950,
-            "node_id": "CE_lADOABDGAc5sPuVHzwAAAAJRqWK-",
-            "performed_via_github_app": null,
-            "state_reason": null,
-            "url": "https://api.github.com/repos/cython/cython/issues/events/9959989950"
+            "url": "https://api.github.com/repos/cython/cython/issues/events/9956492395"
         }
     ],
-    "events_url": "https://api.github.com/repos/cython/cython/issues/5553/events",
-    "html_url": "https://github.com/cython/cython/issues/5553",
-    "id": 1816061255,
+    "events_url": "https://api.github.com/repos/cython/cython/issues/5571/events",
+    "html_url": "https://github.com/cython/cython/issues/5571",
+    "id": 1824568353,
     "labels": [
         {
             "color": "444444",
@@ -255,7 +284,7 @@
             "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
         }
     ],
-    "labels_url": "https://api.github.com/repos/cython/cython/issues/5553/labels{/name}",
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/5571/labels{/name}",
     "locked": false,
     "milestone": {
         "closed_at": null,
@@ -294,8 +323,8 @@
         "updated_at": "2023-07-31T10:18:34Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/98"
     },
-    "node_id": "I_kwDOABDGAc5sPuVH",
-    "number": 5553,
+    "node_id": "I_kwDOABDGAc5swLQh",
+    "number": 5571,
     "performed_via_github_app": null,
     "reactions": {
         "+1": 0,
@@ -307,33 +336,33 @@
         "laugh": 0,
         "rocket": 0,
         "total_count": 0,
-        "url": "https://api.github.com/repos/cython/cython/issues/5553/reactions"
+        "url": "https://api.github.com/repos/cython/cython/issues/5571/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "closed",
-    "state_reason": "completed",
-    "timeline_url": "https://api.github.com/repos/cython/cython/issues/5553/timeline",
-    "title": "[BUG] class method with std::vector default argument generates invalid c++ code",
-    "updated_at": "2023-07-31T06:59:06Z",
-    "url": "https://api.github.com/repos/cython/cython/issues/5553",
+    "state": "open",
+    "state_reason": null,
+    "timeline_url": "https://api.github.com/repos/cython/cython/issues/5571/timeline",
+    "title": "[BUG] Crash due to duplicate __PYX_XCLEAR_MEMVIEW",
+    "updated_at": "2023-07-31T12:47:46Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/5571",
     "user": {
-        "avatar_url": "https://avatars.githubusercontent.com/u/85391740?v=4",
-        "events_url": "https://api.github.com/users/bernlu/events{/privacy}",
-        "followers_url": "https://api.github.com/users/bernlu/followers",
-        "following_url": "https://api.github.com/users/bernlu/following{/other_user}",
-        "gists_url": "https://api.github.com/users/bernlu/gists{/gist_id}",
+        "avatar_url": "https://avatars.githubusercontent.com/u/10503880?v=4",
+        "events_url": "https://api.github.com/users/fanosta/events{/privacy}",
+        "followers_url": "https://api.github.com/users/fanosta/followers",
+        "following_url": "https://api.github.com/users/fanosta/following{/other_user}",
+        "gists_url": "https://api.github.com/users/fanosta/gists{/gist_id}",
         "gravatar_id": "",
-        "html_url": "https://github.com/bernlu",
-        "id": 85391740,
-        "login": "bernlu",
-        "node_id": "MDQ6VXNlcjg1MzkxNzQw",
-        "organizations_url": "https://api.github.com/users/bernlu/orgs",
-        "received_events_url": "https://api.github.com/users/bernlu/received_events",
-        "repos_url": "https://api.github.com/users/bernlu/repos",
+        "html_url": "https://github.com/fanosta",
+        "id": 10503880,
+        "login": "fanosta",
+        "node_id": "MDQ6VXNlcjEwNTAzODgw",
+        "organizations_url": "https://api.github.com/users/fanosta/orgs",
+        "received_events_url": "https://api.github.com/users/fanosta/received_events",
+        "repos_url": "https://api.github.com/users/fanosta/repos",
         "site_admin": false,
-        "starred_url": "https://api.github.com/users/bernlu/starred{/owner}{/repo}",
-        "subscriptions_url": "https://api.github.com/users/bernlu/subscriptions",
+        "starred_url": "https://api.github.com/users/fanosta/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/fanosta/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/bernlu"
+        "url": "https://api.github.com/users/fanosta"
     }
 }
