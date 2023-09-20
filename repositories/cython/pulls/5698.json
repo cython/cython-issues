@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/5698"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/2600c9eb885295015edd51bb5b08ac03aee9669d"
+            "href": "https://api.github.com/repos/cython/cython/statuses/6140493090a913839d45a09ccca2113dda32be62"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1453,
-            "forks_count": 1453,
+            "forks": 1454,
+            "forks_count": 1454,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -118,11 +118,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2023-09-13T06:35:28Z",
+            "pushed_at": "2023-09-14T06:33:33Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 68843,
+            "size": 68842,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 8349,
+            "stargazers_count": 8352,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,11 +141,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2023-09-13T04:28:16Z",
+            "updated_at": "2023-09-14T07:47:04Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 8349,
-            "watchers_count": 8349,
+            "watchers": 8352,
+            "watchers_count": 8352,
             "web_commit_signoff_required": false
         },
         "sha": "2b6f1a68b60206452a2e42cd7438c720b903fc04",
@@ -187,7 +187,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "The declaration of `b_name` is between the `goto` and the label, which will fail in C++",
-            "commit_id": "2600c9eb885295015edd51bb5b08ac03aee9669d",
+            "commit_id": "6140493090a913839d45a09ccca2113dda32be62",
             "created_at": "2023-09-12T20:25:22Z",
             "diff_hunk": "@@ -155,38 +155,36 @@ static int __Pyx_validate_bases_tuple(const char *type_name, Py_ssize_t dictoffs\n #endif\n             return -1;\n         }\n-#if !CYTHON_USE_TYPE_SLOTS\n-        if (dictoffset == 0) {\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%s.200s': \"\n-                \"unable to validate whether bases have a __dict__ \"\n-                \"when CYTHON_USE_TYPE_SLOTS is off \"\n-                \"(likely because you are building in the limited API). \"\n-                \"Therefore, all extension types with multiple bases \"\n-                \"must add 'cdef dict __dict__' in this compilation mode\",\n-                type_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n-        }\n-#else\n-        if (dictoffset == 0 && b->tp_dictoffset)\n+        if (dictoffset == 0)\n         {\n-            __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%.200s' has no __dict__ slot, \"\n-                \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\n-                \"either add 'cdef dict __dict__' to the extension type \"\n-                \"or add '__slots__ = [...]' to the base type\",\n-                type_name, b_name);\n-            __Pyx_DECREF_TypeName(b_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n+            Py_ssize_t b_dictoffset = 0;\n+#if CYTHON_USE_TYPE_SLOTS\n+            b =  = b->tp_dictoffset;\n+#else\n+            PyObject *py_b_dictoffset = PyObject_GetAttrString((PyObject*)b, \"__dictoffset__\");\n+            if (!py_b_dictoffset) goto dictoffset_return;\n+            b_dictoffset = PyLong_AsSsize_t(py_b_dictoffset);\n+            Py_DECREF(py_b_dictoffset);\n+            if (b_dictoffset == -1 && PyErr_Occurred()) goto dictoffset_return;\n+#endif\n+            if (b_dictoffset) {\n+                __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);",
             "html_url": "https://github.com/cython/cython/pull/5698#discussion_r1323524083",
@@ -255,7 +255,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Adding another set of braces to enclose the scope of `b_name` fixes the c++ compilation error, but then running the test on PyPy I get\r\n```\r\nCFLAGS=\"-DCYTHON_USE_TYPE_SPECS=1\" ../pypy/pypy3.9-c runtests.py cdef_multiple_inheritance_nodict --no-c --no-cleanup\r\n...\r\nFile \"tests/run/cdef_multiple_inheritance_nodict.pyx\", line 16, in init cdef_multiple_inheritance_nodict (cdef_multiple_inheritance_nodict.cpp:7472)\r\n    cdef class Both(CBase, PyBase):\r\nAttributeError: type object 'PyBase' has no attribute '__dictoffset__'\r\n```\r\n\r\nwhich seems to be an incompatibility in PyPy:  classes never have `__dictoffset__`. It turns out there is an [open issue](https://foss.heptapod.net/pypy/pypy/-/issues/2447) about the lack of proper handling of `_PyObject_GetDictPtr` and `tp_dictoffset` for pybind11, that was never resolved. So while this PR fixes a corner case for CPython, it doesn't fix the PyPy test failure.\r\n\r\nSorry for the bother. I am not sure how to fix this.",
-            "commit_id": "2600c9eb885295015edd51bb5b08ac03aee9669d",
+            "commit_id": "6140493090a913839d45a09ccca2113dda32be62",
             "created_at": "2023-09-12T20:42:09Z",
             "diff_hunk": "@@ -155,38 +155,36 @@ static int __Pyx_validate_bases_tuple(const char *type_name, Py_ssize_t dictoffs\n #endif\n             return -1;\n         }\n-#if !CYTHON_USE_TYPE_SLOTS\n-        if (dictoffset == 0) {\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%s.200s': \"\n-                \"unable to validate whether bases have a __dict__ \"\n-                \"when CYTHON_USE_TYPE_SLOTS is off \"\n-                \"(likely because you are building in the limited API). \"\n-                \"Therefore, all extension types with multiple bases \"\n-                \"must add 'cdef dict __dict__' in this compilation mode\",\n-                type_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n-        }\n-#else\n-        if (dictoffset == 0 && b->tp_dictoffset)\n+        if (dictoffset == 0)\n         {\n-            __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%.200s' has no __dict__ slot, \"\n-                \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\n-                \"either add 'cdef dict __dict__' to the extension type \"\n-                \"or add '__slots__ = [...]' to the base type\",\n-                type_name, b_name);\n-            __Pyx_DECREF_TypeName(b_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n+            Py_ssize_t b_dictoffset = 0;\n+#if CYTHON_USE_TYPE_SLOTS\n+            b =  = b->tp_dictoffset;\n+#else\n+            PyObject *py_b_dictoffset = PyObject_GetAttrString((PyObject*)b, \"__dictoffset__\");\n+            if (!py_b_dictoffset) goto dictoffset_return;\n+            b_dictoffset = PyLong_AsSsize_t(py_b_dictoffset);\n+            Py_DECREF(py_b_dictoffset);\n+            if (b_dictoffset == -1 && PyErr_Occurred()) goto dictoffset_return;\n+#endif\n+            if (b_dictoffset) {\n+                __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);",
             "html_url": "https://github.com/cython/cython/pull/5698#discussion_r1323541035",
@@ -324,7 +324,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "well, I guess I could get `USE_CYTHON_TYPE_SLOTS` to work on PyPy.",
-            "commit_id": "2600c9eb885295015edd51bb5b08ac03aee9669d",
+            "commit_id": "6140493090a913839d45a09ccca2113dda32be62",
             "created_at": "2023-09-12T20:43:12Z",
             "diff_hunk": "@@ -155,38 +155,36 @@ static int __Pyx_validate_bases_tuple(const char *type_name, Py_ssize_t dictoffs\n #endif\n             return -1;\n         }\n-#if !CYTHON_USE_TYPE_SLOTS\n-        if (dictoffset == 0) {\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%s.200s': \"\n-                \"unable to validate whether bases have a __dict__ \"\n-                \"when CYTHON_USE_TYPE_SLOTS is off \"\n-                \"(likely because you are building in the limited API). \"\n-                \"Therefore, all extension types with multiple bases \"\n-                \"must add 'cdef dict __dict__' in this compilation mode\",\n-                type_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n-        }\n-#else\n-        if (dictoffset == 0 && b->tp_dictoffset)\n+        if (dictoffset == 0)\n         {\n-            __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%.200s' has no __dict__ slot, \"\n-                \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\n-                \"either add 'cdef dict __dict__' to the extension type \"\n-                \"or add '__slots__ = [...]' to the base type\",\n-                type_name, b_name);\n-            __Pyx_DECREF_TypeName(b_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n+            Py_ssize_t b_dictoffset = 0;\n+#if CYTHON_USE_TYPE_SLOTS\n+            b =  = b->tp_dictoffset;\n+#else\n+            PyObject *py_b_dictoffset = PyObject_GetAttrString((PyObject*)b, \"__dictoffset__\");\n+            if (!py_b_dictoffset) goto dictoffset_return;\n+            b_dictoffset = PyLong_AsSsize_t(py_b_dictoffset);\n+            Py_DECREF(py_b_dictoffset);\n+            if (b_dictoffset == -1 && PyErr_Occurred()) goto dictoffset_return;\n+#endif\n+            if (b_dictoffset) {\n+                __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);",
             "html_url": "https://github.com/cython/cython/pull/5698#discussion_r1323542042",
@@ -393,7 +393,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n            b = b->tp_dictoffset;\r\n```",
-            "commit_id": "2600c9eb885295015edd51bb5b08ac03aee9669d",
+            "commit_id": "6140493090a913839d45a09ccca2113dda32be62",
             "created_at": "2023-09-12T21:18:18Z",
             "diff_hunk": "@@ -155,38 +155,36 @@ static int __Pyx_validate_bases_tuple(const char *type_name, Py_ssize_t dictoffs\n #endif\n             return -1;\n         }\n-#if !CYTHON_USE_TYPE_SLOTS\n-        if (dictoffset == 0) {\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%s.200s': \"\n-                \"unable to validate whether bases have a __dict__ \"\n-                \"when CYTHON_USE_TYPE_SLOTS is off \"\n-                \"(likely because you are building in the limited API). \"\n-                \"Therefore, all extension types with multiple bases \"\n-                \"must add 'cdef dict __dict__' in this compilation mode\",\n-                type_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n-        }\n-#else\n-        if (dictoffset == 0 && b->tp_dictoffset)\n+        if (dictoffset == 0)\n         {\n-            __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%.200s' has no __dict__ slot, \"\n-                \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\n-                \"either add 'cdef dict __dict__' to the extension type \"\n-                \"or add '__slots__ = [...]' to the base type\",\n-                type_name, b_name);\n-            __Pyx_DECREF_TypeName(b_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n+            Py_ssize_t b_dictoffset = 0;\n+#if CYTHON_USE_TYPE_SLOTS\n+            b =  = b->tp_dictoffset;",
             "html_url": "https://github.com/cython/cython/pull/5698#discussion_r1323588441",
@@ -461,7 +461,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n            if (b_dictoffset) {\r\n                {\r\n                    __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\r\n                    PyErr_Format(PyExc_TypeError,\r\n                        \"extension type '%.200s' has no __dict__ slot, \"\r\n                        \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\r\n                        \"either add 'cdef dict __dict__' to the extension type \"\r\n                        \"or add '__slots__ = [...]' to the base type\",\r\n                        type_name, b_name);\r\n                    __Pyx_DECREF_TypeName(b_name);\r\n                }\r\n    #if CYTHON_USE_TYPE_SLOTS\r\n              dictoffset_return:\r\n    #endif\r\n    #if CYTHON_AVOID_BORROWED_REFS\r\n                Py_DECREF(b0);\r\n    #endif\r\n                return -1;\r\n```",
-            "commit_id": "2600c9eb885295015edd51bb5b08ac03aee9669d",
+            "commit_id": "6140493090a913839d45a09ccca2113dda32be62",
             "created_at": "2023-09-12T21:21:01Z",
             "diff_hunk": "@@ -155,38 +155,36 @@ static int __Pyx_validate_bases_tuple(const char *type_name, Py_ssize_t dictoffs\n #endif\n             return -1;\n         }\n-#if !CYTHON_USE_TYPE_SLOTS\n-        if (dictoffset == 0) {\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%s.200s': \"\n-                \"unable to validate whether bases have a __dict__ \"\n-                \"when CYTHON_USE_TYPE_SLOTS is off \"\n-                \"(likely because you are building in the limited API). \"\n-                \"Therefore, all extension types with multiple bases \"\n-                \"must add 'cdef dict __dict__' in this compilation mode\",\n-                type_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n-        }\n-#else\n-        if (dictoffset == 0 && b->tp_dictoffset)\n+        if (dictoffset == 0)\n         {\n-            __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%.200s' has no __dict__ slot, \"\n-                \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\n-                \"either add 'cdef dict __dict__' to the extension type \"\n-                \"or add '__slots__ = [...]' to the base type\",\n-                type_name, b_name);\n-            __Pyx_DECREF_TypeName(b_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n+            Py_ssize_t b_dictoffset = 0;\n+#if CYTHON_USE_TYPE_SLOTS\n+            b =  = b->tp_dictoffset;\n+#else\n+            PyObject *py_b_dictoffset = PyObject_GetAttrString((PyObject*)b, \"__dictoffset__\");\n+            if (!py_b_dictoffset) goto dictoffset_return;\n+            b_dictoffset = PyLong_AsSsize_t(py_b_dictoffset);\n+            Py_DECREF(py_b_dictoffset);\n+            if (b_dictoffset == -1 && PyErr_Occurred()) goto dictoffset_return;\n+#endif\n+            if (b_dictoffset) {\n+                __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\n+                PyErr_Format(PyExc_TypeError,\n+                    \"extension type '%.200s' has no __dict__ slot, \"\n+                    \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\n+                    \"either add 'cdef dict __dict__' to the extension type \"\n+                    \"or add '__slots__ = [...]' to the base type\",\n+                    type_name, b_name);\n+                __Pyx_DECREF_TypeName(b_name);\n+                {\n+                  dictoffset_return:\n+    #if CYTHON_AVOID_BORROWED_REFS\n+                    Py_DECREF(b0);\n+    #endif\n+                    return -1;\n+                }",
             "html_url": "https://github.com/cython/cython/pull/5698#discussion_r1323592161",
@@ -529,7 +529,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n#if CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY\r\n```",
-            "commit_id": "2600c9eb885295015edd51bb5b08ac03aee9669d",
+            "commit_id": "6140493090a913839d45a09ccca2113dda32be62",
             "created_at": "2023-09-12T21:23:32Z",
             "diff_hunk": "@@ -155,38 +155,38 @@ static int __Pyx_validate_bases_tuple(const char *type_name, Py_ssize_t dictoffs\n #endif\n             return -1;\n         }\n-#if !CYTHON_USE_TYPE_SLOTS\n-        if (dictoffset == 0) {\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%s.200s': \"\n-                \"unable to validate whether bases have a __dict__ \"\n-                \"when CYTHON_USE_TYPE_SLOTS is off \"\n-                \"(likely because you are building in the limited API). \"\n-                \"Therefore, all extension types with multiple bases \"\n-                \"must add 'cdef dict __dict__' in this compilation mode\",\n-                type_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n-        }\n-#else\n-        if (dictoffset == 0 && b->tp_dictoffset)\n+        if (dictoffset == 0)\n         {\n-            __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%.200s' has no __dict__ slot, \"\n-                \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\n-                \"either add 'cdef dict __dict__' to the extension type \"\n-                \"or add '__slots__ = [...]' to the base type\",\n-                type_name, b_name);\n-            __Pyx_DECREF_TypeName(b_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n+            Py_ssize_t b_dictoffset = 0;\n+#if CYTHON_USE_TYPE_SLOTS",
             "html_url": "https://github.com/cython/cython/pull/5698#discussion_r1323594434",
@@ -597,7 +597,7 @@
             },
             "author_association": "MEMBER",
             "body": "I made the test\r\n\r\n```\r\n#if CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY\r\n```\r\n\r\nNot completely sure if this'll work or not though, but it seems easier than trying to get the *whole* of CYTHON_USE_TYPE_SLOTS to work with PyPy.\r\n\r\n> Sorry for the bother. I am not sure how to fix this.\r\n\r\nIt's still worth fixing the limited api side of it anyway, even if it doesn't fix PyPy.\r\n",
-            "commit_id": "2600c9eb885295015edd51bb5b08ac03aee9669d",
+            "commit_id": "6140493090a913839d45a09ccca2113dda32be62",
             "created_at": "2023-09-12T21:28:02Z",
             "diff_hunk": "@@ -155,38 +155,36 @@ static int __Pyx_validate_bases_tuple(const char *type_name, Py_ssize_t dictoffs\n #endif\n             return -1;\n         }\n-#if !CYTHON_USE_TYPE_SLOTS\n-        if (dictoffset == 0) {\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%s.200s': \"\n-                \"unable to validate whether bases have a __dict__ \"\n-                \"when CYTHON_USE_TYPE_SLOTS is off \"\n-                \"(likely because you are building in the limited API). \"\n-                \"Therefore, all extension types with multiple bases \"\n-                \"must add 'cdef dict __dict__' in this compilation mode\",\n-                type_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n-        }\n-#else\n-        if (dictoffset == 0 && b->tp_dictoffset)\n+        if (dictoffset == 0)\n         {\n-            __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%.200s' has no __dict__ slot, \"\n-                \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\n-                \"either add 'cdef dict __dict__' to the extension type \"\n-                \"or add '__slots__ = [...]' to the base type\",\n-                type_name, b_name);\n-            __Pyx_DECREF_TypeName(b_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n+            Py_ssize_t b_dictoffset = 0;\n+#if CYTHON_USE_TYPE_SLOTS\n+            b =  = b->tp_dictoffset;\n+#else\n+            PyObject *py_b_dictoffset = PyObject_GetAttrString((PyObject*)b, \"__dictoffset__\");\n+            if (!py_b_dictoffset) goto dictoffset_return;\n+            b_dictoffset = PyLong_AsSsize_t(py_b_dictoffset);\n+            Py_DECREF(py_b_dictoffset);\n+            if (b_dictoffset == -1 && PyErr_Occurred()) goto dictoffset_return;\n+#endif\n+            if (b_dictoffset) {\n+                __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);",
             "html_url": "https://github.com/cython/cython/pull/5698#discussion_r1323598181",
@@ -666,7 +666,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "```suggestion\r\n            b_dictoffset = b->tp_dictoffset;\r\n```",
-            "commit_id": "2600c9eb885295015edd51bb5b08ac03aee9669d",
+            "commit_id": "6140493090a913839d45a09ccca2113dda32be62",
             "created_at": "2023-09-12T21:57:19Z",
             "diff_hunk": "@@ -155,38 +155,38 @@ static int __Pyx_validate_bases_tuple(const char *type_name, Py_ssize_t dictoffs\n #endif\n             return -1;\n         }\n-#if !CYTHON_USE_TYPE_SLOTS\n-        if (dictoffset == 0) {\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%s.200s': \"\n-                \"unable to validate whether bases have a __dict__ \"\n-                \"when CYTHON_USE_TYPE_SLOTS is off \"\n-                \"(likely because you are building in the limited API). \"\n-                \"Therefore, all extension types with multiple bases \"\n-                \"must add 'cdef dict __dict__' in this compilation mode\",\n-                type_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n-        }\n-#else\n-        if (dictoffset == 0 && b->tp_dictoffset)\n+        if (dictoffset == 0)\n         {\n-            __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%.200s' has no __dict__ slot, \"\n-                \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\n-                \"either add 'cdef dict __dict__' to the extension type \"\n-                \"or add '__slots__ = [...]' to the base type\",\n-                type_name, b_name);\n-            __Pyx_DECREF_TypeName(b_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n+            Py_ssize_t b_dictoffset = 0;\n+#if CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY\n+            b = b->tp_dictoffset;",
             "html_url": "https://github.com/cython/cython/pull/5698#discussion_r1323639224",
@@ -718,6 +718,74 @@
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
                 "url": "https://api.github.com/users/mattip"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5698#discussion_r1324969465"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5698"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1324969465"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n    #if !CYTHON_USE_TYPE_SLOTS\r\n```",
+            "commit_id": "6140493090a913839d45a09ccca2113dda32be62",
+            "created_at": "2023-09-13T19:25:15Z",
+            "diff_hunk": "@@ -155,38 +155,38 @@ static int __Pyx_validate_bases_tuple(const char *type_name, Py_ssize_t dictoffs\n #endif\n             return -1;\n         }\n-#if !CYTHON_USE_TYPE_SLOTS\n-        if (dictoffset == 0) {\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%s.200s': \"\n-                \"unable to validate whether bases have a __dict__ \"\n-                \"when CYTHON_USE_TYPE_SLOTS is off \"\n-                \"(likely because you are building in the limited API). \"\n-                \"Therefore, all extension types with multiple bases \"\n-                \"must add 'cdef dict __dict__' in this compilation mode\",\n-                type_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n-        }\n-#else\n-        if (dictoffset == 0 && b->tp_dictoffset)\n+        if (dictoffset == 0)\n         {\n-            __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\n-            PyErr_Format(PyExc_TypeError,\n-                \"extension type '%.200s' has no __dict__ slot, \"\n-                \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\n-                \"either add 'cdef dict __dict__' to the extension type \"\n-                \"or add '__slots__ = [...]' to the base type\",\n-                type_name, b_name);\n-            __Pyx_DECREF_TypeName(b_name);\n-#if CYTHON_AVOID_BORROWED_REFS\n-            Py_DECREF(b0);\n-#endif\n-            return -1;\n+            Py_ssize_t b_dictoffset = 0;\n+#if CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY\n+            b_dictoffset = b->tp_dictoffset;\n+#else\n+            PyObject *py_b_dictoffset = PyObject_GetAttrString((PyObject*)b, \"__dictoffset__\");\n+            if (!py_b_dictoffset) goto dictoffset_return;\n+            b_dictoffset = PyLong_AsSsize_t(py_b_dictoffset);\n+            Py_DECREF(py_b_dictoffset);\n+            if (b_dictoffset == -1 && PyErr_Occurred()) goto dictoffset_return;\n+#endif\n+            if (b_dictoffset) {\n+                {\n+                    __Pyx_TypeName b_name = __Pyx_PyType_GetName(b);\n+                    PyErr_Format(PyExc_TypeError,\n+                        \"extension type '%.200s' has no __dict__ slot, \"\n+                        \"but base type '\" __Pyx_FMT_TYPENAME \"' has: \"\n+                        \"either add 'cdef dict __dict__' to the extension type \"\n+                        \"or add '__slots__ = [...]' to the base type\",\n+                        type_name, b_name);\n+                    __Pyx_DECREF_TypeName(b_name);\n+                }\n+    #if CYTHON_USE_TYPE_SLOTS",
+            "html_url": "https://github.com/cython/cython/pull/5698#discussion_r1324969465",
+            "id": 1324969465,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc5O-W35",
+            "original_commit_id": "2600c9eb885295015edd51bb5b08ac03aee9669d",
+            "original_line": 181,
+            "original_position": 56,
+            "original_start_line": null,
+            "path": "Cython/Utility/ExtensionTypes.c",
+            "position": null,
+            "pull_request_review_id": 1625273582,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5698",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1324969465/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2023-09-13T19:25:16Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1324969465",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
             }
         }
     ],
@@ -1038,6 +1106,85 @@
             ],
             "sha": "2600c9eb885295015edd51bb5b08ac03aee9669d",
             "url": "https://api.github.com/repos/cython/cython/commits/2600c9eb885295015edd51bb5b08ac03aee9669d"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/6140493090a913839d45a09ccca2113dda32be62/comments",
+            "commit": {
+                "author": {
+                    "date": "2023-09-13T19:25:20Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2023-09-13T19:25:20Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Update Cython/Utility/ExtensionTypes.c",
+                "tree": {
+                    "sha": "0160ae8a65900c971ac671a8c58e7b00875e7016",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/0160ae8a65900c971ac671a8c58e7b00875e7016"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/6140493090a913839d45a09ccca2113dda32be62",
+                "verification": {
+                    "payload": "tree 0160ae8a65900c971ac671a8c58e7b00875e7016\nparent 2600c9eb885295015edd51bb5b08ac03aee9669d\nauthor da-woods <dw-git@d-woods.co.uk> 1694633120 +0100\ncommitter GitHub <noreply@github.com> 1694633120 +0100\n\nUpdate Cython/Utility/ExtensionTypes.c",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJlAgygCRBK7hj4Ov3rIwAATVcIAHGWF25yEnbHuAqIRrxRRmpp\nwwWpjo7cA1fv7lbZNmSF5X1wtzAW5tBEcKm4cmZAy7WVnTpurK57RzVfBWYDKTsT\nXyf7epA1wr8EL7thQnCGi/Wzoy0MDfHuMe+frUjBE0DMi0yM2vW+FeMzhTQecdA3\nIF8fa8WIwoY5qAUbalgQNbPwt7wd6MTFj7RSdZNJg4cIZstxrDskCJ1OZbkM1U7j\nJOm6320xjheuaFdaGF2KEFKfYal9BaU1Xoavh6dbPPwO81BJj7NUGeK+w3WfZ8Zh\nEHYZJzX4qmzhZkM+lkUsRwMtS6rmTxoKgHsjQjmWbYaiLukAOFj2kcm2KOvUqUo=\n=/Y0S\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/6140493090a913839d45a09ccca2113dda32be62",
+            "node_id": "C_kwDOAhr4b9oAKDYxNDA0OTMwOTBhOTEzODM5ZDQ1YTA5Y2NjYTIxMTNkZGEzMmJlNjI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/2600c9eb885295015edd51bb5b08ac03aee9669d",
+                    "sha": "2600c9eb885295015edd51bb5b08ac03aee9669d",
+                    "url": "https://api.github.com/repos/cython/cython/commits/2600c9eb885295015edd51bb5b08ac03aee9669d"
+                }
+            ],
+            "sha": "6140493090a913839d45a09ccca2113dda32be62",
+            "url": "https://api.github.com/repos/cython/cython/commits/6140493090a913839d45a09ccca2113dda32be62"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/5698/commits",
@@ -1132,9 +1279,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2023-09-13T06:35:27Z",
+            "pushed_at": "2023-09-13T21:24:50Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 71029,
+            "size": 71042,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -1153,7 +1300,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "2600c9eb885295015edd51bb5b08ac03aee9669d",
+        "sha": "6140493090a913839d45a09ccca2113dda32be62",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -1217,7 +1364,7 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "190ceb4e3e766e54bcce5638a4a48ab8eb7cec10",
+    "merge_commit_sha": "877e1b9f6f8945fc50a6ed7713298404bb8d8a58",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc5aKlF_",
@@ -1228,9 +1375,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/5698/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/2600c9eb885295015edd51bb5b08ac03aee9669d",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/6140493090a913839d45a09ccca2113dda32be62",
     "title": "Do no-type-slots dictoffset check as python lookup",
-    "updated_at": "2023-09-13T06:35:28Z",
+    "updated_at": "2023-09-13T19:25:21Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/5698",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
