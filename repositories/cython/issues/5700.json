@@ -4,7 +4,7 @@
     "assignees": [],
     "author_association": "NONE",
     "body": "### Describe the bug\r\n\r\nA call to __Pyx_PyGILState_Ensure (and __Pyx_PyGILState_Release) is performed at the beginning of methods in cdef class where it seems unnecessary. Thus, degrading the performance of multi-threaded code.\r\n\r\nThis issue appears while upgrading from Cython 0.29 to Cython 3.0.2.\r\n\r\n### Code to reproduce the behaviour:\r\n\r\nFile class_a.pyx\r\n```cython\r\ncimport mod_b\r\n\r\ncdef class ClassA:\r\n\r\n    def __cinit__(self):\r\n        return\r\n\r\n    cdef int func_1(self, int a, int b, int c) except -1 nogil:\r\n        mod_b.reset(&c)\r\n        c = a + b\r\n        return 0\r\n\r\n    cdef int func_2(self, int a, int b, int c) except -1 nogil:\r\n        c = a + b\r\n        return 0\r\n```\r\n\r\nFile class_a.pxd\r\n```cython\r\ncdef class ClassA:\r\n\r\n    cdef int func_1(self, int a, int b, int c) except -1 nogil\r\n    cdef int func_2(self, int a, int b, int c) except -1 nogil\r\n```\r\n\r\nFile mod_b.pyx\r\n```cython\r\ncdef int reset(int* a) except -1 nogil:\r\n    a[0] = 0\r\n    return 0\r\n```\r\n\r\nFile mod_b.pxd\r\n```cython\r\ncdef int reset(int* a) except -1 nogil\r\n```\r\n\r\n\r\n\r\n### Expected behaviour\r\n\r\nThe C code generated for the method `func_1` from `classA `requires the gil where it seems unnecessary:\r\n```c\r\nstatic int __pyx_f_7class_a_6ClassA_func_1(CYTHON_UNUSED struct __pyx_obj_7class_a_ClassA *__pyx_v_self, int __pyx_v_a, int __pyx_v_b, int __pyx_v_c) {\r\n  int __pyx_r;\r\n  __Pyx_RefNannyDeclarations\r\n  int __pyx_t_1;\r\n  int __pyx_lineno = 0;\r\n  const char *__pyx_filename = NULL;\r\n  int __pyx_clineno = 0;\r\n  #ifdef WITH_THREAD\r\n  PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();\r\n  #endif\r\n  __Pyx_RefNannySetupContext(\"func_1\", 0);\r\n  #ifdef WITH_THREAD\r\n  __Pyx_PyGILState_Release(__pyx_gilstate_save);\r\n  #endif\r\n\r\n  __pyx_t_1 = __pyx_f_5mod_b_reset((&__pyx_v_c)); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 12, __pyx_L1_error)\r\n  __pyx_v_c = (__pyx_v_a + __pyx_v_b);\r\n\r\n  __pyx_r = 0;\r\n  goto __pyx_L0;\r\n\r\n  __pyx_L1_error:;\r\n  #ifdef WITH_THREAD\r\n  __pyx_gilstate_save = __Pyx_PyGILState_Ensure();\r\n  #endif\r\n  __Pyx_AddTraceback(\"class_a.ClassA.func_1\", __pyx_clineno, __pyx_lineno, __pyx_filename);\r\n  __pyx_r = -1;\r\n  #ifdef WITH_THREAD\r\n  __Pyx_PyGILState_Release(__pyx_gilstate_save);\r\n  #endif\r\n  __pyx_L0:;\r\n  __Pyx_RefNannyFinishContextNogil()\r\n  return __pyx_r;\r\n}\r\n```\r\n\r\nOn the other side, the C code generated for the method `func_2` from `classA `seems correct and does not require the gil:\r\n```c\r\nstatic int __pyx_f_7class_a_6ClassA_func_2(CYTHON_UNUSED struct __pyx_obj_7class_a_ClassA *__pyx_v_self, int __pyx_v_a, int __pyx_v_b, CYTHON_UNUSED int __pyx_v_c) {\r\n  int __pyx_r;\r\n  __pyx_v_c = (__pyx_v_a + __pyx_v_b);\r\n  __pyx_r = 0;\r\n  goto __pyx_L0;\r\n  __pyx_L0:;\r\n  return __pyx_r;\r\n}\r\n```\r\n\r\n\r\n### OS\r\n\r\nWindows\r\n\r\n### Python version\r\n\r\n3.9\r\n\r\n### Cython version\r\n\r\n3.0.2\r\n\r\n### Additional context\r\n\r\nThis issue seems related to what happen in the following code\r\nhttps://github.com/cython/cython/blob/07f383a7b9f04ab220fc58db0de3be4a65df0ec3/Cython/Compiler/Nodes.py#L2059-L2062\r\n\r\nThe first argument of the method `func_1` (`self`) is seen as a Python object.\r\n",
-    "closed_at": null,
+    "closed_at": "2023-09-29T10:16:14Z",
     "comment_data": [
         {
             "author_association": "MEMBER",
@@ -49,9 +49,53 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "Resolved in https://github.com/cython/cython/pull/5685",
+            "created_at": "2023-09-29T10:16:14Z",
+            "html_url": "https://github.com/cython/cython/issues/5700#issuecomment-1740651495",
+            "id": 1740651495,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/5700",
+            "node_id": "IC_kwDOABDGAc5nwDvn",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1740651495/reactions"
+            },
+            "updated_at": "2023-09-29T10:16:14Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1740651495",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
         }
     ],
-    "comments": 1,
+    "comments": 2,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/5700/comments",
     "created_at": "2023-09-13T06:16:48Z",
     "event_data": [
@@ -155,6 +199,37 @@
             "node_id": "LE_lADOABDGAc5w4WZDzwAAAAJtHsXh",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/10420667873"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2023-09-29T10:16:14Z",
+            "event": "closed",
+            "id": 10509585006,
+            "node_id": "CE_lADOABDGAc5w4WZDzwAAAAJya4pu",
+            "performed_via_github_app": null,
+            "state_reason": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/10509585006"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/5700/events",
@@ -184,7 +259,7 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 24,
+        "closed_issues": 35,
         "created_at": "2023-08-27T11:24:52Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -213,10 +288,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/101/labels",
         "node_id": "MI_kwDOABDGAc4Alj4_",
         "number": 101,
-        "open_issues": 6,
+        "open_issues": 5,
         "state": "open",
         "title": "3.0.3",
-        "updated_at": "2023-09-20T09:29:01Z",
+        "updated_at": "2023-09-30T18:46:38Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/101"
     },
     "node_id": "I_kwDOABDGAc5w4WZD",
@@ -235,11 +310,11 @@
         "url": "https://api.github.com/repos/cython/cython/issues/5700/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
-    "state_reason": null,
+    "state": "closed",
+    "state_reason": "completed",
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/5700/timeline",
     "title": "[BUG] Gil required but seems unnecessary",
-    "updated_at": "2023-09-20T09:29:31Z",
+    "updated_at": "2023-09-29T10:16:14Z",
     "url": "https://api.github.com/repos/cython/cython/issues/5700",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/72100240?v=4",
