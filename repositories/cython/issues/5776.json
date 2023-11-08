@@ -44,7 +44,7 @@
     ],
     "author_association": "NONE",
     "body": "### Describe the bug\n\nI have a cdef class that has a `leading_coefficient` method:\r\n```python\r\n# polymod.pyx\r\n\r\ncdef class poly:\r\n\r\n    def __len__(self):\r\n        return 0\r\n\r\n    cpdef long degree(self):\r\n        return -1\r\n\r\n    def __getitem__(self, key):\r\n        if key < 0:\r\n            return 0\r\n\r\n    def leading_coefficient(self):\r\n        return self[self.degree()]\r\n```\r\nThe `self.degree()` method can return `-1` but `__getitem__` can handle that case. The code runs fine under CPython but fails under PyPy with:\r\n```python\r\n>>>> p.leading_coefficient()\r\nTraceback (most recent call last):\r\n  File \"/home/oscar/current/active/python-flint/tmp/cytest/stuff.py\", line 7, in <module>\r\n    print(p.leading_coefficient())\r\n  File \"polymod.pyx\", line 14, in polymod.poly.leading_coefficient\r\n    return self[self.degree()]\r\nIndexError: %T index out of range\r\n```\r\nCalling `p[p.degree()]` with an instance of the class works fine but calling the `p.leading_coefficient()` method whose body is just `return self[self.degree()]` fails.\r\n\r\nThe bug is not seen if the `long` type declaration is removed or if the `degree` method is made `def`. The bug is still seen when degree is either `cpdef` or `cdef`. If the `__len__` method is removed then a different error is seen:\r\n```python\r\nTraceback (most recent call last):\r\n  File \"/home/oscar/current/active/python-flint/tmp/cytest/stuff.py\", line 7, in <module>\r\n    print(p.leading_coefficient())\r\n  File \"polymod.pyx\", line 11, in polymod.poly.leading_coefficient\r\n    return self[self.degree()]\r\nTypeError: 'polymod.poly' has no length\r\n```\r\nSomehow the C code generated for `self[self.degree()]` is assuming that it can treat `self` as a sequence rather than using the `__getitem__` method that is defined. The code is basically:\r\n```c\r\n  /* \"polymod.pyx\":11\r\n * \r\n *     def leading_coefficient(self):\r\n *         return self[self.degree()]             # <<<<<<<<<<<<<<\r\n */\r\n...\r\n __pyx_t_2 = __Pyx_GetItemInt(((PyObject *)__pyx_v_self), __pyx_t_1, long, 1, __Pyx_PyInt_From_long, 0, 1, 1);\r\n...\r\n```\r\nIn turn this is defined as\r\n```c\r\n#define __Pyx_GetItemInt(o, i, type, is_signed, to_py_func, is_list, wraparound, boundscheck)\\\r\n    (__Pyx_fits_Py_ssize_t(i, type, is_signed) ?\\\r\n    __Pyx_GetItemInt_Fast(o, (Py_ssize_t)i, is_list, wraparound, boundscheck) :\\\r\n    (is_list ? (PyErr_SetString(PyExc_IndexError, \"list index out of range\"), (PyObject*)NULL) :\\\r\n               __Pyx_GetItemInt_Generic(o, to_py_func(i))))\r\n```\r\nI'm not sure exactly which code paths are taken here.\r\n\r\nI have tested with Cython 3.0.4 and also current Cython master under both CPython and PyPy and always this works under CPython and fails under PyPy.\n\n### Code to reproduce the behaviour:\n\n```cython\r\n# polymod.pyx\r\n\r\ncdef class poly:\r\n\r\n    def __len__(self):\r\n        return 0\r\n\r\n    cpdef long degree(self):\r\n        return -1\r\n\r\n    def __getitem__(self, key):\r\n        if key < 0:\r\n            return 0\r\n\r\n    def leading_coefficient(self):\r\n        return self[self.degree()]\r\n```\r\nA script to test:\r\n```python\r\n# stuff.py\r\n\r\nimport polymod\r\n\r\np = polymod.poly()\r\nprint(p.degree())\r\nprint(p[-1])\r\nprint(p[p.degree()])\r\nprint(p.leading_coefficient())\r\n```\n\n### Expected behaviour\n\nThe `leading_coefficient` method should always return `0` and should not fail with an exception.\n\n### OS\n\nLinux\n\n### Python version\n\nPyPy 3.9-7.3.12\n\n### Cython version\n\n3.0.4 or current master\n\n### Additional context\n\nThis comes from a python-flint issue:\r\nhttps://github.com/flintlib/python-flint/issues/74#issuecomment-1773827740",
-    "closed_at": null,
+    "closed_at": "2023-11-01T15:43:29Z",
     "comment_data": [
         {
             "author_association": "MEMBER",
@@ -529,9 +529,53 @@
                 "type": "User",
                 "url": "https://api.github.com/users/mattip"
             }
+        },
+        {
+            "author_association": "NONE",
+            "body": "Thanks all!",
+            "created_at": "2023-11-01T15:50:12Z",
+            "html_url": "https://github.com/cython/cython/issues/5776#issuecomment-1789200052",
+            "id": 1789200052,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/5776",
+            "node_id": "IC_kwDOABDGAc5qpQa0",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1789200052/reactions"
+            },
+            "updated_at": "2023-11-01T15:50:12Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1789200052",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1159732?v=4",
+                "events_url": "https://api.github.com/users/oscarbenjamin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/oscarbenjamin/followers",
+                "following_url": "https://api.github.com/users/oscarbenjamin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/oscarbenjamin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/oscarbenjamin",
+                "id": 1159732,
+                "login": "oscarbenjamin",
+                "node_id": "MDQ6VXNlcjExNTk3MzI=",
+                "organizations_url": "https://api.github.com/users/oscarbenjamin/orgs",
+                "received_events_url": "https://api.github.com/users/oscarbenjamin/received_events",
+                "repos_url": "https://api.github.com/users/oscarbenjamin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/oscarbenjamin"
+            }
         }
     ],
-    "comments": 11,
+    "comments": 12,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/5776/comments",
     "created_at": "2023-10-21T15:56:09Z",
     "event_data": [
@@ -975,6 +1019,67 @@
             "node_id": "MIE_lADOABDGAc50j03vzwAAAAKFgFET",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/10829713683"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2023-11-01T15:43:29Z",
+            "event": "closed",
+            "id": 10833946954,
+            "node_id": "CE_lADOABDGAc50j03vzwAAAAKFwOlK",
+            "performed_via_github_app": null,
+            "state_reason": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/10833946954"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": "af1bcb445bbe99a84f249c700eed50ab5cae1b7f",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/af1bcb445bbe99a84f249c700eed50ab5cae1b7f",
+            "created_at": "2023-11-01T15:43:30Z",
+            "event": "referenced",
+            "id": 10833947108,
+            "node_id": "REFE_lADOABDGAc50j03vzwAAAAKFwOnk",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/10833947108"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/5776/events",
@@ -1004,7 +1109,7 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 2,
+        "closed_issues": 8,
         "created_at": "2023-10-30T19:41:16Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -1033,10 +1138,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/104/labels",
         "node_id": "MI_kwDOABDGAc4AmnqT",
         "number": 104,
-        "open_issues": 3,
+        "open_issues": 1,
         "state": "open",
         "title": "3.0.6",
-        "updated_at": "2023-11-01T08:39:04Z",
+        "updated_at": "2023-11-02T08:46:12Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/104"
     },
     "node_id": "I_kwDOABDGAc50j03v",
@@ -1055,11 +1160,11 @@
         "url": "https://api.github.com/repos/cython/cython/issues/5776/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
-    "state_reason": null,
+    "state": "closed",
+    "state_reason": "completed",
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/5776/timeline",
     "title": "[BUG] Indexing self fails under PyPy with \"%T index out of range\"",
-    "updated_at": "2023-11-01T08:28:48Z",
+    "updated_at": "2023-11-01T15:50:12Z",
     "url": "https://api.github.com/repos/cython/cython/issues/5776",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/1159732?v=4",
