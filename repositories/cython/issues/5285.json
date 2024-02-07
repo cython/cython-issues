@@ -4,7 +4,7 @@
     "assignees": [],
     "author_association": "CONTRIBUTOR",
     "body": "Hello,\r\nI am trying o make Cython 0.29.x  work with Python 3.12.0a5+, so @hrnciar can continue testing Fedora packages with pre-releases of Python 3.12.\r\n\r\nThe idea is that once I make it work I'll contribute backports here and/or other interested folks contribute backports here and I'll test them in Fedora.\r\n\r\n*Note:* We have considered upgrading to Cython 3.0.0b1 but far too many of our packages are not buildable with it (I've asked @hrnciar to provide a summary of the failures to you, in case you'd like that).\r\n\r\nFollowing up on https://github.com/cython/cython/issues/5238#issuecomment-1431349376 and https://github.com/cython/cython/commit/58d5fed61c I came up with this WIP patch for 0.29.33:\r\n\r\n```patch\r\ndiff --git a/Cython/Utility/ModuleSetupCode.c b/Cython/Utility/ModuleSetupCode.c\r\nindex 33aac2c4a..b3de5dd75 100644\r\n--- a/Cython/Utility/ModuleSetupCode.c\r\n+++ b/Cython/Utility/ModuleSetupCode.c\r\n@@ -210,6 +210,10 @@\r\n   #elif !defined(CYTHON_USE_PYLONG_INTERNALS)\r\n     #define CYTHON_USE_PYLONG_INTERNALS 1\r\n   #endif\r\n+  #if PY_VERSION_HEX >= 0x030C00A5\r\n+    #undef CYTHON_USE_PYLONG_INTERNALS\r\n+    #define CYTHON_USE_PYLONG_INTERNALS 0\r\n+  #endif\r\n   #ifndef CYTHON_USE_PYLIST_INTERNALS\r\n     #define CYTHON_USE_PYLIST_INTERNALS 1\r\n   #endif\r\n@@ -252,7 +256,7 @@\r\n     #define CYTHON_USE_TP_FINALIZE (PY_VERSION_HEX >= 0x030400a1)\r\n   #endif\r\n   #ifndef CYTHON_USE_DICT_VERSIONS\r\n-    #define CYTHON_USE_DICT_VERSIONS (PY_VERSION_HEX >= 0x030600B1)\r\n+    #define CYTHON_USE_DICT_VERSIONS ((PY_VERSION_HEX >= 0x030600B1) && (PY_VERSION_HEX < 0x030C00A5))\r\n   #endif\r\n   #if PY_VERSION_HEX >= 0x030B00A4\r\n     #undef CYTHON_USE_EXC_INFO_STACK\r\n```\r\n\r\nThis makes Cython at least build itself. However, the tests still fail.\r\n\r\nFull logs: [builder-live.log.gz](https://github.com/cython/cython/files/10863603/builder-live.log.gz)\r\n\r\nThe test failures I could recognize are:\r\n\r\n## Exception hints\r\n\r\n```\r\nExpected:\r\n    Traceback (most recent call last):\r\n    ...\r\n    AttributeError: 'special_methods_T561_py3.VerySpecial' object has no attribute '__xxx__'\r\nGot:\r\n    Traceback (most recent call last):\r\n    ...\r\n    AttributeError: 'special_methods_T561_py3.VerySpecial' object has no attribute '__xxx__'. Did you mean: '__yyy__'?\r\n```\r\n\r\nThis looks like a test-expectation problem only and when I look at the master branch, I see that possibly the same failures would happen there as well.\r\n\r\nConfirmed: This also happens with 3.0.0b1. Fixed in https://github.com/cython/cython/commit/d883ccdec11dabc41e43e98ff4e12da5649e6316\r\n\r\n## getattribute examples\r\n\r\n```\r\nFailed example:\r\n    g11 = object.__getattribute__(GetAttribute(), '__getattribute__')\r\nExpected nothing\r\nGot:\r\n    GetAttribute getattribute '__dict__'\r\n    GetAttribute getattribute '__class__'\r\n    GetAttribute getattribute '__dict__'\r\n    GetAttribute getattribute '__class__'\r\n```\r\n\r\nThis also happens with 3.0.0b1.\r\n\r\n```\r\nFailed example:\r\n    (a.called_getattr, a.called_getattribute)\r\nExpected:\r\n    (2, 11)\r\nGot:\r\n    (6, 15)\r\n```\r\n\r\nThis also happens with 3.0.0b1.\r\n\r\n## builtins.bool size changed (fixed in 3.0.0b1)\r\n\r\n```\r\nERROR: runTest (__main__.CythonRunTestCase.runTest)\r\n[0] compiling (cpp) and running type_inference\r\n----------------------------------------------------------------------\r\nTraceback (most recent call last):\r\n  File \"/builddir/build/BUILD/cython-0.29.33/runtests.py\", line 1270, in run\r\n    self.run_tests(result, ext_so_path)\r\n  File \"/builddir/build/BUILD/cython-0.29.33/runtests.py\", line 1288, in run_tests\r\n    self.run_doctests(self.module, result, ext_so_path)\r\n  File \"/builddir/build/BUILD/cython-0.29.33/runtests.py\", line 1302, in run_doctests\r\n    run_forked_test(result, run_test, self.shortDescription(), self.fork)\r\n  File \"/builddir/build/BUILD/cython-0.29.33/runtests.py\", line 1307, in run_forked_test\r\n    run_func(result)\r\n  File \"/builddir/build/BUILD/cython-0.29.33/runtests.py\", line 1294, in run_test\r\n    module = import_ext(module_or_name, ext_so_path)\r\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n  File \"/builddir/build/BUILD/cython-0.29.33/runtests.py\", line 502, in import_ext\r\n    return imp.load_dynamic(module_name, file_path)\r\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n  File \"/usr/lib64/python3.12/imp.py\", line 343, in load_dynamic\r\n    return _load(spec)\r\n           ^^^^^^^^^^^\r\n  File \"<frozen importlib._bootstrap>\", line 872, in _load\r\n  File \"<frozen importlib._bootstrap>\", line 841, in _load_unlocked\r\n  File \"<frozen importlib._bootstrap_external>\", line 1314, in exec_module\r\n  File \"<frozen importlib._bootstrap>\", line 400, in _call_with_frames_removed\r\n  File \"tests/run/type_inference.pyx\", line 1, in init type_inference (type_inference.cpp:27226)\r\n    # cython: infer_types = True\r\nValueError: builtins.bool size changed, may indicate binary incompatibility. Expected 32 from C header, got 24 from PyObject\r\n```\r\n\r\nThis is only happening with 0.29.x.\r\n\r\nBackported in https://github.com/cython/cython/commit/43ce5588fb97fba407e1af04195c01b4d710453c\r\n\r\n\r\n## undefined symbols\r\n\r\n```\r\nImportError: /builddir/build/BUILD/cython-0.29.33/TEST_TMP/1/run/c/py_unicode_strings/py_unicode_strings.cpython-312-x86_64-linux-gnu.so: undefined symbol: PyUnicode_FromUnicode\r\n```\r\n\r\n> It's only used if you use the old Py_UNICODE type explicitly in your code. We disable the respective tests on CPython versions that no longer support it (without deprecation warnings).\r\n\r\nWe need to backport runtest.py changes from 9d38bf8d620fd09166a5469c76b54f66d7fbd828 / https://github.com/cython/cython/pull/5154\r\n",
-    "closed_at": null,
+    "closed_at": "2024-02-02T18:45:11Z",
     "comment_data": [
         {
             "author_association": "CONTRIBUTOR",
@@ -51,7 +51,7 @@
             }
         },
         {
-            "author_association": "CONTRIBUTOR",
+            "author_association": "MEMBER",
             "body": "> I am trying o make Cython 0.29.x work with Python 3.12.0a5+,\r\n\r\nCython 0.29.x will need some work in order to work with 3.12 release because there will be several removals breaking cython 0.29.X:\r\n* `imp` module is going to be removed in 3.12 [1]. Cython 3 is not using `imp` module in latest versions of python but 0.29.X does. \r\n* `distutils` package  is going to be removed in 3.12 [2]. Cython 3 still depends on distutils but removal is planned in Cython 3.1 - see https://github.com/cython/cython/issues/4405.\r\n* There can be other functions used that are removed in 3.12 - https://github.com/cython/cython/issues/5134 but not sure, I have not investigated in deep.\r\n\r\n\r\n[1] https://docs.python.org/3.11/library/imp.html\r\n[2] https://docs.python.org/3/library/distutils.html",
             "created_at": "2023-03-01T20:24:32Z",
             "html_url": "https://github.com/cython/cython/issues/5285#issuecomment-1450799619",
@@ -227,7 +227,7 @@
             }
         },
         {
-            "author_association": "CONTRIBUTOR",
+            "author_association": "MEMBER",
             "body": "In order to support python 3.12 in Cython 0.29.X we need to backport following PRs (imp module is going to be removed -  https://github.com/python/cpython/pull/98573):\r\n\r\nhttps://github.com/cython/cython/pull/4941\r\nhttps://github.com/cython/cython/pull/4625\r\n\r\nI can create backport PRs to 0.29.X branch.",
             "created_at": "2023-03-04T19:42:16Z",
             "html_url": "https://github.com/cython/cython/issues/5285#issuecomment-1454853633",
@@ -797,9 +797,53 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "I'm going to close this because I think Python 3.12 works as well as it's going to with Cython. The only remaining issue is tracing, and we've concluded we can't fix it.",
+            "created_at": "2024-02-02T18:45:11Z",
+            "html_url": "https://github.com/cython/cython/issues/5285#issuecomment-1924479465",
+            "id": 1924479465,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/5285",
+            "node_id": "IC_kwDOABDGAc5ytTnp",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1924479465/reactions"
+            },
+            "updated_at": "2024-02-02T18:45:11Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1924479465",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
         }
     ],
-    "comments": 18,
+    "comments": 19,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/5285/comments",
     "created_at": "2023-03-01T17:06:27Z",
     "event_data": [
@@ -862,6 +906,67 @@
             "node_id": "SE_lADOABDGAc5fr6qCzwAAAAIDBRCR",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/8640598161"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/14542386?v=4",
+                "events_url": "https://api.github.com/users/gentoo-bot/events{/privacy}",
+                "followers_url": "https://api.github.com/users/gentoo-bot/followers",
+                "following_url": "https://api.github.com/users/gentoo-bot/following{/other_user}",
+                "gists_url": "https://api.github.com/users/gentoo-bot/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/gentoo-bot",
+                "id": 14542386,
+                "login": "gentoo-bot",
+                "node_id": "MDQ6VXNlcjE0NTQyMzg2",
+                "organizations_url": "https://api.github.com/users/gentoo-bot/orgs",
+                "received_events_url": "https://api.github.com/users/gentoo-bot/received_events",
+                "repos_url": "https://api.github.com/users/gentoo-bot/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/gentoo-bot/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/gentoo-bot/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/gentoo-bot"
+            },
+            "commit_id": "87764eff9006d65c63b53bf4b3d4d03ea813f5d9",
+            "commit_url": "https://api.github.com/repos/gentoo/gentoo/commits/87764eff9006d65c63b53bf4b3d4d03ea813f5d9",
+            "created_at": "2023-05-25T03:18:08Z",
+            "event": "referenced",
+            "id": 9334765433,
+            "node_id": "REFE_lADOABDGAc5fr6qCzwAAAAIsZTd5",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/9334765433"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2024-02-02T18:45:11Z",
+            "event": "closed",
+            "id": 11687869458,
+            "node_id": "CE_lADOABDGAc5fr6qCzwAAAAK4prwS",
+            "performed_via_github_app": null,
+            "state_reason": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/11687869458"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/5285/events",
@@ -887,11 +992,11 @@
         "url": "https://api.github.com/repos/cython/cython/issues/5285/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
-    "state_reason": null,
+    "state": "closed",
+    "state_reason": "completed",
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/5285/timeline",
     "title": "Cython 0.29.x Python 3.12.0a5+ tracker",
-    "updated_at": "2023-05-16T06:30:07Z",
+    "updated_at": "2024-02-02T18:45:11Z",
     "url": "https://api.github.com/repos/cython/cython/issues/5285",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/2401856?v=4",
