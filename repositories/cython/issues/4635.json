@@ -2,12 +2,12 @@
     "active_lock_reason": null,
     "assignee": null,
     "assignees": [],
-    "author_association": "COLLABORATOR",
+    "author_association": "MEMBER",
     "body": "Not really a bug report or an enhancement: I'm just trying to document all the places that Cython uses Python internals (non-public APIs) so that we have a reasonable idea of what might break with C API changes. Will also document where Cython feature flags provide an \"public API only\" code path.\r\n\r\nThe list is a likely incomplete (currently based on a very crude regex search for `re.compile(r\"\"\"(?<=[^\\w])_Py[\\w]*\"\"\", flags=re.IGNORECASE)` plus a few other bits that I know about.\r\n\r\nCython .pxd includes\r\n-------------------------\r\n\r\n* `array.pxd` https://github.com/cython/cython/blob/master/Cython/Includes/cpython/array.pxd - Cython provides a pxd file allowing users access to the `array.array` internals. This is documented as being CPython-specific internals and made available to users on that basis.\r\n* `Cython/Includes/cpython/pylifecycle.pxd` provides access to `_Py_InitializeEx_Private`, `_Py_PyAtExit`, `_Py_RestoreSignals`, \r\n `_Py_CheckPython3`, `_Py_gitidentifier`, `_Py_gitversion` or a similar \"own risk\" basis\"\r\n\r\nInternal functions\r\n-----------------------\r\n\r\n* `_Py_NewReference` is used in Cython/Utility/AsyncGen.c and Coroutine.c. Can probably be replaced with `__Pyx_NewRef`\r\n* `_Py_TPFLAGS_HAVE_VECTORCALL` in Cython/Utility/CythonFunction.c. Does not look to be guarded.\r\n* `_Py_AS_GC` used in Cython/Utility/Coroutine.c to access field `->gc.gc_refs`. Guarded only by `CYTHON_COMPILING_IN_CPYTHON`\r\n* `_Py_DEC_REFTOTAL` in Coroutine.c. Guarded by `CYTHON_COMPILING_IN_CPYTHON`\r\n* Cython/Debugger/libpython.py looks up (but doesn't call) `_PyEval_EvalFrameDefault`, `_PySet_Dummy`\r\n* `_PyStack_AsDict` used in Cython/Utility/FunctionArguments. Guarded by `CYTHON_METH_FASTCALL`\r\n* `_PyObject_GetDictPtr` in Cython/Utility/Exceptions.c, ObjectHandling.c\r\n* `_PyTraceback_Add` in Cython/Utility/Exceptions.c. Used in \"limited API\" code path(!), presumably because the public API code path goes into more internals\r\n* Cython/Utility/Optimize.c uses `_PySet_NextEntry`, `_PyList_Extend`, and `_PyDict_Pop` - they are all guarded by `CYTHON_COMPILING_IN_CPYTHON` with alternative code paths in place\r\n* `_PyTrash_thread_deposit_object` and `_PyTrash_thread_destroy_chain` are used in ExtensionTypes.c for old versions of CPython. Not needed for newer versions .\r\n* `_PyErr_FormatFromCause` is used in Coroutine.c with a version check\r\n* `_PyGen_Send` is used in Coroutine.c with version checks and an alternate codepath available\r\n* `_PyGen_SetStopIterationValue` is used in the alternate codepath for `_PyGen_Send`.\r\n* `_PyBytes_Join` (and `_PyString_Join`) are used in StringTools.c but with an alternative implementation available for non-CPython\r\n* `_PyUnicode_FastCopyCharacters` is used in StringTools.c and ObjectHandling.c but with version checks and an alternative implementation.\r\n* `_PyObject_NextNotImplemented` - ObjectHandling.c. Guarded by `CYTHON_USE_TYPE_SLOTS` so alternative code path exists\r\n* `_PyDict_SetItem_KnownHash` and `_PyDict_GetItem_KnownHash` - ObjectHandling.c Guarded by a version-check so alternative code path exists\r\n* `_PyObject_GenericGetAttrWithDict` - ObjectHandling.c. Guarded by a version check (and `CYTHON_USE_TYPE_SLOTS`) so alternative code path exists\r\n* `_PyObject_GetDictPtr` in ObjectHandling.c. Used in a few places, but looks to be guarded. The guards are inconsistent between uses (`CYTHON_UNPACK_METHODS && CYTHON_COMPILING_IN_CPYTHON && CYTHON_USE_PYTYPE_LOOKUP`, `CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS`) so a little fiddly to replace if changed, but not impossible.\r\n* `_PyCFunction_FastCallDict` and `_PyCFunction_FastCallKeywords` - used in ObjectHandling.c for older Python versions\r\n* `_PyMethodDescr_FastCallKeywords` used in ObjectHandling.c for current Python versions. Looks like a shortcut that would be easily disabled if needed.\r\n* `_PyLong_FromByteArray` is used in TypeConversion.c unguard\r\n* `_PyLong_AsByteArray` is used in TypeConversion.c with a version guard. It looks like conversion of large number string to Python longs fail with a runtime exception without it\r\n* `_PyAsyncGen_MAXFREELIST` is used in `AsyncGen.c`. There is a check that it's defined (and redefinition). The assumption is that it's a macro (which probably has to be true in C?). Potentially risky because I think there's plans to unify freelist implementations in CPython (but probably easily removed from Cython if needed)\r\n* `_PyCFunctionFast` and `_PyCFunctionFastWithKeywords` are used in current Python versions (ModuleSetupCode.c and CythonFunction.c). Although underscore-prefixed they are in the Python documentation.\r\n* `_PyThreadState_UncheckedGet` is used in current Python versions (ModuleSetupCode.c) but alternative code paths exist if it ever goes missing\r\n* `_PyThreadState_Current` used in ModuleSetupCode.c in very old Python versions\r\n* `_PyDict_NewPresized` used in ModuleSetupCode.c - it's easily replace with the less efficient `PyDict_New` if needed though\r\n* `_PyDict_GetItem_KnownHash` is used in ModuleSetupCode.c with version checks. Alternative code paths are available.\r\n* `_PyUnicode_Ready` is used in ModuleSetupCode.c. Alternative code is in place for the expected removal of the concept of \"unicode readiness\" in Python 3.12.\r\n\r\nCython feature flags\r\n---------------------------\r\n\r\n* `_PyType_Lookup` is used in a few places but guarded by `CYTHON_USE_PYTYPE_LOOKUP`\r\n* `_PyGC_FINALIZED` in ModuleNode.py - Guarded by `CYTHON_USE_TP_FINALIZE`. However, turning this off does disable some features of cdef classes\r\n* `_PyErr_StackItem` - guarded by `CYTHON_USE_EXC_INFO_STACK`\r\n* `_PyString_Eq` is used in FunctionArguments.c but only for very old Python versions\r\n* `_PyStack_AsDict` is used in the macro `__Pyx_KwargsAsDict_FASTCALL` in FunctionArguments.c on recent versions of Python. It's guarded by `CYTHON_METH_FASTCALL` but realistically this is a flag we won't want to disable.\r\n* `CYTHON_USE_UNICODE_WRITER` guards use of `_PyUnicodeWriter_Init` and related functions. It's currently turned off on Python 3.11a since `_PyFloat_FormatAdvancedWriter` and `_PyLong_FormatAdvancedWriter` disappeared.\r\n* `CYTHON_VECTORCALL` guards `_PyVectorcall_Function` It looks like it has now been made public with `PyVectorcall_Function` though, so non-issue.\r\n* `CYTHON_PEP393_ENABLED` (true for recent versions I think) guards `_PyUnicode_AsDefaultEncodedString`\r\n* `CYTHON_USE_PYLONG_INTERNALS` enables the use of `ob_digit` on long object (with all the assumptions about how those internals are stored). Also enables `_PyLong_Copy` in Builtins.c\r\n* `CYTHON_USE_PYLIST_INTERNALS` uses internal fields on list objects (e.g. `->allocated`). Fallback code-paths exist for everything\r\n* `CYTHON_USE_UNICODE_INTERNALS` guards access to internal fields on unicode (and also bytes). Including `ob_shash`, but also direct access into the memory buffer. Fallback code-paths exist\r\n* `CYTHON_USE_EXC_INFO_STACK` accesses `_PyErr_StackItem` including fields like `previous_item` mainly in Coroutine.c and Exceptions.c. Replacement code-paths exist, but I'm not sure if they cover all functionality. It accesses from the `PyThreadState` object.\r\n\r\nInternal field access\r\n--------------------------\r\n\r\nThis section is fairly incomplete since I haven't yet worked out a good way of searching for these\r\n\r\n* `self->ob_refcnt` in Coroutine.c\r\n* `--Py_TYPE(self)->tp_frees;` `--Py_TYPE(self)->tp_allocs;` in Coroutine.c  (Guarded by `CYTHON_COMPILING_IN_CPYTHON`)\r\n* ObjectHandling.c accesses `ob_item` of tuple and list. Guarded only by `CYTHON_COMPILING_IN_CPYTHON`\r\n\r\nFrames/Tracebacks\r\n--------------------------\r\n\r\n* Coroutine.c access internal fields of `PyTracebackObject` (`tb_frame`) and `PyFrameObject` (`f_back` mainly). The alternative code paths don't really work in PyPy so this is probably the Cython feature most dependent on internal detail.\r\n* Exceptions.c creates a `PyFrameObject` using the public `PyFrame_New` but doesn't access the internal fields of it. This is to create exception tracebacks so is used everywhere in Cython.\r\n* ObjectHandling.c uses `f_localsplus` of frame objects only on old versions of Python I think (on new versions it's covered by vectorcall)\r\n* Profile.c uses frames and threadstates quite heavily - fields accessed include:\r\n  * frame: `f_trace`, `f_lineno` (but via a macro that can become a no-op easily)\r\n  * traceback `c_tracefunc`, `c_traceobj`, `c_profilefunc`, `c_profileobj`, `use_tracing`, `tracing`\r\n  * CodeObject: `co_flags`\r\n  These are only used if linetracing/profiling is enabled, so not required for the \"normal\" functioning of Cython.\r\n\r\nOther\r\n-------\r\n\r\n* Hacky temporary setting of `Py_TPFLAGS_HEAPTYPE` and disabling the GC to enable multiple inheritance on non-heap types. Known to cause problems on some alternative implementations https://github.com/cython/cython/issues/4200",
     "closed_at": null,
     "comment_data": [
         {
-            "author_association": "CONTRIBUTOR",
+            "author_association": "MEMBER",
             "body": "I have an idea. Can we create internals documentation and add it there? Cython codebase is pretty complex so adding details about cython internals to documentation could be useful and can help people in contributing to this project. There is already HackerGuide so maybe we can extend the documentation to add also this.",
             "created_at": "2022-02-12T21:35:37Z",
             "html_url": "https://github.com/cython/cython/issues/4635#issuecomment-1037498814",
@@ -51,7 +51,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "So the background to this is that:\r\n* Cython uses a lot of undocumented private functions from CPython.\r\n* Changing those tends to break Cython and so not all Python maintainers are completely happy about it.\r\n* Making a list of private CPython internals is useful because:\r\n   * it lets us know what's in danger of being broken\r\n   * it may help find features that are useful, but aren't covered well by public APIs\r\n* Not all of the private internals are a problem - quite a few of them are for speed, and can be turned off with a single C define.\r\n* An issue possibly isn't the right place to do it. But will do for now.\r\n\r\nInternals documentation might be useful (but unhelpful very fast if code is changed but the documentation isn't). I'm not sure this list would be a useful part of it though.",
             "created_at": "2022-02-13T09:30:57Z",
             "html_url": "https://github.com/cython/cython/issues/4635#issuecomment-1037960731",
@@ -139,7 +139,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "> \"Assumption that it is a macro though\" – not necessarily. You are probably referring to the defined(...) check. That's usually done because PyPy defines all C-API functions as macro aliases to its own PyPy_... functions. The check (the kind that I'm thinking of) does not depend on a function being a macro, it usually just checks whether we're in the right Python version or whether the function is defined as a macro, e.g. because PyPy has started to provide it.\r\n\r\nYeah that is what I meant. I'd missed that detail.\r\n\r\n> \"used for old versions of CPython. Not needed for newer versions .\" – That's generally ok.\r\n\r\nYes agree (especially when older Python versions is Py2). I'm trying to be thorough at this stage, but once I've gone through everything I'll then start trying to work out what might genuinely be a problem.",
             "created_at": "2022-02-13T14:39:05Z",
             "html_url": "https://github.com/cython/cython/issues/4635#issuecomment-1038163101",
@@ -183,7 +183,7 @@
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "I'm calling this list as complete as it's going to be at this stage I think",
             "created_at": "2022-03-06T14:15:13Z",
             "html_url": "https://github.com/cython/cython/issues/4635#issuecomment-1059970547",
@@ -225,9 +225,97 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             }
+        },
+        {
+            "author_association": "NONE",
+            "body": "> * `_PyCFunction_FastCallKeywords` - used in ObjectHandling.c for older Python versions\r\n\r\nThis one has been made public in https://github.com/python/cpython/issues/114626 but that now causes my Cython build to fail:\r\n```\r\n      src/flint/flint_base/flint_base.c: At top level:\r\n      src/flint/flint_base/flint_base.c:740:45: error: ‘_PyCFunctionFastWithKeywords’ undeclared here (not in a function); did you mean ‘PyCFunctionFastWithKeywords’?\r\n        740 |   #define __Pyx_PyCFunctionFastWithKeywords _PyCFunctionFastWithKeywords\r\n            |                                             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n      src/flint/flint_base/flint_base.c:745:50: note: in expansion of macro ‘__Pyx_PyCFunctionFastWithKeywords’\r\n        745 |   #define __Pyx_PyCFunction_FastCallWithKeywords __Pyx_PyCFunctionFastWithKeywords\r\n            |                                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n      src/flint/flint_base/flint_base.c:9475:144: note: in expansion of macro ‘__Pyx_PyCFunction_FastCallWithKeywords’\r\n```",
+            "created_at": "2024-02-25T18:31:06Z",
+            "html_url": "https://github.com/cython/cython/issues/4635#issuecomment-1963022775",
+            "id": 1963022775,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4635",
+            "node_id": "IC_kwDOABDGAc51AVm3",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1963022775/reactions"
+            },
+            "updated_at": "2024-02-25T18:31:06Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1963022775",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1159732?v=4",
+                "events_url": "https://api.github.com/users/oscarbenjamin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/oscarbenjamin/followers",
+                "following_url": "https://api.github.com/users/oscarbenjamin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/oscarbenjamin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/oscarbenjamin",
+                "id": 1159732,
+                "login": "oscarbenjamin",
+                "node_id": "MDQ6VXNlcjExNTk3MzI=",
+                "organizations_url": "https://api.github.com/users/oscarbenjamin/orgs",
+                "received_events_url": "https://api.github.com/users/oscarbenjamin/received_events",
+                "repos_url": "https://api.github.com/users/oscarbenjamin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/oscarbenjamin"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "Actually looks like that was fixed already in https://github.com/python/cpython/pull/115561. Sorry for the noise.",
+            "created_at": "2024-02-25T18:33:25Z",
+            "html_url": "https://github.com/cython/cython/issues/4635#issuecomment-1963023336",
+            "id": 1963023336,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4635",
+            "node_id": "IC_kwDOABDGAc51AVvo",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/1963023336/reactions"
+            },
+            "updated_at": "2024-02-25T18:33:25Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/1963023336",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1159732?v=4",
+                "events_url": "https://api.github.com/users/oscarbenjamin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/oscarbenjamin/followers",
+                "following_url": "https://api.github.com/users/oscarbenjamin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/oscarbenjamin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/oscarbenjamin",
+                "id": 1159732,
+                "login": "oscarbenjamin",
+                "node_id": "MDQ6VXNlcjExNTk3MzI=",
+                "organizations_url": "https://api.github.com/users/oscarbenjamin/orgs",
+                "received_events_url": "https://api.github.com/users/oscarbenjamin/received_events",
+                "repos_url": "https://api.github.com/users/oscarbenjamin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/oscarbenjamin"
+            }
         }
     ],
-    "comments": 5,
+    "comments": 7,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4635/comments",
     "created_at": "2022-02-12T13:54:55Z",
     "event_data": [
@@ -333,7 +421,7 @@
     "number": 4635,
     "performed_via_github_app": null,
     "reactions": {
-        "+1": 1,
+        "+1": 2,
         "-1": 0,
         "confused": 0,
         "eyes": 0,
@@ -341,14 +429,15 @@
         "hooray": 0,
         "laugh": 0,
         "rocket": 0,
-        "total_count": 1,
+        "total_count": 2,
         "url": "https://api.github.com/repos/cython/cython/issues/4635/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
+    "state_reason": null,
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4635/timeline",
     "title": "List of Python internals",
-    "updated_at": "2022-03-06T14:15:13Z",
+    "updated_at": "2024-02-25T18:33:27Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4635",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
