@@ -4,7 +4,7 @@
     "assignees": [],
     "author_association": "MEMBER",
     "body": "### Describe your issue\r\n\r\n## TL;DR\r\n\r\nBy default Cython is extracting C line number via `__LINE__` in error handling function.\r\n\r\nWhen turned off: \r\n* compilation times are reduced\r\n* resulting binary has reduced size by up to 5%\r\n\r\nExtracting C line numbers can be disabled by:\r\n* undocumented `--no-c-in-traceback` command line argument of `cython` command\r\n* undocumented `c_line_in_traceback=False` compilation option of `Cython.Build.cythonize()`\r\n\r\n## Details\r\n\r\nCython is able to add C line number of error in `__PYX_ERR` macro which is responsible for handing exception after function call:\r\n```c\r\n#define __PYX_MARK_ERR_POS(f_index, lineno) \\\r\n    { __pyx_filename = __pyx_f[f_index]; (void)__pyx_filename; __pyx_lineno = lineno; (void)__pyx_lineno; __pyx_clineno = __LINE__; (void)__pyx_clineno; }\r\n#define __PYX_ERR(f_index, lineno, Ln_error) \\\r\n    { __PYX_MARK_ERR_POS(f_index, lineno) goto Ln_error; }\r\n```\r\n\r\nMoreover, to actually report C lines in traceback, undocumented C macro `CYTHON_CLINE_IN_TRACEBACK` must be set to 1. Hence, by default, we have overhead of collecting C line numbers but are not reported unless mentioned macro must be enabled.\r\n\r\n## Example\r\nFollowing example shows how to setup C lines reporting in traceback:\r\n* setup.py\r\n  ```python\r\n  from setuptools import setup, Extension\r\n  from Cython.Build import cythonize\r\n  import numpy\r\n\r\n  from Cython.Compiler import Options\r\n\r\n  extensions = [\r\n      Extension(\"*\", [\"delete.pyx\"],\r\n      extra_compile_args=['-DCYTHON_CLINE_IN_TRACEBACK=1'], # This macro enables reporting C lines\r\n      ),\r\n  ]\r\n\r\n  setup(\r\n      name=\"My hello app\",\r\n      # By default extracting of C lines is enabled. When parameter \r\n      # c_line_in_traceback=False is added to cythonize() function\r\n      # the C lines are not extracted when error occurs.\r\n      ext_modules=cythonize(extensions)\r\n      \r\n  )\r\n  ```\r\n* delete.pyx\r\n   ```cython\r\n   cdef bleh():\r\n       raise ValueError()\r\n\r\n   bleh()\r\n   ```\r\n* execution\r\n   ```\r\n  $ python -c 'import delete'\r\n  Traceback (most recent call last):\r\n    File \"<string>\", line 1, in <module>\r\n    File \"delete.pyx\", line 4, in init delete (delete.c:2260)\r\n      bleh()\r\n    File \"delete.pyx\", line 2, in delete.bleh (delete.c:1876)\r\n      raise ValueError()\r\n  ValueError\r\n   ```\r\n\r\n## Proposal\r\n* [x] #6035 \r\n* [ ] Document `CYTHON_CLINE_IN_TRACEBACK`\n* [ ] deprecate options `c_line_in_traceback` and `no-c-in-traceback`.\r\n* [ ] Document support of C lines in traceback and document an example how to enable it\r\n* [ ] #6036\r\n\r\n## Related discusion\r\nSee https://github.com/cython/cython/issues/4425#issuecomment-1962707865 + discussion below\r\n\r\nAdding a maintainers of popular scientific libraries because they care about compilation time and resulting binary size. Until, this issue is closed, they can use  `--no-c-in-traceback` argument of cython.\r\nCC @rgommers @WillAyd @glemaitre",
-    "closed_at": null,
+    "closed_at": "2024-03-09T09:37:40Z",
     "comment_data": [
         {
             "author_association": "MEMBER",
@@ -811,6 +811,67 @@
             "node_id": "SE_lADOABDGAc6ATQLjzwAAAALGGKZh",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/11913438817"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2024-03-07T15:00:55Z",
+            "event": "connected",
+            "id": 12043628029,
+            "node_id": "COE_lADOABDGAc6ATQLjzwAAAALN2y39",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/12043628029"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2024-03-09T09:37:40Z",
+            "event": "closed",
+            "id": 12062805807,
+            "node_id": "CE_lADOABDGAc6ATQLjzwAAAALO_88v",
+            "performed_via_github_app": null,
+            "state_reason": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/12062805807"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/6034/events",
@@ -840,7 +901,7 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 83,
+        "closed_issues": 91,
         "created_at": "2019-02-24T14:21:23Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -872,7 +933,7 @@
         "open_issues": 16,
         "state": "open",
         "title": "3.1",
-        "updated_at": "2024-02-27T06:50:26Z",
+        "updated_at": "2024-03-09T21:43:09Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/65"
     },
     "node_id": "I_kwDOABDGAc6ATQLj",
@@ -891,11 +952,11 @@
         "url": "https://api.github.com/repos/cython/cython/issues/6034/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
-    "state_reason": null,
+    "state": "closed",
+    "state_reason": "completed",
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/6034/timeline",
     "title": "Document and improve generation of C lines in traceback",
-    "updated_at": "2024-02-27T20:10:17Z",
+    "updated_at": "2024-03-09T09:37:40Z",
     "url": "https://api.github.com/repos/cython/cython/issues/6034",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
