@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/6061"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/3486154a49db0e7ee5a5623147098d6412c11ece"
+            "href": "https://api.github.com/repos/cython/cython/statuses/b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1"
         }
     },
     "active_lock_reason": null,
@@ -31,8 +31,8 @@
     "author_association": "CONTRIBUTOR",
     "auto_merge": null,
     "base": {
-        "label": "cython:limited-api-preview",
-        "ref": "limited-api-preview",
+        "label": "cython:master",
+        "ref": "master",
         "repo": {
             "allow_forking": true,
             "archive_url": "https://api.github.com/repos/cython/cython/{archive_format}{/ref}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1297,
-            "open_issues_count": 1297,
+            "open_issues": 1292,
+            "open_issues_count": 1292,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -118,11 +118,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-03-27T10:26:24Z",
+            "pushed_at": "2024-03-28T12:35:53Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 72938,
+            "size": 73156,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 8814,
+            "stargazers_count": 8819,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,14 +141,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-03-27T14:30:05Z",
+            "updated_at": "2024-03-28T09:38:21Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 8814,
-            "watchers_count": 8814,
+            "watchers": 8819,
+            "watchers_count": 8819,
             "web_commit_signoff_required": false
         },
-        "sha": "0a9df4da1df1089b7f4411e8a85e93a3612ba04a",
+        "sha": "07553a5b7966cf446ddd68e6e06a0bf3eb38517c",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -323,7 +323,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "I've basically copy-pasted equivalent macros throughout this PR at the moment because I wasn't sure what order different snippets would get included into the file to know which macros would be defined when. Ideally these kinds of macros could be centralized somewhere. Is this module the best place to put something like that? Could this be patched into another `#else` block of the `#if CYTHON_REFNANNY` if-else below?",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T02:08:36Z",
             "diff_hunk": "@@ -1767,6 +1767,20 @@ static CYTHON_INLINE int __Pyx_Is_Little_Endian(void)\n   #define CYTHON_REFNANNY 0\n #endif\n \n+#ifndef _ModuleSetupDecRef\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+#define _ModuleSetupDecRef(obj) Py_DecRef(obj);\n+#define _ModuleSetupXDecRef(obj) Py_DecRef(obj);\n+#define _ModuleSetupIncRef(obj) Py_IncRef(obj);\n+#define _ModuleSetupXIncRef(obj) Py_IncRef(obj);\n+#else\n+#define _ModuleSetupDecRef(obj) Py_DECREF(obj);\n+#define _ModuleSetupXDecRef(obj) Py_XDECREF(obj);\n+#define _ModuleSetupIncRef(obj) Py_INCREF(obj);\n+#define _ModuleSetupXIncRef(obj) Py_XINCREF(obj);\n+#endif\n+#endif",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513722365",
@@ -391,7 +391,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "I ask the same question about incref/decref below where it's much more important due to frequency of use, but asking here more generally: instead of having these conditionals everywhere would it make sense to define a common set of conditional macros somewhere that can be used throughout the code base and would be correctly selected for the limited API or not at compile time?",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T02:09:55Z",
             "diff_hunk": "@@ -1530,7 +1538,11 @@ __pyx_FusedFunction_call(PyObject *func, PyObject *args, PyObject *kw)\n #else\n             PyObject *item = __Pyx_PySequence_ITEM(args, i);  if (unlikely(!item)) goto bad;\n #endif\n-            PyTuple_SET_ITEM(new_args, i + 1, item);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        PyTuple_SetItem(new_args, i + 1, item);\n+#else\n+        PyTuple_SET_ITEM(new_args, i + 1, item);\n+#endif",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513723193",
@@ -459,7 +459,7 @@
             },
             "author_association": "MEMBER",
             "body": "I'd use `__Pyx_PyList_SET_ITEM` which is a wrapper macro we've written in ModuleSetupCode.c (so it's always available - you can treat it as just coming from Python.h).\r\n\r\nIt also needs a signature change - return type is `int` and it has `except -1` exception specification.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T07:39:49Z",
             "diff_hunk": "@@ -57,9 +57,9 @@ cdef extern from *:\n         T& operator[](size_t)\n \n cdef extern from \"Python.h\":\n-    void Py_INCREF(object)\n+    void Py_IncRef(object)\n     list PyList_New(Py_ssize_t size)\n-    void PyList_SET_ITEM(object list, Py_ssize_t i, object o)\n+    void PyList_SetItem(object list, Py_ssize_t i, object o)",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513967213",
@@ -527,7 +527,7 @@
             },
             "author_association": "MEMBER",
             "body": "Limited API sets `CYTHON_ASSUME_SAFE_MACROS` is `0` so this isn't needed.\r\n\r\nWe're generally trying not to use `CYTHON_COMPILING_IN_LIMITED_API` and instead using things like `CYTHON_ASSUME_SAFE_MACROS` where we can.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T07:42:17Z",
             "diff_hunk": "@@ -429,12 +429,12 @@ __Pyx_CyFunction_get_is_coroutine(__pyx_CyFunctionObject *op, void *context) {\n         fromlist = PyList_New(1);\n         if (unlikely(!fromlist)) return NULL;\n         Py_INCREF(marker);\n-#if CYTHON_ASSUME_SAFE_MACROS\n+#if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_COMPILING_IN_LIMITED_API",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513969720",
@@ -595,7 +595,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n            if (__Pyx_PyList_SET_ITEM(list, i, string) < 0) goto __pyx_err;\r\n```\r\n\r\nUsing the wrapper macro, and adding an error check.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T07:46:06Z",
             "diff_hunk": "@@ -1440,7 +1440,11 @@ __pyx_FusedFunction_getitem(__pyx_FusedFunctionObject *self, PyObject *idx)\n             Py_DECREF(item);\n #endif\n             if (unlikely(!string)) goto __pyx_err;\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+            PyList_SetItem(list, i, string);\n+#else\n             PyList_SET_ITEM(list, i, string);\n+#endif",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513973635",
@@ -663,7 +663,7 @@
             },
             "author_association": "MEMBER",
             "body": "`__Pyx_PyTuple_SET_ITEM` and error check.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T07:46:54Z",
             "diff_hunk": "@@ -1520,7 +1524,11 @@ __pyx_FusedFunction_call(PyObject *func, PyObject *args, PyObject *kw)\n         self = binding_func->self;\n \n         Py_INCREF(self);\n+#if CYTHON_COMPILING_IN_LIMITED_API",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513974520",
@@ -731,7 +731,7 @@
             },
             "author_association": "MEMBER",
             "body": "I've probably already answered this question above :)",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T07:47:18Z",
             "diff_hunk": "@@ -1530,7 +1538,11 @@ __pyx_FusedFunction_call(PyObject *func, PyObject *args, PyObject *kw)\n #else\n             PyObject *item = __Pyx_PySequence_ITEM(args, i);  if (unlikely(!item)) goto bad;\n #endif\n-            PyTuple_SET_ITEM(new_args, i + 1, item);\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        PyTuple_SetItem(new_args, i + 1, item);\n+#else\n+        PyTuple_SET_ITEM(new_args, i + 1, item);\n+#endif",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513974935",
@@ -800,7 +800,7 @@
             },
             "author_association": "MEMBER",
             "body": "Again, this shouldn't be needed because `CYTHON_COMPILING_IN_LIMITED_API` turns off `CYTHON_ASSUME_SAFE_MACROS`",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T07:48:02Z",
             "diff_hunk": "@@ -60,7 +60,7 @@ static CYTHON_INLINE PyObject* __Pyx_PyUnicode_FromString(const char*);\n #define __Pyx_PyStr_FromString        __Pyx_PyUnicode_FromString\n #define __Pyx_PyStr_FromStringAndSize __Pyx_PyUnicode_FromStringAndSize\n \n-#if CYTHON_ASSUME_SAFE_MACROS\n+#if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_COMPILING_IN_LIMITED_API",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513975686",
@@ -868,7 +868,7 @@
             },
             "author_association": "MEMBER",
             "body": "I'd just use the macros in ModuleSetupCode.c - they're available absolutely everywhere so you don't need specific macros here.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T08:08:51Z",
             "diff_hunk": "@@ -3,16 +3,31 @@\n static PyObject *__Pyx_ImportDottedModule(PyObject *name, PyObject *parts_tuple); /*proto*/\n static PyObject *__Pyx_ImportDottedModule_WalkParts(PyObject *module, PyObject *name, PyObject *parts_tuple); /*proto*/\n \n+\n /////////////// ImportDottedModule ///////////////\n //@requires: Import\n \n+#ifndef _ImportDecRef\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+#define _ImportDecRef(obj) Py_DecRef(obj);",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513998502",
@@ -936,7 +936,7 @@
             },
             "author_association": "MEMBER",
             "body": "Not needed - `CYTHON_ASSUME_SAFE_SIZE` is implied by LIMITED_API",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T08:09:19Z",
             "diff_hunk": "@@ -3,16 +3,31 @@\n static PyObject *__Pyx_ImportDottedModule(PyObject *name, PyObject *parts_tuple); /*proto*/\n static PyObject *__Pyx_ImportDottedModule_WalkParts(PyObject *module, PyObject *name, PyObject *parts_tuple); /*proto*/\n \n+\n /////////////// ImportDottedModule ///////////////\n //@requires: Import\n \n+#ifndef _ImportDecRef\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+#define _ImportDecRef(obj) Py_DecRef(obj);\n+#define _ImportXDecRef(obj) Py_DecRef(obj);\n+#define _ImportIncRef(obj) Py_IncRef(obj);\n+#define _ImportXIncRef(obj) Py_IncRef(obj);\n+#else\n+#define _ImportDecRef(obj) Py_DECREF(obj);\n+#define _ImportXDecRef(obj) Py_XDECREF(obj);\n+#define _ImportIncRef(obj) Py_INCREF(obj);\n+#define _ImportXIncRef(obj) Py_XINCREF(obj);\n+#endif\n+#endif\n+\n static PyObject *__Pyx__ImportDottedModule_Error(PyObject *name, PyObject *parts_tuple, Py_ssize_t count) {\n     PyObject *partial_name = NULL, *slice = NULL, *sep = NULL;\n     Py_ssize_t size;\n     if (unlikely(PyErr_Occurred())) {\n         PyErr_Clear();\n     }\n-#if CYTHON_ASSUME_SAFE_SIZE\n+#if CYTHON_ASSUME_SAFE_SIZE && !CYTHON_COMPILING_IN_LIMITED_API",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513998975",
@@ -1004,7 +1004,7 @@
             },
             "author_association": "MEMBER",
             "body": "Also not needed",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T08:09:35Z",
             "diff_hunk": "@@ -57,15 +72,15 @@ static PyObject *__Pyx__ImportDottedModule_Lookup(PyObject *name) {\n \n static PyObject *__Pyx_ImportDottedModule_WalkParts(PyObject *module, PyObject *name, PyObject *parts_tuple) {\n     Py_ssize_t i, nparts;\n-#if CYTHON_ASSUME_SAFE_SIZE\n+#if CYTHON_ASSUME_SAFE_SIZE && !CYTHON_COMPILING_IN_LIMITED_API",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513999277",
@@ -1072,7 +1072,7 @@
             },
             "author_association": "MEMBER",
             "body": "Also not needed",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T08:09:44Z",
             "diff_hunk": "@@ -57,15 +72,15 @@ static PyObject *__Pyx__ImportDottedModule_Lookup(PyObject *name) {\n \n static PyObject *__Pyx_ImportDottedModule_WalkParts(PyObject *module, PyObject *name, PyObject *parts_tuple) {\n     Py_ssize_t i, nparts;\n-#if CYTHON_ASSUME_SAFE_SIZE\n+#if CYTHON_ASSUME_SAFE_SIZE && !CYTHON_COMPILING_IN_LIMITED_API\n     nparts = PyTuple_GET_SIZE(parts_tuple);\n #else\n     nparts = PyTuple_Size(parts_tuple);\n     if (nparts < 0) return NULL;\n #endif\n     for (i=1; i < nparts && module; i++) {\n         PyObject *part, *submodule;\n-#if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS\n+#if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS && !CYTHON_COMPILING_IN_LIMITED_API",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1513999472",
@@ -1140,7 +1140,7 @@
             },
             "author_association": "MEMBER",
             "body": "These will need some error checking I think",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T08:10:39Z",
             "diff_hunk": "@@ -336,21 +407,32 @@ static int ${import_star}(PyObject* m) {\n     if (__Pyx_import_all_from(locals, m) < 0) goto bad;\n     list = PyDict_Items(locals);        if (!list) goto bad;\n \n+#if CYTHON_COMPILING_IN_LIMITED_API\n+    for(i=0; i<PyList_Size(list); i++) {\n+        name = PyTuple_Get_Item(PyList_Get_Item(list, i), 0);\n+        item = PyTuple_Get_Item(PyList_Get_Item(list, i), 1);",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1514000550",
@@ -1208,7 +1208,7 @@
             },
             "author_association": "MEMBER",
             "body": "Also needs error checking",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T08:10:52Z",
             "diff_hunk": "@@ -336,21 +407,32 @@ static int ${import_star}(PyObject* m) {\n     if (__Pyx_import_all_from(locals, m) < 0) goto bad;\n     list = PyDict_Items(locals);        if (!list) goto bad;\n \n+#if CYTHON_COMPILING_IN_LIMITED_API\n+    for(i=0; i<PyList_Size(list); i++) {\n+        name = PyTuple_Get_Item(PyList_Get_Item(list, i), 0);\n+        item = PyTuple_Get_Item(PyList_Get_Item(list, i), 1);\n+#else\n     for(i=0; i<PyList_GET_SIZE(list); i++) {\n         name = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 0);\n         item = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 1);\n+#endif\n+\n         utf8_name = PyUnicode_AsUTF8String(name);\n         if (!utf8_name) goto bad;\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        s = PyBytes_AsString(utf8_name);",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1514000778",
@@ -1276,7 +1276,7 @@
             },
             "author_association": "MEMBER",
             "body": "> Ideally these kinds of macros could be centralized somewhere. Is this module the best place to put something like that?\r\n\r\nYes - ModuleSetupCode.c contains the bit of utility code that's always included, and is where the centralized stuff goes.\r\n\r\nAs I said in another comment - if we change it then I think think we should change it absolutely everywhere at once (with a big find/replace).\r\n\r\nThe naming scheme for Cython helper macros is `__Pyx_something` so they should stick to that. e.g. `__Pyx_Py_INCREF`",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T08:14:10Z",
             "diff_hunk": "@@ -1767,6 +1767,20 @@ static CYTHON_INLINE int __Pyx_Is_Little_Endian(void)\n   #define CYTHON_REFNANNY 0\n #endif\n \n+#ifndef _ModuleSetupDecRef\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+#define _ModuleSetupDecRef(obj) Py_DecRef(obj);\n+#define _ModuleSetupXDecRef(obj) Py_DecRef(obj);\n+#define _ModuleSetupIncRef(obj) Py_IncRef(obj);\n+#define _ModuleSetupXIncRef(obj) Py_IncRef(obj);\n+#else\n+#define _ModuleSetupDecRef(obj) Py_DECREF(obj);\n+#define _ModuleSetupXDecRef(obj) Py_XDECREF(obj);\n+#define _ModuleSetupIncRef(obj) Py_INCREF(obj);\n+#define _ModuleSetupXIncRef(obj) Py_XINCREF(obj);\n+#endif\n+#endif",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1514004623",
@@ -1345,7 +1345,7 @@
             },
             "author_association": "MEMBER",
             "body": "~I think `__Pyx_INCREF()` is enough.~\r\n\r\nEDIT: We already use that for the refnanny, and it seems that we must keep the two separate. Since we use the refnanny in most places, having a longer name for the non-refnanny cases seems better. In that light, `__Pyx_Py_INCREF()` is fine, since it at least suggests that it doesn't do more than `Py_INCREF()`.\r\n\r\nHowever, having both seems generally confusing…",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T08:49:47Z",
             "diff_hunk": "@@ -1767,6 +1767,20 @@ static CYTHON_INLINE int __Pyx_Is_Little_Endian(void)\n   #define CYTHON_REFNANNY 0\n #endif\n \n+#ifndef _ModuleSetupDecRef\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+#define _ModuleSetupDecRef(obj) Py_DecRef(obj);\n+#define _ModuleSetupXDecRef(obj) Py_DecRef(obj);\n+#define _ModuleSetupIncRef(obj) Py_IncRef(obj);\n+#define _ModuleSetupXIncRef(obj) Py_IncRef(obj);\n+#else\n+#define _ModuleSetupDecRef(obj) Py_DECREF(obj);\n+#define _ModuleSetupXDecRef(obj) Py_XDECREF(obj);\n+#define _ModuleSetupIncRef(obj) Py_INCREF(obj);\n+#define _ModuleSetupXIncRef(obj) Py_XINCREF(obj);\n+#endif\n+#endif",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1514058888",
@@ -1414,7 +1414,7 @@
             },
             "author_association": "MEMBER",
             "body": "Lacks error handling. I'd rather extract *only* the `char*` reading and keep everything else as before, and then only add error handling for this call in the Limited API case.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-06T09:05:59Z",
             "diff_hunk": "@@ -11441,11 +11441,19 @@ def generate_result_code(self, code):\n         ))\n         code.put_gotref(shapes_temp, py_object_type)\n \n+        code.putln(\"#if CYTHON_COMPILING_IN_LIMITED_API\")\n+        code.putln('%s = __pyx_array_new(%s, %s, PyBytes_AsString(%s), \"%s\", (char *) %s); %s' % (",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1514083269",
@@ -1482,7 +1482,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "I've updated this per what I think you were looking for, but please let me know if I've missed something.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-11T03:13:04Z",
             "diff_hunk": "@@ -11441,11 +11441,19 @@ def generate_result_code(self, code):\n         ))\n         code.put_gotref(shapes_temp, py_object_type)\n \n+        code.putln(\"#if CYTHON_COMPILING_IN_LIMITED_API\")\n+        code.putln('%s = __pyx_array_new(%s, %s, PyBytes_AsString(%s), \"%s\", (char *) %s); %s' % (",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1519093620",
@@ -1551,7 +1551,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "I think I've added this correctly now, assuming that all error checking is safe to jump to the `bad` label.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-11T03:16:09Z",
             "diff_hunk": "@@ -336,21 +407,32 @@ static int ${import_star}(PyObject* m) {\n     if (__Pyx_import_all_from(locals, m) < 0) goto bad;\n     list = PyDict_Items(locals);        if (!list) goto bad;\n \n+#if CYTHON_COMPILING_IN_LIMITED_API\n+    for(i=0; i<PyList_Size(list); i++) {\n+        name = PyTuple_Get_Item(PyList_Get_Item(list, i), 0);\n+        item = PyTuple_Get_Item(PyList_Get_Item(list, i), 1);",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1519094819",
@@ -1620,7 +1620,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Should we add `__Pyx_Py[Tuple|List]_GET_ITEM` to ModuleSetupCode.c? I imagine this won't be the last time we need this kind of conditional otherwise.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-11T07:00:27Z",
             "diff_hunk": "@@ -334,12 +335,23 @@ static int ${import_star}(PyObject* m) {\n     if (__Pyx_import_all_from(locals, m) < 0) goto bad;\n     list = PyDict_Items(locals);        if (!list) goto bad;\n \n+#if CYTHON_COMPILING_IN_LIMITED_API\n+    for(i=0; i<PyList_Size(list); i++) {\n+        name = PyTuple_Get_Item(PyList_Get_Item(list, i), 0); if (!name) goto bad;\n+        item = PyTuple_Get_Item(PyList_Get_Item(list, i), 1); if (!item) goto bad;",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1519229497",
@@ -1688,7 +1688,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Same question as above, should we define a new macro in ModuleSetupCode.c?",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-11T07:00:47Z",
             "diff_hunk": "@@ -334,12 +335,23 @@ static int ${import_star}(PyObject* m) {\n     if (__Pyx_import_all_from(locals, m) < 0) goto bad;\n     list = PyDict_Items(locals);        if (!list) goto bad;\n \n+#if CYTHON_COMPILING_IN_LIMITED_API\n+    for(i=0; i<PyList_Size(list); i++) {\n+        name = PyTuple_Get_Item(PyList_Get_Item(list, i), 0); if (!name) goto bad;\n+        item = PyTuple_Get_Item(PyList_Get_Item(list, i), 1); if (!item) goto bad;\n+#else\n     for(i=0; i<PyList_GET_SIZE(list); i++) {\n         name = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 0);\n         item = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 1);\n+#endif\n+\n         utf8_name = PyUnicode_AsUTF8String(name);\n         if (!utf8_name) goto bad;\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        s = PyBytes_AsString(utf8_name); if (!s) goto bad;\n+#else",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1519229675",
@@ -1756,7 +1756,7 @@
             },
             "author_association": "MEMBER",
             "body": "That's in TypeConversion.c (in a section that's also unconditionally always included) as `__Pyx_PyBytes_AsString`",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-12T19:33:06Z",
             "diff_hunk": "@@ -334,12 +335,23 @@ static int ${import_star}(PyObject* m) {\n     if (__Pyx_import_all_from(locals, m) < 0) goto bad;\n     list = PyDict_Items(locals);        if (!list) goto bad;\n \n+#if CYTHON_COMPILING_IN_LIMITED_API\n+    for(i=0; i<PyList_Size(list); i++) {\n+        name = PyTuple_Get_Item(PyList_Get_Item(list, i), 0); if (!name) goto bad;\n+        item = PyTuple_Get_Item(PyList_Get_Item(list, i), 1); if (!item) goto bad;\n+#else\n     for(i=0; i<PyList_GET_SIZE(list); i++) {\n         name = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 0);\n         item = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 1);\n+#endif\n+\n         utf8_name = PyUnicode_AsUTF8String(name);\n         if (!utf8_name) goto bad;\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+        s = PyBytes_AsString(utf8_name); if (!s) goto bad;\n+#else",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1522017703",
@@ -1825,7 +1825,7 @@
             },
             "author_association": "MEMBER",
             "body": "Yes - it looks like we already have `SET_ITEM` so I think that'd make sense.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-12T19:33:17Z",
             "diff_hunk": "@@ -334,12 +335,23 @@ static int ${import_star}(PyObject* m) {\n     if (__Pyx_import_all_from(locals, m) < 0) goto bad;\n     list = PyDict_Items(locals);        if (!list) goto bad;\n \n+#if CYTHON_COMPILING_IN_LIMITED_API\n+    for(i=0; i<PyList_Size(list); i++) {\n+        name = PyTuple_Get_Item(PyList_Get_Item(list, i), 0); if (!name) goto bad;\n+        item = PyTuple_Get_Item(PyList_Get_Item(list, i), 1); if (!item) goto bad;",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1522017893",
@@ -1894,7 +1894,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Going to resolve this since we've opened a separate issue to address the incref/decref changes.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-17T17:39:54Z",
             "diff_hunk": "@@ -1767,6 +1767,20 @@ static CYTHON_INLINE int __Pyx_Is_Little_Endian(void)\n   #define CYTHON_REFNANNY 0\n #endif\n \n+#ifndef _ModuleSetupDecRef\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+#define _ModuleSetupDecRef(obj) Py_DecRef(obj);\n+#define _ModuleSetupXDecRef(obj) Py_DecRef(obj);\n+#define _ModuleSetupIncRef(obj) Py_IncRef(obj);\n+#define _ModuleSetupXIncRef(obj) Py_IncRef(obj);\n+#else\n+#define _ModuleSetupDecRef(obj) Py_DECREF(obj);\n+#define _ModuleSetupXDecRef(obj) Py_XDECREF(obj);\n+#define _ModuleSetupIncRef(obj) Py_INCREF(obj);\n+#define _ModuleSetupXIncRef(obj) Py_XINCREF(obj);\n+#endif\n+#endif",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1527569465",
@@ -1963,7 +1963,7 @@
             },
             "author_association": "MEMBER",
             "body": "I think I can see where this is coming from (https://github.com/cython/cython/blob/4e0eee43210d6b7822859f3001202910888644af/Cython/Compiler/Code.py#L1920).\r\n\r\nI suspect it does need a cast but it might be better later and just done once:\r\n\r\n```suggestion\r\n        flags = '(unsigned int)(%s)' % '|'.join(flags) or '0'\r\n```",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-19T19:31:15Z",
             "diff_hunk": "@@ -10255,6 +10255,13 @@ def generate_codeobj(self, code):\n         num_posonly_args = func.num_posonly_args  # Py3.8+ only\n         kwonly_argcount = func.num_kwonly_args\n         nlocals = len(self.varnames)\n+        # TODO: Not clear if something changed in Python make this typing change\n+        # necessary, but I am seeing compiler warnings about narrowing. Looking in\n+        # Include/cpython/code.h (in the cpython source), co_flags has always been a\n+        # signed int but the flags are just #defined as bit flags, so the type (signed\n+        # or unsigned) should be contextually determined. I wonder if this is a function\n+        # of my compiler.\n+        flags = [f\"((unsigned int) {flag})\" for flag in flags]\n         flags = '|'.join(flags) or '0'",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1530969665",
@@ -2031,7 +2031,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n        code.funcstate.release_temp(format_ptr_temp)\r\n```\r\n\r\nThe `format_ptr_temp` isn't a `PyObject*` so doesn't want the `code.put_decref_clear(temp, py_object_type)` part of `dispose`",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-21T07:20:51Z",
             "diff_hunk": "@@ -11513,6 +11533,7 @@ def dispose(temp):\n \n         dispose(shapes_temp)\n         dispose(format_temp)\n+        dispose(format_ptr_temp)",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1533348222",
@@ -2099,7 +2099,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n        s = __Pyx_PyBytes_AsString(utf8_name); if (!s) goto bad;\r\n```\r\n\r\nI think you've used `AsWriteableString` to match the `char*` type.\r\n\r\nAssuming https://github.com/cython/cython/pull/6101 doesn't break anything unexpected, I'll change it to `const char*` and we should just use `AsAtring` (since it isn't something that gets written to)",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-21T07:25:05Z",
             "diff_hunk": "@@ -329,17 +330,20 @@ static int ${import_star}(PyObject* m) {\n     PyObject *utf8_name = 0;\n     PyObject *name;\n     PyObject *item;\n+    PyObject *import_obj;\n \n     locals = PyDict_New();              if (!locals) goto bad;\n     if (__Pyx_import_all_from(locals, m) < 0) goto bad;\n     list = PyDict_Items(locals);        if (!list) goto bad;\n \n-    for(i=0; i<PyList_GET_SIZE(list); i++) {\n-        name = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 0);\n-        item = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 1);\n+    for(i=0; i<PyList_Size(list); i++) {\n+        import_obj = __Pyx_PyList_GET_ITEM(list, i); if (!import_obj) goto bad;\n+        name = __Pyx_PyTuple_GET_ITEM(import_obj, 0); if (!name) goto bad;\n+        item = __Pyx_PyTuple_GET_ITEM(import_obj, 1); if (!item) goto bad;\n+\n         utf8_name = PyUnicode_AsUTF8String(name);\n         if (!utf8_name) goto bad;\n-        s = PyBytes_AS_STRING(utf8_name);\n+        s = __Pyx_PyBytes_AsWritableString(utf8_name); if (!s) goto bad;",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1533352387",
@@ -2167,15 +2167,15 @@
             },
             "author_association": "MEMBER",
             "body": "This'll get broken again by https://github.com/cython/cython/pull/6077 fairly soon. Not your problem necessarily though (I can go fix it up after)",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-21T07:33:48Z",
             "diff_hunk": "@@ -76,7 +76,7 @@ cdef object {{cname}}(const vector[X]& v):\n     for i in range(v_size_signed):",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1533360405",
             "id": 1533360405,
-            "line": 76,
+            "line": 86,
             "node_id": "PRRC_kwDOABDGAc5bZTkV",
             "original_commit_id": "559ee4203882ed6062cdb5d6f4f49f95f88fff48",
-            "original_line": 76,
+            "original_line": 86,
             "original_position": 10,
             "original_start_line": null,
             "path": "Cython/Utility/CppConvert.pyx",
@@ -2235,16 +2235,16 @@
             },
             "author_association": "MEMBER",
             "body": "Fix will be https://github.com/cython/cython/pull/6108",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-23T10:37:18Z",
             "diff_hunk": "@@ -76,7 +76,7 @@ cdef object {{cname}}(const vector[X]& v):\n     for i in range(v_size_signed):",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1536611202",
             "id": 1536611202,
             "in_reply_to_id": 1533360405,
-            "line": 76,
+            "line": 86,
             "node_id": "PRRC_kwDOABDGAc5bltOC",
             "original_commit_id": "559ee4203882ed6062cdb5d6f4f49f95f88fff48",
-            "original_line": 76,
+            "original_line": 86,
             "original_position": 10,
             "original_start_line": null,
             "path": "Cython/Utility/CppConvert.pyx",
@@ -2304,16 +2304,16 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Thanks!",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-25T23:42:22Z",
             "diff_hunk": "@@ -76,7 +76,7 @@ cdef object {{cname}}(const vector[X]& v):\n     for i in range(v_size_signed):",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1538370842",
             "id": 1538370842,
             "in_reply_to_id": 1533360405,
-            "line": 76,
+            "line": 86,
             "node_id": "PRRC_kwDOABDGAc5bsa0a",
             "original_commit_id": "559ee4203882ed6062cdb5d6f4f49f95f88fff48",
-            "original_line": 76,
+            "original_line": 86,
             "original_position": 10,
             "original_start_line": null,
             "path": "Cython/Utility/CppConvert.pyx",
@@ -2373,7 +2373,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Yup that's right, I originally had AsString but changed it to match the current usage of it. Happy to change it if that works.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-25T23:43:07Z",
             "diff_hunk": "@@ -329,17 +330,20 @@ static int ${import_star}(PyObject* m) {\n     PyObject *utf8_name = 0;\n     PyObject *name;\n     PyObject *item;\n+    PyObject *import_obj;\n \n     locals = PyDict_New();              if (!locals) goto bad;\n     if (__Pyx_import_all_from(locals, m) < 0) goto bad;\n     list = PyDict_Items(locals);        if (!list) goto bad;\n \n-    for(i=0; i<PyList_GET_SIZE(list); i++) {\n-        name = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 0);\n-        item = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 1);\n+    for(i=0; i<PyList_Size(list); i++) {\n+        import_obj = __Pyx_PyList_GET_ITEM(list, i); if (!import_obj) goto bad;\n+        name = __Pyx_PyTuple_GET_ITEM(import_obj, 0); if (!name) goto bad;\n+        item = __Pyx_PyTuple_GET_ITEM(import_obj, 1); if (!item) goto bad;\n+\n         utf8_name = PyUnicode_AsUTF8String(name);\n         if (!utf8_name) goto bad;\n-        s = PyBytes_AS_STRING(utf8_name);\n+        s = __Pyx_PyBytes_AsWritableString(utf8_name); if (!s) goto bad;",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1538371342",
@@ -2442,7 +2442,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Ah great thanks for the fix.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-25T23:44:33Z",
             "diff_hunk": "@@ -11513,6 +11533,7 @@ def dispose(temp):\n \n         dispose(shapes_temp)\n         dispose(format_temp)\n+        dispose(format_ptr_temp)",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1538372248",
@@ -2511,7 +2511,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n\t    if (__Pyx_PyTuple_SET_ITEM(list, i, string) < 0) goto __pyx_err;\r\n```",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-26T20:02:34Z",
             "diff_hunk": "@@ -1440,7 +1440,7 @@ __pyx_FusedFunction_getitem(__pyx_FusedFunctionObject *self, PyObject *idx)\n             Py_DECREF(item);\n #endif\n             if (unlikely(!string)) goto __pyx_err;\n-            PyList_SET_ITEM(list, i, string);\n+\t    if (__Pyx_PyList_SET_ITEM(list, i, string) < 0) goto __pyx_err;",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1540024150",
@@ -2579,7 +2579,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n        if (__Pyx_PyTuple_SET_ITEM(new_args, 0, self) < 0) goto bad;\r\n```",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-26T20:02:49Z",
             "diff_hunk": "@@ -1520,7 +1520,7 @@ __pyx_FusedFunction_call(PyObject *func, PyObject *args, PyObject *kw)\n         self = binding_func->self;\n \n         Py_INCREF(self);\n-        PyTuple_SET_ITEM(new_args, 0, self);\n+        if (__Pyx_PyList_SET_ITEM(new_args, 0, self) < 0) goto bad;",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1540024402",
@@ -2647,7 +2647,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n        if (__Pyx_PyTuple_SET_ITEM(new_args, i + 1, item) < 0) goto bad;\r\n```",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-26T20:03:01Z",
             "diff_hunk": "@@ -1530,7 +1530,7 @@ __pyx_FusedFunction_call(PyObject *func, PyObject *args, PyObject *kw)\n #else\n             PyObject *item = __Pyx_PySequence_ITEM(args, i);  if (unlikely(!item)) goto bad;\n #endif\n-            PyTuple_SET_ITEM(new_args, i + 1, item);\n+        if (__Pyx_PyList_SET_ITEM(new_args, i + 1, item) < 0) goto bad;",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1540024609",
@@ -2715,7 +2715,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "This one looks correct, I think.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-26T21:12:03Z",
             "diff_hunk": "@@ -1440,7 +1440,7 @@ __pyx_FusedFunction_getitem(__pyx_FusedFunctionObject *self, PyObject *idx)\n             Py_DECREF(item);\n #endif\n             if (unlikely(!string)) goto __pyx_err;\n-            PyList_SET_ITEM(list, i, string);\n+\t    if (__Pyx_PyList_SET_ITEM(list, i, string) < 0) goto __pyx_err;",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1540118655",
@@ -2784,7 +2784,7 @@
             },
             "author_association": "MEMBER",
             "body": "Sorry yes that one is.",
-            "commit_id": "3486154a49db0e7ee5a5623147098d6412c11ece",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
             "created_at": "2024-03-26T21:13:11Z",
             "diff_hunk": "@@ -1440,7 +1440,7 @@ __pyx_FusedFunction_getitem(__pyx_FusedFunctionObject *self, PyObject *idx)\n             Py_DECREF(item);\n #endif\n             if (unlikely(!string)) goto __pyx_err;\n-            PyList_SET_ITEM(list, i, string);\n+\t    if (__Pyx_PyList_SET_ITEM(list, i, string) < 0) goto __pyx_err;",
             "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1540119713",
@@ -2838,6 +2838,74 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6061#discussion_r1542039657"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6061"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1542039657"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "`__Pyx_PyList_GET_SIZE` makes this selection at compile-time. In principle it can also fail so if probably wants a check `#if !CYTHON_ASSUME_SAFE_SIZE`.\r\n\r\nIt's a bit debatable how much we really have to have a check given the only real failure is \"not a list\" and `PyDict_Items` is specified as returning a list. I can't quite remember what we decided on unfortunately.",
+            "commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
+            "created_at": "2024-03-27T21:00:33Z",
+            "diff_hunk": "@@ -329,17 +330,20 @@ static int ${import_star}(PyObject* m) {\n     PyObject *utf8_name = 0;\n     PyObject *name;\n     PyObject *item;\n+    PyObject *import_obj;\n \n     locals = PyDict_New();              if (!locals) goto bad;\n     if (__Pyx_import_all_from(locals, m) < 0) goto bad;\n     list = PyDict_Items(locals);        if (!list) goto bad;\n \n-    for(i=0; i<PyList_GET_SIZE(list); i++) {\n-        name = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 0);\n-        item = PyTuple_GET_ITEM(PyList_GET_ITEM(list, i), 1);\n+    for(i=0; i<PyList_Size(list); i++) {",
+            "html_url": "https://github.com/cython/cython/pull/6061#discussion_r1542039657",
+            "id": 1542039657,
+            "line": 339,
+            "node_id": "PRRC_kwDOABDGAc5b6ahp",
+            "original_commit_id": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
+            "original_line": 339,
+            "original_position": 21,
+            "original_start_line": null,
+            "path": "Cython/Utility/ImportExport.c",
+            "position": 21,
+            "pull_request_review_id": 1964761639,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6061",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1542039657/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2024-03-27T21:00:33Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1542039657",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
         }
     ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/6061/comments",
@@ -2863,7 +2931,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/c710b666e43421afe1e63e8b44047da1fa041ab5/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/53ec52ff59ea849ea07ec8a98e75fff98aee8de0/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-06T02:02:32Z",
@@ -2872,20 +2940,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Add limited API support to various C files",
                 "tree": {
-                    "sha": "ff1b49036b99d319989d9ab5341fb31aedad0645",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/ff1b49036b99d319989d9ab5341fb31aedad0645"
+                    "sha": "b569f4ada69b4a84539cf598ddea8c629a9e41c3",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/b569f4ada69b4a84539cf598ddea8c629a9e41c3"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/c710b666e43421afe1e63e8b44047da1fa041ab5",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/53ec52ff59ea849ea07ec8a98e75fff98aee8de0",
                 "verification": {
-                    "payload": "tree ff1b49036b99d319989d9ab5341fb31aedad0645\nparent 0a9df4da1df1089b7f4411e8a85e93a3612ba04a\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1709690552 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nAdd limited API support to various C files\n",
+                    "payload": "tree b569f4ada69b4a84539cf598ddea8c629a9e41c3\nparent 07553a5b7966cf446ddd68e6e06a0bf3eb38517c\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1709690552 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nAdd limited API support to various C files\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQAXfmpAirrpXNKEo4EVxE/O11X2srMEGZv0dRedlHlxEH9ZyDr+7W+LHt12bLZ3R/n\nQOcftAxrmnYhJipQYddQw=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQE7+rkKCO1QgFlKVFN9YWAyKCqDeLWl5q/CZYLYooyA9ZNGI4Lx9lBJWM9PCzdQ7xf\n+ZNxyYVjPDeBc9VKW4PQA=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -2909,17 +2977,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/c710b666e43421afe1e63e8b44047da1fa041ab5",
-            "node_id": "C_kwDOJN8Rp9oAKGM3MTBiNjY2ZTQzNDIxYWZlMWU2M2U4YjQ0MDQ3ZGExZmEwNDFhYjU",
+            "html_url": "https://github.com/cython/cython/commit/53ec52ff59ea849ea07ec8a98e75fff98aee8de0",
+            "node_id": "C_kwDOJN8Rp9oAKDUzZWM1MmZmNTllYTg0OWVhMDdlYzhhOThlNzVmZmY5OGFlZThkZTA",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/0a9df4da1df1089b7f4411e8a85e93a3612ba04a",
-                    "sha": "0a9df4da1df1089b7f4411e8a85e93a3612ba04a",
-                    "url": "https://api.github.com/repos/cython/cython/commits/0a9df4da1df1089b7f4411e8a85e93a3612ba04a"
+                    "html_url": "https://github.com/cython/cython/commit/07553a5b7966cf446ddd68e6e06a0bf3eb38517c",
+                    "sha": "07553a5b7966cf446ddd68e6e06a0bf3eb38517c",
+                    "url": "https://api.github.com/repos/cython/cython/commits/07553a5b7966cf446ddd68e6e06a0bf3eb38517c"
                 }
             ],
-            "sha": "c710b666e43421afe1e63e8b44047da1fa041ab5",
-            "url": "https://api.github.com/repos/cython/cython/commits/c710b666e43421afe1e63e8b44047da1fa041ab5"
+            "sha": "53ec52ff59ea849ea07ec8a98e75fff98aee8de0",
+            "url": "https://api.github.com/repos/cython/cython/commits/53ec52ff59ea849ea07ec8a98e75fff98aee8de0"
         },
         {
             "author": {
@@ -2942,7 +3010,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/219bdffd24989704fc5ab333f92e570db025d0e4/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/e9d5b3f0f3e6de7b821aa2bbdd622d2ea46d259a/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-06T02:02:46Z",
@@ -2951,20 +3019,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Add limited API support to ExprNodes.py",
                 "tree": {
-                    "sha": "b617ca16d436012b7f248820cfd6141335cb30c2",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/b617ca16d436012b7f248820cfd6141335cb30c2"
+                    "sha": "a7854720301916691e8f8b9ac64624b87fee6f88",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a7854720301916691e8f8b9ac64624b87fee6f88"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/219bdffd24989704fc5ab333f92e570db025d0e4",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/e9d5b3f0f3e6de7b821aa2bbdd622d2ea46d259a",
                 "verification": {
-                    "payload": "tree b617ca16d436012b7f248820cfd6141335cb30c2\nparent c710b666e43421afe1e63e8b44047da1fa041ab5\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1709690566 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nAdd limited API support to ExprNodes.py\n",
+                    "payload": "tree a7854720301916691e8f8b9ac64624b87fee6f88\nparent 53ec52ff59ea849ea07ec8a98e75fff98aee8de0\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1709690566 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nAdd limited API support to ExprNodes.py\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQPOIhzkRkjbV+KqrZqC4qwc1xE6/mP31JWTaUaFvL4MEoKIks07hxBjvWUzvJpjwLB\nwDXpTBBX/DpoIcxZ8hswE=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQJK8qI9ahJQcPo6OskJzYv9lYao/8giEpkgVHSV99/aj6MtcdQQ1UyWtkk6Y3tvMSb\nkGHfRrMN588bkLW5gjGQ0=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -2988,17 +3056,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/219bdffd24989704fc5ab333f92e570db025d0e4",
-            "node_id": "C_kwDOJN8Rp9oAKDIxOWJkZmZkMjQ5ODk3MDRmYzVhYjMzM2Y5MmU1NzBkYjAyNWQwZTQ",
+            "html_url": "https://github.com/cython/cython/commit/e9d5b3f0f3e6de7b821aa2bbdd622d2ea46d259a",
+            "node_id": "C_kwDOJN8Rp9oAKGU5ZDViM2YwZjNlNmRlN2I4MjFhYTJiYmRkNjIyZDJlYTQ2ZDI1OWE",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/c710b666e43421afe1e63e8b44047da1fa041ab5",
-                    "sha": "c710b666e43421afe1e63e8b44047da1fa041ab5",
-                    "url": "https://api.github.com/repos/cython/cython/commits/c710b666e43421afe1e63e8b44047da1fa041ab5"
+                    "html_url": "https://github.com/cython/cython/commit/53ec52ff59ea849ea07ec8a98e75fff98aee8de0",
+                    "sha": "53ec52ff59ea849ea07ec8a98e75fff98aee8de0",
+                    "url": "https://api.github.com/repos/cython/cython/commits/53ec52ff59ea849ea07ec8a98e75fff98aee8de0"
                 }
             ],
-            "sha": "219bdffd24989704fc5ab333f92e570db025d0e4",
-            "url": "https://api.github.com/repos/cython/cython/commits/219bdffd24989704fc5ab333f92e570db025d0e4"
+            "sha": "e9d5b3f0f3e6de7b821aa2bbdd622d2ea46d259a",
+            "url": "https://api.github.com/repos/cython/cython/commits/e9d5b3f0f3e6de7b821aa2bbdd622d2ea46d259a"
         },
         {
             "author": {
@@ -3021,7 +3089,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/103d3eb417cdee8ae2bcf099e5ab79799467e5d8/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/f8bbc413a2819eb35809db5f796bc40cb49e9c2d/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-05T05:37:13Z",
@@ -3030,20 +3098,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Fix Cython conversion functions",
                 "tree": {
-                    "sha": "9254a55071e919ea13de6f4b31cf381964ff6cc1",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/9254a55071e919ea13de6f4b31cf381964ff6cc1"
+                    "sha": "814b0435d7c7800033180e3cbe8dc7101efcd77f",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/814b0435d7c7800033180e3cbe8dc7101efcd77f"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/103d3eb417cdee8ae2bcf099e5ab79799467e5d8",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/f8bbc413a2819eb35809db5f796bc40cb49e9c2d",
                 "verification": {
-                    "payload": "tree 9254a55071e919ea13de6f4b31cf381964ff6cc1\nparent 219bdffd24989704fc5ab333f92e570db025d0e4\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1709617033 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nFix Cython conversion functions\n",
+                    "payload": "tree 814b0435d7c7800033180e3cbe8dc7101efcd77f\nparent e9d5b3f0f3e6de7b821aa2bbdd622d2ea46d259a\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1709617033 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nFix Cython conversion functions\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQLyg0sTXzId6eKjicDHm4ZUyKqLh+k5AR2FZVxGw7PaRb4hg+sUwRWv+ngCI2CsMP8\nQLXys02924W6KXIYY4hws=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQEd1BXQDe2ZckHSs/hOaZjZn08hqLBempgwfNyV/RrEC3eq5PykE7sM9NasCxiFEtM\nAJxtLkod3HbKxkZm59DQ0=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3067,17 +3135,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/103d3eb417cdee8ae2bcf099e5ab79799467e5d8",
-            "node_id": "C_kwDOJN8Rp9oAKDEwM2QzZWI0MTdjZGVlOGFlMmJjZjA5OWU1YWI3OTc5OTQ2N2U1ZDg",
+            "html_url": "https://github.com/cython/cython/commit/f8bbc413a2819eb35809db5f796bc40cb49e9c2d",
+            "node_id": "C_kwDOJN8Rp9oAKGY4YmJjNDEzYTI4MTllYjM1ODA5ZGI1Zjc5NmJjNDBjYjQ5ZTljMmQ",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/219bdffd24989704fc5ab333f92e570db025d0e4",
-                    "sha": "219bdffd24989704fc5ab333f92e570db025d0e4",
-                    "url": "https://api.github.com/repos/cython/cython/commits/219bdffd24989704fc5ab333f92e570db025d0e4"
+                    "html_url": "https://github.com/cython/cython/commit/e9d5b3f0f3e6de7b821aa2bbdd622d2ea46d259a",
+                    "sha": "e9d5b3f0f3e6de7b821aa2bbdd622d2ea46d259a",
+                    "url": "https://api.github.com/repos/cython/cython/commits/e9d5b3f0f3e6de7b821aa2bbdd622d2ea46d259a"
                 }
             ],
-            "sha": "103d3eb417cdee8ae2bcf099e5ab79799467e5d8",
-            "url": "https://api.github.com/repos/cython/cython/commits/103d3eb417cdee8ae2bcf099e5ab79799467e5d8"
+            "sha": "f8bbc413a2819eb35809db5f796bc40cb49e9c2d",
+            "url": "https://api.github.com/repos/cython/cython/commits/f8bbc413a2819eb35809db5f796bc40cb49e9c2d"
         },
         {
             "author": {
@@ -3100,7 +3168,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/b9ce57d8945976a111c2804113fbe70122b09097/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/6f39bad9196735dae225e45b2b833b80689b505d/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-05T06:00:11Z",
@@ -3109,20 +3177,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Some improvements to CythonFunction",
                 "tree": {
-                    "sha": "c3f7c8f44455700c20fcadea39121b7ad168af51",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/c3f7c8f44455700c20fcadea39121b7ad168af51"
+                    "sha": "84c423609f775ba3250a8ebe56066f14f8523471",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/84c423609f775ba3250a8ebe56066f14f8523471"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/b9ce57d8945976a111c2804113fbe70122b09097",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/6f39bad9196735dae225e45b2b833b80689b505d",
                 "verification": {
-                    "payload": "tree c3f7c8f44455700c20fcadea39121b7ad168af51\nparent 103d3eb417cdee8ae2bcf099e5ab79799467e5d8\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1709618411 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nSome improvements to CythonFunction\n",
+                    "payload": "tree 84c423609f775ba3250a8ebe56066f14f8523471\nparent f8bbc413a2819eb35809db5f796bc40cb49e9c2d\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1709618411 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nSome improvements to CythonFunction\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQCYgk/q1DQvPitTGCbEruxko6mCjx7DXIFCu7sppeEPbQAGlyO4WrJpt2kVuPmGEDj\n8Yv0qR2KZy2k4mRSzD7Ak=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQF3NFqUzDMK4rLv9fTR9F7/6yc7e1Acq+xJhelvphsdQZ3/dJL0YR4omJ7kOX3ShBp\nRojesP12C3V7am6/lzfwc=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3146,17 +3214,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/b9ce57d8945976a111c2804113fbe70122b09097",
-            "node_id": "C_kwDOJN8Rp9oAKGI5Y2U1N2Q4OTQ1OTc2YTExMWMyODA0MTEzZmJlNzAxMjJiMDkwOTc",
+            "html_url": "https://github.com/cython/cython/commit/6f39bad9196735dae225e45b2b833b80689b505d",
+            "node_id": "C_kwDOJN8Rp9oAKDZmMzliYWQ5MTk2NzM1ZGFlMjI1ZTQ1YjJiODMzYjgwNjg5YjUwNWQ",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/103d3eb417cdee8ae2bcf099e5ab79799467e5d8",
-                    "sha": "103d3eb417cdee8ae2bcf099e5ab79799467e5d8",
-                    "url": "https://api.github.com/repos/cython/cython/commits/103d3eb417cdee8ae2bcf099e5ab79799467e5d8"
+                    "html_url": "https://github.com/cython/cython/commit/f8bbc413a2819eb35809db5f796bc40cb49e9c2d",
+                    "sha": "f8bbc413a2819eb35809db5f796bc40cb49e9c2d",
+                    "url": "https://api.github.com/repos/cython/cython/commits/f8bbc413a2819eb35809db5f796bc40cb49e9c2d"
                 }
             ],
-            "sha": "b9ce57d8945976a111c2804113fbe70122b09097",
-            "url": "https://api.github.com/repos/cython/cython/commits/b9ce57d8945976a111c2804113fbe70122b09097"
+            "sha": "6f39bad9196735dae225e45b2b833b80689b505d",
+            "url": "https://api.github.com/repos/cython/cython/commits/6f39bad9196735dae225e45b2b833b80689b505d"
         },
         {
             "author": {
@@ -3179,7 +3247,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/dbfedb3de5957f43b680347b3376335436c3c5e2/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/9da1b3730428a2a37f4f4b18b9a92674937940b1/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-11T01:09:27Z",
@@ -3188,20 +3256,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Remove redundant macro settings",
                 "tree": {
-                    "sha": "f40988ea64d7de5327452bf820c961fd5f704345",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/f40988ea64d7de5327452bf820c961fd5f704345"
+                    "sha": "964e8c32a183eeda6da48e0682bb5eed228392db",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/964e8c32a183eeda6da48e0682bb5eed228392db"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/dbfedb3de5957f43b680347b3376335436c3c5e2",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/9da1b3730428a2a37f4f4b18b9a92674937940b1",
                 "verification": {
-                    "payload": "tree f40988ea64d7de5327452bf820c961fd5f704345\nparent b9ce57d8945976a111c2804113fbe70122b09097\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710119367 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nRemove redundant macro settings\n",
+                    "payload": "tree 964e8c32a183eeda6da48e0682bb5eed228392db\nparent 6f39bad9196735dae225e45b2b833b80689b505d\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710119367 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nRemove redundant macro settings\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQEmOR4qkOrTQ3P7YDiZXiTXdtFZGCsDysfyq6kZOPerK0WjaU6fqkmrhALixayKmzR\n8lbNe1ZtvVSL/EpDyxRQc=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQFwBCNVvfT+rzMTByEUtCXQvMFbHAYi37q0/1AMn2FZAx2ubkh8sTHJ4MKb6VM49en\ny12a3TYfZ3lTN6diMXBQg=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3225,17 +3293,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/dbfedb3de5957f43b680347b3376335436c3c5e2",
-            "node_id": "C_kwDOJN8Rp9oAKGRiZmVkYjNkZTU5NTdmNDNiNjgwMzQ3YjMzNzYzMzU0MzZjM2M1ZTI",
+            "html_url": "https://github.com/cython/cython/commit/9da1b3730428a2a37f4f4b18b9a92674937940b1",
+            "node_id": "C_kwDOJN8Rp9oAKDlkYTFiMzczMDQyOGEyYTM3ZjRmNGIxOGI5YTkyNjc0OTM3OTQwYjE",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/b9ce57d8945976a111c2804113fbe70122b09097",
-                    "sha": "b9ce57d8945976a111c2804113fbe70122b09097",
-                    "url": "https://api.github.com/repos/cython/cython/commits/b9ce57d8945976a111c2804113fbe70122b09097"
+                    "html_url": "https://github.com/cython/cython/commit/6f39bad9196735dae225e45b2b833b80689b505d",
+                    "sha": "6f39bad9196735dae225e45b2b833b80689b505d",
+                    "url": "https://api.github.com/repos/cython/cython/commits/6f39bad9196735dae225e45b2b833b80689b505d"
                 }
             ],
-            "sha": "dbfedb3de5957f43b680347b3376335436c3c5e2",
-            "url": "https://api.github.com/repos/cython/cython/commits/dbfedb3de5957f43b680347b3376335436c3c5e2"
+            "sha": "9da1b3730428a2a37f4f4b18b9a92674937940b1",
+            "url": "https://api.github.com/repos/cython/cython/commits/9da1b3730428a2a37f4f4b18b9a92674937940b1"
         },
         {
             "author": {
@@ -3258,7 +3326,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/3d49a1a65858ba1d20c41d7038bb9a233f35e7d4/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/706f819da41dad2cafb772091255ee054fdba25d/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-11T02:11:51Z",
@@ -3267,20 +3335,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Remove incref/decref changes",
                 "tree": {
-                    "sha": "49457630e4584b97c2808e03287ff02b1cb20447",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/49457630e4584b97c2808e03287ff02b1cb20447"
+                    "sha": "54245e62a1ecbac3b822170bebdfc084d62952a7",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/54245e62a1ecbac3b822170bebdfc084d62952a7"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/3d49a1a65858ba1d20c41d7038bb9a233f35e7d4",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/706f819da41dad2cafb772091255ee054fdba25d",
                 "verification": {
-                    "payload": "tree 49457630e4584b97c2808e03287ff02b1cb20447\nparent dbfedb3de5957f43b680347b3376335436c3c5e2\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710123111 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nRemove incref/decref changes\n",
+                    "payload": "tree 54245e62a1ecbac3b822170bebdfc084d62952a7\nparent 9da1b3730428a2a37f4f4b18b9a92674937940b1\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710123111 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nRemove incref/decref changes\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQLRz7pv+ruLA1Q6Qj3S6r+y7rQdXM31DIzJY+0u26RhcfvtAk78JZycpeoiXIlxLMN\n2FRs5LtvUrUeQavLsptQk=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQMSEOJwDf1gmAEKAbLVx3+zSOAAsjv2+mGf+V4BjJkN2hvKsYhs2WtlNwAhSZHHAAp\nYD8TuHuf65m9g8sTac9Ag=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3304,17 +3372,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/3d49a1a65858ba1d20c41d7038bb9a233f35e7d4",
-            "node_id": "C_kwDOJN8Rp9oAKDNkNDlhMWE2NTg1OGJhMWQyMGM0MWQ3MDM4YmI5YTIzM2YzNWU3ZDQ",
+            "html_url": "https://github.com/cython/cython/commit/706f819da41dad2cafb772091255ee054fdba25d",
+            "node_id": "C_kwDOJN8Rp9oAKDcwNmY4MTlkYTQxZGFkMmNhZmI3NzIwOTEyNTVlZTA1NGZkYmEyNWQ",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/dbfedb3de5957f43b680347b3376335436c3c5e2",
-                    "sha": "dbfedb3de5957f43b680347b3376335436c3c5e2",
-                    "url": "https://api.github.com/repos/cython/cython/commits/dbfedb3de5957f43b680347b3376335436c3c5e2"
+                    "html_url": "https://github.com/cython/cython/commit/9da1b3730428a2a37f4f4b18b9a92674937940b1",
+                    "sha": "9da1b3730428a2a37f4f4b18b9a92674937940b1",
+                    "url": "https://api.github.com/repos/cython/cython/commits/9da1b3730428a2a37f4f4b18b9a92674937940b1"
                 }
             ],
-            "sha": "3d49a1a65858ba1d20c41d7038bb9a233f35e7d4",
-            "url": "https://api.github.com/repos/cython/cython/commits/3d49a1a65858ba1d20c41d7038bb9a233f35e7d4"
+            "sha": "706f819da41dad2cafb772091255ee054fdba25d",
+            "url": "https://api.github.com/repos/cython/cython/commits/706f819da41dad2cafb772091255ee054fdba25d"
         },
         {
             "author": {
@@ -3337,7 +3405,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/31bb204b4a4de922c955ee22271f5309420b2bb4/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/ec5a80b084cdd96d7d9eef9f8e3a715a7696ae55/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-11T02:26:34Z",
@@ -3346,20 +3414,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Remove an unnecessary change",
                 "tree": {
-                    "sha": "ca7e92506302abb24faa5d7bff482fb68e2bf6ae",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/ca7e92506302abb24faa5d7bff482fb68e2bf6ae"
+                    "sha": "357ff53982994161d9a0ca62bd3993d6ffa8933f",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/357ff53982994161d9a0ca62bd3993d6ffa8933f"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/31bb204b4a4de922c955ee22271f5309420b2bb4",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/ec5a80b084cdd96d7d9eef9f8e3a715a7696ae55",
                 "verification": {
-                    "payload": "tree ca7e92506302abb24faa5d7bff482fb68e2bf6ae\nparent 3d49a1a65858ba1d20c41d7038bb9a233f35e7d4\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710123994 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nRemove an unnecessary change\n",
+                    "payload": "tree 357ff53982994161d9a0ca62bd3993d6ffa8933f\nparent 706f819da41dad2cafb772091255ee054fdba25d\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710123994 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nRemove an unnecessary change\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQDZ5SSZhcwOgkyTx4MML7s93/TosBk26KyvsMZPNQFFZxIqmtP8V/W+PFe8X+cZXbf\njacIyGZeNNpJrRpW6Blg4=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQMstnYsIZmxCGdULOeZMDQ4rpEtD83ynX9FSR9F8qugDU4z+8o6CEJX9qloZemBo+V\ntJRAHuWiaFl9DOcZ1NeQg=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3383,17 +3451,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/31bb204b4a4de922c955ee22271f5309420b2bb4",
-            "node_id": "C_kwDOJN8Rp9oAKDMxYmIyMDRiNGE0ZGU5MjJjOTU1ZWUyMjI3MWY1MzA5NDIwYjJiYjQ",
+            "html_url": "https://github.com/cython/cython/commit/ec5a80b084cdd96d7d9eef9f8e3a715a7696ae55",
+            "node_id": "C_kwDOJN8Rp9oAKGVjNWE4MGIwODRjZGQ5NmQ3ZDllZWY5ZjhlM2E3MTVhNzY5NmFlNTU",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/3d49a1a65858ba1d20c41d7038bb9a233f35e7d4",
-                    "sha": "3d49a1a65858ba1d20c41d7038bb9a233f35e7d4",
-                    "url": "https://api.github.com/repos/cython/cython/commits/3d49a1a65858ba1d20c41d7038bb9a233f35e7d4"
+                    "html_url": "https://github.com/cython/cython/commit/706f819da41dad2cafb772091255ee054fdba25d",
+                    "sha": "706f819da41dad2cafb772091255ee054fdba25d",
+                    "url": "https://api.github.com/repos/cython/cython/commits/706f819da41dad2cafb772091255ee054fdba25d"
                 }
             ],
-            "sha": "31bb204b4a4de922c955ee22271f5309420b2bb4",
-            "url": "https://api.github.com/repos/cython/cython/commits/31bb204b4a4de922c955ee22271f5309420b2bb4"
+            "sha": "ec5a80b084cdd96d7d9eef9f8e3a715a7696ae55",
+            "url": "https://api.github.com/repos/cython/cython/commits/ec5a80b084cdd96d7d9eef9f8e3a715a7696ae55"
         },
         {
             "author": {
@@ -3416,7 +3484,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/16ee6b5b20ca8e0942a59ef25ef507a3a724576a/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/bfa709529248bd8308d5f2800a78777cbb1f1230/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-11T02:40:02Z",
@@ -3425,20 +3493,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Update pylist calls in CythonFunction",
                 "tree": {
-                    "sha": "125961b387bb3810f929b090ad7f4765cb449010",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/125961b387bb3810f929b090ad7f4765cb449010"
+                    "sha": "bcc976a48f836ef589a9b333669ad84638c547a3",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/bcc976a48f836ef589a9b333669ad84638c547a3"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/16ee6b5b20ca8e0942a59ef25ef507a3a724576a",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/bfa709529248bd8308d5f2800a78777cbb1f1230",
                 "verification": {
-                    "payload": "tree 125961b387bb3810f929b090ad7f4765cb449010\nparent 31bb204b4a4de922c955ee22271f5309420b2bb4\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710124802 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nUpdate pylist calls in CythonFunction\n",
+                    "payload": "tree bcc976a48f836ef589a9b333669ad84638c547a3\nparent ec5a80b084cdd96d7d9eef9f8e3a715a7696ae55\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710124802 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nUpdate pylist calls in CythonFunction\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQNoaZRjRxAkwIrqeObheG3tNLFgu6L40gEm7XkG7WOQzO/+Zn8LhUkJXMiU3t7Ag4j\n0MTz3uytIcKBgVkMAAFg8=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQKeuj9egM7E6G+gCDRkgtBzXfLLcpL66uh5pQkKggcsYlG7hoeGbX86F3MB463IM5G\nYf6Q8jOsAHTE8i/fVI7Q8=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3462,17 +3530,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/16ee6b5b20ca8e0942a59ef25ef507a3a724576a",
-            "node_id": "C_kwDOJN8Rp9oAKDE2ZWU2YjViMjBjYThlMDk0MmE1OWVmMjVlZjUwN2EzYTcyNDU3NmE",
+            "html_url": "https://github.com/cython/cython/commit/bfa709529248bd8308d5f2800a78777cbb1f1230",
+            "node_id": "C_kwDOJN8Rp9oAKGJmYTcwOTUyOTI0OGJkODMwOGQ1ZjI4MDBhNzg3NzdjYmIxZjEyMzA",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/31bb204b4a4de922c955ee22271f5309420b2bb4",
-                    "sha": "31bb204b4a4de922c955ee22271f5309420b2bb4",
-                    "url": "https://api.github.com/repos/cython/cython/commits/31bb204b4a4de922c955ee22271f5309420b2bb4"
+                    "html_url": "https://github.com/cython/cython/commit/ec5a80b084cdd96d7d9eef9f8e3a715a7696ae55",
+                    "sha": "ec5a80b084cdd96d7d9eef9f8e3a715a7696ae55",
+                    "url": "https://api.github.com/repos/cython/cython/commits/ec5a80b084cdd96d7d9eef9f8e3a715a7696ae55"
                 }
             ],
-            "sha": "16ee6b5b20ca8e0942a59ef25ef507a3a724576a",
-            "url": "https://api.github.com/repos/cython/cython/commits/16ee6b5b20ca8e0942a59ef25ef507a3a724576a"
+            "sha": "bfa709529248bd8308d5f2800a78777cbb1f1230",
+            "url": "https://api.github.com/repos/cython/cython/commits/bfa709529248bd8308d5f2800a78777cbb1f1230"
         },
         {
             "author": {
@@ -3495,7 +3563,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/9ce2994244ead557cb5b9cdcc2fb8610628448df/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/a828c300ad7836422616e9fdd4fcc1e1e5246913/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-11T02:47:31Z",
@@ -3504,20 +3572,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Change setitem calls in cppconvert",
                 "tree": {
-                    "sha": "8dc803ae6105431634998910bc38d82dced5c7bb",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/8dc803ae6105431634998910bc38d82dced5c7bb"
+                    "sha": "ac3cc6c35bde746722c7bfdf6ecf893bbf6b2ff8",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/ac3cc6c35bde746722c7bfdf6ecf893bbf6b2ff8"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/9ce2994244ead557cb5b9cdcc2fb8610628448df",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/a828c300ad7836422616e9fdd4fcc1e1e5246913",
                 "verification": {
-                    "payload": "tree 8dc803ae6105431634998910bc38d82dced5c7bb\nparent 16ee6b5b20ca8e0942a59ef25ef507a3a724576a\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710125251 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nChange setitem calls in cppconvert\n",
+                    "payload": "tree ac3cc6c35bde746722c7bfdf6ecf893bbf6b2ff8\nparent bfa709529248bd8308d5f2800a78777cbb1f1230\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710125251 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nChange setitem calls in cppconvert\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQEt5YKl7dyK2HofJeIilTKabn3QtBJVICyMevGUAfYcOw9h506/vRRRt6ENGVU/gOC\nbp65NwFw6frjYVCNKaJQs=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQHciI8nx4QWB16KAqMZW3buS20pEOhN524pJj9fEVgErydJSC/YKqypNq8EuI6D7hI\nsNY80g5UfxgFlyAilargg=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3541,17 +3609,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/9ce2994244ead557cb5b9cdcc2fb8610628448df",
-            "node_id": "C_kwDOJN8Rp9oAKDljZTI5OTQyNDRlYWQ1NTdjYjViOWNkY2MyZmI4NjEwNjI4NDQ4ZGY",
+            "html_url": "https://github.com/cython/cython/commit/a828c300ad7836422616e9fdd4fcc1e1e5246913",
+            "node_id": "C_kwDOJN8Rp9oAKGE4MjhjMzAwYWQ3ODM2NDIyNjE2ZTlmZGQ0ZmNjMWUxZTUyNDY5MTM",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/16ee6b5b20ca8e0942a59ef25ef507a3a724576a",
-                    "sha": "16ee6b5b20ca8e0942a59ef25ef507a3a724576a",
-                    "url": "https://api.github.com/repos/cython/cython/commits/16ee6b5b20ca8e0942a59ef25ef507a3a724576a"
+                    "html_url": "https://github.com/cython/cython/commit/bfa709529248bd8308d5f2800a78777cbb1f1230",
+                    "sha": "bfa709529248bd8308d5f2800a78777cbb1f1230",
+                    "url": "https://api.github.com/repos/cython/cython/commits/bfa709529248bd8308d5f2800a78777cbb1f1230"
                 }
             ],
-            "sha": "9ce2994244ead557cb5b9cdcc2fb8610628448df",
-            "url": "https://api.github.com/repos/cython/cython/commits/9ce2994244ead557cb5b9cdcc2fb8610628448df"
+            "sha": "a828c300ad7836422616e9fdd4fcc1e1e5246913",
+            "url": "https://api.github.com/repos/cython/cython/commits/a828c300ad7836422616e9fdd4fcc1e1e5246913"
         },
         {
             "author": {
@@ -3574,7 +3642,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/ca70850a52bd3c8d547e61761cd56277579e5317/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/b1dba81e705330f620e1274d67eac7d4ecca4d69/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-11T02:58:28Z",
@@ -3583,20 +3651,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Add error checking in ImportExport.c",
                 "tree": {
-                    "sha": "1b4af1941aa8a0568ba123825833066716ff9b4d",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/1b4af1941aa8a0568ba123825833066716ff9b4d"
+                    "sha": "37c757d75c64e21abac3b03ca434d2bcd58b8b0c",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/37c757d75c64e21abac3b03ca434d2bcd58b8b0c"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/ca70850a52bd3c8d547e61761cd56277579e5317",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/b1dba81e705330f620e1274d67eac7d4ecca4d69",
                 "verification": {
-                    "payload": "tree 1b4af1941aa8a0568ba123825833066716ff9b4d\nparent 9ce2994244ead557cb5b9cdcc2fb8610628448df\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710125908 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nAdd error checking in ImportExport.c\n",
+                    "payload": "tree 37c757d75c64e21abac3b03ca434d2bcd58b8b0c\nparent a828c300ad7836422616e9fdd4fcc1e1e5246913\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710125908 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nAdd error checking in ImportExport.c\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQD/UQtZYP1IIyQe4NJy7qDImmtQUy/R7hxtmywOjEKgxbOFgTxVDsm0ZTCOZDlm+D5\nDRd9UjD3JpMPIYeCsxEwg=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQC9Sc53XoLK6xPDtSixKU1o1T7lIaweaaZpUPuE1zaXH7e8V64/5CtriiIT6IzMXBj\nDIriwOut6fLWt/wsXh1Aw=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3620,17 +3688,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/ca70850a52bd3c8d547e61761cd56277579e5317",
-            "node_id": "C_kwDOJN8Rp9oAKGNhNzA4NTBhNTJiZDNjOGQ1NDdlNjE3NjFjZDU2Mjc3NTc5ZTUzMTc",
+            "html_url": "https://github.com/cython/cython/commit/b1dba81e705330f620e1274d67eac7d4ecca4d69",
+            "node_id": "C_kwDOJN8Rp9oAKGIxZGJhODFlNzA1MzMwZjYyMGUxMjc0ZDY3ZWFjN2Q0ZWNjYTRkNjk",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/9ce2994244ead557cb5b9cdcc2fb8610628448df",
-                    "sha": "9ce2994244ead557cb5b9cdcc2fb8610628448df",
-                    "url": "https://api.github.com/repos/cython/cython/commits/9ce2994244ead557cb5b9cdcc2fb8610628448df"
+                    "html_url": "https://github.com/cython/cython/commit/a828c300ad7836422616e9fdd4fcc1e1e5246913",
+                    "sha": "a828c300ad7836422616e9fdd4fcc1e1e5246913",
+                    "url": "https://api.github.com/repos/cython/cython/commits/a828c300ad7836422616e9fdd4fcc1e1e5246913"
                 }
             ],
-            "sha": "ca70850a52bd3c8d547e61761cd56277579e5317",
-            "url": "https://api.github.com/repos/cython/cython/commits/ca70850a52bd3c8d547e61761cd56277579e5317"
+            "sha": "b1dba81e705330f620e1274d67eac7d4ecca4d69",
+            "url": "https://api.github.com/repos/cython/cython/commits/b1dba81e705330f620e1274d67eac7d4ecca4d69"
         },
         {
             "author": {
@@ -3653,7 +3721,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/03016fce335d82025060b73bdc6cd4c0d5159940/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/802b07c4896d03b250af9c0c8062d0de9669f7d4/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-11T03:14:05Z",
@@ -3662,20 +3730,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Fix handling in exprnodes",
                 "tree": {
-                    "sha": "b31d9f7dea71fd0572595728dd566f4dc9e80461",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/b31d9f7dea71fd0572595728dd566f4dc9e80461"
+                    "sha": "7d80b758f9ea7a4ce0b95f440f91e511bc0c2522",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/7d80b758f9ea7a4ce0b95f440f91e511bc0c2522"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/03016fce335d82025060b73bdc6cd4c0d5159940",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/802b07c4896d03b250af9c0c8062d0de9669f7d4",
                 "verification": {
-                    "payload": "tree b31d9f7dea71fd0572595728dd566f4dc9e80461\nparent ca70850a52bd3c8d547e61761cd56277579e5317\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710126845 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nFix handling in exprnodes\n",
+                    "payload": "tree 7d80b758f9ea7a4ce0b95f440f91e511bc0c2522\nparent b1dba81e705330f620e1274d67eac7d4ecca4d69\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710126845 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nFix handling in exprnodes\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQL/Du1L+KQ5teww6DyfGsjJk/hED1BgWWh7rcqSWsGxxldCtsjalJmIWn7xFBOvZkM\nuPMghrToW6r+CUbjFnhA4=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQGzzZQ6axKbtOdP5vrSOAbpfWNqRB+ZRQaakxfT3yAzWq059SF5pWLGwkfN27F2t+f\nvGXyDen8vLHWKLJyTTnAg=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3699,17 +3767,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/03016fce335d82025060b73bdc6cd4c0d5159940",
-            "node_id": "C_kwDOJN8Rp9oAKDAzMDE2ZmNlMzM1ZDgyMDI1MDYwYjczYmRjNmNkNGMwZDUxNTk5NDA",
+            "html_url": "https://github.com/cython/cython/commit/802b07c4896d03b250af9c0c8062d0de9669f7d4",
+            "node_id": "C_kwDOJN8Rp9oAKDgwMmIwN2M0ODk2ZDAzYjI1MGFmOWMwYzgwNjJkMGRlOTY2OWY3ZDQ",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/ca70850a52bd3c8d547e61761cd56277579e5317",
-                    "sha": "ca70850a52bd3c8d547e61761cd56277579e5317",
-                    "url": "https://api.github.com/repos/cython/cython/commits/ca70850a52bd3c8d547e61761cd56277579e5317"
+                    "html_url": "https://github.com/cython/cython/commit/b1dba81e705330f620e1274d67eac7d4ecca4d69",
+                    "sha": "b1dba81e705330f620e1274d67eac7d4ecca4d69",
+                    "url": "https://api.github.com/repos/cython/cython/commits/b1dba81e705330f620e1274d67eac7d4ecca4d69"
                 }
             ],
-            "sha": "03016fce335d82025060b73bdc6cd4c0d5159940",
-            "url": "https://api.github.com/repos/cython/cython/commits/03016fce335d82025060b73bdc6cd4c0d5159940"
+            "sha": "802b07c4896d03b250af9c0c8062d0de9669f7d4",
+            "url": "https://api.github.com/repos/cython/cython/commits/802b07c4896d03b250af9c0c8062d0de9669f7d4"
         },
         {
             "author": {
@@ -3732,7 +3800,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/a77e3e77124157e3b4db9c499ff359a390c7fe01/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/5718cbb1ab722873dfbadebc90ed5b40176a55fc/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-11T07:32:00Z",
@@ -3741,20 +3809,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-16T16:41:01Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Fix bug",
                 "tree": {
-                    "sha": "bf5dcf5af10562907b543def57ae5260e1153f2c",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/bf5dcf5af10562907b543def57ae5260e1153f2c"
+                    "sha": "a0d1d0445c21cefb158f06bfe2697bba71005560",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a0d1d0445c21cefb158f06bfe2697bba71005560"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/a77e3e77124157e3b4db9c499ff359a390c7fe01",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/5718cbb1ab722873dfbadebc90ed5b40176a55fc",
                 "verification": {
-                    "payload": "tree bf5dcf5af10562907b543def57ae5260e1153f2c\nparent 03016fce335d82025060b73bdc6cd4c0d5159940\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710142320 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710607261 +0000\n\nFix bug\n",
+                    "payload": "tree a0d1d0445c21cefb158f06bfe2697bba71005560\nparent 802b07c4896d03b250af9c0c8062d0de9669f7d4\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710142320 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nFix bug\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQBOVVYjEx6l7fYDuEMODVi9urJQK6yzEYppCZtZdkk0xaFmSc9rh/iczcvAHkfYPbp\nXcQjEgdYZb2r8nvpWeGg4=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQGAlXksEjgEAZFUv5Qs5UD69n19Ifwd6rGhtpgxdwh6sNnoKZtKFkmMn9XJbTSbQab\nbQZig8Zn8q1DjdRFPP0g4=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3778,17 +3846,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/a77e3e77124157e3b4db9c499ff359a390c7fe01",
-            "node_id": "C_kwDOJN8Rp9oAKGE3N2UzZTc3MTI0MTU3ZTNiNGRiOWM0OTlmZjM1OWEzOTBjN2ZlMDE",
+            "html_url": "https://github.com/cython/cython/commit/5718cbb1ab722873dfbadebc90ed5b40176a55fc",
+            "node_id": "C_kwDOJN8Rp9oAKDU3MThjYmIxYWI3MjI4NzNkZmJhZGViYzkwZWQ1YjQwMTc2YTU1ZmM",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/03016fce335d82025060b73bdc6cd4c0d5159940",
-                    "sha": "03016fce335d82025060b73bdc6cd4c0d5159940",
-                    "url": "https://api.github.com/repos/cython/cython/commits/03016fce335d82025060b73bdc6cd4c0d5159940"
+                    "html_url": "https://github.com/cython/cython/commit/802b07c4896d03b250af9c0c8062d0de9669f7d4",
+                    "sha": "802b07c4896d03b250af9c0c8062d0de9669f7d4",
+                    "url": "https://api.github.com/repos/cython/cython/commits/802b07c4896d03b250af9c0c8062d0de9669f7d4"
                 }
             ],
-            "sha": "a77e3e77124157e3b4db9c499ff359a390c7fe01",
-            "url": "https://api.github.com/repos/cython/cython/commits/a77e3e77124157e3b4db9c499ff359a390c7fe01"
+            "sha": "5718cbb1ab722873dfbadebc90ed5b40176a55fc",
+            "url": "https://api.github.com/repos/cython/cython/commits/5718cbb1ab722873dfbadebc90ed5b40176a55fc"
         },
         {
             "author": {
@@ -3811,7 +3879,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/1d21080107648c0196bfa11df9dae3a6c715a3d3/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/8dffa64965e207b283ede64a3728f35cdc036c5a/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-17T00:38:19Z",
@@ -3820,20 +3888,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-17T00:38:19Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Add some possibly superfluous casts to silence warnings",
                 "tree": {
-                    "sha": "9e6135521593c2aafaf818967c77ece8226eb9cb",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/9e6135521593c2aafaf818967c77ece8226eb9cb"
+                    "sha": "77c3423c8767a4d32419b710b2e3a808d8a1dfd1",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/77c3423c8767a4d32419b710b2e3a808d8a1dfd1"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/1d21080107648c0196bfa11df9dae3a6c715a3d3",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/8dffa64965e207b283ede64a3728f35cdc036c5a",
                 "verification": {
-                    "payload": "tree 9e6135521593c2aafaf818967c77ece8226eb9cb\nparent a77e3e77124157e3b4db9c499ff359a390c7fe01\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710635899 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710635899 +0000\n\nAdd some possibly superfluous casts to silence warnings\n",
+                    "payload": "tree 77c3423c8767a4d32419b710b2e3a808d8a1dfd1\nparent 5718cbb1ab722873dfbadebc90ed5b40176a55fc\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710635899 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nAdd some possibly superfluous casts to silence warnings\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQMzatisS+hbMMA5c7a12qf4XMrrk3LlRc5OTOSi4F3O2w6PDq1msRSxovIXl9t5hfM\n8muq8lno4MDKasDsITMwQ=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQFICCqV5M66S0Vh3NU0N5PX9OcLRFtcgI+64rIK8QcJnKyPrAXhvwuJ+iVdzVjV++Q\nGKHxp3/8G/N0jNC6JLmA0=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3857,17 +3925,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/1d21080107648c0196bfa11df9dae3a6c715a3d3",
-            "node_id": "C_kwDOJN8Rp9oAKDFkMjEwODAxMDc2NDhjMDE5NmJmYTExZGY5ZGFlM2E2YzcxNWEzZDM",
+            "html_url": "https://github.com/cython/cython/commit/8dffa64965e207b283ede64a3728f35cdc036c5a",
+            "node_id": "C_kwDOJN8Rp9oAKDhkZmZhNjQ5NjVlMjA3YjI4M2VkZTY0YTM3MjhmMzVjZGMwMzZjNWE",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/a77e3e77124157e3b4db9c499ff359a390c7fe01",
-                    "sha": "a77e3e77124157e3b4db9c499ff359a390c7fe01",
-                    "url": "https://api.github.com/repos/cython/cython/commits/a77e3e77124157e3b4db9c499ff359a390c7fe01"
+                    "html_url": "https://github.com/cython/cython/commit/5718cbb1ab722873dfbadebc90ed5b40176a55fc",
+                    "sha": "5718cbb1ab722873dfbadebc90ed5b40176a55fc",
+                    "url": "https://api.github.com/repos/cython/cython/commits/5718cbb1ab722873dfbadebc90ed5b40176a55fc"
                 }
             ],
-            "sha": "1d21080107648c0196bfa11df9dae3a6c715a3d3",
-            "url": "https://api.github.com/repos/cython/cython/commits/1d21080107648c0196bfa11df9dae3a6c715a3d3"
+            "sha": "8dffa64965e207b283ede64a3728f35cdc036c5a",
+            "url": "https://api.github.com/repos/cython/cython/commits/8dffa64965e207b283ede64a3728f35cdc036c5a"
         },
         {
             "author": {
@@ -3890,7 +3958,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/4d4f0a1d8985739b9627cb65fbb50fde586372eb/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/1ffe9621dae521bf1c179ed2239daad841b70d6d/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-17T06:28:27Z",
@@ -3899,20 +3967,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-17T06:28:27Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Add missing cast",
                 "tree": {
-                    "sha": "3c8466d447fd9623b5ab7a025d0e39a29861c3ad",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/3c8466d447fd9623b5ab7a025d0e39a29861c3ad"
+                    "sha": "9cb574c6380454fbf30a70d270ebd05cc472ca6f",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/9cb574c6380454fbf30a70d270ebd05cc472ca6f"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/4d4f0a1d8985739b9627cb65fbb50fde586372eb",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/1ffe9621dae521bf1c179ed2239daad841b70d6d",
                 "verification": {
-                    "payload": "tree 3c8466d447fd9623b5ab7a025d0e39a29861c3ad\nparent 1d21080107648c0196bfa11df9dae3a6c715a3d3\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710656907 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710656907 +0000\n\nAdd missing cast\n",
+                    "payload": "tree 9cb574c6380454fbf30a70d270ebd05cc472ca6f\nparent 8dffa64965e207b283ede64a3728f35cdc036c5a\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710656907 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nAdd missing cast\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQFBh8+wtnVN0Mhj2Rxk0qM1Ww9z9tIcFkY9YPyHDmD+pIJsAooItRHvtUebhrBpakO\n/AVtqBGzyz6l/Vz2HV5gU=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQJEZJ0Tc1J9ygjb3C9haJBoGP5bZ4/wzYOGEg2UVOfXpuS+q8ytrZixTUaRzGGQfJ4\n4vc+ryznWZifLKA9m9YAw=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -3936,17 +4004,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/4d4f0a1d8985739b9627cb65fbb50fde586372eb",
-            "node_id": "C_kwDOJN8Rp9oAKDRkNGYwYTFkODk4NTczOWI5NjI3Y2I2NWZiYjUwZmRlNTg2MzcyZWI",
+            "html_url": "https://github.com/cython/cython/commit/1ffe9621dae521bf1c179ed2239daad841b70d6d",
+            "node_id": "C_kwDOJN8Rp9oAKDFmZmU5NjIxZGFlNTIxYmYxYzE3OWVkMjIzOWRhYWQ4NDFiNzBkNmQ",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/1d21080107648c0196bfa11df9dae3a6c715a3d3",
-                    "sha": "1d21080107648c0196bfa11df9dae3a6c715a3d3",
-                    "url": "https://api.github.com/repos/cython/cython/commits/1d21080107648c0196bfa11df9dae3a6c715a3d3"
+                    "html_url": "https://github.com/cython/cython/commit/8dffa64965e207b283ede64a3728f35cdc036c5a",
+                    "sha": "8dffa64965e207b283ede64a3728f35cdc036c5a",
+                    "url": "https://api.github.com/repos/cython/cython/commits/8dffa64965e207b283ede64a3728f35cdc036c5a"
                 }
             ],
-            "sha": "4d4f0a1d8985739b9627cb65fbb50fde586372eb",
-            "url": "https://api.github.com/repos/cython/cython/commits/4d4f0a1d8985739b9627cb65fbb50fde586372eb"
+            "sha": "1ffe9621dae521bf1c179ed2239daad841b70d6d",
+            "url": "https://api.github.com/repos/cython/cython/commits/1ffe9621dae521bf1c179ed2239daad841b70d6d"
         },
         {
             "author": {
@@ -3969,7 +4037,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/1077e9721d796c9b21ec8e65285a22d753d5d6b2/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/6c87609f83b81004bb6fcb36e9804d2815c7dd79/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-17T17:26:42Z",
@@ -3978,20 +4046,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-17T17:26:42Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "One more list getitem fix",
                 "tree": {
-                    "sha": "0b98038de84d32196e080ef69daeb3449e092ee5",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/0b98038de84d32196e080ef69daeb3449e092ee5"
+                    "sha": "d388f575d9d3a338c4e8b44a03ff794a3525e21a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/d388f575d9d3a338c4e8b44a03ff794a3525e21a"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/1077e9721d796c9b21ec8e65285a22d753d5d6b2",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/6c87609f83b81004bb6fcb36e9804d2815c7dd79",
                 "verification": {
-                    "payload": "tree 0b98038de84d32196e080ef69daeb3449e092ee5\nparent 4d4f0a1d8985739b9627cb65fbb50fde586372eb\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710696402 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710696402 +0000\n\nOne more list getitem fix\n",
+                    "payload": "tree d388f575d9d3a338c4e8b44a03ff794a3525e21a\nparent 1ffe9621dae521bf1c179ed2239daad841b70d6d\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710696402 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nOne more list getitem fix\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQJGrtFUoJjuW8x1SRqz1kE3CRUy6Gui8Hx8xOHPDSjvy1g06cfLodrJEPmuMnBHwNC\np/XYViU2i0CLyPIb/bMwg=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQDmHPNXWXHDe3Z/Byp9YX4Nj2qRJYT0YX6xGlhxhUhEzctv//XOpylfN00cULWT9Rb\nR9fvsULkVedxNkBaCt/AE=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -4015,17 +4083,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/1077e9721d796c9b21ec8e65285a22d753d5d6b2",
-            "node_id": "C_kwDOJN8Rp9oAKDEwNzdlOTcyMWQ3OTZjOWIyMWVjOGU2NTI4NWEyMmQ3NTNkNWQ2YjI",
+            "html_url": "https://github.com/cython/cython/commit/6c87609f83b81004bb6fcb36e9804d2815c7dd79",
+            "node_id": "C_kwDOJN8Rp9oAKDZjODc2MDlmODNiODEwMDRiYjZmY2IzNmU5ODA0ZDI4MTVjN2RkNzk",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/4d4f0a1d8985739b9627cb65fbb50fde586372eb",
-                    "sha": "4d4f0a1d8985739b9627cb65fbb50fde586372eb",
-                    "url": "https://api.github.com/repos/cython/cython/commits/4d4f0a1d8985739b9627cb65fbb50fde586372eb"
+                    "html_url": "https://github.com/cython/cython/commit/1ffe9621dae521bf1c179ed2239daad841b70d6d",
+                    "sha": "1ffe9621dae521bf1c179ed2239daad841b70d6d",
+                    "url": "https://api.github.com/repos/cython/cython/commits/1ffe9621dae521bf1c179ed2239daad841b70d6d"
                 }
             ],
-            "sha": "1077e9721d796c9b21ec8e65285a22d753d5d6b2",
-            "url": "https://api.github.com/repos/cython/cython/commits/1077e9721d796c9b21ec8e65285a22d753d5d6b2"
+            "sha": "6c87609f83b81004bb6fcb36e9804d2815c7dd79",
+            "url": "https://api.github.com/repos/cython/cython/commits/6c87609f83b81004bb6fcb36e9804d2815c7dd79"
         },
         {
             "author": {
@@ -4048,7 +4116,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/559ee4203882ed6062cdb5d6f4f49f95f88fff48/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/7fd12314cb0b61f539fc468d09d4dfb3bf915aea/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-17T17:37:27Z",
@@ -4057,20 +4125,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-17T17:37:27Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Add safe/unsafe getitem variants for list and tuple, then replace conditional compilation with those and fix byte conversion along the way",
                 "tree": {
-                    "sha": "41d561b20f068b1fdddb42226dccf076b91a6255",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/41d561b20f068b1fdddb42226dccf076b91a6255"
+                    "sha": "e09ae7133db7b1631f54b70e76290b2cbc2d060a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/e09ae7133db7b1631f54b70e76290b2cbc2d060a"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/559ee4203882ed6062cdb5d6f4f49f95f88fff48",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/7fd12314cb0b61f539fc468d09d4dfb3bf915aea",
                 "verification": {
-                    "payload": "tree 41d561b20f068b1fdddb42226dccf076b91a6255\nparent 1077e9721d796c9b21ec8e65285a22d753d5d6b2\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710697047 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1710697047 +0000\n\nAdd safe/unsafe getitem variants for list and tuple, then replace conditional compilation with those and fix byte conversion along the way\n",
+                    "payload": "tree e09ae7133db7b1631f54b70e76290b2cbc2d060a\nparent 6c87609f83b81004bb6fcb36e9804d2815c7dd79\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1710697047 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nAdd safe/unsafe getitem variants for list and tuple, then replace conditional compilation with those and fix byte conversion along the way\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQLtcKgjJRi/eYJEeqamU7boFP0GW+zxWMGf1/uXa1hmXn6yoSEqH8d4bNpe44Dbvcm\ngtndIBJ25sRz6h1ARTJw4=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQGkz7MBb4yLHSe0alRd0npc+R7LygYUdTBwhlw/TZFrmq7vxkJbdfnd1O99HhasKS1\nNndUFMLDS8CK//UfV8Mg8=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -4094,17 +4162,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/559ee4203882ed6062cdb5d6f4f49f95f88fff48",
-            "node_id": "C_kwDOJN8Rp9oAKDU1OWVlNDIwMzg4MmVkNjA2MmNkYjVkNmY0ZjQ5Zjk1Zjg4ZmZmNDg",
+            "html_url": "https://github.com/cython/cython/commit/7fd12314cb0b61f539fc468d09d4dfb3bf915aea",
+            "node_id": "C_kwDOJN8Rp9oAKDdmZDEyMzE0Y2IwYjYxZjUzOWZjNDY4ZDA5ZDRkZmIzYmY5MTVhZWE",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/1077e9721d796c9b21ec8e65285a22d753d5d6b2",
-                    "sha": "1077e9721d796c9b21ec8e65285a22d753d5d6b2",
-                    "url": "https://api.github.com/repos/cython/cython/commits/1077e9721d796c9b21ec8e65285a22d753d5d6b2"
+                    "html_url": "https://github.com/cython/cython/commit/6c87609f83b81004bb6fcb36e9804d2815c7dd79",
+                    "sha": "6c87609f83b81004bb6fcb36e9804d2815c7dd79",
+                    "url": "https://api.github.com/repos/cython/cython/commits/6c87609f83b81004bb6fcb36e9804d2815c7dd79"
                 }
             ],
-            "sha": "559ee4203882ed6062cdb5d6f4f49f95f88fff48",
-            "url": "https://api.github.com/repos/cython/cython/commits/559ee4203882ed6062cdb5d6f4f49f95f88fff48"
+            "sha": "7fd12314cb0b61f539fc468d09d4dfb3bf915aea",
+            "url": "https://api.github.com/repos/cython/cython/commits/7fd12314cb0b61f539fc468d09d4dfb3bf915aea"
         },
         {
             "author": {
@@ -4127,7 +4195,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/10d40bdf2c43ae08700e3a0bd9fb4f0d2caa9077/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/a5685c1c5472f094f742950cc67166b1d902d038/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-22T00:08:31Z",
@@ -4136,20 +4204,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-22T00:08:31Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Fix a couple of erroneous labels",
                 "tree": {
-                    "sha": "618b986be3cd9c74d9b75629ab45dbee541b5f98",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/618b986be3cd9c74d9b75629ab45dbee541b5f98"
+                    "sha": "7180cf83bbab683a03737f1d76428b7f251bb454",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/7180cf83bbab683a03737f1d76428b7f251bb454"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/10d40bdf2c43ae08700e3a0bd9fb4f0d2caa9077",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/a5685c1c5472f094f742950cc67166b1d902d038",
                 "verification": {
-                    "payload": "tree 618b986be3cd9c74d9b75629ab45dbee541b5f98\nparent 559ee4203882ed6062cdb5d6f4f49f95f88fff48\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1711066111 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711066111 +0000\n\nFix a couple of erroneous labels\n",
+                    "payload": "tree 7180cf83bbab683a03737f1d76428b7f251bb454\nparent 7fd12314cb0b61f539fc468d09d4dfb3bf915aea\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1711066111 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nFix a couple of erroneous labels\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQMgQApSdtBQ+njH6ArFUXtyCjpjJWpCMnEuSuG/JFjUSSowBYewZd3BJC1PbbgnP7X\nqfqJOCic4ZOKgAE5cYzAI=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQOw0N42zPr2wCUNp1vNsDaZProokgjmvk9mvVihxCm86ubcv02GSXacbwFIGpC3mkY\ncIN03hzusPz9GJdbJOLQg=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -4173,17 +4241,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/10d40bdf2c43ae08700e3a0bd9fb4f0d2caa9077",
-            "node_id": "C_kwDOJN8Rp9oAKDEwZDQwYmRmMmM0M2FlMDg3MDBlM2EwYmQ5ZmI0ZjBkMmNhYTkwNzc",
+            "html_url": "https://github.com/cython/cython/commit/a5685c1c5472f094f742950cc67166b1d902d038",
+            "node_id": "C_kwDOJN8Rp9oAKGE1Njg1YzFjNTQ3MmYwOTRmNzQyOTUwY2M2NzE2NmIxZDkwMmQwMzg",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/559ee4203882ed6062cdb5d6f4f49f95f88fff48",
-                    "sha": "559ee4203882ed6062cdb5d6f4f49f95f88fff48",
-                    "url": "https://api.github.com/repos/cython/cython/commits/559ee4203882ed6062cdb5d6f4f49f95f88fff48"
+                    "html_url": "https://github.com/cython/cython/commit/7fd12314cb0b61f539fc468d09d4dfb3bf915aea",
+                    "sha": "7fd12314cb0b61f539fc468d09d4dfb3bf915aea",
+                    "url": "https://api.github.com/repos/cython/cython/commits/7fd12314cb0b61f539fc468d09d4dfb3bf915aea"
                 }
             ],
-            "sha": "10d40bdf2c43ae08700e3a0bd9fb4f0d2caa9077",
-            "url": "https://api.github.com/repos/cython/cython/commits/10d40bdf2c43ae08700e3a0bd9fb4f0d2caa9077"
+            "sha": "a5685c1c5472f094f742950cc67166b1d902d038",
+            "url": "https://api.github.com/repos/cython/cython/commits/a5685c1c5472f094f742950cc67166b1d902d038"
         },
         {
             "author": {
@@ -4206,7 +4274,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/fcf83f8d1693f5218995999938fb0fbd39d8b73b/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/dfcc8949bc2fb9051c1eb3f3f9790bad029e8494/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-25T23:49:55Z",
@@ -4215,54 +4283,54 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-25T23:49:55Z",
-                    "email": "noreply@github.com",
-                    "name": "GitHub"
+                    "date": "2024-03-27T16:51:59Z",
+                    "email": "vyasr@nvidia.com",
+                    "name": "Vyas Ramasubramani"
                 },
                 "message": "Apply suggestions from code review\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
                 "tree": {
-                    "sha": "3662945c3d40be50b67c80e2b0514bd5e68cb0ce",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/3662945c3d40be50b67c80e2b0514bd5e68cb0ce"
+                    "sha": "8495da552c75552e571fa2a549855ffb586a419c",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/8495da552c75552e571fa2a549855ffb586a419c"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/fcf83f8d1693f5218995999938fb0fbd39d8b73b",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/dfcc8949bc2fb9051c1eb3f3f9790bad029e8494",
                 "verification": {
-                    "payload": "tree 3662945c3d40be50b67c80e2b0514bd5e68cb0ce\nparent 10d40bdf2c43ae08700e3a0bd9fb4f0d2caa9077\nauthor Vyas Ramasubramani <vyas.ramasubramani@gmail.com> 1711410595 -0700\ncommitter GitHub <noreply@github.com> 1711410595 -0700\n\nApply suggestions from code review\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
+                    "payload": "tree 8495da552c75552e571fa2a549855ffb586a419c\nparent a5685c1c5472f094f742950cc67166b1d902d038\nauthor Vyas Ramasubramani <vyas.ramasubramani@gmail.com> 1711410595 -0700\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nApply suggestions from code review\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
                     "reason": "valid",
-                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmAg2jCRC1aQ7uu5UhlAAA8/4QAA9DVD42uKsraJ7Ob9VggduE\nrJ/l+kxD4BV0zB0GX36z52TtOv13EH16icD+EabTRMbOA7EMxA72bkfzl7ne40u0\nu+HX2DcKBcAVVNXvKdrbvX18k88rPnF8AwzCh8OetJkmMvVIrrz6KJwloIQByjK+\nUsQJfX0KB5gcDDMBDvP2Z4RyVfWx4NKLrji0kQ9sf974BKETG6os+fFD0NiPIxwS\nsuelnFVXyHUvhvIGpeOWsa5wSva7mQOxY8ei971QATeAtTXR42btHgvsR6JGtB/I\njM6QfoueOIXb58xO19MqkWVs/2ppnYIkrFaKMseTB5PkOebRmaaMM6/i3M2SovlS\nXgyhEmq8rW9fTRxJJUrgkSfyLNGZ4bT847u+uMbgLt/QZXh1C8YtyCMS7usrL9e5\nxvPbGOt6pJVTFLtVEeAzNhaeXsw4YAN8HGZqaQ4leNtxl11VH8fjgSbs1Lk4cn/T\ntueahOA7KxnMsgLcokc8U2Rb0Fk7Af8giLFuhtYCGlsJ9akMicwog707pCDm/qRg\nZjaVHHyIXoD5YA5/B5kKvORaNRP70zavSL7kCT9v1L/lpC4CU322uiQVSiDjOHWn\nMQxxYqxjyPcNCHgkInY4I86lvpoIQ7Em/eJ+JzXKH7/DyUktcHo+3Ta89El7OCDO\n/UFF8sTBm8sozlMQXanU\n=7k6G\n-----END PGP SIGNATURE-----\n",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQF+jCg0Hf8/EjBDdIfZLbCBCyvzIogqlNhJ/i+8e6CT6FCZhyZEUYfDfZUnPLy2uL6\npUn042geB2cuKlpUf9cgY=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
             "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
-                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
-                "followers_url": "https://api.github.com/users/web-flow/followers",
-                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
-                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
+                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vyasr/followers",
+                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
                 "gravatar_id": "",
-                "html_url": "https://github.com/web-flow",
-                "id": 19864447,
-                "login": "web-flow",
-                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
-                "organizations_url": "https://api.github.com/users/web-flow/orgs",
-                "received_events_url": "https://api.github.com/users/web-flow/received_events",
-                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "html_url": "https://github.com/vyasr",
+                "id": 1538165,
+                "login": "vyasr",
+                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
+                "organizations_url": "https://api.github.com/users/vyasr/orgs",
+                "received_events_url": "https://api.github.com/users/vyasr/received_events",
+                "repos_url": "https://api.github.com/users/vyasr/repos",
                 "site_admin": false,
-                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/web-flow"
+                "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/fcf83f8d1693f5218995999938fb0fbd39d8b73b",
-            "node_id": "C_kwDOJN8Rp9oAKGZjZjgzZjhkMTY5M2Y1MjE4OTk1OTk5OTM4ZmIwZmJkMzlkOGI3M2I",
+            "html_url": "https://github.com/cython/cython/commit/dfcc8949bc2fb9051c1eb3f3f9790bad029e8494",
+            "node_id": "C_kwDOJN8Rp9oAKGRmY2M4OTQ5YmMyZmI5MDUxYzFlYjNmM2Y5NzkwYmFkMDI5ZTg0OTQ",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/10d40bdf2c43ae08700e3a0bd9fb4f0d2caa9077",
-                    "sha": "10d40bdf2c43ae08700e3a0bd9fb4f0d2caa9077",
-                    "url": "https://api.github.com/repos/cython/cython/commits/10d40bdf2c43ae08700e3a0bd9fb4f0d2caa9077"
+                    "html_url": "https://github.com/cython/cython/commit/a5685c1c5472f094f742950cc67166b1d902d038",
+                    "sha": "a5685c1c5472f094f742950cc67166b1d902d038",
+                    "url": "https://api.github.com/repos/cython/cython/commits/a5685c1c5472f094f742950cc67166b1d902d038"
                 }
             ],
-            "sha": "fcf83f8d1693f5218995999938fb0fbd39d8b73b",
-            "url": "https://api.github.com/repos/cython/cython/commits/fcf83f8d1693f5218995999938fb0fbd39d8b73b"
+            "sha": "dfcc8949bc2fb9051c1eb3f3f9790bad029e8494",
+            "url": "https://api.github.com/repos/cython/cython/commits/dfcc8949bc2fb9051c1eb3f3f9790bad029e8494"
         },
         {
             "author": {
@@ -4285,7 +4353,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/425c2e1f4926dd1cdba670e20dd1bed1135d30bf/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/6758ad0ce11bcd3879abea3f7b0c94aa51aac2d5/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-25T23:50:17Z",
@@ -4294,20 +4362,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-25T23:50:17Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Remove now extraneous comment",
                 "tree": {
-                    "sha": "3a31e882869223b29659bd0afaf31a5cb7a84a91",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/3a31e882869223b29659bd0afaf31a5cb7a84a91"
+                    "sha": "de2dc8973f6888dbea30458e63adbf32d8cbebbf",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/de2dc8973f6888dbea30458e63adbf32d8cbebbf"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/425c2e1f4926dd1cdba670e20dd1bed1135d30bf",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/6758ad0ce11bcd3879abea3f7b0c94aa51aac2d5",
                 "verification": {
-                    "payload": "tree 3a31e882869223b29659bd0afaf31a5cb7a84a91\nparent fcf83f8d1693f5218995999938fb0fbd39d8b73b\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1711410617 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711410617 +0000\n\nRemove now extraneous comment\n",
+                    "payload": "tree de2dc8973f6888dbea30458e63adbf32d8cbebbf\nparent dfcc8949bc2fb9051c1eb3f3f9790bad029e8494\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1711410617 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nRemove now extraneous comment\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQKG4rb1HaCZxDlWwHhB2PFT7UWkc14BoyYQtbDC6yL4oeGESztPQ37md+aXX1UrjCJ\nc8JLrxMrQ9g9U2WJkkgQc=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQH+T7wWbfcAWiXchkFgrpt2Dvvh7/64iiON2AIL7hl1WIQYd6C9e8zp1LY9N5RE9CX\nOkZKwX2EkU08t2FsBkMAc=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -4331,17 +4399,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/425c2e1f4926dd1cdba670e20dd1bed1135d30bf",
-            "node_id": "C_kwDOJN8Rp9oAKDQyNWMyZTFmNDkyNmRkMWNkYmE2NzBlMjBkZDFiZWQxMTM1ZDMwYmY",
+            "html_url": "https://github.com/cython/cython/commit/6758ad0ce11bcd3879abea3f7b0c94aa51aac2d5",
+            "node_id": "C_kwDOJN8Rp9oAKDY3NThhZDBjZTExYmNkMzg3OWFiZWEzZjdiMGM5NGFhNTFhYWMyZDU",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/fcf83f8d1693f5218995999938fb0fbd39d8b73b",
-                    "sha": "fcf83f8d1693f5218995999938fb0fbd39d8b73b",
-                    "url": "https://api.github.com/repos/cython/cython/commits/fcf83f8d1693f5218995999938fb0fbd39d8b73b"
+                    "html_url": "https://github.com/cython/cython/commit/dfcc8949bc2fb9051c1eb3f3f9790bad029e8494",
+                    "sha": "dfcc8949bc2fb9051c1eb3f3f9790bad029e8494",
+                    "url": "https://api.github.com/repos/cython/cython/commits/dfcc8949bc2fb9051c1eb3f3f9790bad029e8494"
                 }
             ],
-            "sha": "425c2e1f4926dd1cdba670e20dd1bed1135d30bf",
-            "url": "https://api.github.com/repos/cython/cython/commits/425c2e1f4926dd1cdba670e20dd1bed1135d30bf"
+            "sha": "6758ad0ce11bcd3879abea3f7b0c94aa51aac2d5",
+            "url": "https://api.github.com/repos/cython/cython/commits/6758ad0ce11bcd3879abea3f7b0c94aa51aac2d5"
         },
         {
             "author": {
@@ -4364,7 +4432,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/0df78dd6fda8ae311f2b6e6f0f5acaca4cdd60fb/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/aec0f7286f8c1c7922520538cb34bf9e2c890b12/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-25T23:52:08Z",
@@ -4373,54 +4441,54 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-25T23:52:08Z",
-                    "email": "noreply@github.com",
-                    "name": "GitHub"
+                    "date": "2024-03-27T16:51:59Z",
+                    "email": "vyasr@nvidia.com",
+                    "name": "Vyas Ramasubramani"
                 },
                 "message": "Apply suggestions from code review\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
                 "tree": {
-                    "sha": "f86081cf74713a6ad7b69d25d5c020a350bf959b",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/f86081cf74713a6ad7b69d25d5c020a350bf959b"
+                    "sha": "a36d206cff61e35f25a8ba26eaf301ee5c147422",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a36d206cff61e35f25a8ba26eaf301ee5c147422"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/0df78dd6fda8ae311f2b6e6f0f5acaca4cdd60fb",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/aec0f7286f8c1c7922520538cb34bf9e2c890b12",
                 "verification": {
-                    "payload": "tree f86081cf74713a6ad7b69d25d5c020a350bf959b\nparent 425c2e1f4926dd1cdba670e20dd1bed1135d30bf\nauthor Vyas Ramasubramani <vyas.ramasubramani@gmail.com> 1711410728 -0700\ncommitter GitHub <noreply@github.com> 1711410728 -0700\n\nApply suggestions from code review\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
+                    "payload": "tree a36d206cff61e35f25a8ba26eaf301ee5c147422\nparent 6758ad0ce11bcd3879abea3f7b0c94aa51aac2d5\nauthor Vyas Ramasubramani <vyas.ramasubramani@gmail.com> 1711410728 -0700\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nApply suggestions from code review\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
                     "reason": "valid",
-                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmAg4oCRC1aQ7uu5UhlAAAgkcQAJY7hhCuAbb5zx4ar3pbeW8o\nLth4Btm51wNMBpt0SjJIVBmfPVK4r0efX0+k3M3sF1xWb+6Jf9Npzi9CCUADciFt\n3/M3q5sXmQDyYv1b4VSIdAPzpMl0el0txNZQxQj3oBo9Cn2NT4LQtc+7dMLTfXwx\nc8pDw1n2DzqXpxPoUFZtVtzktTIcFD1TsWxfjkGMrVavXMffoqmLtPhaXZM42+nd\nKMq89krU08oSqSJv6OE6TDXUX7ATQdnxf0YRmNcUlCve/W++Uj2FWDWFyNpgMBlA\nIeZY00LW0J46bSOksU26RxqwfN1nocajHt0+k2ZKny7M/O26x1MlznAda7iGyoui\nJHyhH52KdsyI57a5qovlTBYev4ZtqpazPE0+EoNVCh1lU2TmAkqAPScnDj8InXAf\nvjHS3sBT5gvoohABiEjCBJ3E8QIBhyihBSD21FJxrWuUNoYD4/EFoWWlhV9KcTiH\npwXO9h+GTlPTuEGpkl/NLKkbbkQIjabilXtcHvXRrJBDpVRTzVa/hJo9KG071slI\nTsRNjvjHqf7Cf2TCYkvWDCdoRPTNHLE3gfAABw6d29Yk4jaPrnkIHLy4LTZswmMp\nLbSBAo6oEnAfQkwUxS7T2AbXGdxUrYZfiGOWSQNMiGLGOYwNEfA34fLMDhci0Lvm\nT2Err6Nd97EHhUBNmGAM\n=7E9B\n-----END PGP SIGNATURE-----\n",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQFHeq20od6hKE5V4l824TGczlW+VKBFZ73uA/siqsVRZMUtAeYikBgq0GO7FgDoMhL\nFT3CbFtnzD1BtTQYVsGQs=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
             "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
-                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
-                "followers_url": "https://api.github.com/users/web-flow/followers",
-                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
-                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
+                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vyasr/followers",
+                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
                 "gravatar_id": "",
-                "html_url": "https://github.com/web-flow",
-                "id": 19864447,
-                "login": "web-flow",
-                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
-                "organizations_url": "https://api.github.com/users/web-flow/orgs",
-                "received_events_url": "https://api.github.com/users/web-flow/received_events",
-                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "html_url": "https://github.com/vyasr",
+                "id": 1538165,
+                "login": "vyasr",
+                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
+                "organizations_url": "https://api.github.com/users/vyasr/orgs",
+                "received_events_url": "https://api.github.com/users/vyasr/received_events",
+                "repos_url": "https://api.github.com/users/vyasr/repos",
                 "site_admin": false,
-                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/web-flow"
+                "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/0df78dd6fda8ae311f2b6e6f0f5acaca4cdd60fb",
-            "node_id": "C_kwDOJN8Rp9oAKDBkZjc4ZGQ2ZmRhOGFlMzExZjJiNmU2ZjBmNWFjYWNhNGNkZDYwZmI",
+            "html_url": "https://github.com/cython/cython/commit/aec0f7286f8c1c7922520538cb34bf9e2c890b12",
+            "node_id": "C_kwDOJN8Rp9oAKGFlYzBmNzI4NmY4YzFjNzkyMjUyMDUzOGNiMzRiZjllMmM4OTBiMTI",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/425c2e1f4926dd1cdba670e20dd1bed1135d30bf",
-                    "sha": "425c2e1f4926dd1cdba670e20dd1bed1135d30bf",
-                    "url": "https://api.github.com/repos/cython/cython/commits/425c2e1f4926dd1cdba670e20dd1bed1135d30bf"
+                    "html_url": "https://github.com/cython/cython/commit/6758ad0ce11bcd3879abea3f7b0c94aa51aac2d5",
+                    "sha": "6758ad0ce11bcd3879abea3f7b0c94aa51aac2d5",
+                    "url": "https://api.github.com/repos/cython/cython/commits/6758ad0ce11bcd3879abea3f7b0c94aa51aac2d5"
                 }
             ],
-            "sha": "0df78dd6fda8ae311f2b6e6f0f5acaca4cdd60fb",
-            "url": "https://api.github.com/repos/cython/cython/commits/0df78dd6fda8ae311f2b6e6f0f5acaca4cdd60fb"
+            "sha": "aec0f7286f8c1c7922520538cb34bf9e2c890b12",
+            "url": "https://api.github.com/repos/cython/cython/commits/aec0f7286f8c1c7922520538cb34bf9e2c890b12"
         },
         {
             "author": {
@@ -4443,7 +4511,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/4596401c13e31f9db60d1d7849b16a726c02949f/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/5a966717a199d9d184af520a4559da31c7f14b56/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-26T21:11:41Z",
@@ -4452,54 +4520,54 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-26T21:11:41Z",
-                    "email": "noreply@github.com",
-                    "name": "GitHub"
+                    "date": "2024-03-27T16:51:59Z",
+                    "email": "vyasr@nvidia.com",
+                    "name": "Vyas Ramasubramani"
                 },
                 "message": "Apply suggestions from code review\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
                 "tree": {
-                    "sha": "73eb7d9d5bd0925b473e81279066ac88ca58c610",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/73eb7d9d5bd0925b473e81279066ac88ca58c610"
+                    "sha": "31e1d611689a107e098423c7fdffa5583f391221",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/31e1d611689a107e098423c7fdffa5583f391221"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/4596401c13e31f9db60d1d7849b16a726c02949f",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/5a966717a199d9d184af520a4559da31c7f14b56",
                 "verification": {
-                    "payload": "tree 73eb7d9d5bd0925b473e81279066ac88ca58c610\nparent 0df78dd6fda8ae311f2b6e6f0f5acaca4cdd60fb\nauthor Vyas Ramasubramani <vyas.ramasubramani@gmail.com> 1711487501 -0700\ncommitter GitHub <noreply@github.com> 1711487501 -0700\n\nApply suggestions from code review\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
+                    "payload": "tree 31e1d611689a107e098423c7fdffa5583f391221\nparent aec0f7286f8c1c7922520538cb34bf9e2c890b12\nauthor Vyas Ramasubramani <vyas.ramasubramani@gmail.com> 1711487501 -0700\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nApply suggestions from code review\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
                     "reason": "valid",
-                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmAzoNCRC1aQ7uu5UhlAAAioUQAJuonLLYAu0dFs1GfP1VT9gF\n5HFv5BiwPrn1h4FlsQLhB6A2CEgGu2Vk3lpSEJxfpLXnymepHmw9mzXf3BvpXsvT\n60QIC7CKXy/b7mOSPsnw2uA0EqYxiA0xPYpLfjyoQyfpeFEs1XwFVVFWDKFEK8qR\nDgA1ngk9b7bjuYY2yFlnKEXZMpINO90sRRKWn66Zp+9pr+qFzenZkwV8ukdAkR8y\nU/S7mU3iJYXd19rUNSNZHPgrLAOxT3vzzFqPKgLyFUS650/Bgd2MTvOuC28PHP74\nfto+Yl0CvF+9IHSvFYrsIl68fmjTeaWkwbx/oGDLcmQ/wDIucxzEjD/4nzWutaxm\nDnWDG4F/xRa+270KX5s/+gCrj+Yl1gLBCSi8S5OAZh4HHXpRuB87Dr+SgRQBdq7R\nTcXKQgKAQxKWlR/PGph9oPJZJ/nZNWc7Vq9ozBKt/bhgm2msKWPm+QcpYnZV3XaZ\nWjuK+G0OBbWlkbjVKb2yc7SD+mpyou0svDsXX5mMVhPU46RYP14c5UicnAjas9Ax\nfL3cL6IjnJacKy0+ix/hL4tCduDlYUlfdXUqoq7nXq+YACeWIdAEGQZbQag1NwLD\njrOOrLBkjPVsPElociR9gG7FB4qSpJjLt1uneRAfOJb8N2IFrVsP13pCHPLT84F4\nC0T/NJO4upcEY7vNQiP8\n=BAsO\n-----END PGP SIGNATURE-----\n",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQM1+nRpamuxkSk6wfMFCF8sRyPvDY8ntd+uzkDU7BxA/NG4LujomIidA+nWcu1LTfA\n+v/iL4ur9kOLrxPUernQE=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
             "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
-                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
-                "followers_url": "https://api.github.com/users/web-flow/followers",
-                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
-                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
+                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vyasr/followers",
+                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
                 "gravatar_id": "",
-                "html_url": "https://github.com/web-flow",
-                "id": 19864447,
-                "login": "web-flow",
-                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
-                "organizations_url": "https://api.github.com/users/web-flow/orgs",
-                "received_events_url": "https://api.github.com/users/web-flow/received_events",
-                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "html_url": "https://github.com/vyasr",
+                "id": 1538165,
+                "login": "vyasr",
+                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
+                "organizations_url": "https://api.github.com/users/vyasr/orgs",
+                "received_events_url": "https://api.github.com/users/vyasr/received_events",
+                "repos_url": "https://api.github.com/users/vyasr/repos",
                 "site_admin": false,
-                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/web-flow"
+                "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/4596401c13e31f9db60d1d7849b16a726c02949f",
-            "node_id": "C_kwDOJN8Rp9oAKDQ1OTY0MDFjMTNlMzFmOWRiNjBkMWQ3ODQ5YjE2YTcyNmMwMjk0OWY",
+            "html_url": "https://github.com/cython/cython/commit/5a966717a199d9d184af520a4559da31c7f14b56",
+            "node_id": "C_kwDOJN8Rp9oAKDVhOTY2NzE3YTE5OWQ5ZDE4NGFmNTIwYTQ1NTlkYTMxYzdmMTRiNTY",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/0df78dd6fda8ae311f2b6e6f0f5acaca4cdd60fb",
-                    "sha": "0df78dd6fda8ae311f2b6e6f0f5acaca4cdd60fb",
-                    "url": "https://api.github.com/repos/cython/cython/commits/0df78dd6fda8ae311f2b6e6f0f5acaca4cdd60fb"
+                    "html_url": "https://github.com/cython/cython/commit/aec0f7286f8c1c7922520538cb34bf9e2c890b12",
+                    "sha": "aec0f7286f8c1c7922520538cb34bf9e2c890b12",
+                    "url": "https://api.github.com/repos/cython/cython/commits/aec0f7286f8c1c7922520538cb34bf9e2c890b12"
                 }
             ],
-            "sha": "4596401c13e31f9db60d1d7849b16a726c02949f",
-            "url": "https://api.github.com/repos/cython/cython/commits/4596401c13e31f9db60d1d7849b16a726c02949f"
+            "sha": "5a966717a199d9d184af520a4559da31c7f14b56",
+            "url": "https://api.github.com/repos/cython/cython/commits/5a966717a199d9d184af520a4559da31c7f14b56"
         },
         {
             "author": {
@@ -4522,7 +4590,7 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/a84286a79e05bae04e7825a9c6de57d0a794302e/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1/comments",
             "commit": {
                 "author": {
                     "date": "2024-03-26T21:57:06Z",
@@ -4531,20 +4599,20 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-03-26T21:57:06Z",
+                    "date": "2024-03-27T16:51:59Z",
                     "email": "vyasr@nvidia.com",
                     "name": "Vyas Ramasubramani"
                 },
                 "message": "Stop trying to return an int for getitem",
                 "tree": {
-                    "sha": "7b62245662856a5236cbd8a8b7b46d2b8b2c48bc",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/7b62245662856a5236cbd8a8b7b46d2b8b2c48bc"
+                    "sha": "b9664d4afa8b41c9547d038872e70d8370cb247d",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/b9664d4afa8b41c9547d038872e70d8370cb247d"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/a84286a79e05bae04e7825a9c6de57d0a794302e",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
                 "verification": {
-                    "payload": "tree 7b62245662856a5236cbd8a8b7b46d2b8b2c48bc\nparent 4596401c13e31f9db60d1d7849b16a726c02949f\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1711490226 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711490226 +0000\n\nStop trying to return an int for getitem\n",
+                    "payload": "tree b9664d4afa8b41c9547d038872e70d8370cb247d\nparent 5a966717a199d9d184af520a4559da31c7f14b56\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1711490226 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711558319 +0000\n\nStop trying to return an int for getitem\n",
                     "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQJVcjXsav1UGZ1yrqA/Fx0eB7BKGqSYDLhCDTV9W+1bjluROaWHSrDiZ/TmRX+91P4\nR8ZIWv8uWrM4WZ4IYvuw4=\n-----END SSH SIGNATURE-----",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQFvteEMsROAs5FatPPyqgjv6kIG+eMOnwfwJ0Uk/l1z9EaGx+r4hnbIWh8krvEiqE1\n7WoZo+9s91IghHs41kago=\n-----END SSH SIGNATURE-----",
                     "verified": true
                 }
             },
@@ -4568,102 +4636,23 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             },
-            "html_url": "https://github.com/cython/cython/commit/a84286a79e05bae04e7825a9c6de57d0a794302e",
-            "node_id": "C_kwDOJN8Rp9oAKGE4NDI4NmE3OWUwNWJhZTA0ZTc4MjVhOWM2ZGU1N2QwYTc5NDMwMmU",
+            "html_url": "https://github.com/cython/cython/commit/b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
+            "node_id": "C_kwDOJN8Rp9oAKGI0OTRlYzkyYzA5ZTVlOWE3ZjY1YjAwNWYyZmQwMGFiNGIzYjA2YTE",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/4596401c13e31f9db60d1d7849b16a726c02949f",
-                    "sha": "4596401c13e31f9db60d1d7849b16a726c02949f",
-                    "url": "https://api.github.com/repos/cython/cython/commits/4596401c13e31f9db60d1d7849b16a726c02949f"
+                    "html_url": "https://github.com/cython/cython/commit/5a966717a199d9d184af520a4559da31c7f14b56",
+                    "sha": "5a966717a199d9d184af520a4559da31c7f14b56",
+                    "url": "https://api.github.com/repos/cython/cython/commits/5a966717a199d9d184af520a4559da31c7f14b56"
                 }
             ],
-            "sha": "a84286a79e05bae04e7825a9c6de57d0a794302e",
-            "url": "https://api.github.com/repos/cython/cython/commits/a84286a79e05bae04e7825a9c6de57d0a794302e"
-        },
-        {
-            "author": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
-                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
-                "followers_url": "https://api.github.com/users/da-woods/followers",
-                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
-                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/da-woods",
-                "id": 10536947,
-                "login": "da-woods",
-                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
-                "organizations_url": "https://api.github.com/users/da-woods/orgs",
-                "received_events_url": "https://api.github.com/users/da-woods/received_events",
-                "repos_url": "https://api.github.com/users/da-woods/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/da-woods"
-            },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/3486154a49db0e7ee5a5623147098d6412c11ece/comments",
-            "commit": {
-                "author": {
-                    "date": "2024-03-21T19:59:28Z",
-                    "email": "dw-git@d-woods.co.uk",
-                    "name": "da-woods"
-                },
-                "comment_count": 0,
-                "committer": {
-                    "date": "2024-03-26T22:00:38Z",
-                    "email": "vyasr@nvidia.com",
-                    "name": "Vyas Ramasubramani"
-                },
-                "message": "Change a \"char *\" to \"const char*\" in import code (#6101)",
-                "tree": {
-                    "sha": "a0e4fb51d0b35d0e872d62cd4ba85bf289b4692b",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/a0e4fb51d0b35d0e872d62cd4ba85bf289b4692b"
-                },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/3486154a49db0e7ee5a5623147098d6412c11ece",
-                "verification": {
-                    "payload": "tree a0e4fb51d0b35d0e872d62cd4ba85bf289b4692b\nparent a84286a79e05bae04e7825a9c6de57d0a794302e\nauthor da-woods <dw-git@d-woods.co.uk> 1711051168 +0000\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1711490438 +0000\n\nChange a \"char *\" to \"const char*\" in import code (#6101)\n\n",
-                    "reason": "valid",
-                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgcG1M/2LMlVvPZl8BXtkI9aF6RH\nehFbe++IP3C9815c4AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQO09gS7oQp4WLFQgDQwJEFSV8gr6rrxx1c1HfYHKNLKiIjrJcZMG91AXvYVwrnmQcg\nhD5ujSH+KMu6WlYjpQcAs=\n-----END SSH SIGNATURE-----",
-                    "verified": true
-                }
-            },
-            "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
-                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
-                "followers_url": "https://api.github.com/users/vyasr/followers",
-                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
-                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/vyasr",
-                "id": 1538165,
-                "login": "vyasr",
-                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
-                "organizations_url": "https://api.github.com/users/vyasr/orgs",
-                "received_events_url": "https://api.github.com/users/vyasr/received_events",
-                "repos_url": "https://api.github.com/users/vyasr/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/vyasr"
-            },
-            "html_url": "https://github.com/cython/cython/commit/3486154a49db0e7ee5a5623147098d6412c11ece",
-            "node_id": "C_kwDOJN8Rp9oAKDM0ODYxNTRhNDlkYjBlN2VlNWE1NjIzMTQ3MDk4ZDY0MTJjMTFlY2U",
-            "parents": [
-                {
-                    "html_url": "https://github.com/cython/cython/commit/a84286a79e05bae04e7825a9c6de57d0a794302e",
-                    "sha": "a84286a79e05bae04e7825a9c6de57d0a794302e",
-                    "url": "https://api.github.com/repos/cython/cython/commits/a84286a79e05bae04e7825a9c6de57d0a794302e"
-                }
-            ],
-            "sha": "3486154a49db0e7ee5a5623147098d6412c11ece",
-            "url": "https://api.github.com/repos/cython/cython/commits/3486154a49db0e7ee5a5623147098d6412c11ece"
+            "sha": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
+            "url": "https://api.github.com/repos/cython/cython/commits/b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/6061/commits",
     "created_at": "2024-03-06T02:04:32Z",
     "diff_url": "https://github.com/cython/cython/pull/6061.diff",
-    "draft": true,
+    "draft": false,
     "head": {
         "label": "vyasr:feat/more_limited_api",
         "ref": "feat/more_limited_api",
@@ -4752,9 +4741,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/vyasr/cython/pulls{/number}",
-            "pushed_at": "2024-03-26T22:00:56Z",
+            "pushed_at": "2024-03-27T16:52:14Z",
             "releases_url": "https://api.github.com/repos/vyasr/cython/releases{/id}",
-            "size": 69443,
+            "size": 69575,
             "ssh_url": "git@github.com:vyasr/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/vyasr/cython/stargazers",
@@ -4773,7 +4762,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "3486154a49db0e7ee5a5623147098d6412c11ece",
+        "sha": "b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
             "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
@@ -4810,20 +4799,41 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "2c47b335b15ada98c03e8b8b480704f7258a6690",
+    "merge_commit_sha": "074f4f7cf45cb372d426db64de5c7085b50e202f",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc5oyPKn",
     "number": 6061,
     "patch_url": "https://github.com/cython/cython/pull/6061.patch",
-    "requested_reviewers": [],
+    "requested_reviewers": [
+        {
+            "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/scoder"
+        }
+    ],
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6061/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/3486154a49db0e7ee5a5623147098d6412c11ece",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/b494ec92c09e5e9a7f65b005f2fd00ab4b3b06a1",
     "title": "Add some more limited API support",
-    "updated_at": "2024-03-27T09:47:03Z",
+    "updated_at": "2024-03-27T21:00:33Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6061",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",

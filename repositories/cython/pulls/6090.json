@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1297,
-            "open_issues_count": 1297,
+            "open_issues": 1294,
+            "open_issues_count": 1294,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -118,11 +118,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-03-24T10:01:41Z",
+            "pushed_at": "2024-04-02T06:39:13Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 73449,
+            "size": 73341,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 8807,
+            "stargazers_count": 8835,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,11 +141,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-03-24T14:29:21Z",
+            "updated_at": "2024-04-02T13:36:52Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 8807,
-            "watchers_count": 8807,
+            "watchers": 8835,
+            "watchers_count": 8835,
             "web_commit_signoff_required": false
         },
         "sha": "7484c01022c33af0754d991e24af1fdf0487ecb0",
@@ -1607,6 +1607,558 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6090#discussion_r1545497856"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6090"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1545497856"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Fixed in #6117. Formatted with black.",
+            "commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "created_at": "2024-03-30T21:20:03Z",
+            "diff_hunk": "@@ -0,0 +1,189 @@\n+import sys\n+import os\n+import hashlib\n+import shutil\n+import subprocess\n+from ..Utils import safe_makedirs, cached_function\n+import zipfile\n+from .. import __version__\n+\n+try:\n+    import zlib\n+    zipfile_compression_mode = zipfile.ZIP_DEFLATED\n+except ImportError:\n+    zipfile_compression_mode = zipfile.ZIP_STORED\n+\n+try:\n+    import gzip\n+    gzip_open = gzip.open\n+    gzip_ext = '.gz'\n+except ImportError:\n+    gzip_open = open\n+    gzip_ext = ''\n+\n+\n+join_path = cached_function(os.path.join)\n+\n+@cached_function\n+def file_hash(filename):\n+    path = os.path.normpath(filename)\n+    prefix = ('%d:%s' % (len(path), path)).encode(\"UTF-8\")\n+    m = hashlib.sha1(prefix)\n+    with open(path, 'rb') as f:\n+        data = f.read(65000)\n+        while data:\n+            m.update(data)\n+            data = f.read(65000)\n+    return m.hexdigest()\n+\n+\n+@cached_function\n+def get_cython_cache_dir():\n+    r\"\"\"\n+    Return the base directory containing Cython's caches.\n+\n+    Priority:\n+\n+    1. CYTHON_CACHE_DIR\n+    2. (OS X): ~/Library/Caches/Cython\n+       (posix not OS X): XDG_CACHE_HOME/cython if XDG_CACHE_HOME defined\n+    3. ~/.cython\n+\n+    \"\"\"\n+    if 'CYTHON_CACHE_DIR' in os.environ:\n+        return os.environ['CYTHON_CACHE_DIR']\n+\n+    parent = None\n+    if os.name == 'posix':\n+        if sys.platform == 'darwin':\n+            parent = os.path.expanduser('~/Library/Caches')\n+        else:\n+            # this could fallback on ~/.cache\n+            parent = os.environ.get('XDG_CACHE_HOME')\n+\n+    if parent and os.path.isdir(parent):\n+        return os.path.join(parent, 'cython')\n+\n+    # last fallback: ~/.cython\n+    return os.path.expanduser(os.path.join('~', '.cython'))\n+\n+\n+class Cache:\n+\n+    def __init__(self, cache, cache_size=None):\n+        if cache is True:\n+            self.enabled = True\n+            self.path = os.path.join(get_cython_cache_dir(), 'compiler')\n+        elif cache:\n+            self.path = cache\n+            self.enabled = True\n+        else:\n+            self.path = None\n+            self.enabled = False\n+        self.cache_size = cache_size if cache_size is not None else 1024 * 1024 * 100\n+        if self.enabled:\n+            if not os.path.exists(self.path):\n+                os.makedirs(self.path)\n+\n+    def transitive_fingerprint(self, filename, dependencies, compilation_options, language, py_limited_api=False, np_pythran=False):\n+        r\"\"\"\n+        Return a fingerprint of a cython file that is about to be cythonized.\n+\n+        Fingerprints are looked up in future compilations. If the fingerprint\n+        is found, the cythonization can be skipped. The fingerprint must\n+        incorporate everything that has an influence on the generated code.\n+        \"\"\"\n+        try:\n+            m = hashlib.sha1(__version__.encode('UTF-8'))\n+            m.update(file_hash(filename).encode('UTF-8'))\n+            for x in sorted(dependencies.all_dependencies(filename)):\n+                if os.path.splitext(x)[1] not in ('.c', '.cpp', '.h'):\n+                    m.update(file_hash(x).encode('UTF-8'))\n+            # Include the module attributes that change the compilation result\n+            # in the fingerprint. We do not iterate over module.__dict__ and\n+            # include almost everything here as users might extend Extension\n+            # with arbitrary (random) attributes that would lead to cache\n+            # misses.\n+            m.update(\n+                str((language, py_limited_api,np_pythran)).encode('UTF-8')\n+            )\n+            m.update(compilation_options.get_fingerprint().encode('UTF-8'))\n+            return m.hexdigest()\n+        except OSError:\n+            return None\n+\n+    def fingerprint_file_base(self, cfile, fingerprint):\n+        return join_path(self.path, \"%s-%s\" % (os.path.basename(cfile), fingerprint))\n+\n+    def gz_fingerprint_file(self, cfile, fingerprint):\n+        return self.fingerprint_file_base(cfile, fingerprint) + gzip_ext\n+\n+",
+            "html_url": "https://github.com/cython/cython/pull/6090#discussion_r1545497856",
+            "id": 1545497856,
+            "in_reply_to_id": 1536621898,
+            "line": 121,
+            "node_id": "PRRC_kwDOABDGAc5cHm0A",
+            "original_commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "original_line": 121,
+            "original_position": 121,
+            "original_start_line": 120,
+            "path": "Cython/Build/Cache.py",
+            "position": 121,
+            "pull_request_review_id": 1970059527,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6090",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545497856/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 120,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-03-30T21:20:03Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545497856",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6090#discussion_r1545497989"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6090"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1545497989"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Fixed in https://github.com/cython/cython/pull/6117.",
+            "commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "created_at": "2024-03-30T21:20:50Z",
+            "diff_hunk": "@@ -0,0 +1,189 @@\n+import sys\n+import os\n+import hashlib\n+import shutil\n+import subprocess\n+from ..Utils import safe_makedirs, cached_function\n+import zipfile\n+from .. import __version__\n+\n+try:\n+    import zlib\n+    zipfile_compression_mode = zipfile.ZIP_DEFLATED\n+except ImportError:\n+    zipfile_compression_mode = zipfile.ZIP_STORED\n+\n+try:\n+    import gzip\n+    gzip_open = gzip.open\n+    gzip_ext = '.gz'\n+except ImportError:\n+    gzip_open = open\n+    gzip_ext = ''\n+\n+\n+join_path = cached_function(os.path.join)\n+\n+@cached_function\n+def file_hash(filename):\n+    path = os.path.normpath(filename)\n+    prefix = ('%d:%s' % (len(path), path)).encode(\"UTF-8\")\n+    m = hashlib.sha1(prefix)\n+    with open(path, 'rb') as f:\n+        data = f.read(65000)\n+        while data:\n+            m.update(data)\n+            data = f.read(65000)\n+    return m.hexdigest()\n+\n+\n+@cached_function\n+def get_cython_cache_dir():\n+    r\"\"\"\n+    Return the base directory containing Cython's caches.\n+\n+    Priority:\n+\n+    1. CYTHON_CACHE_DIR\n+    2. (OS X): ~/Library/Caches/Cython\n+       (posix not OS X): XDG_CACHE_HOME/cython if XDG_CACHE_HOME defined\n+    3. ~/.cython\n+\n+    \"\"\"\n+    if 'CYTHON_CACHE_DIR' in os.environ:\n+        return os.environ['CYTHON_CACHE_DIR']\n+\n+    parent = None\n+    if os.name == 'posix':\n+        if sys.platform == 'darwin':\n+            parent = os.path.expanduser('~/Library/Caches')\n+        else:\n+            # this could fallback on ~/.cache\n+            parent = os.environ.get('XDG_CACHE_HOME')\n+\n+    if parent and os.path.isdir(parent):\n+        return os.path.join(parent, 'cython')\n+\n+    # last fallback: ~/.cython\n+    return os.path.expanduser(os.path.join('~', '.cython'))\n+\n+\n+class Cache:\n+\n+    def __init__(self, cache, cache_size=None):\n+        if cache is True:\n+            self.enabled = True\n+            self.path = os.path.join(get_cython_cache_dir(), 'compiler')\n+        elif cache:\n+            self.path = cache\n+            self.enabled = True\n+        else:\n+            self.path = None\n+            self.enabled = False",
+            "html_url": "https://github.com/cython/cython/pull/6090#discussion_r1545497989",
+            "id": 1545497989,
+            "in_reply_to_id": 1536623289,
+            "line": 82,
+            "node_id": "PRRC_kwDOABDGAc5cHm2F",
+            "original_commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "original_line": 82,
+            "original_position": 82,
+            "original_start_line": 73,
+            "path": "Cython/Build/Cache.py",
+            "position": 82,
+            "pull_request_review_id": 1970059621,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6090",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545497989/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 73,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-03-30T21:20:50Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545497989",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6090#discussion_r1545498005"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6090"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1545498005"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Fixed in https://github.com/cython/cython/pull/6117.",
+            "commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "created_at": "2024-03-30T21:20:58Z",
+            "diff_hunk": "@@ -0,0 +1,189 @@\n+import sys\n+import os\n+import hashlib\n+import shutil\n+import subprocess\n+from ..Utils import safe_makedirs, cached_function\n+import zipfile\n+from .. import __version__\n+\n+try:\n+    import zlib\n+    zipfile_compression_mode = zipfile.ZIP_DEFLATED\n+except ImportError:\n+    zipfile_compression_mode = zipfile.ZIP_STORED\n+\n+try:\n+    import gzip\n+    gzip_open = gzip.open\n+    gzip_ext = '.gz'\n+except ImportError:\n+    gzip_open = open\n+    gzip_ext = ''\n+\n+\n+join_path = cached_function(os.path.join)\n+\n+@cached_function\n+def file_hash(filename):\n+    path = os.path.normpath(filename)\n+    prefix = ('%d:%s' % (len(path), path)).encode(\"UTF-8\")\n+    m = hashlib.sha1(prefix)\n+    with open(path, 'rb') as f:\n+        data = f.read(65000)\n+        while data:\n+            m.update(data)\n+            data = f.read(65000)\n+    return m.hexdigest()\n+\n+\n+@cached_function\n+def get_cython_cache_dir():\n+    r\"\"\"\n+    Return the base directory containing Cython's caches.\n+\n+    Priority:\n+\n+    1. CYTHON_CACHE_DIR\n+    2. (OS X): ~/Library/Caches/Cython\n+       (posix not OS X): XDG_CACHE_HOME/cython if XDG_CACHE_HOME defined\n+    3. ~/.cython\n+\n+    \"\"\"\n+    if 'CYTHON_CACHE_DIR' in os.environ:\n+        return os.environ['CYTHON_CACHE_DIR']\n+\n+    parent = None\n+    if os.name == 'posix':\n+        if sys.platform == 'darwin':\n+            parent = os.path.expanduser('~/Library/Caches')\n+        else:\n+            # this could fallback on ~/.cache\n+            parent = os.environ.get('XDG_CACHE_HOME')\n+\n+    if parent and os.path.isdir(parent):\n+        return os.path.join(parent, 'cython')\n+\n+    # last fallback: ~/.cython\n+    return os.path.expanduser(os.path.join('~', '.cython'))\n+\n+\n+class Cache:\n+\n+    def __init__(self, cache, cache_size=None):\n+        if cache is True:\n+            self.enabled = True\n+            self.path = os.path.join(get_cython_cache_dir(), 'compiler')",
+            "html_url": "https://github.com/cython/cython/pull/6090#discussion_r1545498005",
+            "id": 1545498005,
+            "in_reply_to_id": 1536626342,
+            "line": 76,
+            "node_id": "PRRC_kwDOABDGAc5cHm2V",
+            "original_commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "original_line": 76,
+            "original_position": 76,
+            "original_start_line": null,
+            "path": "Cython/Build/Cache.py",
+            "position": 76,
+            "pull_request_review_id": 1970059635,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6090",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545498005/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2024-03-30T21:20:59Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545498005",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6090#discussion_r1545498023"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6090"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1545498023"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Fixed in https://github.com/cython/cython/pull/6117.",
+            "commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "created_at": "2024-03-30T21:21:12Z",
+            "diff_hunk": "@@ -0,0 +1,189 @@\n+import sys\n+import os\n+import hashlib\n+import shutil\n+import subprocess\n+from ..Utils import safe_makedirs, cached_function\n+import zipfile\n+from .. import __version__\n+\n+try:\n+    import zlib\n+    zipfile_compression_mode = zipfile.ZIP_DEFLATED\n+except ImportError:\n+    zipfile_compression_mode = zipfile.ZIP_STORED\n+\n+try:\n+    import gzip\n+    gzip_open = gzip.open\n+    gzip_ext = '.gz'\n+except ImportError:\n+    gzip_open = open\n+    gzip_ext = ''\n+\n+\n+join_path = cached_function(os.path.join)\n+\n+@cached_function\n+def file_hash(filename):\n+    path = os.path.normpath(filename)\n+    prefix = ('%d:%s' % (len(path), path)).encode(\"UTF-8\")\n+    m = hashlib.sha1(prefix)\n+    with open(path, 'rb') as f:\n+        data = f.read(65000)\n+        while data:\n+            m.update(data)\n+            data = f.read(65000)\n+    return m.hexdigest()\n+\n+\n+@cached_function\n+def get_cython_cache_dir():\n+    r\"\"\"\n+    Return the base directory containing Cython's caches.\n+\n+    Priority:\n+\n+    1. CYTHON_CACHE_DIR\n+    2. (OS X): ~/Library/Caches/Cython\n+       (posix not OS X): XDG_CACHE_HOME/cython if XDG_CACHE_HOME defined\n+    3. ~/.cython\n+\n+    \"\"\"\n+    if 'CYTHON_CACHE_DIR' in os.environ:\n+        return os.environ['CYTHON_CACHE_DIR']\n+\n+    parent = None\n+    if os.name == 'posix':\n+        if sys.platform == 'darwin':\n+            parent = os.path.expanduser('~/Library/Caches')\n+        else:\n+            # this could fallback on ~/.cache\n+            parent = os.environ.get('XDG_CACHE_HOME')\n+\n+    if parent and os.path.isdir(parent):\n+        return os.path.join(parent, 'cython')\n+\n+    # last fallback: ~/.cython\n+    return os.path.expanduser(os.path.join('~', '.cython'))\n+\n+\n+class Cache:\n+\n+    def __init__(self, cache, cache_size=None):\n+        if cache is True:\n+            self.enabled = True\n+            self.path = os.path.join(get_cython_cache_dir(), 'compiler')\n+        elif cache:\n+            self.path = cache\n+            self.enabled = True\n+        else:\n+            self.path = None\n+            self.enabled = False\n+        self.cache_size = cache_size if cache_size is not None else 1024 * 1024 * 100",
+            "html_url": "https://github.com/cython/cython/pull/6090#discussion_r1545498023",
+            "id": 1545498023,
+            "in_reply_to_id": 1536626200,
+            "line": 83,
+            "node_id": "PRRC_kwDOABDGAc5cHm2n",
+            "original_commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "original_line": 83,
+            "original_position": 83,
+            "original_start_line": null,
+            "path": "Cython/Build/Cache.py",
+            "position": 83,
+            "pull_request_review_id": 1970059643,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6090",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545498023/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2024-03-30T21:21:12Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545498023",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6090#discussion_r1545498068"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6090"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1545498068"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Fixed in https://github.com/cython/cython/pull/6117.",
+            "commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "created_at": "2024-03-30T21:21:34Z",
+            "diff_hunk": "@@ -0,0 +1,189 @@\n+import sys\n+import os\n+import hashlib\n+import shutil\n+import subprocess\n+from ..Utils import safe_makedirs, cached_function\n+import zipfile\n+from .. import __version__\n+\n+try:\n+    import zlib\n+    zipfile_compression_mode = zipfile.ZIP_DEFLATED\n+except ImportError:\n+    zipfile_compression_mode = zipfile.ZIP_STORED\n+\n+try:\n+    import gzip\n+    gzip_open = gzip.open\n+    gzip_ext = '.gz'\n+except ImportError:\n+    gzip_open = open\n+    gzip_ext = ''\n+\n+\n+join_path = cached_function(os.path.join)\n+\n+@cached_function\n+def file_hash(filename):\n+    path = os.path.normpath(filename)\n+    prefix = ('%d:%s' % (len(path), path)).encode(\"UTF-8\")\n+    m = hashlib.sha1(prefix)\n+    with open(path, 'rb') as f:\n+        data = f.read(65000)\n+        while data:\n+            m.update(data)\n+            data = f.read(65000)\n+    return m.hexdigest()\n+\n+\n+@cached_function\n+def get_cython_cache_dir():\n+    r\"\"\"\n+    Return the base directory containing Cython's caches.\n+\n+    Priority:\n+\n+    1. CYTHON_CACHE_DIR\n+    2. (OS X): ~/Library/Caches/Cython\n+       (posix not OS X): XDG_CACHE_HOME/cython if XDG_CACHE_HOME defined\n+    3. ~/.cython\n+\n+    \"\"\"\n+    if 'CYTHON_CACHE_DIR' in os.environ:\n+        return os.environ['CYTHON_CACHE_DIR']\n+\n+    parent = None\n+    if os.name == 'posix':\n+        if sys.platform == 'darwin':\n+            parent = os.path.expanduser('~/Library/Caches')\n+        else:\n+            # this could fallback on ~/.cache\n+            parent = os.environ.get('XDG_CACHE_HOME')\n+\n+    if parent and os.path.isdir(parent):\n+        return os.path.join(parent, 'cython')\n+\n+    # last fallback: ~/.cython\n+    return os.path.expanduser(os.path.join('~', '.cython'))\n+\n+\n+class Cache:\n+\n+    def __init__(self, cache, cache_size=None):\n+        if cache is True:\n+            self.enabled = True\n+            self.path = os.path.join(get_cython_cache_dir(), 'compiler')\n+        elif cache:\n+            self.path = cache\n+            self.enabled = True\n+        else:\n+            self.path = None\n+            self.enabled = False\n+        self.cache_size = cache_size if cache_size is not None else 1024 * 1024 * 100\n+        if self.enabled:\n+            if not os.path.exists(self.path):\n+                os.makedirs(self.path)\n+\n+    def transitive_fingerprint(self, filename, dependencies, compilation_options, language, py_limited_api=False, np_pythran=False):\n+        r\"\"\"\n+        Return a fingerprint of a cython file that is about to be cythonized.\n+\n+        Fingerprints are looked up in future compilations. If the fingerprint\n+        is found, the cythonization can be skipped. The fingerprint must\n+        incorporate everything that has an influence on the generated code.\n+        \"\"\"\n+        try:\n+            m = hashlib.sha1(__version__.encode('UTF-8'))\n+            m.update(file_hash(filename).encode('UTF-8'))\n+            for x in sorted(dependencies.all_dependencies(filename)):\n+                if os.path.splitext(x)[1] not in ('.c', '.cpp', '.h'):\n+                    m.update(file_hash(x).encode('UTF-8'))\n+            # Include the module attributes that change the compilation result\n+            # in the fingerprint. We do not iterate over module.__dict__ and\n+            # include almost everything here as users might extend Extension\n+            # with arbitrary (random) attributes that would lead to cache\n+            # misses.\n+            m.update(\n+                str((language, py_limited_api,np_pythran)).encode('UTF-8')\n+            )\n+            m.update(compilation_options.get_fingerprint().encode('UTF-8'))\n+            return m.hexdigest()\n+        except OSError:\n+            return None\n+\n+    def fingerprint_file_base(self, cfile, fingerprint):\n+        return join_path(self.path, \"%s-%s\" % (os.path.basename(cfile), fingerprint))\n+\n+    def gz_fingerprint_file(self, cfile, fingerprint):\n+        return self.fingerprint_file_base(cfile, fingerprint) + gzip_ext\n+\n+\n+    def zip_fingerprint_file(self, cfile, fingerprint):\n+        return self.fingerprint_file_base(cfile, fingerprint) + '.zip'\n+\n+    def lookup_cache(self, c_file, fingerprint):",
+            "html_url": "https://github.com/cython/cython/pull/6090#discussion_r1545498068",
+            "id": 1545498068,
+            "in_reply_to_id": 1536627673,
+            "line": 125,
+            "node_id": "PRRC_kwDOABDGAc5cHm3U",
+            "original_commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "original_line": 125,
+            "original_position": 125,
+            "original_start_line": null,
+            "path": "Cython/Build/Cache.py",
+            "position": 125,
+            "pull_request_review_id": 1970059694,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6090",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545498068/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2024-03-30T21:21:34Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545498068",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6090#discussion_r1545498179"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6090"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1545498179"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Fixed in https://github.com/cython/cython/pull/6117.",
+            "commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "created_at": "2024-03-30T21:22:25Z",
+            "diff_hunk": "@@ -0,0 +1,189 @@\n+import sys\n+import os\n+import hashlib\n+import shutil\n+import subprocess\n+from ..Utils import safe_makedirs, cached_function\n+import zipfile\n+from .. import __version__\n+\n+try:\n+    import zlib\n+    zipfile_compression_mode = zipfile.ZIP_DEFLATED\n+except ImportError:\n+    zipfile_compression_mode = zipfile.ZIP_STORED\n+\n+try:\n+    import gzip\n+    gzip_open = gzip.open\n+    gzip_ext = '.gz'\n+except ImportError:\n+    gzip_open = open\n+    gzip_ext = ''\n+\n+\n+join_path = cached_function(os.path.join)\n+\n+@cached_function\n+def file_hash(filename):\n+    path = os.path.normpath(filename)\n+    prefix = ('%d:%s' % (len(path), path)).encode(\"UTF-8\")\n+    m = hashlib.sha1(prefix)\n+    with open(path, 'rb') as f:\n+        data = f.read(65000)\n+        while data:\n+            m.update(data)\n+            data = f.read(65000)\n+    return m.hexdigest()\n+\n+\n+@cached_function\n+def get_cython_cache_dir():\n+    r\"\"\"\n+    Return the base directory containing Cython's caches.\n+\n+    Priority:\n+\n+    1. CYTHON_CACHE_DIR\n+    2. (OS X): ~/Library/Caches/Cython\n+       (posix not OS X): XDG_CACHE_HOME/cython if XDG_CACHE_HOME defined\n+    3. ~/.cython\n+\n+    \"\"\"\n+    if 'CYTHON_CACHE_DIR' in os.environ:\n+        return os.environ['CYTHON_CACHE_DIR']\n+\n+    parent = None\n+    if os.name == 'posix':\n+        if sys.platform == 'darwin':\n+            parent = os.path.expanduser('~/Library/Caches')\n+        else:\n+            # this could fallback on ~/.cache\n+            parent = os.environ.get('XDG_CACHE_HOME')\n+\n+    if parent and os.path.isdir(parent):\n+        return os.path.join(parent, 'cython')\n+\n+    # last fallback: ~/.cython\n+    return os.path.expanduser(os.path.join('~', '.cython'))\n+\n+\n+class Cache:\n+\n+    def __init__(self, cache, cache_size=None):\n+        if cache is True:\n+            self.enabled = True\n+            self.path = os.path.join(get_cython_cache_dir(), 'compiler')\n+        elif cache:\n+            self.path = cache\n+            self.enabled = True\n+        else:\n+            self.path = None\n+            self.enabled = False\n+        self.cache_size = cache_size if cache_size is not None else 1024 * 1024 * 100\n+        if self.enabled:\n+            if not os.path.exists(self.path):\n+                os.makedirs(self.path)\n+\n+    def transitive_fingerprint(self, filename, dependencies, compilation_options, language, py_limited_api=False, np_pythran=False):\n+        r\"\"\"\n+        Return a fingerprint of a cython file that is about to be cythonized.\n+\n+        Fingerprints are looked up in future compilations. If the fingerprint\n+        is found, the cythonization can be skipped. The fingerprint must\n+        incorporate everything that has an influence on the generated code.\n+        \"\"\"\n+        try:\n+            m = hashlib.sha1(__version__.encode('UTF-8'))\n+            m.update(file_hash(filename).encode('UTF-8'))\n+            for x in sorted(dependencies.all_dependencies(filename)):\n+                if os.path.splitext(x)[1] not in ('.c', '.cpp', '.h'):\n+                    m.update(file_hash(x).encode('UTF-8'))\n+            # Include the module attributes that change the compilation result\n+            # in the fingerprint. We do not iterate over module.__dict__ and\n+            # include almost everything here as users might extend Extension\n+            # with arbitrary (random) attributes that would lead to cache\n+            # misses.\n+            m.update(\n+                str((language, py_limited_api,np_pythran)).encode('UTF-8')\n+            )\n+            m.update(compilation_options.get_fingerprint().encode('UTF-8'))\n+            return m.hexdigest()\n+        except OSError:\n+            return None\n+\n+    def fingerprint_file_base(self, cfile, fingerprint):\n+        return join_path(self.path, \"%s-%s\" % (os.path.basename(cfile), fingerprint))\n+\n+    def gz_fingerprint_file(self, cfile, fingerprint):\n+        return self.fingerprint_file_base(cfile, fingerprint) + gzip_ext\n+\n+\n+    def zip_fingerprint_file(self, cfile, fingerprint):\n+        return self.fingerprint_file_base(cfile, fingerprint) + '.zip'\n+\n+    def lookup_cache(self, c_file, fingerprint):\n+        # Cython-generated c files are highly compressible.\n+        # (E.g. a compression ratio of about 10 for Sage).\n+        if not os.path.exists(self.path):\n+            safe_makedirs(self.path)\n+        gz_fingerprint_file = self.gz_fingerprint_file(c_file, fingerprint)\n+        zip_fingerprint_file = self.zip_fingerprint_file(c_file, fingerprint)\n+        if os.path.exists(gz_fingerprint_file) or os.path.exists(zip_fingerprint_file):\n+            if os.path.exists(gz_fingerprint_file):\n+                os.utime(gz_fingerprint_file, None)\n+                with gzip_open(gz_fingerprint_file, 'rb') as g:\n+                    with open(c_file, 'wb') as f:\n+                        shutil.copyfileobj(g, f)\n+            else:\n+                os.utime(zip_fingerprint_file, None)\n+                dirname = os.path.dirname(c_file)\n+                with zipfile.ZipFile(zip_fingerprint_file) as z:\n+                    for artifact in z.namelist():\n+                        z.extract(artifact, os.path.join(dirname, artifact))\n+            return True\n+        return False\n+\n+\n+    def store_to_cache(self, fingerprint, c_file, compilation_result):\n+        artifacts = list(filter(None, [\n+            getattr(compilation_result, attr, None)\n+            for attr in ('c_file', 'h_file', 'api_file', 'i_file')]))\n+        if len(artifacts) == 1:\n+            fingerprint_file = self.gz_fingerprint_file(c_file, fingerprint)\n+            with open(c_file, 'rb') as f:\n+                with gzip_open(fingerprint_file + '.tmp', 'wb') as g:\n+                    shutil.copyfileobj(f, g)\n+        else:\n+            fingerprint_file = self.zip_fingerprint_file(c_file, fingerprint)\n+            with zipfile.ZipFile(\n+                    fingerprint_file + '.tmp', 'w', zipfile_compression_mode) as zip:\n+                for artifact in artifacts:\n+                    zip.write(artifact, os.path.basename(artifact))\n+        os.rename(fingerprint_file + '.tmp', fingerprint_file)\n+\n+\n+    def cleanup_cache(self, ratio=.85):\n+        try:\n+            p = subprocess.Popen(['du', '-s', '-k', os.path.abspath(self.path)], stdout=subprocess.PIPE)\n+            stdout, _ = p.communicate()\n+            res = p.wait()\n+            if res == 0:",
+            "html_url": "https://github.com/cython/cython/pull/6090#discussion_r1545498179",
+            "id": 1545498179,
+            "in_reply_to_id": 1536628575,
+            "line": 171,
+            "node_id": "PRRC_kwDOABDGAc5cHm5D",
+            "original_commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "original_line": 171,
+            "original_position": 171,
+            "original_start_line": 168,
+            "path": "Cython/Build/Cache.py",
+            "position": 171,
+            "pull_request_review_id": 1970059789,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6090",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545498179/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 168,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-03-30T21:22:25Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1545498179",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6090#discussion_r1546697918"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6090"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1546697918"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "> For example, it receive the complete set of compilation options, only to call .get_fingerprint() on them. Aren't they static at the time the cache is created? Do we need to take a new fingerprint of them for each file? Or is it something that a staticmethod factory function (Cache.from_options(compile_options)) could do at init time?\r\n\r\nI am not sure if it can be done at init time. `options` are changed for every file compiled - see\r\nhttps://github.com/cython/cython/blob/9ba08c73193fd850ea4465e1928bdc40c60dae0e/Cython/Build/Dependencies.py#L996-L1002\r\n\r\n> Similarly, it receives the dependencies instance, just to call .all_dependencies() on it with the filename that it also receives from outside. Maybe it only needs to know the list of dependencies, and not how to determine them? The latter part seems to belong into Dependencies.py.\r\n\r\nDone\r\n\r\n> Finally, it also receives three separate options (language, py_limited_api, np_pythran), just to turn them into a tuple and stringify them. I think language is really a flag as well: C++ or not. So these are all flags that could be passed as a single parameter, maybe as a flags dataclass with defaults. The fact that the fingerprinting then uses c++ or c (or often None, but we should normalise that) then is an implementation detail local to this function again.\r\n\r\nDone",
+            "commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "created_at": "2024-04-01T18:36:48Z",
+            "diff_hunk": "@@ -0,0 +1,189 @@\n+import sys\n+import os\n+import hashlib\n+import shutil\n+import subprocess\n+from ..Utils import safe_makedirs, cached_function\n+import zipfile\n+from .. import __version__\n+\n+try:\n+    import zlib\n+    zipfile_compression_mode = zipfile.ZIP_DEFLATED\n+except ImportError:\n+    zipfile_compression_mode = zipfile.ZIP_STORED\n+\n+try:\n+    import gzip\n+    gzip_open = gzip.open\n+    gzip_ext = '.gz'\n+except ImportError:\n+    gzip_open = open\n+    gzip_ext = ''\n+\n+\n+join_path = cached_function(os.path.join)\n+\n+@cached_function\n+def file_hash(filename):\n+    path = os.path.normpath(filename)\n+    prefix = ('%d:%s' % (len(path), path)).encode(\"UTF-8\")\n+    m = hashlib.sha1(prefix)\n+    with open(path, 'rb') as f:\n+        data = f.read(65000)\n+        while data:\n+            m.update(data)\n+            data = f.read(65000)\n+    return m.hexdigest()\n+\n+\n+@cached_function\n+def get_cython_cache_dir():\n+    r\"\"\"\n+    Return the base directory containing Cython's caches.\n+\n+    Priority:\n+\n+    1. CYTHON_CACHE_DIR\n+    2. (OS X): ~/Library/Caches/Cython\n+       (posix not OS X): XDG_CACHE_HOME/cython if XDG_CACHE_HOME defined\n+    3. ~/.cython\n+\n+    \"\"\"\n+    if 'CYTHON_CACHE_DIR' in os.environ:\n+        return os.environ['CYTHON_CACHE_DIR']\n+\n+    parent = None\n+    if os.name == 'posix':\n+        if sys.platform == 'darwin':\n+            parent = os.path.expanduser('~/Library/Caches')\n+        else:\n+            # this could fallback on ~/.cache\n+            parent = os.environ.get('XDG_CACHE_HOME')\n+\n+    if parent and os.path.isdir(parent):\n+        return os.path.join(parent, 'cython')\n+\n+    # last fallback: ~/.cython\n+    return os.path.expanduser(os.path.join('~', '.cython'))\n+\n+\n+class Cache:\n+\n+    def __init__(self, cache, cache_size=None):\n+        if cache is True:\n+            self.enabled = True\n+            self.path = os.path.join(get_cython_cache_dir(), 'compiler')\n+        elif cache:\n+            self.path = cache\n+            self.enabled = True\n+        else:\n+            self.path = None\n+            self.enabled = False\n+        self.cache_size = cache_size if cache_size is not None else 1024 * 1024 * 100\n+        if self.enabled:\n+            if not os.path.exists(self.path):\n+                os.makedirs(self.path)\n+\n+    def transitive_fingerprint(self, filename, dependencies, compilation_options, language, py_limited_api=False, np_pythran=False):",
+            "html_url": "https://github.com/cython/cython/pull/6090#discussion_r1546697918",
+            "id": 1546697918,
+            "in_reply_to_id": 1536626763,
+            "line": 88,
+            "node_id": "PRRC_kwDOABDGAc5cMLy-",
+            "original_commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "original_line": 88,
+            "original_position": 88,
+            "original_start_line": null,
+            "path": "Cython/Build/Cache.py",
+            "position": 88,
+            "pull_request_review_id": 1971891656,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6090",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1546697918/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2024-04-01T18:36:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1546697918",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6090#discussion_r1546710479"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6090"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1546710479"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "One function function extracts data from archive and second one compresses data in archive. The logic is 99% same as you mentioned with temp file. They differ only in `'wb'` vs `'rb'` and order of `f` and `g` in `shutil.copyfileobj`. I am afraid that merging both extracting and compression to a single function will yield a function with messy interface and implementation. Not sure if it is worth it.",
+            "commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "created_at": "2024-04-01T18:46:37Z",
+            "diff_hunk": "@@ -0,0 +1,189 @@\n+import sys\n+import os\n+import hashlib\n+import shutil\n+import subprocess\n+from ..Utils import safe_makedirs, cached_function\n+import zipfile\n+from .. import __version__\n+\n+try:\n+    import zlib\n+    zipfile_compression_mode = zipfile.ZIP_DEFLATED\n+except ImportError:\n+    zipfile_compression_mode = zipfile.ZIP_STORED\n+\n+try:\n+    import gzip\n+    gzip_open = gzip.open\n+    gzip_ext = '.gz'\n+except ImportError:\n+    gzip_open = open\n+    gzip_ext = ''\n+\n+\n+join_path = cached_function(os.path.join)\n+\n+@cached_function\n+def file_hash(filename):\n+    path = os.path.normpath(filename)\n+    prefix = ('%d:%s' % (len(path), path)).encode(\"UTF-8\")\n+    m = hashlib.sha1(prefix)\n+    with open(path, 'rb') as f:\n+        data = f.read(65000)\n+        while data:\n+            m.update(data)\n+            data = f.read(65000)\n+    return m.hexdigest()\n+\n+\n+@cached_function\n+def get_cython_cache_dir():\n+    r\"\"\"\n+    Return the base directory containing Cython's caches.\n+\n+    Priority:\n+\n+    1. CYTHON_CACHE_DIR\n+    2. (OS X): ~/Library/Caches/Cython\n+       (posix not OS X): XDG_CACHE_HOME/cython if XDG_CACHE_HOME defined\n+    3. ~/.cython\n+\n+    \"\"\"\n+    if 'CYTHON_CACHE_DIR' in os.environ:\n+        return os.environ['CYTHON_CACHE_DIR']\n+\n+    parent = None\n+    if os.name == 'posix':\n+        if sys.platform == 'darwin':\n+            parent = os.path.expanduser('~/Library/Caches')\n+        else:\n+            # this could fallback on ~/.cache\n+            parent = os.environ.get('XDG_CACHE_HOME')\n+\n+    if parent and os.path.isdir(parent):\n+        return os.path.join(parent, 'cython')\n+\n+    # last fallback: ~/.cython\n+    return os.path.expanduser(os.path.join('~', '.cython'))\n+\n+\n+class Cache:\n+\n+    def __init__(self, cache, cache_size=None):\n+        if cache is True:\n+            self.enabled = True\n+            self.path = os.path.join(get_cython_cache_dir(), 'compiler')\n+        elif cache:\n+            self.path = cache\n+            self.enabled = True\n+        else:\n+            self.path = None\n+            self.enabled = False\n+        self.cache_size = cache_size if cache_size is not None else 1024 * 1024 * 100\n+        if self.enabled:\n+            if not os.path.exists(self.path):\n+                os.makedirs(self.path)\n+\n+    def transitive_fingerprint(self, filename, dependencies, compilation_options, language, py_limited_api=False, np_pythran=False):\n+        r\"\"\"\n+        Return a fingerprint of a cython file that is about to be cythonized.\n+\n+        Fingerprints are looked up in future compilations. If the fingerprint\n+        is found, the cythonization can be skipped. The fingerprint must\n+        incorporate everything that has an influence on the generated code.\n+        \"\"\"\n+        try:\n+            m = hashlib.sha1(__version__.encode('UTF-8'))\n+            m.update(file_hash(filename).encode('UTF-8'))\n+            for x in sorted(dependencies.all_dependencies(filename)):\n+                if os.path.splitext(x)[1] not in ('.c', '.cpp', '.h'):\n+                    m.update(file_hash(x).encode('UTF-8'))\n+            # Include the module attributes that change the compilation result\n+            # in the fingerprint. We do not iterate over module.__dict__ and\n+            # include almost everything here as users might extend Extension\n+            # with arbitrary (random) attributes that would lead to cache\n+            # misses.\n+            m.update(\n+                str((language, py_limited_api,np_pythran)).encode('UTF-8')\n+            )\n+            m.update(compilation_options.get_fingerprint().encode('UTF-8'))\n+            return m.hexdigest()\n+        except OSError:\n+            return None\n+\n+    def fingerprint_file_base(self, cfile, fingerprint):\n+        return join_path(self.path, \"%s-%s\" % (os.path.basename(cfile), fingerprint))\n+\n+    def gz_fingerprint_file(self, cfile, fingerprint):\n+        return self.fingerprint_file_base(cfile, fingerprint) + gzip_ext\n+\n+\n+    def zip_fingerprint_file(self, cfile, fingerprint):\n+        return self.fingerprint_file_base(cfile, fingerprint) + '.zip'\n+\n+    def lookup_cache(self, c_file, fingerprint):\n+        # Cython-generated c files are highly compressible.\n+        # (E.g. a compression ratio of about 10 for Sage).\n+        if not os.path.exists(self.path):\n+            safe_makedirs(self.path)\n+        gz_fingerprint_file = self.gz_fingerprint_file(c_file, fingerprint)\n+        zip_fingerprint_file = self.zip_fingerprint_file(c_file, fingerprint)\n+        if os.path.exists(gz_fingerprint_file) or os.path.exists(zip_fingerprint_file):\n+            if os.path.exists(gz_fingerprint_file):\n+                os.utime(gz_fingerprint_file, None)\n+                with gzip_open(gz_fingerprint_file, 'rb') as g:\n+                    with open(c_file, 'wb') as f:\n+                        shutil.copyfileobj(g, f)\n+            else:\n+                os.utime(zip_fingerprint_file, None)\n+                dirname = os.path.dirname(c_file)\n+                with zipfile.ZipFile(zip_fingerprint_file) as z:\n+                    for artifact in z.namelist():\n+                        z.extract(artifact, os.path.join(dirname, artifact))\n+            return True\n+        return False\n+\n+\n+    def store_to_cache(self, fingerprint, c_file, compilation_result):\n+        artifacts = list(filter(None, [\n+            getattr(compilation_result, attr, None)\n+            for attr in ('c_file', 'h_file', 'api_file', 'i_file')]))\n+        if len(artifacts) == 1:\n+            fingerprint_file = self.gz_fingerprint_file(c_file, fingerprint)\n+            with open(c_file, 'rb') as f:\n+                with gzip_open(fingerprint_file + '.tmp', 'wb') as g:\n+                    shutil.copyfileobj(f, g)",
+            "html_url": "https://github.com/cython/cython/pull/6090#discussion_r1546710479",
+            "id": 1546710479,
+            "in_reply_to_id": 1536627965,
+            "line": 156,
+            "node_id": "PRRC_kwDOABDGAc5cMO3P",
+            "original_commit_id": "c70242dac0c542973571696b6a00a545a8966b67",
+            "original_line": 156,
+            "original_position": 156,
+            "original_start_line": 154,
+            "path": "Cython/Build/Cache.py",
+            "position": 156,
+            "pull_request_review_id": 1971905108,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6090",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1546710479/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 154,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-04-01T18:46:37Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1546710479",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
         }
     ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/6090/comments",
@@ -2262,9 +2814,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/matusvalo/cython/pulls{/number}",
-            "pushed_at": "2024-03-22T09:53:34Z",
+            "pushed_at": "2024-04-01T18:30:50Z",
             "releases_url": "https://api.github.com/repos/matusvalo/cython/releases{/id}",
-            "size": 72843,
+            "size": 73304,
             "ssh_url": "git@github.com:matusvalo/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/matusvalo/cython/stargazers",
@@ -2324,7 +2876,7 @@
     "merged_at": "2024-03-20T17:15:03Z",
     "milestone": {
         "closed_at": null,
-        "closed_issues": 98,
+        "closed_issues": 102,
         "created_at": "2019-02-24T14:21:23Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -2346,17 +2898,17 @@
             "type": "User",
             "url": "https://api.github.com/users/scoder"
         },
-        "description": "Remove support for Python 2 and Python < 3.8.",
+        "description": "Remove support for Python 2 and Python < 3.7.",
         "due_on": null,
         "html_url": "https://github.com/cython/cython/milestone/65",
         "id": 4082235,
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/65/labels",
         "node_id": "MDk6TWlsZXN0b25lNDA4MjIzNQ==",
         "number": 65,
-        "open_issues": 18,
+        "open_issues": 20,
         "state": "open",
         "title": "3.1",
-        "updated_at": "2024-03-24T10:01:41Z",
+        "updated_at": "2024-04-02T06:39:13Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/65"
     },
     "node_id": "PR_kwDOABDGAc5p1nDp",
@@ -2369,7 +2921,7 @@
     "state": "closed",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/c70242dac0c542973571696b6a00a545a8966b67",
     "title": "Move Cython cache to separate module",
-    "updated_at": "2024-03-24T07:51:07Z",
+    "updated_at": "2024-04-01T18:46:37Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6090",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
