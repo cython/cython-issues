@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/6124"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/b0655c02df63025b50f58cda1393f33803553fa9"
+            "href": "https://api.github.com/repos/cython/cython/statuses/46a166ed7e6cd2857a6bdf9afa313b69d9f1711f"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1445,
-            "forks_count": 1445,
+            "forks": 1446,
+            "forks_count": 1446,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -118,11 +118,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-04-02T22:40:53Z",
+            "pushed_at": "2024-04-08T11:46:24Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 73341,
+            "size": 73844,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 8837,
+            "stargazers_count": 8850,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,11 +141,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-04-03T10:28:38Z",
+            "updated_at": "2024-04-08T11:25:48Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 8837,
-            "watchers_count": 8837,
+            "watchers": 8850,
+            "watchers_count": 8850,
             "web_commit_signoff_required": false
         },
         "sha": "b197288e92f58278bd614d0e88b6a4330eb1bbe2",
@@ -172,7 +172,214 @@
     },
     "body": "When .pxd file is defined there are two runs CFuncDeclaratorNode.analyse:\r\n\r\n1. run is executed for .pxd file and is triggered by the parser\r\n2. run is executed for .py file and is triggered by ParseTreeTransform.AlignFunctionDefinitions.visit_DefNode\r\n\r\nThe problem is causing 2nd run because it does uses information from entry which misses correct value of has_explicit_exc_clause (default value False is used).\r\n\r\nPR solves it by not overriding exception_check when CFuncDeclaratorNode is already declared by .pxd file since it already contains correct value of exception_check from 1st run. \r\n\r\nFixes #6122 ",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6124#discussion_r1551011335"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6124"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1551011335"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n    cpdef int m2(self)\r\n    cpdef int m3(self) noexcept\r\n    cpdef int m4(self) except *\r\n    cpdef int m5(self) except -1\r\n    cpdef object n1(self)\r\n    cpdef object n2(self) except *\r\n    cpdef object n3(self) noexcept  # will warn, but should work\r\n    cpdef void o1(self)\r\n    cpdef void o2(self) except*\r\n    cpdef void o3(self) noexcept\r\n    cdef int p1(self) except? -1\r\n    cdef int p2(self)\r\n    cdef int p3(self) noexcept\r\n    cdef int p4(self) except *\r\n    cdef int p5(self) except -1\r\n    cdef object q1(self)\r\n    cdef object q2(self) except *\r\n    cdef object q3(self) noexcept  # will warn, but should work\r\n    cdef void r1(self)\r\n    cdef void r2(self) except*\r\n    cdef void r3(self) noexcept\r\n\r\ncpdef int m1(self) except? -1\r\ncpdef int m2()\r\ncpdef int m3() noexcept\r\ncpdef int m4() except *\r\ncpdef int m5() except -1\r\ncpdef object n1()\r\ncpdef object n2() except *\r\ncpdef object n3() noexcept  # will warn, but should work\r\ncpdef void o1()\r\ncpdef void o2() except*\r\ncpdef void o3() noexcept\r\ncdef int p1() except? -1\r\ncdef int p2()\r\ncdef int p3() noexcept\r\ncdef int p4() except *\r\ncdef int p5() except -1\r\ncdef object q1()\r\ncdef object q2() except *\r\ncdef object q3() noexcept  # will warn, but should work\r\ncdef void r1()\r\ncdef void r2() except*\r\ncdef void r3() noexcept\r\n```\r\n\r\nSince this is obviously a little under-tested, just just suggesting adding a long list of similar examples here in the hope that it catches any other edge cases",
+            "commit_id": "46a166ed7e6cd2857a6bdf9afa313b69d9f1711f",
+            "created_at": "2024-04-04T06:39:35Z",
+            "diff_hunk": "@@ -31,3 +32,16 @@ except RuntimeError:\n     pass\n else:\n     assert False, 'Exception not raised'\n+\n+\n+######## aa.pxd ########\n+cdef class Klass:\n+    cpdef int m(self) except? -1\n+",
+            "html_url": "https://github.com/cython/cython/pull/6124#discussion_r1551011335",
+            "id": 1551011335,
+            "line": 228,
+            "node_id": "PRRC_kwDOABDGAc5cco4H",
+            "original_commit_id": "b0655c02df63025b50f58cda1393f33803553fa9",
+            "original_line": 40,
+            "original_position": 25,
+            "original_start_line": null,
+            "path": "tests/run/legacy_implicit_noexcept_build.srctree",
+            "position": 215,
+            "pull_request_review_id": 1978860852,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6124",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1551011335/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2024-04-04T06:39:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1551011335",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6124#discussion_r1552326554"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6124"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1552326554"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Fixed. I think I should also implement tests for exception propagation (non-propagation of noexcept functions) for every method/function I suppose...",
+            "commit_id": "46a166ed7e6cd2857a6bdf9afa313b69d9f1711f",
+            "created_at": "2024-04-04T19:40:47Z",
+            "diff_hunk": "@@ -31,3 +32,16 @@ except RuntimeError:\n     pass\n else:\n     assert False, 'Exception not raised'\n+\n+\n+######## aa.pxd ########\n+cdef class Klass:\n+    cpdef int m(self) except? -1\n+",
+            "html_url": "https://github.com/cython/cython/pull/6124#discussion_r1552326554",
+            "id": 1552326554,
+            "in_reply_to_id": 1551011335,
+            "line": 228,
+            "node_id": "PRRC_kwDOABDGAc5chp-a",
+            "original_commit_id": "b0655c02df63025b50f58cda1393f33803553fa9",
+            "original_line": 40,
+            "original_position": 25,
+            "original_start_line": null,
+            "path": "tests/run/legacy_implicit_noexcept_build.srctree",
+            "position": 215,
+            "pull_request_review_id": 1980982838,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6124",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1552326554/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2024-04-04T19:40:48Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1552326554",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6124#discussion_r1555044807"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6124"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1555044807"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": ">  think I should also implement tests for exception propagation\r\n\r\ndone",
+            "commit_id": "46a166ed7e6cd2857a6bdf9afa313b69d9f1711f",
+            "created_at": "2024-04-07T19:09:54Z",
+            "diff_hunk": "@@ -31,3 +32,16 @@ except RuntimeError:\n     pass\n else:\n     assert False, 'Exception not raised'\n+\n+\n+######## aa.pxd ########\n+cdef class Klass:\n+    cpdef int m(self) except? -1\n+",
+            "html_url": "https://github.com/cython/cython/pull/6124#discussion_r1555044807",
+            "id": 1555044807,
+            "in_reply_to_id": 1551011335,
+            "line": 228,
+            "node_id": "PRRC_kwDOABDGAc5csBnH",
+            "original_commit_id": "b0655c02df63025b50f58cda1393f33803553fa9",
+            "original_line": 40,
+            "original_position": 25,
+            "original_start_line": null,
+            "path": "tests/run/legacy_implicit_noexcept_build.srctree",
+            "position": 215,
+            "pull_request_review_id": 1985173789,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6124",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1555044807/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2024-04-07T19:09:54Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1555044807",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/6124/comments",
     "commit_data": [
         {
@@ -253,6 +460,243 @@
             ],
             "sha": "b0655c02df63025b50f58cda1393f33803553fa9",
             "url": "https://api.github.com/repos/cython/cython/commits/b0655c02df63025b50f58cda1393f33803553fa9"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/b3a93c56a361aa8120a5eb90737c9f3c268945e0/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-04-04T19:38:08Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-04-04T19:38:08Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Expand tests.\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
+                "tree": {
+                    "sha": "ecf5e7f59cd23d1b3537c7ecfcb0631802a41421",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/ecf5e7f59cd23d1b3537c7ecfcb0631802a41421"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/b3a93c56a361aa8120a5eb90737c9f3c268945e0",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "html_url": "https://github.com/cython/cython/commit/b3a93c56a361aa8120a5eb90737c9f3c268945e0",
+            "node_id": "C_kwDOFL4z49oAKGIzYTkzYzU2YTM2MWFhODEyMGE1ZWI5MDczN2M5ZjNjMjY4OTQ1ZTA",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/b0655c02df63025b50f58cda1393f33803553fa9",
+                    "sha": "b0655c02df63025b50f58cda1393f33803553fa9",
+                    "url": "https://api.github.com/repos/cython/cython/commits/b0655c02df63025b50f58cda1393f33803553fa9"
+                }
+            ],
+            "sha": "b3a93c56a361aa8120a5eb90737c9f3c268945e0",
+            "url": "https://api.github.com/repos/cython/cython/commits/b3a93c56a361aa8120a5eb90737c9f3c268945e0"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/45361c38faca07ce331a5bd93e30d496192dbadd/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-04-04T19:47:54Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-04-04T19:47:54Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Return objects instead of ints\n\nCo-authored-by: da-woods <dw-git@d-woods.co.uk>",
+                "tree": {
+                    "sha": "59fe880ec5f0f1ffd7a66632b290d1f501add1b2",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/59fe880ec5f0f1ffd7a66632b290d1f501add1b2"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/45361c38faca07ce331a5bd93e30d496192dbadd",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "html_url": "https://github.com/cython/cython/commit/45361c38faca07ce331a5bd93e30d496192dbadd",
+            "node_id": "C_kwDOFL4z49oAKDQ1MzYxYzM4ZmFjYTA3Y2UzMzFhNWJkOTNlMzBkNDk2MTkyZGJhZGQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/b3a93c56a361aa8120a5eb90737c9f3c268945e0",
+                    "sha": "b3a93c56a361aa8120a5eb90737c9f3c268945e0",
+                    "url": "https://api.github.com/repos/cython/cython/commits/b3a93c56a361aa8120a5eb90737c9f3c268945e0"
+                }
+            ],
+            "sha": "45361c38faca07ce331a5bd93e30d496192dbadd",
+            "url": "https://api.github.com/repos/cython/cython/commits/45361c38faca07ce331a5bd93e30d496192dbadd"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/46a166ed7e6cd2857a6bdf9afa313b69d9f1711f/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-04-07T19:09:05Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-04-07T19:09:05Z",
+                    "email": "matusvalo@gmail.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Test exception propagation",
+                "tree": {
+                    "sha": "d3e404d4436cb123d00154e05c7a87dd405dd606",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/d3e404d4436cb123d00154e05c7a87dd405dd606"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/46a166ed7e6cd2857a6bdf9afa313b69d9f1711f",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "html_url": "https://github.com/cython/cython/commit/46a166ed7e6cd2857a6bdf9afa313b69d9f1711f",
+            "node_id": "C_kwDOFL4z49oAKDQ2YTE2NmVkN2U2Y2QyODU3YTZiZGY5YWZhMzEzYjY5ZDlmMTcxMWY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/45361c38faca07ce331a5bd93e30d496192dbadd",
+                    "sha": "45361c38faca07ce331a5bd93e30d496192dbadd",
+                    "url": "https://api.github.com/repos/cython/cython/commits/45361c38faca07ce331a5bd93e30d496192dbadd"
+                }
+            ],
+            "sha": "46a166ed7e6cd2857a6bdf9afa313b69d9f1711f",
+            "url": "https://api.github.com/repos/cython/cython/commits/46a166ed7e6cd2857a6bdf9afa313b69d9f1711f"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/6124/commits",
@@ -347,9 +791,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/matusvalo/cython/pulls{/number}",
-            "pushed_at": "2024-04-02T19:16:36Z",
+            "pushed_at": "2024-04-07T19:09:09Z",
             "releases_url": "https://api.github.com/repos/matusvalo/cython/releases{/id}",
-            "size": 73364,
+            "size": 73278,
             "ssh_url": "git@github.com:matusvalo/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/matusvalo/cython/stargazers",
@@ -368,7 +812,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "b0655c02df63025b50f58cda1393f33803553fa9",
+        "sha": "46a166ed7e6cd2857a6bdf9afa313b69d9f1711f",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
             "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
@@ -405,7 +849,7 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "eb8f3cfd7f4e45094eeae3b265d64bd0451aa9f1",
+    "merge_commit_sha": "1aaaf0aeadc7c2b8c948d28e9360dc6255c605eb",
     "merged_at": null,
     "milestone": {
         "closed_at": null,
@@ -438,10 +882,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/99/labels",
         "node_id": "MI_kwDOABDGAc4Ak8_d",
         "number": 99,
-        "open_issues": 19,
+        "open_issues": 18,
         "state": "open",
         "title": "3.0.x",
-        "updated_at": "2024-04-02T20:55:40Z",
+        "updated_at": "2024-04-07T12:15:01Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/99"
     },
     "node_id": "PR_kwDOABDGAc5reoOD",
@@ -452,9 +896,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6124/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/b0655c02df63025b50f58cda1393f33803553fa9",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/46a166ed7e6cd2857a6bdf9afa313b69d9f1711f",
     "title": "Do not set exception_check if already set during analyzing pxd file",
-    "updated_at": "2024-04-02T19:20:04Z",
+    "updated_at": "2024-04-07T19:11:35Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6124",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
