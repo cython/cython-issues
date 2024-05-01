@@ -313,9 +313,53 @@
                 "type": "User",
                 "url": "https://api.github.com/users/vyasr"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "I think the rootcause of the problem is that Cython for cdef classes does not call `__set_name__` as described in documentation [1]:\r\n\r\n> Automatically called at the time the owning class owner is created. \r\n\r\nSimple example not involving `@cached_property` based on descriptor documentation [2]\r\n\r\n```python\r\n# descriptor.py file\r\nimport logging\r\n\r\nlogging.basicConfig(level=logging.INFO)\r\n\r\nclass LoggedAccess:\r\n\r\n    def __set_name__(self, owner, name):\r\n        self.public_name = name\r\n        self.private_name = '_' + name\r\n\r\n    def __get__(self, obj, objtype=None):\r\n        value = getattr(obj, self.private_name)\r\n        logging.info('Accessing %r giving %r', self.public_name, value)\r\n        return value\r\n\r\n    def __set__(self, obj, value):\r\n        logging.info('Updating %r to %r', self.public_name, value)\r\n        setattr(obj, self.private_name, value)\r\n```\r\n\r\n```cython\r\n# example.pyx file\r\nfrom descriptor import LoggedAccess\r\n\r\ncdef class Person:\r\n\r\n    cdef public object _name\r\n    cdef public object _age\r\n    name = LoggedAccess()\r\n    age = LoggedAccess()\r\n\r\n    def __init__(self, name, age):\r\n        self.name = name\r\n        self.age = age\r\n```\r\n\r\nCompiling and using example.pyx will trigger an error:\r\n```python\r\n>>> from example import Person\r\n>>> p = Person('John', 5)\r\nTraceback (most recent call last):\r\n  File \"<stdin>\", line 1, in <module>\r\n  File \"example.pyx\", line 11, in example.Person.__init__\r\n    self.name = name\r\n  File \"/home/matus/dev/cython/test/example.py\", line 17, in __set__\r\n    logging.info('Updating %r to %r', self.public_name, value)\r\n                                      ^^^^^^^^^^^^^^^^\r\nAttributeError: 'LoggedAccess' object has no attribute 'public_name'\r\n```\r\n\r\nIn contrast same example in python works:\r\n\r\n```python\r\nfrom descriptor import LoggedAccess\r\n\r\nclass Person:\r\n\r\n    name = LoggedAccess()\r\n    age = LoggedAccess()\r\n\r\n    def __init__(self, name, age):\r\n        self.name = name\r\n        self.age = age\r\n```\r\n\r\n[1] https://docs.python.org/3/reference/datamodel.html#object.__set_name__\r\n[2] https://docs.python.org/3/howto/descriptor.html",
+            "created_at": "2024-04-30T05:05:49Z",
+            "html_url": "https://github.com/cython/cython/issues/5523#issuecomment-2084389096",
+            "id": 2084389096,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/5523",
+            "node_id": "IC_kwDOABDGAc58PUDo",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2084389096/reactions"
+            },
+            "updated_at": "2024-04-30T06:22:26Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2084389096",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
         }
     ],
-    "comments": 7,
+    "comments": 8,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/5523/comments",
     "created_at": "2023-07-11T20:52:34Z",
     "event_data": [],
@@ -346,7 +390,7 @@
     "state_reason": null,
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/5523/timeline",
     "title": "[BUG] functools.cached_property does not work on cdef classes",
-    "updated_at": "2023-07-13T02:16:00Z",
+    "updated_at": "2024-04-30T06:22:26Z",
     "url": "https://api.github.com/repos/cython/cython/issues/5523",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
