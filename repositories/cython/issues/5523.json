@@ -4,7 +4,7 @@
     "assignees": [],
     "author_association": "CONTRIBUTOR",
     "body": "### Describe the bug\r\n\r\nThe `cached_property` decorator fails when used inside a `cdef class`.\r\n\r\n### Code to reproduce the behaviour:\r\n\r\n```cython\r\nfrom functools import cached_property\r\ncdef class A:\r\n    @cached_property\r\n    def x(self):\r\n        return 1\r\n\r\na = A()\r\na.x\r\n```\r\n\r\nOutput:\r\n```\r\n---------------------------------------------------------------------------\r\nTypeError                                 Traceback (most recent call last)\r\n...\r\n----> 1 a.x\r\n\r\nFile ...\r\n    963     return self\r\n    964 if self.attrname is None:\r\n--> 965     raise TypeError(\r\n    966         \"Cannot use cached_property instance without calling __set_name__ on it.\")\r\n    967 try:\r\n    968     cache = instance.__dict__\r\n\r\nTypeError: Cannot use cached_property instance without calling __set_name__ on it.\r\n```\r\n\r\n### Expected behaviour\r\n\r\nThe above snippet should generate a working (cached) property.\r\n\r\nAccording to the docs, [`__set_name__` is only called on descriptors if they are created as part of the class definition](https://docs.python.org/3/reference/datamodel.html#object.__set_name__). I suspect that the reason for this issue is that Cython is actually translating the above code into the equivalent of \r\n```python\r\nfrom functools import cached_property\r\nclass A:\r\n    def x(self):\r\n        return 1\r\n\r\nA.x = cached_property(A.x)\r\n\r\na = A()\r\na.x\r\n```\r\nwhich reproduces the issue in pure Python. The above snippet may be fixed by manually calling `A.x.__set_name__(A, \"x\")`, so I would guess that line needs to be added into the Cython handling of the cached property as well somewhere. \r\n\r\n### OS\r\n\r\nLinux\r\n\r\n### Python version\r\n\r\n3.8.16 (and 3.10.2)\r\n\r\n### Cython version\r\n\r\n3.0.0b3 (and 0.29.36)\r\n\r\n### Additional context\r\n\r\n_No response_",
-    "closed_at": null,
+    "closed_at": "2024-05-05T08:20:34Z",
     "comment_data": [
         {
             "author_association": "CONTRIBUTOR",
@@ -357,16 +357,136 @@
                 "type": "User",
                 "url": "https://api.github.com/users/matusvalo"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "OK I was able to fix example above by adjusting `__pyx_pymod_exec_pyxpyx` as follows:\r\n\r\n```c\r\n   /* \"pyxpyx.pyx\":7\r\n  *     cdef public object _name\r\n  *     cdef public object _age\r\n  *     name = LoggedAccess()             # <<<<<<<<<<<<<<\r\n  *     age = LoggedAccess()\r\n  *·\r\n  */\r\n   __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_LoggedAccess); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 7, __pyx_L1_error)\r\n   __Pyx_GOTREF(__pyx_t_3);\r\n\r\n   __pyx_t_2 = __Pyx_PyObject_CallNoArg(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 7, __pyx_L1_error)\r\n   __Pyx_GOTREF(__pyx_t_2);\r\n   if (PyObject_HasAttrString(__pyx_t_2, \"__set_name__\")) {\r\n       PyObject_CallMethod(__pyx_t_2, \"__set_name__\", \"Os\", (PyObject *)__pyx_ptype_6pyxpyx_Person, __pyx_k_name);\r\n   }\r\n   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;\r\n   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6pyxpyx_Person, __pyx_n_s_name, __pyx_t_2) < 0) __PYX_ERR(0, 7, __pyx_L1_error)\r\n   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;\r\n\r\n   /* \"pyxpyx.pyx\":8\r\n  *     cdef public object _age\r\n  *     name = LoggedAccess()\r\n  *     age = LoggedAccess()             # <<<<<<<<<<<<<<\r\n  *·\r\n  *     def __init__(self, name, age):\r\n  */\r\n   __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_LoggedAccess); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 8, __pyx_L1_error)\r\n   __Pyx_GOTREF(__pyx_t_2);\r\n   __pyx_t_3 = __Pyx_PyObject_CallNoArg(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 8, __pyx_L1_error)\r\n   if (PyObject_HasAttrString(__pyx_t_3, \"__set_name__\")) {\r\n       PyObject_CallMethod(__pyx_t_3, \"__set_name__\", \"Os\", (PyObject *)__pyx_ptype_6pyxpyx_Person, __pyx_k_age);\r\n   }\r\n   __Pyx_GOTREF(__pyx_t_3);\r\n   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;\r\n   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6pyxpyx_Person, __pyx_n_s_age, __pyx_t_3) < 0) __PYX_ERR(0, 8, __pyx_L1_error)\r\n   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;\r\n```\r\n\r\nThe change is adding lines - they ensures that `__set_name__` method is called:\r\n```c\r\n   if (PyObject_HasAttrString(__pyx_t_2, \"__set_name__\")) {\r\n       PyObject_CallMethod(__pyx_t_2, \"__set_name__\", \"Os\", (PyObject *)__pyx_ptype_6pyxpyx_Person, __pyx_k_name);\r\n   }\r\n```\r\nand\r\n```c\r\n   if (PyObject_HasAttrString(__pyx_t_3, \"__set_name__\")) {\r\n       PyObject_CallMethod(__pyx_t_3, \"__set_name__\", \"Os\", (PyObject *)__pyx_ptype_6pyxpyx_Person, __pyx_k_age);\r\n   }\r\n```",
+            "created_at": "2024-05-02T23:25:52Z",
+            "html_url": "https://github.com/cython/cython/issues/5523#issuecomment-2091902152",
+            "id": 2091902152,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/5523",
+            "node_id": "IC_kwDOABDGAc58r-TI",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2091902152/reactions"
+            },
+            "updated_at": "2024-05-02T23:28:12Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2091902152",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            }
         }
     ],
-    "comments": 8,
+    "comments": 9,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/5523/comments",
     "created_at": "2023-07-11T20:52:34Z",
-    "event_data": [],
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2024-05-02T23:20:03Z",
+            "event": "labeled",
+            "id": 12690316511,
+            "label": {
+                "color": "444444",
+                "name": "Python Semantics"
+            },
+            "node_id": "LE_lADOABDGAc5rRcpizwAAAAL0Ztzf",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/12690316511"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2024-05-05T08:20:35Z",
+            "event": "closed",
+            "id": 12706724833,
+            "node_id": "CE_lADOABDGAc5rRcpizwAAAAL1YTvh",
+            "performed_via_github_app": null,
+            "state_reason": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/12706724833"
+        }
+    ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/5523/events",
     "html_url": "https://github.com/cython/cython/issues/5523",
     "id": 1799735906,
-    "labels": [],
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425556315,
+            "name": "Python Semantics",
+            "node_id": "MDU6TGFiZWw0MjU1NTYzMTU=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Python%20Semantics"
+        }
+    ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/5523/labels{/name}",
     "locked": false,
     "milestone": null,
@@ -386,11 +506,11 @@
         "url": "https://api.github.com/repos/cython/cython/issues/5523/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
-    "state_reason": null,
+    "state": "closed",
+    "state_reason": "completed",
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/5523/timeline",
     "title": "[BUG] functools.cached_property does not work on cdef classes",
-    "updated_at": "2024-04-30T06:22:26Z",
+    "updated_at": "2024-05-05T08:20:35Z",
     "url": "https://api.github.com/repos/cython/cython/issues/5523",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
