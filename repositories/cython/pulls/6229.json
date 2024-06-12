@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/6229"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/6af726e83c75bb133c4239edc1b60c60221e3fb2"
+            "href": "https://api.github.com/repos/cython/cython/statuses/713524c0778b290d426c7a63da68b9d07d3d2910"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1458,
-            "forks_count": 1458,
+            "forks": 1459,
+            "forks_count": 1459,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1316,
-            "open_issues_count": 1316,
+            "open_issues": 1313,
+            "open_issues_count": 1313,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -118,11 +118,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-06-05T13:30:49Z",
+            "pushed_at": "2024-06-07T18:35:47Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 73427,
+            "size": 73487,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 9042,
+            "stargazers_count": 9056,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,11 +141,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-06-05T02:12:10Z",
+            "updated_at": "2024-06-08T02:45:56Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 9042,
-            "watchers_count": 9042,
+            "watchers": 9056,
+            "watchers_count": 9056,
             "web_commit_signoff_required": false
         },
         "sha": "965d7aa3485b8ba0497803c5b54cacf3f4acdbb0",
@@ -171,7 +171,7 @@
         }
     },
     "body": "Opening this as a draft pull request. Will only work after a secret has been added for the anaconda token.\r\n\r\nCloses #6223.",
-    "closed_at": null,
+    "closed_at": "2024-06-07T18:35:47Z",
     "comment_data": [
         {
             "_links": {
@@ -187,7 +187,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Looks like this should be `CYTHON_xxx` rather than `NUMPY_xxx`.\r\n\r\nThe rest all looks right and familiar to me.",
-            "commit_id": "6af726e83c75bb133c4239edc1b60c60221e3fb2",
+            "commit_id": "713524c0778b290d426c7a63da68b9d07d3d2910",
             "created_at": "2024-06-05T13:14:14Z",
             "diff_hunk": "@@ -0,0 +1,80 @@\n+# Workflow to build non-compiled nightly wheel.\n+\n+name: Nightly wheels\n+on:\n+  schedule:\n+  #        ┌───────────── minute (0 - 59)\n+  #        │  ┌───────────── hour (0 - 23)\n+  #        │  │ ┌───────────── day of the month (1 - 31)\n+  #        │  │ │ ┌───────────── month (1 - 12 or JAN-DEC)\n+  #        │  │ │ │ ┌───────────── day of the week (0 - 6 or SUN-SAT)\n+  #        │  │ │ │ │\n+  - cron: \"42 1 * * 0,3\"\n+  pull_request:\n+    types: [labeled, opened, synchronize, reopened]\n+    paths:\n+      #- Cython/Build/**\n+      - .github/workflows/nightly-wheels.yml\n+      - pyproject.toml\n+      - MANIFEST.in\n+      - setup.*\n+  workflow_dispatch:\n+\n+concurrency:\n+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}\n+  cancel-in-progress: true\n+\n+permissions:\n+  contents: read # to fetch code (actions/checkout)\n+\n+build_pure_wheel:\n+    name: Build pure wheel and upload to Anaconda's PyPI\n+    if: >-\n+      github.event_name == 'schedule' ||\n+      github.event_name == 'workflow_dispatch' ||\n+      (github.event_name == 'pull_request' &&\n+      contains(github.event.pull_request.labels.*.name, 'Build System'))\n+    runs-on: ubuntu-latest\n+    steps:\n+      - name: Checkout Cython\n+        uses: actions/checkout@v4.1.6\n+\n+      - uses: deadsnakes/action@v3.1.0\n+        with:\n+          python-version: 3.13-dev\n+          nogil: true\n+\n+      - name: Build pure wheel\n+        run: |\n+          pip install --upgrade wheel setuptools\n+          python setup.py bdist_wheel --no-cython-compile\n+\n+      - uses: actions/upload-artifact@v4.3.0\n+        with:\n+          name: pure-wheel\n+          path: ./dist/*.whl\n+\n+      - uses: conda-incubator/setup-miniconda@v3.0.4\n+        with:\n+          # for installation of anaconda-client, required for upload to\n+          # anaconda.org\n+          # default (and activated) environment name is test\n+          # Note that this step is *after* specific pythons have been used to\n+          # build\n+          auto-update-conda: true\n+          python-version: \"3.10\"\n+\n+      - name: Upload wheels to scientific-python-nightly-wheels\n+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'\n+        shell: bash -el {0}\n+        # see https://github.com/marketplace/actions/setup-miniconda for why\n+        # `-el {0}` is required.\n+        env:\n+          TOKEN: ${{ secrets.NUMPY_NIGHTLY_UPLOAD_TOKEN }}",
             "html_url": "https://github.com/cython/cython/pull/6229#discussion_r1627757425",
@@ -255,7 +255,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Whoops! ",
-            "commit_id": "6af726e83c75bb133c4239edc1b60c60221e3fb2",
+            "commit_id": "713524c0778b290d426c7a63da68b9d07d3d2910",
             "created_at": "2024-06-05T13:31:05Z",
             "diff_hunk": "@@ -0,0 +1,80 @@\n+# Workflow to build non-compiled nightly wheel.\n+\n+name: Nightly wheels\n+on:\n+  schedule:\n+  #        ┌───────────── minute (0 - 59)\n+  #        │  ┌───────────── hour (0 - 23)\n+  #        │  │ ┌───────────── day of the month (1 - 31)\n+  #        │  │ │ ┌───────────── month (1 - 12 or JAN-DEC)\n+  #        │  │ │ │ ┌───────────── day of the week (0 - 6 or SUN-SAT)\n+  #        │  │ │ │ │\n+  - cron: \"42 1 * * 0,3\"\n+  pull_request:\n+    types: [labeled, opened, synchronize, reopened]\n+    paths:\n+      #- Cython/Build/**\n+      - .github/workflows/nightly-wheels.yml\n+      - pyproject.toml\n+      - MANIFEST.in\n+      - setup.*\n+  workflow_dispatch:\n+\n+concurrency:\n+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}\n+  cancel-in-progress: true\n+\n+permissions:\n+  contents: read # to fetch code (actions/checkout)\n+\n+build_pure_wheel:\n+    name: Build pure wheel and upload to Anaconda's PyPI\n+    if: >-\n+      github.event_name == 'schedule' ||\n+      github.event_name == 'workflow_dispatch' ||\n+      (github.event_name == 'pull_request' &&\n+      contains(github.event.pull_request.labels.*.name, 'Build System'))\n+    runs-on: ubuntu-latest\n+    steps:\n+      - name: Checkout Cython\n+        uses: actions/checkout@v4.1.6\n+\n+      - uses: deadsnakes/action@v3.1.0\n+        with:\n+          python-version: 3.13-dev\n+          nogil: true\n+\n+      - name: Build pure wheel\n+        run: |\n+          pip install --upgrade wheel setuptools\n+          python setup.py bdist_wheel --no-cython-compile\n+\n+      - uses: actions/upload-artifact@v4.3.0\n+        with:\n+          name: pure-wheel\n+          path: ./dist/*.whl\n+\n+      - uses: conda-incubator/setup-miniconda@v3.0.4\n+        with:\n+          # for installation of anaconda-client, required for upload to\n+          # anaconda.org\n+          # default (and activated) environment name is test\n+          # Note that this step is *after* specific pythons have been used to\n+          # build\n+          auto-update-conda: true\n+          python-version: \"3.10\"\n+\n+      - name: Upload wheels to scientific-python-nightly-wheels\n+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'\n+        shell: bash -el {0}\n+        # see https://github.com/marketplace/actions/setup-miniconda for why\n+        # `-el {0}` is required.\n+        env:\n+          TOKEN: ${{ secrets.NUMPY_NIGHTLY_UPLOAD_TOKEN }}",
             "html_url": "https://github.com/cython/cython/pull/6229#discussion_r1627793640",
@@ -289,6 +289,280 @@
             "subject_type": "line",
             "updated_at": "2024-06-05T13:31:05Z",
             "url": "https://api.github.com/repos/cython/cython/pulls/comments/1627793640",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/20306270?v=4",
+                "events_url": "https://api.github.com/users/lysnikolaou/events{/privacy}",
+                "followers_url": "https://api.github.com/users/lysnikolaou/followers",
+                "following_url": "https://api.github.com/users/lysnikolaou/following{/other_user}",
+                "gists_url": "https://api.github.com/users/lysnikolaou/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/lysnikolaou",
+                "id": 20306270,
+                "login": "lysnikolaou",
+                "node_id": "MDQ6VXNlcjIwMzA2Mjcw",
+                "organizations_url": "https://api.github.com/users/lysnikolaou/orgs",
+                "received_events_url": "https://api.github.com/users/lysnikolaou/received_events",
+                "repos_url": "https://api.github.com/users/lysnikolaou/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/lysnikolaou/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/lysnikolaou/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/lysnikolaou"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6229#discussion_r1630588348"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6229"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1630588348"
+                }
+            },
+            "author_association": "NONE",
+            "body": "Is there a reason to not just use the GitHub Action we provide? https://github.com/scientific-python/upload-nightly-action\r\n\r\n```suggestion\r\n      - name: Upload wheels to scientific-python-nightly-wheels\r\n        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'          \r\n        uses: scientific-python/upload-nightly-action@b67d7fcc0396e1128a474d1ab2b48aa94680f9fc # 0.5.0\r\n        with:\r\n          artifacts_path: dist\r\n          anaconda_nightly_upload_token: ${{ secrets.CYTHON_NIGHTLY_UPLOAD_TOKEN }}\r\n```",
+            "commit_id": "713524c0778b290d426c7a63da68b9d07d3d2910",
+            "created_at": "2024-06-07T03:26:02Z",
+            "diff_hunk": "@@ -0,0 +1,81 @@\n+# Workflow to build non-compiled nightly wheel.\n+\n+name: Nightly wheels\n+on:\n+  schedule:\n+  #        ┌───────────── minute (0 - 59)\n+  #        │  ┌───────────── hour (0 - 23)\n+  #        │  │ ┌───────────── day of the month (1 - 31)\n+  #        │  │ │ ┌───────────── month (1 - 12 or JAN-DEC)\n+  #        │  │ │ │ ┌───────────── day of the week (0 - 6 or SUN-SAT)\n+  #        │  │ │ │ │\n+  - cron: \"42 1 * * 0,3\"\n+  pull_request:\n+    types: [labeled, opened, synchronize, reopened]\n+    paths:\n+      #- Cython/Build/**\n+      - .github/workflows/nightly-wheels.yml\n+      - pyproject.toml\n+      - MANIFEST.in\n+      - setup.*\n+  workflow_dispatch:\n+\n+concurrency:\n+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}\n+  cancel-in-progress: true\n+\n+permissions:\n+  contents: read # to fetch code (actions/checkout)\n+\n+jobs:\n+  build_pure_wheel:\n+    name: Build pure wheel and upload to Anaconda's PyPI\n+    if: >-\n+      github.event_name == 'schedule' ||\n+      github.event_name == 'workflow_dispatch' ||\n+      (github.event_name == 'pull_request' &&\n+      contains(github.event.pull_request.labels.*.name, 'Build System'))\n+    runs-on: ubuntu-latest\n+    steps:\n+      - name: Checkout Cython\n+        uses: actions/checkout@v4.1.6\n+\n+      - uses: deadsnakes/action@v3.1.0\n+        with:\n+          python-version: 3.13-dev\n+          nogil: true\n+\n+      - name: Build pure wheel\n+        run: |\n+          pip install --upgrade wheel setuptools\n+          python setup.py bdist_wheel --no-cython-compile\n+\n+      - uses: actions/upload-artifact@v4.3.0\n+        with:\n+          name: pure-wheel\n+          path: ./dist/*.whl\n+\n+      - uses: conda-incubator/setup-miniconda@v3.0.4\n+        with:\n+          # for installation of anaconda-client, required for upload to\n+          # anaconda.org\n+          # default (and activated) environment name is test\n+          # Note that this step is *after* specific pythons have been used to\n+          # build\n+          auto-update-conda: true\n+          python-version: \"3.10\"\n+\n+      - name: Upload wheels to scientific-python-nightly-wheels\n+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'\n+        shell: bash -el {0}\n+        # see https://github.com/marketplace/actions/setup-miniconda for why\n+        # `-el {0}` is required.\n+        env:\n+          TOKEN: ${{ secrets.CYTHON_NIGHTLY_UPLOAD_TOKEN }}\n+        run: |\n+          source Tools/upload-wheels.sh\n+          # trigger an upload to\n+          # https://anaconda.org/scientific-python-nightly-wheels/numpy\n+          # for cron jobs or \"Run workflow\" (restricted to main branch).\n+          # The tokens were originally generated at anaconda.org\n+          upload_wheels",
+            "html_url": "https://github.com/cython/cython/pull/6229#discussion_r1630588348",
+            "id": 1630588348,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc5hMM28",
+            "original_commit_id": "b99a9e32a3b4cb64ce4d4622c23a2f51bdb6be91",
+            "original_line": 81,
+            "original_position": 81,
+            "original_start_line": 58,
+            "path": ".github/workflows/nightly-wheels.yml",
+            "position": null,
+            "pull_request_review_id": 2103554170,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6229",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1630588348/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-06-07T03:26:13Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1630588348",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/5142394?v=4",
+                "events_url": "https://api.github.com/users/matthewfeickert/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matthewfeickert/followers",
+                "following_url": "https://api.github.com/users/matthewfeickert/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matthewfeickert/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matthewfeickert",
+                "id": 5142394,
+                "login": "matthewfeickert",
+                "node_id": "MDQ6VXNlcjUxNDIzOTQ=",
+                "organizations_url": "https://api.github.com/users/matthewfeickert/orgs",
+                "received_events_url": "https://api.github.com/users/matthewfeickert/received_events",
+                "repos_url": "https://api.github.com/users/matthewfeickert/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matthewfeickert/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matthewfeickert/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matthewfeickert"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6229#discussion_r1630973350"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6229"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1630973350"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "I missed that we could use this, cause I used NumPy as a template for this. Thanks for the suggestion!",
+            "commit_id": "713524c0778b290d426c7a63da68b9d07d3d2910",
+            "created_at": "2024-06-07T10:01:46Z",
+            "diff_hunk": "@@ -0,0 +1,81 @@\n+# Workflow to build non-compiled nightly wheel.\n+\n+name: Nightly wheels\n+on:\n+  schedule:\n+  #        ┌───────────── minute (0 - 59)\n+  #        │  ┌───────────── hour (0 - 23)\n+  #        │  │ ┌───────────── day of the month (1 - 31)\n+  #        │  │ │ ┌───────────── month (1 - 12 or JAN-DEC)\n+  #        │  │ │ │ ┌───────────── day of the week (0 - 6 or SUN-SAT)\n+  #        │  │ │ │ │\n+  - cron: \"42 1 * * 0,3\"\n+  pull_request:\n+    types: [labeled, opened, synchronize, reopened]\n+    paths:\n+      #- Cython/Build/**\n+      - .github/workflows/nightly-wheels.yml\n+      - pyproject.toml\n+      - MANIFEST.in\n+      - setup.*\n+  workflow_dispatch:\n+\n+concurrency:\n+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}\n+  cancel-in-progress: true\n+\n+permissions:\n+  contents: read # to fetch code (actions/checkout)\n+\n+jobs:\n+  build_pure_wheel:\n+    name: Build pure wheel and upload to Anaconda's PyPI\n+    if: >-\n+      github.event_name == 'schedule' ||\n+      github.event_name == 'workflow_dispatch' ||\n+      (github.event_name == 'pull_request' &&\n+      contains(github.event.pull_request.labels.*.name, 'Build System'))\n+    runs-on: ubuntu-latest\n+    steps:\n+      - name: Checkout Cython\n+        uses: actions/checkout@v4.1.6\n+\n+      - uses: deadsnakes/action@v3.1.0\n+        with:\n+          python-version: 3.13-dev\n+          nogil: true\n+\n+      - name: Build pure wheel\n+        run: |\n+          pip install --upgrade wheel setuptools\n+          python setup.py bdist_wheel --no-cython-compile\n+\n+      - uses: actions/upload-artifact@v4.3.0\n+        with:\n+          name: pure-wheel\n+          path: ./dist/*.whl\n+\n+      - uses: conda-incubator/setup-miniconda@v3.0.4\n+        with:\n+          # for installation of anaconda-client, required for upload to\n+          # anaconda.org\n+          # default (and activated) environment name is test\n+          # Note that this step is *after* specific pythons have been used to\n+          # build\n+          auto-update-conda: true\n+          python-version: \"3.10\"\n+\n+      - name: Upload wheels to scientific-python-nightly-wheels\n+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'\n+        shell: bash -el {0}\n+        # see https://github.com/marketplace/actions/setup-miniconda for why\n+        # `-el {0}` is required.\n+        env:\n+          TOKEN: ${{ secrets.CYTHON_NIGHTLY_UPLOAD_TOKEN }}\n+        run: |\n+          source Tools/upload-wheels.sh\n+          # trigger an upload to\n+          # https://anaconda.org/scientific-python-nightly-wheels/numpy\n+          # for cron jobs or \"Run workflow\" (restricted to main branch).\n+          # The tokens were originally generated at anaconda.org\n+          upload_wheels",
+            "html_url": "https://github.com/cython/cython/pull/6229#discussion_r1630973350",
+            "id": 1630973350,
+            "in_reply_to_id": 1630588348,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc5hNq2m",
+            "original_commit_id": "b99a9e32a3b4cb64ce4d4622c23a2f51bdb6be91",
+            "original_line": 81,
+            "original_position": 81,
+            "original_start_line": 58,
+            "path": ".github/workflows/nightly-wheels.yml",
+            "position": null,
+            "pull_request_review_id": 2104147770,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6229",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1630973350/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-06-07T10:01:47Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1630973350",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/20306270?v=4",
+                "events_url": "https://api.github.com/users/lysnikolaou/events{/privacy}",
+                "followers_url": "https://api.github.com/users/lysnikolaou/followers",
+                "following_url": "https://api.github.com/users/lysnikolaou/following{/other_user}",
+                "gists_url": "https://api.github.com/users/lysnikolaou/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/lysnikolaou",
+                "id": 20306270,
+                "login": "lysnikolaou",
+                "node_id": "MDQ6VXNlcjIwMzA2Mjcw",
+                "organizations_url": "https://api.github.com/users/lysnikolaou/orgs",
+                "received_events_url": "https://api.github.com/users/lysnikolaou/received_events",
+                "repos_url": "https://api.github.com/users/lysnikolaou/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/lysnikolaou/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/lysnikolaou/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/lysnikolaou"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6229#discussion_r1631442237"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6229"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1631442237"
+                }
+            },
+            "author_association": "NONE",
+            "body": "Unless you plan to ever use this in another CI system's workflow, `Tools/upload-wheels.sh` isn't needed if you are using https://github.com/scientific-python/upload-nightly-action and so this could get deleted.",
+            "commit_id": "a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c",
+            "created_at": "2024-06-07T16:23:21Z",
+            "diff_hunk": "",
+            "html_url": "https://github.com/cython/cython/pull/6229#discussion_r1631442237",
+            "id": 1631442237,
+            "line": 1,
+            "node_id": "PRRC_kwDOABDGAc5hPdU9",
+            "original_commit_id": "a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c",
+            "original_line": 1,
+            "original_position": 1,
+            "original_start_line": null,
+            "path": "Tools/upload-wheels.sh",
+            "position": 1,
+            "pull_request_review_id": 2104957591,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6229",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1631442237/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "file",
+            "updated_at": "2024-06-07T16:23:25Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1631442237",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/5142394?v=4",
+                "events_url": "https://api.github.com/users/matthewfeickert/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matthewfeickert/followers",
+                "following_url": "https://api.github.com/users/matthewfeickert/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matthewfeickert/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matthewfeickert",
+                "id": 5142394,
+                "login": "matthewfeickert",
+                "node_id": "MDQ6VXNlcjUxNDIzOTQ=",
+                "organizations_url": "https://api.github.com/users/matthewfeickert/orgs",
+                "received_events_url": "https://api.github.com/users/matthewfeickert/received_events",
+                "repos_url": "https://api.github.com/users/matthewfeickert/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matthewfeickert/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matthewfeickert/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matthewfeickert"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6229#discussion_r1631445401"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6229"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1631445401"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Right, I deleted it. If we ever need something like that, we can add it back. Thanks a lot for catching that!",
+            "commit_id": "a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c",
+            "created_at": "2024-06-07T16:26:19Z",
+            "diff_hunk": "",
+            "html_url": "https://github.com/cython/cython/pull/6229#discussion_r1631445401",
+            "id": 1631445401,
+            "in_reply_to_id": 1631442237,
+            "line": 1,
+            "node_id": "PRRC_kwDOABDGAc5hPeGZ",
+            "original_commit_id": "a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c",
+            "original_line": 1,
+            "original_position": 1,
+            "original_start_line": null,
+            "path": "Tools/upload-wheels.sh",
+            "position": 1,
+            "pull_request_review_id": 2104962224,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6229",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1631445401/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "file",
+            "updated_at": "2024-06-07T16:26:19Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1631445401",
             "user": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/20306270?v=4",
                 "events_url": "https://api.github.com/users/lysnikolaou/events{/privacy}",
@@ -470,12 +744,249 @@
             ],
             "sha": "6af726e83c75bb133c4239edc1b60c60221e3fb2",
             "url": "https://api.github.com/repos/cython/cython/commits/6af726e83c75bb133c4239edc1b60c60221e3fb2"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/20306270?v=4",
+                "events_url": "https://api.github.com/users/lysnikolaou/events{/privacy}",
+                "followers_url": "https://api.github.com/users/lysnikolaou/followers",
+                "following_url": "https://api.github.com/users/lysnikolaou/following{/other_user}",
+                "gists_url": "https://api.github.com/users/lysnikolaou/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/lysnikolaou",
+                "id": 20306270,
+                "login": "lysnikolaou",
+                "node_id": "MDQ6VXNlcjIwMzA2Mjcw",
+                "organizations_url": "https://api.github.com/users/lysnikolaou/orgs",
+                "received_events_url": "https://api.github.com/users/lysnikolaou/received_events",
+                "repos_url": "https://api.github.com/users/lysnikolaou/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/lysnikolaou/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/lysnikolaou/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/lysnikolaou"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/b99a9e32a3b4cb64ce4d4622c23a2f51bdb6be91/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-06-06T19:44:38Z",
+                    "email": "lisandrosnik@gmail.com",
+                    "name": "Lysandros Nikolaou"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-06-06T19:44:38Z",
+                    "email": "lisandrosnik@gmail.com",
+                    "name": "Lysandros Nikolaou"
+                },
+                "message": "Fix job",
+                "tree": {
+                    "sha": "fd2a80bc225e67882bedb80a893b0a28dbe30e9b",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/fd2a80bc225e67882bedb80a893b0a28dbe30e9b"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/b99a9e32a3b4cb64ce4d4622c23a2f51bdb6be91",
+                "verification": {
+                    "payload": "tree fd2a80bc225e67882bedb80a893b0a28dbe30e9b\nparent 6af726e83c75bb133c4239edc1b60c60221e3fb2\nauthor Lysandros Nikolaou <lisandrosnik@gmail.com> 1717703078 +0200\ncommitter Lysandros Nikolaou <lisandrosnik@gmail.com> 1717703078 +0200\n\nFix job\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\niQIzBAABCAAdFiEE8WnA2zWQ3OpJvZjlQ+ktEdCPXykFAmZiEaYACgkQQ+ktEdCP\nXym8Cw/6AoT09PIbpqxAkxg5EXHaREpL4W3Zva+L/l3tGvE5Kbq0O4d50Shje0U9\nmYW4Iz0ILUC0s2FLAHwuoUvBL2uxvE9xRCpJSOwU4iwROGuwh1YY788yCekbdsQE\n/2de4szddk60zJLy92qCpceQI7e/dk50eaEo0mn7+RplyNkC/gn8nxdLvJtbx5i4\nNx/dnt4oRaMtrOk6BzjbvXuAdzawZvwozKaSdLtJ+jBJSg/1jHzIySp4zl6EiNrJ\nI9ISpn+APQWi2e6pOuo7PGmey+Mh+gzton1O8MtOxG9i1/IJpzG2+/AdJl6HoJvx\nkyYjWVBEfyGUXMe9XJKKhtQxKW3jJSwmSmqHCbvBaKBsnR1i3vpg2gTcrMCPWOlV\n8nLtgDcRKMKKnEiY8sS6BrnaRJUm0nt3Y01frS7MCqQR7jbmRFpEYcge4OApR7pY\nycS+KbaeJ5+gjEKRYIe4fxFVlouLYAKogsySTwvWDd05qsh+oUvVmokJbqnzVmR6\nU2x0//hI8VU5sG5Sn5jcMbd/y5/aBtMe6vBmIi1KVWeozHLwmgzu1sVEdyYuSg1Z\nyUg9jAP0TRDq8jFeoX6m2nOUDYI2y9LxhCtutMiswu1yCX60nvlMpd8Y+gXiNl4r\nCcUaam+I713ldbIFAVbe0x4GEiyjYOW+4o0rebtBv3R2JW7BWIU=\n=wP80\n-----END PGP SIGNATURE-----",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/20306270?v=4",
+                "events_url": "https://api.github.com/users/lysnikolaou/events{/privacy}",
+                "followers_url": "https://api.github.com/users/lysnikolaou/followers",
+                "following_url": "https://api.github.com/users/lysnikolaou/following{/other_user}",
+                "gists_url": "https://api.github.com/users/lysnikolaou/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/lysnikolaou",
+                "id": 20306270,
+                "login": "lysnikolaou",
+                "node_id": "MDQ6VXNlcjIwMzA2Mjcw",
+                "organizations_url": "https://api.github.com/users/lysnikolaou/orgs",
+                "received_events_url": "https://api.github.com/users/lysnikolaou/received_events",
+                "repos_url": "https://api.github.com/users/lysnikolaou/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/lysnikolaou/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/lysnikolaou/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/lysnikolaou"
+            },
+            "html_url": "https://github.com/cython/cython/commit/b99a9e32a3b4cb64ce4d4622c23a2f51bdb6be91",
+            "node_id": "C_kwDOKqDcidoAKGI5OWE5ZTMyYTNiNGNiNjRjZTRkNDYyMmMyM2EyZjUxYmRiNmJlOTE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/6af726e83c75bb133c4239edc1b60c60221e3fb2",
+                    "sha": "6af726e83c75bb133c4239edc1b60c60221e3fb2",
+                    "url": "https://api.github.com/repos/cython/cython/commits/6af726e83c75bb133c4239edc1b60c60221e3fb2"
+                }
+            ],
+            "sha": "b99a9e32a3b4cb64ce4d4622c23a2f51bdb6be91",
+            "url": "https://api.github.com/repos/cython/cython/commits/b99a9e32a3b4cb64ce4d4622c23a2f51bdb6be91"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/20306270?v=4",
+                "events_url": "https://api.github.com/users/lysnikolaou/events{/privacy}",
+                "followers_url": "https://api.github.com/users/lysnikolaou/followers",
+                "following_url": "https://api.github.com/users/lysnikolaou/following{/other_user}",
+                "gists_url": "https://api.github.com/users/lysnikolaou/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/lysnikolaou",
+                "id": 20306270,
+                "login": "lysnikolaou",
+                "node_id": "MDQ6VXNlcjIwMzA2Mjcw",
+                "organizations_url": "https://api.github.com/users/lysnikolaou/orgs",
+                "received_events_url": "https://api.github.com/users/lysnikolaou/received_events",
+                "repos_url": "https://api.github.com/users/lysnikolaou/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/lysnikolaou/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/lysnikolaou/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/lysnikolaou"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-06-07T10:01:52Z",
+                    "email": "lisandrosnik@gmail.com",
+                    "name": "Lysandros Nikolaou"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-06-07T10:01:52Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Update .github/workflows/nightly-wheels.yml\n\nCo-authored-by: Matthew Feickert <matthew.feickert@cern.ch>",
+                "tree": {
+                    "sha": "56553cc43fe57b789b57ebcdd4f13d908acd0601",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/56553cc43fe57b789b57ebcdd4f13d908acd0601"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c",
+                "verification": {
+                    "payload": "tree 56553cc43fe57b789b57ebcdd4f13d908acd0601\nparent b99a9e32a3b4cb64ce4d4622c23a2f51bdb6be91\nauthor Lysandros Nikolaou <lisandrosnik@gmail.com> 1717754512 +0200\ncommitter GitHub <noreply@github.com> 1717754512 +0200\n\nUpdate .github/workflows/nightly-wheels.yml\n\nCo-authored-by: Matthew Feickert <matthew.feickert@cern.ch>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmYtqQCRC1aQ7uu5UhlAAASqEQAFFnTAVmGqUhPei4csN9TfXg\nO+7pWbiose1qGl8WoYqyU2+p73+DQSK3ivM0Jq+K35cLssa9ZxHdDnsRGL3mgSK6\n6VZOxDpPVTq+hummrZTyZzmejgQ63To1sePcI6yfNOarvYxXoA4vbPqGiU/Gr9HC\nPgN0WSE5kYzqzQdplMeQXEvR5IvFD1LpOVL1DKX2E3p8KbD+tNfFJVQkCwQ5qcoa\n9r49gAULfLJdIrXtbw+W22hJrXnj9VFxsYHIXRiye21F68NJjkXff8xKFNP+w9cX\nrPzS8j+a0HDPVCmJq8INRHcopB6Aq8aSgTvhw6NgjuRIuE9Yt90PNSDUzjgBA3EC\nM2DWnGxtuDqSMyzWfLyN/f83V8MdaZ7/0kFLDMF2+x5edvk1x1zGJ4DB7LSNF5ij\nWjsEP23dps/kO8Xigm9X8qTIswr/3nrmwwXBEaI1RQt5Ms5VyNB+dzAXERPrHcl3\ngNRIi76hKIX6ReGt5X4DaqGWicXgAkuYTdefnwQGseds6+Gv0ucegm1CfxGtl1gm\nFE5Lcjjl9DZsiRdeBN6YAe/WlYYrNTQ8YdWqZvXc1N/hRIvOArib7otGm+mcprwz\nlOlchIzljlQD+oS8eTy5tUepAW51cvO0re73I8m8/jzzkDDAO6jirQh8C7+KRb8Q\nTXbpWlUaENxcgmuaxbst\n=VfuO\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c",
+            "node_id": "C_kwDOKqDcidoAKGE4Y2M5ZGRhNWQ2NGY1OGE0YmQyMTdmNWIwMTJkY2E2YWIwMWY2OWM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/b99a9e32a3b4cb64ce4d4622c23a2f51bdb6be91",
+                    "sha": "b99a9e32a3b4cb64ce4d4622c23a2f51bdb6be91",
+                    "url": "https://api.github.com/repos/cython/cython/commits/b99a9e32a3b4cb64ce4d4622c23a2f51bdb6be91"
+                }
+            ],
+            "sha": "a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c",
+            "url": "https://api.github.com/repos/cython/cython/commits/a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/20306270?v=4",
+                "events_url": "https://api.github.com/users/lysnikolaou/events{/privacy}",
+                "followers_url": "https://api.github.com/users/lysnikolaou/followers",
+                "following_url": "https://api.github.com/users/lysnikolaou/following{/other_user}",
+                "gists_url": "https://api.github.com/users/lysnikolaou/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/lysnikolaou",
+                "id": 20306270,
+                "login": "lysnikolaou",
+                "node_id": "MDQ6VXNlcjIwMzA2Mjcw",
+                "organizations_url": "https://api.github.com/users/lysnikolaou/orgs",
+                "received_events_url": "https://api.github.com/users/lysnikolaou/received_events",
+                "repos_url": "https://api.github.com/users/lysnikolaou/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/lysnikolaou/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/lysnikolaou/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/lysnikolaou"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/713524c0778b290d426c7a63da68b9d07d3d2910/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-06-07T16:25:53Z",
+                    "email": "lisandrosnik@gmail.com",
+                    "name": "Lysandros Nikolaou"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-06-07T16:25:53Z",
+                    "email": "lisandrosnik@gmail.com",
+                    "name": "Lysandros Nikolaou"
+                },
+                "message": "Delete upload-wheels.sh",
+                "tree": {
+                    "sha": "9c85f8bf1e749099d4ea8b4ae57bfb2631d54449",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/9c85f8bf1e749099d4ea8b4ae57bfb2631d54449"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/713524c0778b290d426c7a63da68b9d07d3d2910",
+                "verification": {
+                    "payload": "tree 9c85f8bf1e749099d4ea8b4ae57bfb2631d54449\nparent a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c\nauthor Lysandros Nikolaou <lisandrosnik@gmail.com> 1717777553 +0200\ncommitter Lysandros Nikolaou <lisandrosnik@gmail.com> 1717777553 +0200\n\nDelete upload-wheels.sh\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\niQIzBAABCAAdFiEE8WnA2zWQ3OpJvZjlQ+ktEdCPXykFAmZjNJEACgkQQ+ktEdCP\nXykWlQ//dmZWUNHLFArAvDG8zlCysjMdnZ6hKjEY9D4ZZHVaXF8Z9gq0Q318qo2U\n6cEyDuS4c1CCHrTky/gDUK3MlxUTBrBJ36LUwjCLwjfiuXn++JwxDCg+uJLWco/1\nL2y76KZhGjwFZk5PZsRbiaQSH9FO9xisRixp0bKIfc8TCd55NEzeYzbb7NsPezIj\ndzDuTsWnmmF4QDYbNTLMheAdCarZ95IRDcExsXXomdIaWFiz4gOIXHdyiPXph/p+\ndA5t5oe8C2GOBEe7ddEbm2svT1UaO3JFgsWLiK9OsT+18NniPecbNC3E1Y+Uxyk+\nhiY4u8zqpkwD8FWvYX94ji3i6tBNX0yU++3jQtPnha76AU2DqQ/TbB+jhALaJhoc\nrNo6lr6K4zfC1xTG5PfcomrGrzbTMLGOKF9XFvlO+VbmafAzgT9Q3lCwgONvLt6N\n6ARxp351//V8Z6lUqY/UrP0XUkAilPO3H7HV+f0k0DliowPvqxYJ2RNKrCEe5d/4\njxwTCWKj1sPAM3AMwkZKHrTztg2m32eJUcG42df6C7eG1wZMucSpqoEQm1AyiRZ3\nVYkqN5w3dkG7H+bLkIjBkjqSnas9rTeT9HKbjspzE74GczDmxRye5V/3fB7tnsrj\nsHxKJJJhrGscJ5VpeuJzjSuM6Tulnv58n9aOhy2ukh/P2k9Ub28=\n=bJS4\n-----END PGP SIGNATURE-----",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/20306270?v=4",
+                "events_url": "https://api.github.com/users/lysnikolaou/events{/privacy}",
+                "followers_url": "https://api.github.com/users/lysnikolaou/followers",
+                "following_url": "https://api.github.com/users/lysnikolaou/following{/other_user}",
+                "gists_url": "https://api.github.com/users/lysnikolaou/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/lysnikolaou",
+                "id": 20306270,
+                "login": "lysnikolaou",
+                "node_id": "MDQ6VXNlcjIwMzA2Mjcw",
+                "organizations_url": "https://api.github.com/users/lysnikolaou/orgs",
+                "received_events_url": "https://api.github.com/users/lysnikolaou/received_events",
+                "repos_url": "https://api.github.com/users/lysnikolaou/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/lysnikolaou/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/lysnikolaou/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/lysnikolaou"
+            },
+            "html_url": "https://github.com/cython/cython/commit/713524c0778b290d426c7a63da68b9d07d3d2910",
+            "node_id": "C_kwDOKqDcidoAKDcxMzUyNGMwNzc4YjI5MGQ0MjZjN2E2M2RhNjhiOWQwN2QzZDI5MTA",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c",
+                    "sha": "a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c",
+                    "url": "https://api.github.com/repos/cython/cython/commits/a8cc9dda5d64f58a4bd217f5b012dca6ab01f69c"
+                }
+            ],
+            "sha": "713524c0778b290d426c7a63da68b9d07d3d2910",
+            "url": "https://api.github.com/repos/cython/cython/commits/713524c0778b290d426c7a63da68b9d07d3d2910"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/6229/commits",
     "created_at": "2024-06-04T09:24:12Z",
     "diff_url": "https://github.com/cython/cython/pull/6229.diff",
-    "draft": true,
+    "draft": false,
     "head": {
         "label": "lysnikolaou:setup-nightly-wheels",
         "ref": "setup-nightly-wheels",
@@ -564,9 +1075,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/lysnikolaou/cython/pulls{/number}",
-            "pushed_at": "2024-06-05T13:30:46Z",
+            "pushed_at": "2024-06-07T16:25:57Z",
             "releases_url": "https://api.github.com/repos/lysnikolaou/cython/releases{/id}",
-            "size": 70043,
+            "size": 70103,
             "ssh_url": "git@github.com:lysnikolaou/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/lysnikolaou/cython/stargazers",
@@ -585,7 +1096,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "6af726e83c75bb133c4239edc1b60c60221e3fb2",
+        "sha": "713524c0778b290d426c7a63da68b9d07d3d2910",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/20306270?v=4",
             "events_url": "https://api.github.com/users/lysnikolaou/events{/privacy}",
@@ -610,11 +1121,57 @@
     "html_url": "https://github.com/cython/cython/pull/6229",
     "id": 1902536619,
     "issue_url": "https://api.github.com/repos/cython/cython/issues/6229",
-    "labels": [],
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425558326,
+            "name": "Testing",
+            "node_id": "MDU6TGFiZWw0MjU1NTgzMjY=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Testing"
+        }
+    ],
     "locked": false,
-    "merge_commit_sha": "6ef063235893bad1158f3fa87adcd0569c8c7f7d",
-    "merged_at": null,
-    "milestone": null,
+    "merge_commit_sha": "bcef509b6af6eea6c21f84abfbcdc1e61f455e4b",
+    "merged_at": "2024-06-07T18:35:47Z",
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 150,
+        "created_at": "2019-02-24T14:21:23Z",
+        "creator": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/scoder"
+        },
+        "description": "* Remove code for Python 2 and Python < 3.7.\r\n* Integrate better with Python 3.\r\n* Improve support for the Limited API.\r\n* Start supporting GIL-free Python 3.13.\r\n* Support the Py3.13 `sys.monitoring` API.",
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestone/65",
+        "id": 4082235,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/65/labels",
+        "node_id": "MDk6TWlsZXN0b25lNDA4MjIzNQ==",
+        "number": 65,
+        "open_issues": 20,
+        "state": "open",
+        "title": "3.1",
+        "updated_at": "2024-06-07T18:43:32Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/65"
+    },
     "node_id": "PR_kwDOABDGAc5xZmer",
     "number": 6229,
     "patch_url": "https://github.com/cython/cython/pull/6229.patch",
@@ -622,10 +1179,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6229/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/6af726e83c75bb133c4239edc1b60c60221e3fb2",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/713524c0778b290d426c7a63da68b9d07d3d2910",
     "title": "Set up uploading non-compiled nightly wheels twice weekly",
-    "updated_at": "2024-06-05T13:31:05Z",
+    "updated_at": "2024-06-07T18:50:21Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6229",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/20306270?v=4",
