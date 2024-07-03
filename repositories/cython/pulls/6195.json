@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/6195"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/60f0f0e8cad7f4de13debe3f34c8a8e51c760f08"
+            "href": "https://api.github.com/repos/cython/cython/statuses/d0d6fb1d06595231451270cdfb9b64b139ff7199"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1458,
-            "forks_count": 1458,
+            "forks": 1466,
+            "forks_count": 1466,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1316,
-            "open_issues_count": 1316,
+            "open_issues": 1328,
+            "open_issues_count": 1328,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -118,11 +118,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-06-06T05:45:08Z",
+            "pushed_at": "2024-06-29T12:32:00Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 73427,
+            "size": 73746,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 9046,
+            "stargazers_count": 9134,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,14 +141,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-06-06T08:55:13Z",
+            "updated_at": "2024-06-28T20:46:41Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 9046,
-            "watchers_count": 9046,
+            "watchers": 9134,
+            "watchers_count": 9134,
             "web_commit_signoff_required": false
         },
-        "sha": "bc590426ced4c7d5ba0c8476e18204812e0f354a",
+        "sha": "fe4668e3eaac44395f71b42a72f69f73f1ba9663",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -171,7 +171,7 @@
         }
     },
     "body": "This was broken due to changes to type inference. It infers the type as a double, but \"py_operations\" for binops need to have a Python result. Therefore I've separated into a two step:\r\n\r\n* calculate Python result\r\n* coerce to known C type.\r\n\r\nIn principle Optimize.c could take this back to 1 step. But at the moment it doesn't.\r\n\r\nFixes #6183\r\nFixes #6004",
-    "closed_at": null,
+    "closed_at": "2024-06-28T20:46:35Z",
     "comment_data": [
         {
             "_links": {
@@ -187,7 +187,7 @@
             },
             "author_association": "MEMBER",
             "body": "PR changes also other operators (e.g. `*`). They are not tested here. Should not be added here?",
-            "commit_id": "60f0f0e8cad7f4de13debe3f34c8a8e51c760f08",
+            "commit_id": "d0d6fb1d06595231451270cdfb9b64b139ff7199",
             "created_at": "2024-05-12T20:06:43Z",
             "diff_hunk": "@@ -187,6 +187,8 @@ def arithmetic():\n     assert typeof(f) == \"long\", typeof(f)\n     g = 4 // <int>2\n     assert typeof(g) == \"long\", typeof(g)\n+    h = int(2) / 3.0",
             "html_url": "https://github.com/cython/cython/pull/6195#discussion_r1597705682",
@@ -255,19 +255,19 @@
             },
             "author_association": "MEMBER",
             "body": "I think you forgot to change a few `analyse_operation` methods, at least the ones in `MemoryViewIndexNode` and `MemoryViewSliceNode`.",
-            "commit_id": "60f0f0e8cad7f4de13debe3f34c8a8e51c760f08",
+            "commit_id": "d0d6fb1d06595231451270cdfb9b64b139ff7199",
             "created_at": "2024-06-06T04:22:32Z",
             "diff_hunk": "@@ -11843,12 +11842,17 @@ def analyse_operation(self, env):\n             self.coerce_operands_to_pyobjects(env)\n             self.type = self.result_type(self.operand1.type,\n                                          self.operand2.type, env)\n-            assert self.type.is_pyobject\n             self.is_temp = 1\n+            if not self.type.is_pyobject:\n+                original_type, self.type = self.type, py_object_type\n+                # Hopefully this can be optimized out in some cases\n+                return self.coerce_to(original_type, env)\n+\n         elif self.is_cpp_operation():\n             self.analyse_cpp_operation(env)\n         else:\n             self.analyse_c_operation(env)\n+        return self",
             "html_url": "https://github.com/cython/cython/pull/6195#discussion_r1628755098",
             "id": 1628755098,
-            "line": 11857,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc5hFNSa",
             "original_commit_id": "ba165bea2fde5d7f563ba94bcc043f21853b32ab",
             "original_line": 11855,
             "original_position": 25,
             "original_start_line": null,
             "path": "Cython/Compiler/ExprNodes.py",
-            "position": 65,
+            "position": null,
             "pull_request_review_id": 2100768736,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6195",
             "reactions": {
@@ -323,20 +323,20 @@
             },
             "author_association": "MEMBER",
             "body": "My thought was that these methods weren't obvious related in that the binop nodes were never going to be calling the memory indexing methods. But I've changed them for consistency.",
-            "commit_id": "60f0f0e8cad7f4de13debe3f34c8a8e51c760f08",
+            "commit_id": "d0d6fb1d06595231451270cdfb9b64b139ff7199",
             "created_at": "2024-06-06T05:47:05Z",
             "diff_hunk": "@@ -11843,12 +11842,17 @@ def analyse_operation(self, env):\n             self.coerce_operands_to_pyobjects(env)\n             self.type = self.result_type(self.operand1.type,\n                                          self.operand2.type, env)\n-            assert self.type.is_pyobject\n             self.is_temp = 1\n+            if not self.type.is_pyobject:\n+                original_type, self.type = self.type, py_object_type\n+                # Hopefully this can be optimized out in some cases\n+                return self.coerce_to(original_type, env)\n+\n         elif self.is_cpp_operation():\n             self.analyse_cpp_operation(env)\n         else:\n             self.analyse_c_operation(env)\n+        return self",
             "html_url": "https://github.com/cython/cython/pull/6195#discussion_r1628807509",
             "id": 1628807509,
             "in_reply_to_id": 1628755098,
-            "line": 11857,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc5hFaFV",
             "original_commit_id": "ba165bea2fde5d7f563ba94bcc043f21853b32ab",
             "original_line": 11855,
             "original_position": 25,
             "original_start_line": null,
             "path": "Cython/Compiler/ExprNodes.py",
-            "position": 65,
+            "position": null,
             "pull_request_review_id": 2100846163,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6195",
             "reactions": {
@@ -376,6 +376,279 @@
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6195#discussion_r1656932899"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6195"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1656932899"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Even if we expect it to be the same object, reassigning `self` in a method seems asking for confusion.\r\n```suggestion\r\n        node = self.analyse_operation(env, getting, axes)\r\n        node.wrap_in_nonecheck_node(env)\r\n        return node\r\n```",
+            "commit_id": "d0d6fb1d06595231451270cdfb9b64b139ff7199",
+            "created_at": "2024-06-27T10:57:58Z",
+            "diff_hunk": "@@ -4989,13 +4989,14 @@ def analyse_types(self, env, getting=True):\n         self.original_indices = indices\n         self.nogil = env.nogil\n \n-        self.analyse_operation(env, getting, axes)\n+        self = self.analyse_operation(env, getting, axes)\n         self.wrap_in_nonecheck_node(env)\n         return self",
+            "html_url": "https://github.com/cython/cython/pull/6195#discussion_r1656932899",
+            "id": 1656932899,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc5iwsoj",
+            "original_commit_id": "60f0f0e8cad7f4de13debe3f34c8a8e51c760f08",
+            "original_line": 4994,
+            "original_position": 7,
+            "original_start_line": 4992,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 2145027216,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6195",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1656932899/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-06-27T11:13:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1656932899",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6195#discussion_r1656949610"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6195"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1656949610"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "This code only (safely) works if `NumBinopNode.analyse_operation()` returns exactly `self`, not anything else. That is not an assumption we should generally make. It's really the whole point of returning a node that it allows us to return a *different* node.\r\n\r\nIt's difficult to deal with this correctly, though. It's ambiguous if the base method returns a different node or even different type of node. It might be a wrapper around the original (self) node, or it might have replaced the node entirely. We can't know this here. Not sure how to handle this here.",
+            "commit_id": "d0d6fb1d06595231451270cdfb9b64b139ff7199",
+            "created_at": "2024-06-27T11:13:12Z",
+            "diff_hunk": "@@ -12414,7 +12419,7 @@ def infer_builtin_types_operation(self, type1, type2):\n \n     def analyse_operation(self, env):\n         self._check_truedivision(env)\n-        NumBinopNode.analyse_operation(self, env)\n+        result = NumBinopNode.analyse_operation(self, env)\n         if self.is_cpp_operation():\n             self.cdivision = True\n         if not self.type.is_pyobject:",
+            "html_url": "https://github.com/cython/cython/pull/6195#discussion_r1656949610",
+            "id": 1656949610,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc5iwwtq",
+            "original_commit_id": "60f0f0e8cad7f4de13debe3f34c8a8e51c760f08",
+            "original_line": 12425,
+            "original_position": 87,
+            "original_start_line": 12417,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 2145027216,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6195",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1656949610/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "LEFT",
+            "subject_type": "line",
+            "updated_at": "2024-06-27T11:13:35Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1656949610",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6195#discussion_r1657804914"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6195"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1657804914"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "The real assumption here is that `result` contains `self` (i.e. `self` is still relevant and can be manipulated, even if it's wrapped in a coercion node or something like that).\r\n\r\nI've added a comment and an assert to clarify/enforce that.\r\n\r\nI'm not hugely happy with this either though, but I think it's better than it initially looks.",
+            "commit_id": "d0d6fb1d06595231451270cdfb9b64b139ff7199",
+            "created_at": "2024-06-27T20:51:10Z",
+            "diff_hunk": "@@ -12414,7 +12419,7 @@ def infer_builtin_types_operation(self, type1, type2):\n \n     def analyse_operation(self, env):\n         self._check_truedivision(env)\n-        NumBinopNode.analyse_operation(self, env)\n+        result = NumBinopNode.analyse_operation(self, env)\n         if self.is_cpp_operation():\n             self.cdivision = True\n         if not self.type.is_pyobject:",
+            "html_url": "https://github.com/cython/cython/pull/6195#discussion_r1657804914",
+            "id": 1657804914,
+            "in_reply_to_id": 1656949610,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc5i0Bhy",
+            "original_commit_id": "60f0f0e8cad7f4de13debe3f34c8a8e51c760f08",
+            "original_line": 12425,
+            "original_position": 87,
+            "original_start_line": 12417,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 2146499905,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6195",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1657804914/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "LEFT",
+            "subject_type": "line",
+            "updated_at": "2024-06-27T20:51:10Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1657804914",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6195#discussion_r1658579789"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6195"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1658579789"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "That's a bit of an expensive assertion. It's not very likely to strike at some point, and given the potential impact of not doing any of the operations below, we'd probably notice it anyway if we make an unanticipated change in the base class.\r\n\r\nI'd rather remove the assertion and instead add a comment to the `return node` in the base class implementation that this subclass expects to be able to modify the original node after the fact. That should catch the most obvious risk of breakage. The same applies to the upcall to `DivNode` further down.\r\n\r\nWith that change, I'd be happy to see this merged.",
+            "commit_id": "d0d6fb1d06595231451270cdfb9b64b139ff7199",
+            "created_at": "2024-06-28T11:35:03Z",
+            "diff_hunk": "@@ -12414,7 +12419,14 @@ def infer_builtin_types_operation(self, type1, type2):\n \n     def analyse_operation(self, env):\n         self._check_truedivision(env)\n-        NumBinopNode.analyse_operation(self, env)\n+        result = NumBinopNode.analyse_operation(self, env)\n+\n+        # The assumption here is that result is either 'self' or a coercion\n+        # node containing 'self'. Thus it is reasonable to keep manipulating\n+        # 'self' even if it's been replaced as the eventual result.\n+        from . import Visitor\n+        assert Visitor.tree_contains(result, self)",
+            "html_url": "https://github.com/cython/cython/pull/6195#discussion_r1658579789",
+            "id": 1658579789,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc5i2-tN",
+            "original_commit_id": "ffab33c5ecb711d4ecb52d614ebe3caf9adefc65",
+            "original_line": 12428,
+            "original_position": 92,
+            "original_start_line": 12424,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": null,
+            "pull_request_review_id": 2147736416,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6195",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1658579789/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-06-28T11:36:19Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1658579789",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
             }
         }
     ],
@@ -617,6 +890,243 @@
             ],
             "sha": "60f0f0e8cad7f4de13debe3f34c8a8e51c760f08",
             "url": "https://api.github.com/repos/cython/cython/commits/60f0f0e8cad7f4de13debe3f34c8a8e51c760f08"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/20a4ddbaac63df9fb0f864e3140fc82d611b7c91/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-06-27T20:41:07Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-06-27T20:41:07Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Update Cython/Compiler/ExprNodes.py\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "dfbc4e8f4d67490c2a811b70bb725562031d7c67",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/dfbc4e8f4d67490c2a811b70bb725562031d7c67"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/20a4ddbaac63df9fb0f864e3140fc82d611b7c91",
+                "verification": {
+                    "payload": "tree dfbc4e8f4d67490c2a811b70bb725562031d7c67\nparent 60f0f0e8cad7f4de13debe3f34c8a8e51c760f08\nauthor da-woods <dw-git@d-woods.co.uk> 1719520867 +0100\ncommitter GitHub <noreply@github.com> 1719520867 +0100\n\nUpdate Cython/Compiler/ExprNodes.py\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmfc5jCRC1aQ7uu5UhlAAAVNQQACQTrDjhldvsvIenXUIpIdkP\nR9z6bkApYGg3qt6ME01bHYPMXpqd2jolikoUkQJ1XMUH9ND+w1WhOpNSoHc4FpF/\nxUCu/sHTf8/dwoZQzbFs0vwT7Z5Uz8X2J4FS94+hsd5Lu6eQbuA7P6HjERtFuP71\n6/MKVYFe8GK/48hGiP6c6YT7550Hn2FHUkb5lRXm/Edf8AW/0yCGCp60ZX+z1HrI\nDVuxMz9Jef8F7zTR/V2EtaS4RzAAUVsxYSmhFC62S18XCTqNU3WYG7DZpHq+kDZa\ni1RcU4ckClVrQhY46f3xgOJr/lzuW6hal4dYPCi2cWVl3ifIUjuGNXYfFATRTArw\ndReh9DM40yTxJSkyCJXuASdRKtfuKp69c45xlDgeHN+2SvQ7aoAeSgUTJzC5UQbT\n/KaSCE83kUgtsNzx/oLqyemb+2uM6AfVf3mqRZRHePRuWzToBw7Zqt1Pigi3tSq0\nCyQAHr9SNoydRwqIVeqTMTXplxdPzfJbMD2jOgYnT9o3+vPmt/RLhm9PvodAaxsi\nUJgulYw45ij4ygvFzJiT3kdSYFOOIZcuN0jG23/kTrLNBvU9hKRhKZ4LMZKwhoqV\n5wSNgDh8Zmeex/19Y3Qo4QVreS1Bqsgh8N4ww7c/89ZUVV3qBcHoy10S6GvHvQi7\n87gl+tyka7+g4ZidE+7H\n=8Wu/\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/20a4ddbaac63df9fb0f864e3140fc82d611b7c91",
+            "node_id": "C_kwDOAhr4b9oAKDIwYTRkZGJhYWM2M2RmOWZiMGY4NjRlMzE0MGZjODJkNjExYjdjOTE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/60f0f0e8cad7f4de13debe3f34c8a8e51c760f08",
+                    "sha": "60f0f0e8cad7f4de13debe3f34c8a8e51c760f08",
+                    "url": "https://api.github.com/repos/cython/cython/commits/60f0f0e8cad7f4de13debe3f34c8a8e51c760f08"
+                }
+            ],
+            "sha": "20a4ddbaac63df9fb0f864e3140fc82d611b7c91",
+            "url": "https://api.github.com/repos/cython/cython/commits/20a4ddbaac63df9fb0f864e3140fc82d611b7c91"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/ffab33c5ecb711d4ecb52d614ebe3caf9adefc65/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-06-27T20:47:19Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-06-27T20:47:19Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Add explanatory comment and assert",
+                "tree": {
+                    "sha": "a580491c0dd5030187e73a6f60eaa780429830b0",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a580491c0dd5030187e73a6f60eaa780429830b0"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/ffab33c5ecb711d4ecb52d614ebe3caf9adefc65",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/ffab33c5ecb711d4ecb52d614ebe3caf9adefc65",
+            "node_id": "C_kwDOAhr4b9oAKGZmYWIzM2M1ZWNiNzExZDRlY2I1MmQ2MTRlYmUzY2FmOWFkZWZjNjU",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/20a4ddbaac63df9fb0f864e3140fc82d611b7c91",
+                    "sha": "20a4ddbaac63df9fb0f864e3140fc82d611b7c91",
+                    "url": "https://api.github.com/repos/cython/cython/commits/20a4ddbaac63df9fb0f864e3140fc82d611b7c91"
+                }
+            ],
+            "sha": "ffab33c5ecb711d4ecb52d614ebe3caf9adefc65",
+            "url": "https://api.github.com/repos/cython/cython/commits/ffab33c5ecb711d4ecb52d614ebe3caf9adefc65"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/d0d6fb1d06595231451270cdfb9b64b139ff7199/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-06-28T18:13:45Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-06-28T18:13:45Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Remove assert, add clarifying comment",
+                "tree": {
+                    "sha": "d90bbd9475e06de82e2ac671f0424ad355653c4a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/d90bbd9475e06de82e2ac671f0424ad355653c4a"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/d0d6fb1d06595231451270cdfb9b64b139ff7199",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/d0d6fb1d06595231451270cdfb9b64b139ff7199",
+            "node_id": "C_kwDOAhr4b9oAKGQwZDZmYjFkMDY1OTUyMzE0NTEyNzBjZGZiOWI2NGIxMzlmZjcxOTk",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/ffab33c5ecb711d4ecb52d614ebe3caf9adefc65",
+                    "sha": "ffab33c5ecb711d4ecb52d614ebe3caf9adefc65",
+                    "url": "https://api.github.com/repos/cython/cython/commits/ffab33c5ecb711d4ecb52d614ebe3caf9adefc65"
+                }
+            ],
+            "sha": "d0d6fb1d06595231451270cdfb9b64b139ff7199",
+            "url": "https://api.github.com/repos/cython/cython/commits/d0d6fb1d06595231451270cdfb9b64b139ff7199"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/6195/commits",
@@ -711,9 +1221,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2024-06-06T05:45:06Z",
+            "pushed_at": "2024-06-29T12:31:58Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 76788,
+            "size": 76789,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -732,7 +1242,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "60f0f0e8cad7f4de13debe3f34c8a8e51c760f08",
+        "sha": "d0d6fb1d06595231451270cdfb9b64b139ff7199",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -778,11 +1288,11 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "4be79a5bcbc5f131009105d93b1934e653514067",
-    "merged_at": null,
+    "merge_commit_sha": "bcac4e376d1fb2c1a26a43a04a6e244a99e1b88f",
+    "merged_at": "2024-06-28T20:46:35Z",
     "milestone": {
         "closed_at": null,
-        "closed_issues": 146,
+        "closed_issues": 165,
         "created_at": "2019-02-24T14:21:23Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -811,10 +1321,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/65/labels",
         "node_id": "MDk6TWlsZXN0b25lNDA4MjIzNQ==",
         "number": 65,
-        "open_issues": 20,
+        "open_issues": 22,
         "state": "open",
         "title": "3.1",
-        "updated_at": "2024-06-04T06:19:01Z",
+        "updated_at": "2024-06-28T20:46:37Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/65"
     },
     "node_id": "PR_kwDOABDGAc5vLNpa",
@@ -824,10 +1334,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6195/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/60f0f0e8cad7f4de13debe3f34c8a8e51c760f08",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/d0d6fb1d06595231451270cdfb9b64b139ff7199",
     "title": "Fix PyInteger / float division",
-    "updated_at": "2024-06-06T05:47:05Z",
+    "updated_at": "2024-06-28T20:46:39Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6195",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",

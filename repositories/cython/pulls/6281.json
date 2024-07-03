@@ -1,28 +1,28 @@
 {
     "_links": {
         "comments": {
-            "href": "https://api.github.com/repos/cython/cython/issues/6163/comments"
+            "href": "https://api.github.com/repos/cython/cython/issues/6281/comments"
         },
         "commits": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/6163/commits"
+            "href": "https://api.github.com/repos/cython/cython/pulls/6281/commits"
         },
         "html": {
-            "href": "https://github.com/cython/cython/pull/6163"
+            "href": "https://github.com/cython/cython/pull/6281"
         },
         "issue": {
-            "href": "https://api.github.com/repos/cython/cython/issues/6163"
+            "href": "https://api.github.com/repos/cython/cython/issues/6281"
         },
         "review_comment": {
             "href": "https://api.github.com/repos/cython/cython/pulls/comments{/number}"
         },
         "review_comments": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/6163/comments"
+            "href": "https://api.github.com/repos/cython/cython/pulls/6281/comments"
         },
         "self": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/6163"
+            "href": "https://api.github.com/repos/cython/cython/pulls/6281"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/d5a0cc0d666dc4635dcaaaed17f1f08867375a1e"
+            "href": "https://api.github.com/repos/cython/cython/statuses/97e342a553809b297e134a61858363bdae4fd5ac"
         }
     },
     "active_lock_reason": null,
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1333,
-            "open_issues_count": 1333,
+            "open_issues": 1325,
+            "open_issues_count": 1325,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -118,9 +118,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-06-28T09:24:53Z",
+            "pushed_at": "2024-06-30T13:57:49Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 73691,
+            "size": 73863,
             "ssh_url": "git@github.com:cython/cython.git",
             "stargazers_count": 9133,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
@@ -141,14 +141,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-06-28T14:40:07Z",
+            "updated_at": "2024-06-30T11:38:54Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
             "watchers": 9133,
             "watchers_count": 9133,
             "web_commit_signoff_required": false
         },
-        "sha": "b684235561fbf1049927a6fda9ad3cd9f7e096f6",
+        "sha": "bcac4e376d1fb2c1a26a43a04a6e244a99e1b88f",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -170,10 +170,79 @@
             "url": "https://api.github.com/users/cython"
         }
     },
-    "body": "Fixes manually setting AVOID_BORROWED_REFS macro while using fastcall. Tested locally to the extent that Cython can build a working version of itself with these settings.\r\n\r\nMainly prepared for nogil Python, where avoiding borrowed references may generally be a good idea.",
-    "closed_at": "2024-06-27T17:01:05Z",
-    "comment_data": [],
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/6163/comments",
+    "body": "1. Speed up `__Pyx_PyMethod_New` just by caching a reference to the MethodType. It's potentially called a lot so this is worthwhile.\r\n2. Fix `__Pyx__IsSameCyOrCFunction` - this applies to the regular Cython build too (although in all cases it's only an optimization so doesn't give wrong results). It's most often called with a method object. In this case it always returns false which isn't the intent.\r\n3. Fix logic for cpdef \"override\" check. For the Limited API the HEAP_TYPE check always passes so it always does the full check. It's hard to avoid this, but at least over the common case where the type is the exact extension type expected.\r\n\r\nThis gives something like a 20% speed improvement based on some very crude measurements. If fixes #6258 to the extent that compiling Cython with the Limited API is no longer a pessimization compared to not compiling Cython.",
+    "closed_at": null,
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6281#discussion_r1659975187"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6281"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1659975187"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "This is the existing behaviour but it does have a problem:\r\n\r\n```\r\ncdef class C:\r\n    cpdef f(self):\r\n        return 0\r\n\r\n    def call_f(self):\r\n        return self.f();\r\n\r\ncdef class D(C):\r\n    def f(self):\r\n        return 1\r\n```\r\n\r\n`D().call_f()` will return `0` while if `D` was a regular class then it would be overridden. The type-specs version behaves differently and uses the override from `D`. I think it's hard to avoid that difference in behaviour.",
+            "commit_id": "97e342a553809b297e134a61858363bdae4fd5ac",
+            "created_at": "2024-06-29T20:49:39Z",
+            "diff_hunk": "@@ -4962,14 +4962,22 @@ def generate_execution_code(self, code):\n             code.putln(\"else {\")\n         else:\n             code.putln(\"else if (\")\n-            code.putln(\"#if CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY\")\n-            code.putln(f\"unlikely(Py_TYPE({self_arg})->tp_dictoffset != 0)\")\n+            code.putln(\"#if !(CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY)\")\n+            # If CYTHON_USE_TYPE_SPECS then all extension types are heap-types so the check below automatically\n+            # passes and thus takes the slow route.\n+            # Therefore we do a less thorough check - if they type hasn't changed then clearly it hasn't\n+            # been overridden, and if the type isn't GC then it also won't have been overridden.\n+            if self.py_func.entry.scope.lookup_here(\"__dict__\"):\n+                code.putln(\"(1)\")\n+            else:\n+                code.putln(f\"unlikely(Py_TYPE({self_arg}) != \"\n+                           f\"{self.py_func.entry.scope.parent_type.typeptr_cname} &&\")\n+                code.putln(f\"__Pyx_PyType_HasFeature(Py_TYPE({self_arg}), Py_TPFLAGS_HAVE_GC))\")\n             code.putln(\"#else\")\n-            dict_str_const = code.get_py_string_const(EncodedString(\"__dict__\"))\n-            code.putln(f'PyObject_HasAttr({self_arg}, {dict_str_const})')\n+            code.putln(f\"unlikely(Py_TYPE({self_arg})->tp_dictoffset != 0 || \"\n+                       f\"__Pyx_PyType_HasFeature(Py_TYPE({self_arg}), (Py_TPFLAGS_IS_ABSTRACT | Py_TPFLAGS_HEAPTYPE)))\")",
+            "html_url": "https://github.com/cython/cython/pull/6281#discussion_r1659975187",
+            "id": 1659975187,
+            "line": 4978,
+            "node_id": "PRRC_kwDOABDGAc5i8TYT",
+            "original_commit_id": "9a4ccbeef269e04b142ebd0fa852e575995fd44e",
+            "original_line": 4978,
+            "original_position": 21,
+            "original_start_line": 4977,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 21,
+            "pull_request_review_id": 2149828063,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6281",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1659975187/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 4977,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-06-29T20:49:39Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1659975187",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        }
+    ],
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/6281/comments",
     "commit_data": [
         {
             "author": {
@@ -196,25 +265,25 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/d5a0cc0d666dc4635dcaaaed17f1f08867375a1e/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/9a4ccbeef269e04b142ebd0fa852e575995fd44e/comments",
             "commit": {
                 "author": {
-                    "date": "2024-04-25T17:36:40Z",
+                    "date": "2024-06-29T20:31:26Z",
                     "email": "dw-git@d-woods.co.uk",
                     "name": "da-woods"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-04-25T17:40:56Z",
+                    "date": "2024-06-29T20:37:04Z",
                     "email": "dw-git@d-woods.co.uk",
                     "name": "da-woods"
                 },
-                "message": "Fix CPython and AVOID_BORROWED_REFS\n\nFixes manually setting AVOID_BORROWED_REFS macro while using\nfastcall. Tested locally to the extent that Cython can build a\nworking version of itself with these settings.\n\nMainly prepared for nogil Python, where avoiding borrowed\nreferences may generally be a good idea.",
+                "message": "Limited API call speed improvments\n\n1. Speed up `__Pyx_PyMethod_New` just by caching a reference\n   to the MethodType. It's potentially called a lot so this is\n   worthwhile.\n2. Fix `__Pyx__IsSameCyOrCFunction` - this applies to the regular\n   Cython build too (although is only an optimization). It's most\n   often called with a method object. In this case it always\n   returns false which isn't the intent.\n3. Fix logic for cpdef \"override\" check. For the Limited API the\n   HEAP_TYPE check always passes so it always does the full\n   check. It's hard to avoid this, but at least over the common\n   case where the type is the exact extension type expected.",
                 "tree": {
-                    "sha": "d7dc721e9cb7f9c0da0168ccd37378faa293efa9",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/d7dc721e9cb7f9c0da0168ccd37378faa293efa9"
+                    "sha": "82e219990e8a8b2c111548a13dce82c6d413ae38",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/82e219990e8a8b2c111548a13dce82c6d413ae38"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/d5a0cc0d666dc4635dcaaaed17f1f08867375a1e",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/9a4ccbeef269e04b142ebd0fa852e575995fd44e",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -242,26 +311,105 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             },
-            "html_url": "https://github.com/cython/cython/commit/d5a0cc0d666dc4635dcaaaed17f1f08867375a1e",
-            "node_id": "C_kwDOAhr4b9oAKGQ1YTBjYzBkNjY2ZGM0NjM1ZGNhYWFlZDE3ZjFmMDg4NjczNzVhMWU",
+            "html_url": "https://github.com/cython/cython/commit/9a4ccbeef269e04b142ebd0fa852e575995fd44e",
+            "node_id": "C_kwDOAhr4b9oAKDlhNGNjYmVlZjI2OWUwNGIxNDJlYmQwZmE4NTJlNTc1OTk1ZmQ0NGU",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/a4881df99ce71b3ffc4659b2a43afe8f84d19256",
-                    "sha": "a4881df99ce71b3ffc4659b2a43afe8f84d19256",
-                    "url": "https://api.github.com/repos/cython/cython/commits/a4881df99ce71b3ffc4659b2a43afe8f84d19256"
+                    "html_url": "https://github.com/cython/cython/commit/bcac4e376d1fb2c1a26a43a04a6e244a99e1b88f",
+                    "sha": "bcac4e376d1fb2c1a26a43a04a6e244a99e1b88f",
+                    "url": "https://api.github.com/repos/cython/cython/commits/bcac4e376d1fb2c1a26a43a04a6e244a99e1b88f"
                 }
             ],
-            "sha": "d5a0cc0d666dc4635dcaaaed17f1f08867375a1e",
-            "url": "https://api.github.com/repos/cython/cython/commits/d5a0cc0d666dc4635dcaaaed17f1f08867375a1e"
+            "sha": "9a4ccbeef269e04b142ebd0fa852e575995fd44e",
+            "url": "https://api.github.com/repos/cython/cython/commits/9a4ccbeef269e04b142ebd0fa852e575995fd44e"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/97e342a553809b297e134a61858363bdae4fd5ac/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-06-29T21:06:09Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-06-29T21:06:09Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Remove workaround from profile test",
+                "tree": {
+                    "sha": "f6991f593c7c9c1f5d8cb27b7f404039e56a1e7d",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/f6991f593c7c9c1f5d8cb27b7f404039e56a1e7d"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/97e342a553809b297e134a61858363bdae4fd5ac",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/97e342a553809b297e134a61858363bdae4fd5ac",
+            "node_id": "C_kwDOAhr4b9oAKDk3ZTM0MmE1NTM4MDliMjk3ZTEzNGE2MTg1ODM2M2JkYWU0ZmQ1YWM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/9a4ccbeef269e04b142ebd0fa852e575995fd44e",
+                    "sha": "9a4ccbeef269e04b142ebd0fa852e575995fd44e",
+                    "url": "https://api.github.com/repos/cython/cython/commits/9a4ccbeef269e04b142ebd0fa852e575995fd44e"
+                }
+            ],
+            "sha": "97e342a553809b297e134a61858363bdae4fd5ac",
+            "url": "https://api.github.com/repos/cython/cython/commits/97e342a553809b297e134a61858363bdae4fd5ac"
         }
     ],
-    "commits_url": "https://api.github.com/repos/cython/cython/pulls/6163/commits",
-    "created_at": "2024-04-25T17:41:13Z",
-    "diff_url": "https://github.com/cython/cython/pull/6163.diff",
+    "commits_url": "https://api.github.com/repos/cython/cython/pulls/6281/commits",
+    "created_at": "2024-06-29T20:47:28Z",
+    "diff_url": "https://github.com/cython/cython/pull/6281.diff",
     "draft": false,
     "head": {
-        "label": "da-woods:fastcall-and-avoid-borrowed-refs",
-        "ref": "fastcall-and-avoid-borrowed-refs",
+        "label": "da-woods:limited-api-performance",
+        "ref": "limited-api-performance",
         "repo": {
             "allow_forking": true,
             "archive_url": "https://api.github.com/repos/da-woods/cython/{archive_format}{/ref}",
@@ -347,9 +495,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2024-06-28T06:43:34Z",
+            "pushed_at": "2024-06-30T13:57:47Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 77053,
+            "size": 77171,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -368,7 +516,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "d5a0cc0d666dc4635dcaaaed17f1f08867375a1e",
+        "sha": "97e342a553809b297e134a61858363bdae4fd5ac",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -390,81 +538,36 @@
             "url": "https://api.github.com/users/da-woods"
         }
     },
-    "html_url": "https://github.com/cython/cython/pull/6163",
-    "id": 1841400655,
-    "issue_url": "https://api.github.com/repos/cython/cython/issues/6163",
+    "html_url": "https://github.com/cython/cython/pull/6281",
+    "id": 1945694417,
+    "issue_url": "https://api.github.com/repos/cython/cython/issues/6281",
     "labels": [
         {
-            "color": "444444",
+            "color": "F5AB5D",
             "default": false,
-            "description": null,
-            "id": 425553654,
-            "name": "defect",
-            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
-            "url": "https://api.github.com/repos/cython/cython/labels/defect"
-        },
-        {
-            "color": "444444",
-            "default": false,
-            "description": null,
-            "id": 425556330,
-            "name": "Code Generation",
-            "node_id": "MDU6TGFiZWw0MjU1NTYzMzA=",
-            "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
+            "description": "",
+            "id": 4210073287,
+            "name": "limited api",
+            "node_id": "LA_kwDOABDGAc768J7H",
+            "url": "https://api.github.com/repos/cython/cython/labels/limited%20api"
         }
     ],
     "locked": false,
-    "merge_commit_sha": "c40047b9e559f141461c30a07b993ba4dcf19f70",
-    "merged_at": "2024-06-27T17:01:05Z",
-    "milestone": {
-        "closed_at": null,
-        "closed_issues": 161,
-        "created_at": "2019-02-24T14:21:23Z",
-        "creator": {
-            "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
-            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-            "followers_url": "https://api.github.com/users/scoder/followers",
-            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-            "gravatar_id": "",
-            "html_url": "https://github.com/scoder",
-            "id": 491659,
-            "login": "scoder",
-            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-            "organizations_url": "https://api.github.com/users/scoder/orgs",
-            "received_events_url": "https://api.github.com/users/scoder/received_events",
-            "repos_url": "https://api.github.com/users/scoder/repos",
-            "site_admin": false,
-            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-            "type": "User",
-            "url": "https://api.github.com/users/scoder"
-        },
-        "description": "* Remove code for Python 2 and Python < 3.7.\r\n* Integrate better with Python 3.\r\n* Improve support for the Limited API.\r\n* Start supporting GIL-free Python 3.13.\r\n* Support the Py3.13 `sys.monitoring` API.",
-        "due_on": null,
-        "html_url": "https://github.com/cython/cython/milestone/65",
-        "id": 4082235,
-        "labels_url": "https://api.github.com/repos/cython/cython/milestones/65/labels",
-        "node_id": "MDk6TWlsZXN0b25lNDA4MjIzNQ==",
-        "number": 65,
-        "open_issues": 25,
-        "state": "open",
-        "title": "3.1",
-        "updated_at": "2024-06-28T09:21:49Z",
-        "url": "https://api.github.com/repos/cython/cython/milestones/65"
-    },
-    "node_id": "PR_kwDOABDGAc5twYtP",
-    "number": 6163,
-    "patch_url": "https://github.com/cython/cython/pull/6163.patch",
+    "merge_commit_sha": "13e89ca3e890db5c9b233e136f3c049e5b159f84",
+    "merged_at": null,
+    "milestone": null,
+    "node_id": "PR_kwDOABDGAc5z-PDR",
+    "number": 6281,
+    "patch_url": "https://github.com/cython/cython/pull/6281.patch",
     "requested_reviewers": [],
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
-    "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6163/comments",
-    "state": "closed",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/d5a0cc0d666dc4635dcaaaed17f1f08867375a1e",
-    "title": "Fix CPython and AVOID_BORROWED_REFS",
-    "updated_at": "2024-06-27T17:01:09Z",
-    "url": "https://api.github.com/repos/cython/cython/pulls/6163",
+    "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6281/comments",
+    "state": "open",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/97e342a553809b297e134a61858363bdae4fd5ac",
+    "title": "Limited API call speed improvments",
+    "updated_at": "2024-06-29T21:06:29Z",
+    "url": "https://api.github.com/repos/cython/cython/pulls/6281",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
         "events_url": "https://api.github.com/users/da-woods/events{/privacy}",

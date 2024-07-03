@@ -1,28 +1,28 @@
 {
     "_links": {
         "comments": {
-            "href": "https://api.github.com/repos/cython/cython/issues/5997/comments"
+            "href": "https://api.github.com/repos/cython/cython/issues/6273/comments"
         },
         "commits": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/5997/commits"
+            "href": "https://api.github.com/repos/cython/cython/pulls/6273/commits"
         },
         "html": {
-            "href": "https://github.com/cython/cython/pull/5997"
+            "href": "https://github.com/cython/cython/pull/6273"
         },
         "issue": {
-            "href": "https://api.github.com/repos/cython/cython/issues/5997"
+            "href": "https://api.github.com/repos/cython/cython/issues/6273"
         },
         "review_comment": {
             "href": "https://api.github.com/repos/cython/cython/pulls/comments{/number}"
         },
         "review_comments": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/5997/comments"
+            "href": "https://api.github.com/repos/cython/cython/pulls/6273/comments"
         },
         "self": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/5997"
+            "href": "https://api.github.com/repos/cython/cython/pulls/6273"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/b26ac2c34c11035cf9782a2f187943560a68c0e6"
+            "href": "https://api.github.com/repos/cython/cython/statuses/4d2658ebf26acc7ce7ba6ab596797984cdffacd8"
         }
     },
     "active_lock_reason": null,
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1325,
-            "open_issues_count": 1325,
+            "open_issues": 1333,
+            "open_issues_count": 1333,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -118,9 +118,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-06-30T13:57:49Z",
+            "pushed_at": "2024-06-28T09:24:53Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 73863,
+            "size": 73691,
             "ssh_url": "git@github.com:cython/cython.git",
             "stargazers_count": 9133,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
@@ -141,14 +141,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-06-30T11:38:54Z",
+            "updated_at": "2024-06-28T14:40:07Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
             "watchers": 9133,
             "watchers_count": 9133,
             "web_commit_signoff_required": false
         },
-        "sha": "bcfce77eff7193062c8a0eaeb5b8a220f75c2d53",
+        "sha": "927bc6b3e90d23702ee0c5fa8c8ce7e205b70058",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -170,10 +170,148 @@
             "url": "https://api.github.com/users/cython"
         }
     },
-    "body": "Untested since it's not released yet.\r\n\r\nSee https://github.com/python/cpython/issues/111140",
-    "closed_at": "2024-05-04T20:21:22Z",
-    "comment_data": [],
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/5997/comments",
+    "body": "Moves boilerplate code out of sight for users, more towards the end of the C file.\r\nRefactors some of the code generation to use more f-strings and avoid repetition.\r\n",
+    "closed_at": "2024-06-28T05:04:13Z",
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6273#discussion_r1657724924"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6273"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1657724924"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I know it's in the old code too, but why are we `Py_VISIT`ing the module strings since they can't be part of reference cycles?",
+            "commit_id": "4d2658ebf26acc7ce7ba6ab596797984cdffacd8",
+            "created_at": "2024-06-27T19:42:51Z",
+            "diff_hunk": "@@ -1813,27 +1813,15 @@ def normalise_encoding_name(py_string):\n             const unsigned int is_unicode : 1;\n             const unsigned int is_str : 1;\n             const unsigned int intern : 1;\n-        } __Pyx_StringTabEntry; /*proto*/\n+        } __Pyx_StringTabEntry;\n         \"\"\" % dict(\n             max_length=longest_pystring,\n             num_encodings=len(encodings),\n         )))\n \n-        self.use_utility_code(UtilityCode.load_cached(\"InitStrings\", \"StringTools.c\"))\n-        w = self.parts['pystring_table']\n-        w.putln(\"\")\n-\n-        self.parts['module_state'].putln(\"PyObject *%s[%s];\" % (\n-            Naming.stringtab_cname, len(py_strings)))\n-\n-        self.parts['module_state_clear'].putln(\"for (int n=0; n<%s; ++n) {\" % len(py_strings))\n-        self.parts['module_state_clear'].putln(\"Py_CLEAR(clear_module_state->%s[n]);\" %\n-            Naming.stringtab_cname)\n-        self.parts['module_state_clear'].putln(\"}\")\n-        self.parts['module_state_traverse'].putln(\"for (int n=0; n<%s; ++n) {\" % len(py_strings))\n-        self.parts['module_state_traverse'].putln(\"Py_VISIT(traverse_module_state->%s[n]);\" %\n-            Naming.stringtab_cname)\n-        self.parts['module_state_traverse'].putln(\"}\")\n+        py_string_count = len(py_strings)\n+        self.parts['module_state'].putln(f\"PyObject *{Naming.stringtab_cname}[{py_string_count}];\")\n+        self._generate_module_array_traverse_and_clear(Naming.stringtab_cname, py_string_count)",
+            "html_url": "https://github.com/cython/cython/pull/6273#discussion_r1657724924",
+            "id": 1657724924,
+            "line": 1824,
+            "node_id": "PRRC_kwDOABDGAc5izt_8",
+            "original_commit_id": "4d2658ebf26acc7ce7ba6ab596797984cdffacd8",
+            "original_line": 1824,
+            "original_position": 141,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Code.py",
+            "position": 141,
+            "pull_request_review_id": 2146365332,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6273",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1657724924/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2024-06-27T19:44:40Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1657724924",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6273#discussion_r1658146165"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6273"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1658146165"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "[The documentation](https://docs.python.org/3/c-api/typeobj.html#c.PyTypeObject.tp_traverse) of `tp_traverse` says (about their given example):\r\n\"\"\"\r\nNote that Py_VISIT() is called only on those members that can participate in reference cycles. Although there is also a `self->key` member, it can only be NULL or a Python string and therefore cannot be part of a reference cycle.\r\n\r\nOn the other hand, even if you know a member can never be part of a cycle, as a debugging aid you may want to visit it anyway just so the gc module’s `get_referents()` function will include it.\r\n\"\"\"\r\nThus, it's not entirely without use. But it would probably speed up the GC runs a bit if we excluded visits of immutable objects (strings and integers). CPython itself can be pretty rigorous with this, e.g. this is the `tp_traverse` function of a `CodeObject`, ignoring lots of immutable attribute values:\r\n```c\r\nstatic int\r\ncode_traverse(PyCodeObject *co, visitproc visit, void *arg)\r\n{\r\n    Py_VISIT(co->co_consts);\r\n    return 0;\r\n}\r\n```\r\nWe could actually avoid ~both~ visit ~and clear~ for strings and integers. I'll merge this PR (it's a refactoring) and then write a PR for the removal.",
+            "commit_id": "4d2658ebf26acc7ce7ba6ab596797984cdffacd8",
+            "created_at": "2024-06-28T05:03:00Z",
+            "diff_hunk": "@@ -1813,27 +1813,15 @@ def normalise_encoding_name(py_string):\n             const unsigned int is_unicode : 1;\n             const unsigned int is_str : 1;\n             const unsigned int intern : 1;\n-        } __Pyx_StringTabEntry; /*proto*/\n+        } __Pyx_StringTabEntry;\n         \"\"\" % dict(\n             max_length=longest_pystring,\n             num_encodings=len(encodings),\n         )))\n \n-        self.use_utility_code(UtilityCode.load_cached(\"InitStrings\", \"StringTools.c\"))\n-        w = self.parts['pystring_table']\n-        w.putln(\"\")\n-\n-        self.parts['module_state'].putln(\"PyObject *%s[%s];\" % (\n-            Naming.stringtab_cname, len(py_strings)))\n-\n-        self.parts['module_state_clear'].putln(\"for (int n=0; n<%s; ++n) {\" % len(py_strings))\n-        self.parts['module_state_clear'].putln(\"Py_CLEAR(clear_module_state->%s[n]);\" %\n-            Naming.stringtab_cname)\n-        self.parts['module_state_clear'].putln(\"}\")\n-        self.parts['module_state_traverse'].putln(\"for (int n=0; n<%s; ++n) {\" % len(py_strings))\n-        self.parts['module_state_traverse'].putln(\"Py_VISIT(traverse_module_state->%s[n]);\" %\n-            Naming.stringtab_cname)\n-        self.parts['module_state_traverse'].putln(\"}\")\n+        py_string_count = len(py_strings)\n+        self.parts['module_state'].putln(f\"PyObject *{Naming.stringtab_cname}[{py_string_count}];\")\n+        self._generate_module_array_traverse_and_clear(Naming.stringtab_cname, py_string_count)",
+            "html_url": "https://github.com/cython/cython/pull/6273#discussion_r1658146165",
+            "id": 1658146165,
+            "in_reply_to_id": 1657724924,
+            "line": 1824,
+            "node_id": "PRRC_kwDOABDGAc5i1U11",
+            "original_commit_id": "4d2658ebf26acc7ce7ba6ab596797984cdffacd8",
+            "original_line": 1824,
+            "original_position": 141,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Code.py",
+            "position": 141,
+            "pull_request_review_id": 2147041950,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6273",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1658146165/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2024-06-28T05:06:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1658146165",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder"
+            }
+        }
+    ],
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/6273/comments",
     "commit_data": [
         {
             "author": {
@@ -196,25 +334,25 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/eb68bcefda31c32986d8609bac33e17200b0512f/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/a06549a4f016206385c7e7e63ec6591c8a0f4bfa/comments",
             "commit": {
                 "author": {
-                    "date": "2024-02-12T21:02:45Z",
+                    "date": "2024-06-26T15:46:06Z",
                     "email": "stefan_ml@behnel.de",
                     "name": "Stefan Behnel"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-05-03T19:38:10Z",
+                    "date": "2024-06-26T15:46:06Z",
                     "email": "stefan_ml@behnel.de",
                     "name": "Stefan Behnel"
                 },
-                "message": "Use the large PyLong conversion functions in Py3.13.\n\nSee https://github.com/python/cpython/issues/111140",
+                "message": "Reorder the init helper functions to move them after the user provided module init function.",
                 "tree": {
-                    "sha": "c5dd1c53ad1006b2da5c40c1be0abc3ee182774a",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/c5dd1c53ad1006b2da5c40c1be0abc3ee182774a"
+                    "sha": "a80fa2daa3755fa1c5d45baf10aa38e24e3a9278",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a80fa2daa3755fa1c5d45baf10aa38e24e3a9278"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/eb68bcefda31c32986d8609bac33e17200b0512f",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/a06549a4f016206385c7e7e63ec6591c8a0f4bfa",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -242,17 +380,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             },
-            "html_url": "https://github.com/cython/cython/commit/eb68bcefda31c32986d8609bac33e17200b0512f",
-            "node_id": "C_kwDOACXZ0toAKGViNjhiY2VmZGEzMWMzMjk4NmQ4NjA5YmFjMzNlMTcyMDBiMDUxMmY",
+            "html_url": "https://github.com/cython/cython/commit/a06549a4f016206385c7e7e63ec6591c8a0f4bfa",
+            "node_id": "C_kwDOACXZ0toAKGEwNjU0OWE0ZjAxNjIwNjM4NWM3ZTdlNjNlYzY1OTFjOGEwZjRiZmE",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/884ce74ae2229ee4191e96751635243f333fa143",
-                    "sha": "884ce74ae2229ee4191e96751635243f333fa143",
-                    "url": "https://api.github.com/repos/cython/cython/commits/884ce74ae2229ee4191e96751635243f333fa143"
+                    "html_url": "https://github.com/cython/cython/commit/927bc6b3e90d23702ee0c5fa8c8ce7e205b70058",
+                    "sha": "927bc6b3e90d23702ee0c5fa8c8ce7e205b70058",
+                    "url": "https://api.github.com/repos/cython/cython/commits/927bc6b3e90d23702ee0c5fa8c8ce7e205b70058"
                 }
             ],
-            "sha": "eb68bcefda31c32986d8609bac33e17200b0512f",
-            "url": "https://api.github.com/repos/cython/cython/commits/eb68bcefda31c32986d8609bac33e17200b0512f"
+            "sha": "a06549a4f016206385c7e7e63ec6591c8a0f4bfa",
+            "url": "https://api.github.com/repos/cython/cython/commits/a06549a4f016206385c7e7e63ec6591c8a0f4bfa"
         },
         {
             "author": {
@@ -275,25 +413,25 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/1ef92d822dfe5128d20b46cf36e932c8ed3a4e3b/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/9bd3e1b15556c25ec8b8c891a4946d9aa29f46cb/comments",
             "commit": {
                 "author": {
-                    "date": "2024-05-03T19:35:56Z",
+                    "date": "2024-06-27T06:43:11Z",
                     "email": "stefan_ml@behnel.de",
                     "name": "Stefan Behnel"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-05-03T19:38:10Z",
+                    "date": "2024-06-27T06:43:11Z",
                     "email": "stefan_ml@behnel.de",
                     "name": "Stefan Behnel"
                 },
-                "message": "Use flags for unsigned integer C-to-Py conversion in Py3.13a6.\nSee https://github.com/python/cpython/commit/687616877ba540a44f82ff764b5f13d36c0f3910",
+                "message": "Move all code object related declarations into the same C code section.",
                 "tree": {
-                    "sha": "77d6a539ee66f481802a3ab3931aaa2331c8caf8",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/77d6a539ee66f481802a3ab3931aaa2331c8caf8"
+                    "sha": "c89c32dab6c49a19e91f9438cdee812aa44eb013",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/c89c32dab6c49a19e91f9438cdee812aa44eb013"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/1ef92d822dfe5128d20b46cf36e932c8ed3a4e3b",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/9bd3e1b15556c25ec8b8c891a4946d9aa29f46cb",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -321,17 +459,17 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             },
-            "html_url": "https://github.com/cython/cython/commit/1ef92d822dfe5128d20b46cf36e932c8ed3a4e3b",
-            "node_id": "C_kwDOACXZ0toAKDFlZjkyZDgyMmRmZTUxMjhkMjBiNDZjZjM2ZTkzMmM4ZWQzYTRlM2I",
+            "html_url": "https://github.com/cython/cython/commit/9bd3e1b15556c25ec8b8c891a4946d9aa29f46cb",
+            "node_id": "C_kwDOACXZ0toAKDliZDNlMWIxNTU1NmMyNWVjOGI4Yzg5MWE0OTQ2ZDlhYTI5ZjQ2Y2I",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/eb68bcefda31c32986d8609bac33e17200b0512f",
-                    "sha": "eb68bcefda31c32986d8609bac33e17200b0512f",
-                    "url": "https://api.github.com/repos/cython/cython/commits/eb68bcefda31c32986d8609bac33e17200b0512f"
+                    "html_url": "https://github.com/cython/cython/commit/a06549a4f016206385c7e7e63ec6591c8a0f4bfa",
+                    "sha": "a06549a4f016206385c7e7e63ec6591c8a0f4bfa",
+                    "url": "https://api.github.com/repos/cython/cython/commits/a06549a4f016206385c7e7e63ec6591c8a0f4bfa"
                 }
             ],
-            "sha": "1ef92d822dfe5128d20b46cf36e932c8ed3a4e3b",
-            "url": "https://api.github.com/repos/cython/cython/commits/1ef92d822dfe5128d20b46cf36e932c8ed3a4e3b"
+            "sha": "9bd3e1b15556c25ec8b8c891a4946d9aa29f46cb",
+            "url": "https://api.github.com/repos/cython/cython/commits/9bd3e1b15556c25ec8b8c891a4946d9aa29f46cb"
         },
         {
             "author": {
@@ -354,25 +492,25 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/b26ac2c34c11035cf9782a2f187943560a68c0e6/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/4d2658ebf26acc7ce7ba6ab596797984cdffacd8/comments",
             "commit": {
                 "author": {
-                    "date": "2024-05-04T05:58:37Z",
+                    "date": "2024-06-27T09:53:04Z",
                     "email": "stefan_ml@behnel.de",
                     "name": "Stefan Behnel"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2024-05-04T05:58:37Z",
+                    "date": "2024-06-27T09:53:04Z",
                     "email": "stefan_ml@behnel.de",
                     "name": "Stefan Behnel"
                 },
-                "message": "Clean up and simplify the fallback implementation, fixing some reference leaks along the way.",
+                "message": "More code refactoring to use f-strings and avoid repetition.",
                 "tree": {
-                    "sha": "09dd39f7405103d08ec6217c41437655419e1d0e",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/09dd39f7405103d08ec6217c41437655419e1d0e"
+                    "sha": "ee8ca5a10f168c79b459301a4011e356bb466005",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/ee8ca5a10f168c79b459301a4011e356bb466005"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/b26ac2c34c11035cf9782a2f187943560a68c0e6",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/4d2658ebf26acc7ce7ba6ab596797984cdffacd8",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -400,26 +538,26 @@
                 "type": "User",
                 "url": "https://api.github.com/users/scoder"
             },
-            "html_url": "https://github.com/cython/cython/commit/b26ac2c34c11035cf9782a2f187943560a68c0e6",
-            "node_id": "C_kwDOACXZ0toAKGIyNmFjMmMzNGMxMTAzNWNmOTc4MmEyZjE4Nzk0MzU2MGE2OGMwZTY",
+            "html_url": "https://github.com/cython/cython/commit/4d2658ebf26acc7ce7ba6ab596797984cdffacd8",
+            "node_id": "C_kwDOACXZ0toAKDRkMjY1OGViZjI2YWNjN2NlN2JhNmFiNTk2Nzk3OTg0Y2RmZmFjZDg",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/1ef92d822dfe5128d20b46cf36e932c8ed3a4e3b",
-                    "sha": "1ef92d822dfe5128d20b46cf36e932c8ed3a4e3b",
-                    "url": "https://api.github.com/repos/cython/cython/commits/1ef92d822dfe5128d20b46cf36e932c8ed3a4e3b"
+                    "html_url": "https://github.com/cython/cython/commit/9bd3e1b15556c25ec8b8c891a4946d9aa29f46cb",
+                    "sha": "9bd3e1b15556c25ec8b8c891a4946d9aa29f46cb",
+                    "url": "https://api.github.com/repos/cython/cython/commits/9bd3e1b15556c25ec8b8c891a4946d9aa29f46cb"
                 }
             ],
-            "sha": "b26ac2c34c11035cf9782a2f187943560a68c0e6",
-            "url": "https://api.github.com/repos/cython/cython/commits/b26ac2c34c11035cf9782a2f187943560a68c0e6"
+            "sha": "4d2658ebf26acc7ce7ba6ab596797984cdffacd8",
+            "url": "https://api.github.com/repos/cython/cython/commits/4d2658ebf26acc7ce7ba6ab596797984cdffacd8"
         }
     ],
-    "commits_url": "https://api.github.com/repos/cython/cython/pulls/5997/commits",
-    "created_at": "2024-02-12T21:05:49Z",
-    "diff_url": "https://github.com/cython/cython/pull/5997.diff",
+    "commits_url": "https://api.github.com/repos/cython/cython/pulls/6273/commits",
+    "created_at": "2024-06-27T09:57:37Z",
+    "diff_url": "https://github.com/cython/cython/pull/6273.diff",
     "draft": false,
     "head": {
-        "label": "scoder:py313_pylong_native_bytes",
-        "ref": "py313_pylong_native_bytes",
+        "label": "scoder:reorder_init_code",
+        "ref": "reorder_init_code",
         "repo": {
             "allow_forking": true,
             "archive_url": "https://api.github.com/repos/scoder/cython/{archive_format}{/ref}",
@@ -505,9 +643,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/scoder/cython/pulls{/number}",
-            "pushed_at": "2024-06-30T06:05:49Z",
+            "pushed_at": "2024-06-28T09:24:51Z",
             "releases_url": "https://api.github.com/repos/scoder/cython/releases{/id}",
-            "size": 73637,
+            "size": 73591,
             "ssh_url": "git@github.com:scoder/cython.git",
             "stargazers_count": 11,
             "stargazers_url": "https://api.github.com/repos/scoder/cython/stargazers",
@@ -526,7 +664,7 @@
             "watchers_count": 11,
             "web_commit_signoff_required": false
         },
-        "sha": "b26ac2c34c11035cf9782a2f187943560a68c0e6",
+        "sha": "4d2658ebf26acc7ce7ba6ab596797984cdffacd8",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
             "events_url": "https://api.github.com/users/scoder/events{/privacy}",
@@ -548,19 +686,10 @@
             "url": "https://api.github.com/users/scoder"
         }
     },
-    "html_url": "https://github.com/cython/cython/pull/5997",
-    "id": 1722703956,
-    "issue_url": "https://api.github.com/repos/cython/cython/issues/5997",
+    "html_url": "https://github.com/cython/cython/pull/6273",
+    "id": 1941948883,
+    "issue_url": "https://api.github.com/repos/cython/cython/issues/6273",
     "labels": [
-        {
-            "color": "444444",
-            "default": true,
-            "description": null,
-            "id": 425556243,
-            "name": "enhancement",
-            "node_id": "MDU6TGFiZWw0MjU1NTYyNDM=",
-            "url": "https://api.github.com/repos/cython/cython/labels/enhancement"
-        },
         {
             "color": "444444",
             "default": false,
@@ -569,60 +698,69 @@
             "name": "Code Generation",
             "node_id": "MDU6TGFiZWw0MjU1NTYzMzA=",
             "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425558030,
+            "name": "cleanup",
+            "node_id": "MDU6TGFiZWw0MjU1NTgwMzA=",
+            "url": "https://api.github.com/repos/cython/cython/labels/cleanup"
         }
     ],
     "locked": false,
-    "merge_commit_sha": "dc63743e162a6f89d982399e5e5d1bf67a364f01",
-    "merged_at": "2024-05-04T20:21:22Z",
+    "merge_commit_sha": "c31a5d56e3e5386deb1a2bb6c9f18f1162ef6c52",
+    "merged_at": "2024-06-28T05:04:13Z",
     "milestone": {
         "closed_at": null,
-        "closed_issues": 13,
-        "created_at": "2024-05-21T16:29:44Z",
+        "closed_issues": 161,
+        "created_at": "2019-02-24T14:21:23Z",
         "creator": {
-            "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
-            "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
-            "followers_url": "https://api.github.com/users/da-woods/followers",
-            "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
-            "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+            "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
             "gravatar_id": "",
-            "html_url": "https://github.com/da-woods",
-            "id": 10536947,
-            "login": "da-woods",
-            "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
-            "organizations_url": "https://api.github.com/users/da-woods/orgs",
-            "received_events_url": "https://api.github.com/users/da-woods/received_events",
-            "repos_url": "https://api.github.com/users/da-woods/repos",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
             "site_admin": false,
-            "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
-            "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
             "type": "User",
-            "url": "https://api.github.com/users/da-woods"
+            "url": "https://api.github.com/users/scoder"
         },
-        "description": null,
+        "description": "* Remove code for Python 2 and Python < 3.7.\r\n* Integrate better with Python 3.\r\n* Improve support for the Limited API.\r\n* Start supporting GIL-free Python 3.13.\r\n* Support the Py3.13 `sys.monitoring` API.",
         "due_on": null,
-        "html_url": "https://github.com/cython/cython/milestone/110",
-        "id": 11082254,
-        "labels_url": "https://api.github.com/repos/cython/cython/milestones/110/labels",
-        "node_id": "MI_kwDOABDGAc4AqRoO",
-        "number": 110,
-        "open_issues": 0,
+        "html_url": "https://github.com/cython/cython/milestone/65",
+        "id": 4082235,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/65/labels",
+        "node_id": "MDk6TWlsZXN0b25lNDA4MjIzNQ==",
+        "number": 65,
+        "open_issues": 25,
         "state": "open",
-        "title": "3.0.11",
-        "updated_at": "2024-06-30T06:19:51Z",
-        "url": "https://api.github.com/repos/cython/cython/milestones/110"
+        "title": "3.1",
+        "updated_at": "2024-06-28T09:21:49Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/65"
     },
-    "node_id": "PR_kwDOABDGAc5mrmBU",
-    "number": 5997,
-    "patch_url": "https://github.com/cython/cython/pull/5997.patch",
+    "node_id": "PR_kwDOABDGAc5zv8nT",
+    "number": 6273,
+    "patch_url": "https://github.com/cython/cython/pull/6273.patch",
     "requested_reviewers": [],
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
-    "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/5997/comments",
+    "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6273/comments",
     "state": "closed",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/b26ac2c34c11035cf9782a2f187943560a68c0e6",
-    "title": "Use the new large PyLong conversion functions in Py3.13.",
-    "updated_at": "2024-06-30T06:18:12Z",
-    "url": "https://api.github.com/repos/cython/cython/pulls/5997",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/4d2658ebf26acc7ce7ba6ab596797984cdffacd8",
+    "title": "Move more generated init code after user code",
+    "updated_at": "2024-06-28T05:04:17Z",
+    "url": "https://api.github.com/repos/cython/cython/pulls/6273",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
         "events_url": "https://api.github.com/users/scoder/events{/privacy}",
