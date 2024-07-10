@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/6196"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/6836d554f32d9a79418cef72bdc1a290b7efcc55"
+            "href": "https://api.github.com/repos/cython/cython/statuses/e0f435eacf2e6958692f9240f7888a3f0fb26f87"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1454,
-            "forks_count": 1454,
+            "forks": 1467,
+            "forks_count": 1467,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1313,
-            "open_issues_count": 1313,
+            "open_issues": 1320,
+            "open_issues_count": 1320,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -118,11 +118,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-05-14T11:50:23Z",
+            "pushed_at": "2024-07-06T11:00:12Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 73456,
+            "size": 73465,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 8970,
+            "stargazers_count": 9155,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,11 +141,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-05-14T09:25:16Z",
+            "updated_at": "2024-07-06T13:37:29Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 8970,
-            "watchers_count": 8970,
+            "watchers": 9155,
+            "watchers_count": 9155,
             "web_commit_signoff_required": false
         },
         "sha": "bc590426ced4c7d5ba0c8476e18204812e0f354a",
@@ -170,7 +170,7 @@
             "url": "https://api.github.com/users/cython"
         }
     },
-    "body": "Extern typedefs get left to the C compiler to sort out since we can't rely on Cython having been told correctly.\r\n\r\nCloses #6161",
+    "body": "~Extern typedefs~ Mapping of type to Numpy constant gets left to the C compiler to sort out since we can't rely on Cython having been told correctly.\r\n\r\nAlso fixes issues with using types written as `cimported_module.type` - these weren't visible in the utility code scope. Types are now declared in the utility code scope only using a temporary name instead.\r\n\r\nCloses #6161",
     "closed_at": null,
     "comment_data": [
         {
@@ -187,7 +187,7 @@
             },
             "author_association": "MEMBER",
             "body": "This tends to trigger \"unsigned value cannot be < 0\" warnings. I keep forgetting what works best, but this might work better:\r\n```suggestion\r\n#define __PYX_GET_NPY_INT_TYPE(tp) ( \\\r\n    (((tp)-1) > (tp)0) ? \\\r\n        (__PYX_GET_NPY_UINT_TYPE(tp)) : \\\r\n        (__PYX_GET_NPY_SINT_TYPE(tp)) )\r\n```\r\nAlso, it's always best to put macro expressions into parentheses. You never know how they'll end up being used, now or later.",
-            "commit_id": "6836d554f32d9a79418cef72bdc1a290b7efcc55",
+            "commit_id": "e0f435eacf2e6958692f9240f7888a3f0fb26f87",
             "created_at": "2024-05-12T19:50:11Z",
             "diff_hunk": "@@ -14,6 +14,58 @@\n #define __PYX_PYUFUNCGENERICFUNCTION_CAST(x) (PyUFuncGenericFunction)x\n #endif\n \n+/////////////////////// UFuncTypeHandling.proto //////////////\n+\n+#define __PYX_GET_NPY_COMPLEX_TYPE(tp) \\\n+    sizeof(tp) == sizeof(npy_cfloat) ? NPY_CFLOAT : \\\n+    sizeof(tp) == sizeof(npy_cdouble) ? NPY_CDOUBLE : \\\n+    sizeof(tp) == sizeof(npy_clongdouble) ? NPY_CLONGDOUBLE : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_FLOAT_TYPE(tp) \\\n+    sizeof(tp) == sizeof(npy_float) ? NPY_FLOAT : \\\n+    sizeof(tp) == sizeof(npy_double) ? NPY_DOUBLE : \\\n+    sizeof(tp) == sizeof(npy_longdouble) ? NPY_LONGDOUBLE : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_UINT_TYPE(tp) \\\n+    sizeof(tp) == 1 ? NPY_UINT8 : \\\n+    sizeof(tp) == 2 ? NPY_UINT16 : \\\n+    sizeof(tp) == 4 ? NPY_UINT32 : \\\n+    sizeof(tp) == 8 ? NPY_UINT64 : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_SINT_TYPE(tp) \\\n+    sizeof(tp) == 1 ? NPY_INT8 : \\\n+    sizeof(tp) == 2 ? NPY_INT16 : \\\n+    sizeof(tp) == 4 ? NPY_INT32 : \\\n+    sizeof(tp) == 8 ? NPY_INT64 : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_INT_TYPE(tp) \\\n+    (((tp)-1) < (tp)0) ? \\\n+        (__PYX_GET_NPY_SINT_TYPE(tp)) : \\\n+        (__PYX_GET_NPY_UINT_TYPE(tp))",
             "html_url": "https://github.com/cython/cython/pull/6196#discussion_r1597703567",
@@ -255,7 +255,7 @@
             },
             "author_association": "MEMBER",
             "body": "Did you try extracting the function type creation into a constant?",
-            "commit_id": "6836d554f32d9a79418cef72bdc1a290b7efcc55",
+            "commit_id": "e0f435eacf2e6958692f9240f7888a3f0fb26f87",
             "created_at": "2024-05-12T19:53:18Z",
             "diff_hunk": "@@ -237,6 +253,34 @@ def generate_ufunc_initialization(converters, cfunc_nodes, original_node):\n     pos = original_node.pos\n     func_name = original_node.entry.name\n     docstr = original_node.doc\n+\n+    validation_call_node = ExprNodes.PythonCapiCallNode(\n+        pos,\n+        function_name=\"__Pyx_validate_ufunc_types\",\n+        func_type=PyrexTypes.CFuncType(\n+            PyrexTypes.c_int_type,\n+            [PyrexTypes.CFuncTypeArg(\"types\", PyrexTypes.c_char_ptr_type, None),\n+             PyrexTypes.CFuncTypeArg(\"arg_count\", PyrexTypes.c_py_ssize_t_type, None),\n+             PyrexTypes.CFuncTypeArg(\"input_arg_count\", PyrexTypes.c_py_ssize_t_type, None)],\n+            exception_value=\"-1\"\n+        ),",
             "html_url": "https://github.com/cython/cython/pull/6196#discussion_r1597703945",
@@ -323,7 +323,7 @@
             },
             "author_association": "MEMBER",
             "body": "It could potentially figure it out if it inlines the validation function. But how many types do you expect here? One, two, three? Probably rarely more, right? Why not call the validation function multiple times, instead of using a loop? You could also inline the `NPY_NOTYPE` comparison and keep the helper function only for setting the exception. That should make it easy for the C compiler to discard the calls in the normal cases.",
-            "commit_id": "6836d554f32d9a79418cef72bdc1a290b7efcc55",
+            "commit_id": "e0f435eacf2e6958692f9240f7888a3f0fb26f87",
             "created_at": "2024-05-12T20:02:36Z",
             "diff_hunk": "@@ -14,6 +14,58 @@\n #define __PYX_PYUFUNCGENERICFUNCTION_CAST(x) (PyUFuncGenericFunction)x\n #endif\n \n+/////////////////////// UFuncTypeHandling.proto //////////////\n+\n+#define __PYX_GET_NPY_COMPLEX_TYPE(tp) \\\n+    sizeof(tp) == sizeof(npy_cfloat) ? NPY_CFLOAT : \\\n+    sizeof(tp) == sizeof(npy_cdouble) ? NPY_CDOUBLE : \\\n+    sizeof(tp) == sizeof(npy_clongdouble) ? NPY_CLONGDOUBLE : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_FLOAT_TYPE(tp) \\\n+    sizeof(tp) == sizeof(npy_float) ? NPY_FLOAT : \\\n+    sizeof(tp) == sizeof(npy_double) ? NPY_DOUBLE : \\\n+    sizeof(tp) == sizeof(npy_longdouble) ? NPY_LONGDOUBLE : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_UINT_TYPE(tp) \\\n+    sizeof(tp) == 1 ? NPY_UINT8 : \\\n+    sizeof(tp) == 2 ? NPY_UINT16 : \\\n+    sizeof(tp) == 4 ? NPY_UINT32 : \\\n+    sizeof(tp) == 8 ? NPY_UINT64 : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_SINT_TYPE(tp) \\\n+    sizeof(tp) == 1 ? NPY_INT8 : \\\n+    sizeof(tp) == 2 ? NPY_INT16 : \\\n+    sizeof(tp) == 4 ? NPY_INT32 : \\\n+    sizeof(tp) == 8 ? NPY_INT64 : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_INT_TYPE(tp) \\\n+    (((tp)-1) < (tp)0) ? \\\n+        (__PYX_GET_NPY_SINT_TYPE(tp)) : \\\n+        (__PYX_GET_NPY_UINT_TYPE(tp))\n+\n+static int __Pyx_validate_ufunc_types(char *types, Py_ssize_t count, Py_ssize_t input_count);\n+\n+/////////////////////// UFuncTypeHandling ///////////////\n+\n+// DW - it's a bit of a shame that this has to be a runtime check since the C compiler does\n+// know it. We could make this a compile-time error in C++, but not easily in C.",
             "html_url": "https://github.com/cython/cython/pull/6196#discussion_r1597705192",
@@ -391,7 +391,7 @@
             },
             "author_association": "MEMBER",
             "body": "Ah I think you're slightly misunderstanding the comment.\r\n\r\nWhat I really want is a failure from the C compiler because it already knows that it's used `NPY_NOTYPE`. I'm not worried about the cost of the validation function. I wish I didn't have to try to import the module to work out that I've got it wrong.",
-            "commit_id": "6836d554f32d9a79418cef72bdc1a290b7efcc55",
+            "commit_id": "e0f435eacf2e6958692f9240f7888a3f0fb26f87",
             "created_at": "2024-05-12T20:13:28Z",
             "diff_hunk": "@@ -14,6 +14,58 @@\n #define __PYX_PYUFUNCGENERICFUNCTION_CAST(x) (PyUFuncGenericFunction)x\n #endif\n \n+/////////////////////// UFuncTypeHandling.proto //////////////\n+\n+#define __PYX_GET_NPY_COMPLEX_TYPE(tp) \\\n+    sizeof(tp) == sizeof(npy_cfloat) ? NPY_CFLOAT : \\\n+    sizeof(tp) == sizeof(npy_cdouble) ? NPY_CDOUBLE : \\\n+    sizeof(tp) == sizeof(npy_clongdouble) ? NPY_CLONGDOUBLE : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_FLOAT_TYPE(tp) \\\n+    sizeof(tp) == sizeof(npy_float) ? NPY_FLOAT : \\\n+    sizeof(tp) == sizeof(npy_double) ? NPY_DOUBLE : \\\n+    sizeof(tp) == sizeof(npy_longdouble) ? NPY_LONGDOUBLE : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_UINT_TYPE(tp) \\\n+    sizeof(tp) == 1 ? NPY_UINT8 : \\\n+    sizeof(tp) == 2 ? NPY_UINT16 : \\\n+    sizeof(tp) == 4 ? NPY_UINT32 : \\\n+    sizeof(tp) == 8 ? NPY_UINT64 : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_SINT_TYPE(tp) \\\n+    sizeof(tp) == 1 ? NPY_INT8 : \\\n+    sizeof(tp) == 2 ? NPY_INT16 : \\\n+    sizeof(tp) == 4 ? NPY_INT32 : \\\n+    sizeof(tp) == 8 ? NPY_INT64 : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_INT_TYPE(tp) \\\n+    (((tp)-1) < (tp)0) ? \\\n+        (__PYX_GET_NPY_SINT_TYPE(tp)) : \\\n+        (__PYX_GET_NPY_UINT_TYPE(tp))\n+\n+static int __Pyx_validate_ufunc_types(char *types, Py_ssize_t count, Py_ssize_t input_count);\n+\n+/////////////////////// UFuncTypeHandling ///////////////\n+\n+// DW - it's a bit of a shame that this has to be a runtime check since the C compiler does\n+// know it. We could make this a compile-time error in C++, but not easily in C.",
             "html_url": "https://github.com/cython/cython/pull/6196#discussion_r1597706798",
@@ -460,7 +460,7 @@
             },
             "author_association": "MEMBER",
             "body": "Something like this?\r\nhttps://github.com/cython/cython/blob/bc590426ced4c7d5ba0c8476e18204812e0f354a/Cython/Utility/ModuleSetupCode.c#L404-L407",
-            "commit_id": "6836d554f32d9a79418cef72bdc1a290b7efcc55",
+            "commit_id": "e0f435eacf2e6958692f9240f7888a3f0fb26f87",
             "created_at": "2024-05-12T20:18:24Z",
             "diff_hunk": "@@ -14,6 +14,58 @@\n #define __PYX_PYUFUNCGENERICFUNCTION_CAST(x) (PyUFuncGenericFunction)x\n #endif\n \n+/////////////////////// UFuncTypeHandling.proto //////////////\n+\n+#define __PYX_GET_NPY_COMPLEX_TYPE(tp) \\\n+    sizeof(tp) == sizeof(npy_cfloat) ? NPY_CFLOAT : \\\n+    sizeof(tp) == sizeof(npy_cdouble) ? NPY_CDOUBLE : \\\n+    sizeof(tp) == sizeof(npy_clongdouble) ? NPY_CLONGDOUBLE : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_FLOAT_TYPE(tp) \\\n+    sizeof(tp) == sizeof(npy_float) ? NPY_FLOAT : \\\n+    sizeof(tp) == sizeof(npy_double) ? NPY_DOUBLE : \\\n+    sizeof(tp) == sizeof(npy_longdouble) ? NPY_LONGDOUBLE : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_UINT_TYPE(tp) \\\n+    sizeof(tp) == 1 ? NPY_UINT8 : \\\n+    sizeof(tp) == 2 ? NPY_UINT16 : \\\n+    sizeof(tp) == 4 ? NPY_UINT32 : \\\n+    sizeof(tp) == 8 ? NPY_UINT64 : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_SINT_TYPE(tp) \\\n+    sizeof(tp) == 1 ? NPY_INT8 : \\\n+    sizeof(tp) == 2 ? NPY_INT16 : \\\n+    sizeof(tp) == 4 ? NPY_INT32 : \\\n+    sizeof(tp) == 8 ? NPY_INT64 : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_INT_TYPE(tp) \\\n+    (((tp)-1) < (tp)0) ? \\\n+        (__PYX_GET_NPY_SINT_TYPE(tp)) : \\\n+        (__PYX_GET_NPY_UINT_TYPE(tp))\n+\n+static int __Pyx_validate_ufunc_types(char *types, Py_ssize_t count, Py_ssize_t input_count);\n+\n+/////////////////////// UFuncTypeHandling ///////////////\n+\n+// DW - it's a bit of a shame that this has to be a runtime check since the C compiler does\n+// know it. We could make this a compile-time error in C++, but not easily in C.",
             "html_url": "https://github.com/cython/cython/pull/6196#discussion_r1597707426",
@@ -529,7 +529,7 @@
             },
             "author_association": "MEMBER",
             "body": "Yeah possibly. I'll have another look and see if I can do something like that.",
-            "commit_id": "6836d554f32d9a79418cef72bdc1a290b7efcc55",
+            "commit_id": "e0f435eacf2e6958692f9240f7888a3f0fb26f87",
             "created_at": "2024-05-12T20:29:13Z",
             "diff_hunk": "@@ -14,6 +14,58 @@\n #define __PYX_PYUFUNCGENERICFUNCTION_CAST(x) (PyUFuncGenericFunction)x\n #endif\n \n+/////////////////////// UFuncTypeHandling.proto //////////////\n+\n+#define __PYX_GET_NPY_COMPLEX_TYPE(tp) \\\n+    sizeof(tp) == sizeof(npy_cfloat) ? NPY_CFLOAT : \\\n+    sizeof(tp) == sizeof(npy_cdouble) ? NPY_CDOUBLE : \\\n+    sizeof(tp) == sizeof(npy_clongdouble) ? NPY_CLONGDOUBLE : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_FLOAT_TYPE(tp) \\\n+    sizeof(tp) == sizeof(npy_float) ? NPY_FLOAT : \\\n+    sizeof(tp) == sizeof(npy_double) ? NPY_DOUBLE : \\\n+    sizeof(tp) == sizeof(npy_longdouble) ? NPY_LONGDOUBLE : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_UINT_TYPE(tp) \\\n+    sizeof(tp) == 1 ? NPY_UINT8 : \\\n+    sizeof(tp) == 2 ? NPY_UINT16 : \\\n+    sizeof(tp) == 4 ? NPY_UINT32 : \\\n+    sizeof(tp) == 8 ? NPY_UINT64 : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_SINT_TYPE(tp) \\\n+    sizeof(tp) == 1 ? NPY_INT8 : \\\n+    sizeof(tp) == 2 ? NPY_INT16 : \\\n+    sizeof(tp) == 4 ? NPY_INT32 : \\\n+    sizeof(tp) == 8 ? NPY_INT64 : NPY_NOTYPE\n+\n+#define __PYX_GET_NPY_INT_TYPE(tp) \\\n+    (((tp)-1) < (tp)0) ? \\\n+        (__PYX_GET_NPY_SINT_TYPE(tp)) : \\\n+        (__PYX_GET_NPY_UINT_TYPE(tp))\n+\n+static int __Pyx_validate_ufunc_types(char *types, Py_ssize_t count, Py_ssize_t input_count);\n+\n+/////////////////////// UFuncTypeHandling ///////////////\n+\n+// DW - it's a bit of a shame that this has to be a runtime check since the C compiler does\n+// know it. We could make this a compile-time error in C++, but not easily in C.",
             "html_url": "https://github.com/cython/cython/pull/6196#discussion_r1597708920",
@@ -823,6 +823,85 @@
             ],
             "sha": "6836d554f32d9a79418cef72bdc1a290b7efcc55",
             "url": "https://api.github.com/repos/cython/cython/commits/6836d554f32d9a79418cef72bdc1a290b7efcc55"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/e0f435eacf2e6958692f9240f7888a3f0fb26f87/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-07-06T10:59:16Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-07-06T10:59:16Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Handle all types at C compile time\n\n+ tests\n+ fix types looked up as cimported_module.name",
+                "tree": {
+                    "sha": "6a8d460bfc6c59500eac20fd03e4f92ff54fe4d2",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6a8d460bfc6c59500eac20fd03e4f92ff54fe4d2"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/e0f435eacf2e6958692f9240f7888a3f0fb26f87",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "html_url": "https://github.com/cython/cython/commit/e0f435eacf2e6958692f9240f7888a3f0fb26f87",
+            "node_id": "C_kwDOAhr4b9oAKGUwZjQzNWVhY2YyZTY5NTg2OTJmOTI0MGY3ODg4YTNmMGZiMjZmODc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/6836d554f32d9a79418cef72bdc1a290b7efcc55",
+                    "sha": "6836d554f32d9a79418cef72bdc1a290b7efcc55",
+                    "url": "https://api.github.com/repos/cython/cython/commits/6836d554f32d9a79418cef72bdc1a290b7efcc55"
+                }
+            ],
+            "sha": "e0f435eacf2e6958692f9240f7888a3f0fb26f87",
+            "url": "https://api.github.com/repos/cython/cython/commits/e0f435eacf2e6958692f9240f7888a3f0fb26f87"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/6196/commits",
@@ -917,9 +996,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2024-05-14T06:54:31Z",
+            "pushed_at": "2024-07-06T11:00:10Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 76612,
+            "size": 76351,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -938,7 +1017,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "6836d554f32d9a79418cef72bdc1a290b7efcc55",
+        "sha": "e0f435eacf2e6958692f9240f7888a3f0fb26f87",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -965,7 +1044,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/6196",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "4d35fda136ceaa8c6f9f4679b785fae493998d40",
+    "merge_commit_sha": "f8c1ab59e1d4cae3b0d713291487532ed19db51c",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc5vLhP1",
@@ -976,9 +1055,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6196/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/6836d554f32d9a79418cef72bdc1a290b7efcc55",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/e0f435eacf2e6958692f9240f7888a3f0fb26f87",
     "title": "Handle typedefs in ufuncs",
-    "updated_at": "2024-05-14T06:54:32Z",
+    "updated_at": "2024-07-06T11:55:12Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6196",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
