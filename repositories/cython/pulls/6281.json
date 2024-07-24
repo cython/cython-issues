@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/6281"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/97e342a553809b297e134a61858363bdae4fd5ac"
+            "href": "https://api.github.com/repos/cython/cython/statuses/b983a83a7f2142e2028c197065573509ab8c8c63"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1466,
-            "forks_count": 1466,
+            "forks": 1470,
+            "forks_count": 1470,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1325,
-            "open_issues_count": 1325,
+            "open_issues": 1319,
+            "open_issues_count": 1319,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -118,11 +118,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-06-30T13:57:49Z",
+            "pushed_at": "2024-07-24T06:21:32Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 73863,
+            "size": 73757,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 9133,
+            "stargazers_count": 9194,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,14 +141,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-06-30T11:38:54Z",
+            "updated_at": "2024-07-23T18:52:24Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 9133,
-            "watchers_count": 9133,
+            "watchers": 9194,
+            "watchers_count": 9194,
             "web_commit_signoff_required": false
         },
-        "sha": "bcac4e376d1fb2c1a26a43a04a6e244a99e1b88f",
+        "sha": "480ade314f115ff29b7eadec4d15bedbfdebf834",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -187,7 +187,7 @@
             },
             "author_association": "MEMBER",
             "body": "This is the existing behaviour but it does have a problem:\r\n\r\n```\r\ncdef class C:\r\n    cpdef f(self):\r\n        return 0\r\n\r\n    def call_f(self):\r\n        return self.f();\r\n\r\ncdef class D(C):\r\n    def f(self):\r\n        return 1\r\n```\r\n\r\n`D().call_f()` will return `0` while if `D` was a regular class then it would be overridden. The type-specs version behaves differently and uses the override from `D`. I think it's hard to avoid that difference in behaviour.",
-            "commit_id": "97e342a553809b297e134a61858363bdae4fd5ac",
+            "commit_id": "b983a83a7f2142e2028c197065573509ab8c8c63",
             "created_at": "2024-06-29T20:49:39Z",
             "diff_hunk": "@@ -4962,14 +4962,22 @@ def generate_execution_code(self, code):\n             code.putln(\"else {\")\n         else:\n             code.putln(\"else if (\")\n-            code.putln(\"#if CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY\")\n-            code.putln(f\"unlikely(Py_TYPE({self_arg})->tp_dictoffset != 0)\")\n+            code.putln(\"#if !(CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY)\")\n+            # If CYTHON_USE_TYPE_SPECS then all extension types are heap-types so the check below automatically\n+            # passes and thus takes the slow route.\n+            # Therefore we do a less thorough check - if they type hasn't changed then clearly it hasn't\n+            # been overridden, and if the type isn't GC then it also won't have been overridden.\n+            if self.py_func.entry.scope.lookup_here(\"__dict__\"):\n+                code.putln(\"(1)\")\n+            else:\n+                code.putln(f\"unlikely(Py_TYPE({self_arg}) != \"\n+                           f\"{self.py_func.entry.scope.parent_type.typeptr_cname} &&\")\n+                code.putln(f\"__Pyx_PyType_HasFeature(Py_TYPE({self_arg}), Py_TPFLAGS_HAVE_GC))\")\n             code.putln(\"#else\")\n-            dict_str_const = code.get_py_string_const(EncodedString(\"__dict__\"))\n-            code.putln(f'PyObject_HasAttr({self_arg}, {dict_str_const})')\n+            code.putln(f\"unlikely(Py_TYPE({self_arg})->tp_dictoffset != 0 || \"\n+                       f\"__Pyx_PyType_HasFeature(Py_TYPE({self_arg}), (Py_TPFLAGS_IS_ABSTRACT | Py_TPFLAGS_HEAPTYPE)))\")",
             "html_url": "https://github.com/cython/cython/pull/6281#discussion_r1659975187",
@@ -401,6 +401,90 @@
             ],
             "sha": "97e342a553809b297e134a61858363bdae4fd5ac",
             "url": "https://api.github.com/repos/cython/cython/commits/97e342a553809b297e134a61858363bdae4fd5ac"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/b983a83a7f2142e2028c197065573509ab8c8c63/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-07-24T06:21:30Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-07-24T06:21:30Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Merge branch 'master' into limited-api-performance",
+                "tree": {
+                    "sha": "a5de36af68294d98253288b4b1ffe49f86492713",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a5de36af68294d98253288b4b1ffe49f86492713"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/b983a83a7f2142e2028c197065573509ab8c8c63",
+                "verification": {
+                    "payload": "tree a5de36af68294d98253288b4b1ffe49f86492713\nparent 97e342a553809b297e134a61858363bdae4fd5ac\nparent 480ade314f115ff29b7eadec4d15bedbfdebf834\nauthor da-woods <dw-git@d-woods.co.uk> 1721802090 +0100\ncommitter GitHub <noreply@github.com> 1721802090 +0100\n\nMerge branch 'master' into limited-api-performance",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmoJ1qCRC1aQ7uu5UhlAAAaTEQAHmwt6D5Xvt8t4O0nXK4dgMd\nLLB9xjoPuxl29kgJvxNd01LAAGoccPgDh8KjTUoMjuuN0sKGKDKKDlbvruqP8ja9\n1ELkQzcAXyZORvCZLXbjzGLL7bITwUA4Xayn0L13Tx3R21rjVh9biwsHl20w803F\n9aW8TracNIx5HizvURcCVQv5L0OZMdL2klEDPz/pLMZ2I6CPJc9y8E36S3+CQXaS\npsWyAhJGslwNdfmFca4biewrmFu6Hr2zaCh5XpD3it4rZsTqA6uGQUbUql3NlnIs\nlpTTmXN5rB9W3yVW+pptEJCCeTuGaPxGNO0Lm4pSv/juED4z2SxgBZ4OogWBIJu6\nAw+ImGLV2NCTYzoDaBecwmQp4u6bRGgvubcuOmGXg9cKmltABP47v3trBr9hTL1b\nTHhWxQDGHQ2fsOrZYHwnlLju/vIxuzeXQWoqGGlSaAYCTii1hkfW+asDVjmIRUi3\n9gIk1BK4q5D/F2L5Jgdwhmfrgx1H6RtNCyY0Vz8uEqHpkfHL9CFE8jGaq55rJHrl\n3aPfEMX9aEaD8vM5czhjvWKZ0phJrd6th0okgMMhYodwodK/dDs4lNdZM76nSIMk\nWYbe35biQ/v72YJAmoGmjFl/rL14Oun97twMODON/gor/j06MfD9Qsn+lM4//EPG\nOiOjXraaFpwznnD1R3Jb\n=sM1S\n-----END PGP SIGNATURE-----\n",
+                    "verified": true
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow"
+            },
+            "html_url": "https://github.com/cython/cython/commit/b983a83a7f2142e2028c197065573509ab8c8c63",
+            "node_id": "C_kwDOAhr4b9oAKGI5ODNhODNhN2YyMTQyZTIwMjhjMTk3MDY1NTczNTA5YWI4YzhjNjM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/97e342a553809b297e134a61858363bdae4fd5ac",
+                    "sha": "97e342a553809b297e134a61858363bdae4fd5ac",
+                    "url": "https://api.github.com/repos/cython/cython/commits/97e342a553809b297e134a61858363bdae4fd5ac"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/480ade314f115ff29b7eadec4d15bedbfdebf834",
+                    "sha": "480ade314f115ff29b7eadec4d15bedbfdebf834",
+                    "url": "https://api.github.com/repos/cython/cython/commits/480ade314f115ff29b7eadec4d15bedbfdebf834"
+                }
+            ],
+            "sha": "b983a83a7f2142e2028c197065573509ab8c8c63",
+            "url": "https://api.github.com/repos/cython/cython/commits/b983a83a7f2142e2028c197065573509ab8c8c63"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/6281/commits",
@@ -495,9 +579,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2024-06-30T13:57:47Z",
+            "pushed_at": "2024-07-24T06:21:30Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 77171,
+            "size": 76750,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -516,7 +600,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "97e342a553809b297e134a61858363bdae4fd5ac",
+        "sha": "b983a83a7f2142e2028c197065573509ab8c8c63",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -553,7 +637,7 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "13e89ca3e890db5c9b233e136f3c049e5b159f84",
+    "merge_commit_sha": "e015daee87356c56a47b74392224c0a637b09e01",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc5z-PDR",
@@ -564,9 +648,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6281/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/97e342a553809b297e134a61858363bdae4fd5ac",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/b983a83a7f2142e2028c197065573509ab8c8c63",
     "title": "Limited API call speed improvments",
-    "updated_at": "2024-06-29T21:06:29Z",
+    "updated_at": "2024-07-24T06:21:31Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6281",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
