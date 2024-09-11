@@ -5,6 +5,7 @@
     "author_association": "MEMBER",
     "body": "### Describe your issue\r\n\r\n* Identify scopes that need thread safety. That's basically everything except functions without parallel blocks in, and generators without parallel blocks in (since generators are already protected from being called when they're already running). Specifically we should assume most(?) closure scopes need thread safety, cdef classes need thread safety, and functions with parallel and a `with gil` block need thread safety.\r\n* Add a lock (`PyMutex`?) to those scopes. Note that cdef classes should already have a lock in their header in free-threading mode. I think per-scope locks are the right level of granularity here but per-variable would be another option especially at function scope.\r\n* Temps don't need locking\r\n* Chained attribute access needs transforming:\r\n    ```\r\n    x = a.b.c\r\n    # goes to:\r\n    lock a (and maybe scope of a)\r\n    temp1 = a.b\r\n    unlock a (and maybe scope of a)\r\n    lock b (and maybe x)\r\n    x = temp1.c\r\n    unlock b (and maybe x)\r\n    ```\r\n* Where two locks are needed (e.g. for assignment where we'd lock the lhs and rhs) we need to be careful and use a fixed order to avoid deadlock. The PEP for free-threading says that CPython just bases it on the addresses of the mutex so we could follow this example.\r\n* Add a compiler directive to turn this off.\r\n* Everything is guarded by `#if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING` so should make little difference in other modes. The only exception is probably the chained assignment transform which will be applied universally.\r\n* We can close https://github.com/cython/cython/issues/6215 since memoryviews will be covered by this broader scheme.\r\n* There's a choice to be made about what types to apply this to\r\n    * definitely `PyObjects` and memoryviews.\r\n    * Some numeric types (e.g. float) can be inferred from valid plain Python code, so might be worth applying there,\r\n    * I also wonder about public attributes of cdef classes?",
     "closed_at": null,
+    "closed_by": null,
     "comment_data": [
         {
             "author_association": "MEMBER",
@@ -269,9 +270,53 @@
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods"
             }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "The simple way to update Cython code for a GIL-free world is if the locking has a similar level of scope as the GIL did. For example a per-object lock could be used when calling a method on the object or something. I would still want to opt in or out to that though because many types don't need locking (e.g. if immutable).\r\n\r\nPerhaps something like:\r\n```cython\r\ncimport cython\r\nfrom some_c_lib cimport read_c_data, mutate_c_data, c_function, ...\r\n\r\ncdef class matrix:\r\n\r\n    @cython.lock_self\r\n    def __getitem__(self, ...):\r\n        x = read_c_data(self.data)\r\n        ...\r\n\r\n    @cython.lock_self\r\n    def __setitem__(self, ...):\r\n        mutate_c_data(self.data, ...)\r\n    \r\n    def __add__(self, other):\r\n        if type(other) != matrix:\r\n            return NotImplemented\r\n        with cython.lock2(self, other):\r\n            res = c_function(self.data, other.data)\r\n        ...\r\n\r\ncdef class Integer:\r\n\r\n    def __add__(self, other):\r\n        if type(other) != Integer:\r\n            return NotImplemented\r\n        # Locking not needed at all here because immutable\r\n        return c_function_int(self.data, other.data)\r\n```\r\nA method-level decorator for a per-object lock gives the same sort of granularity that you would have had with the GIL that `__setitem__` and `__getitem__` cannot be called simultaneously. In some situations you would need to lock other objects though and you wouldn't want to lock too early if you are just going to return e.g. `NotImplemented` (I'm assuming that `PyObject_TypeCheck` etc don't need locks).\r\n\r\nCython does not currently have the knowledge to know when the lock is needed because it does not know which objects are immutable or not and has no idea what is happening inside `c_function`, `mutate_c_data` etc.",
+            "created_at": "2024-09-09T18:31:09Z",
+            "html_url": "https://github.com/cython/cython/issues/6221#issuecomment-2338813758",
+            "id": 2338813758,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6221",
+            "node_id": "IC_kwDOABDGAc6LZ3c-",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2338813758/reactions"
+            },
+            "updated_at": "2024-09-09T18:31:09Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2338813758",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1159732?v=4",
+                "events_url": "https://api.github.com/users/oscarbenjamin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/oscarbenjamin/followers",
+                "following_url": "https://api.github.com/users/oscarbenjamin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/oscarbenjamin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/oscarbenjamin",
+                "id": 1159732,
+                "login": "oscarbenjamin",
+                "node_id": "MDQ6VXNlcjExNTk3MzI=",
+                "organizations_url": "https://api.github.com/users/oscarbenjamin/orgs",
+                "received_events_url": "https://api.github.com/users/oscarbenjamin/received_events",
+                "repos_url": "https://api.github.com/users/oscarbenjamin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/oscarbenjamin"
+            }
         }
     ],
-    "comments": 6,
+    "comments": 7,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/6221/comments",
     "created_at": "2024-05-29T07:34:08Z",
     "event_data": [
@@ -425,11 +470,11 @@
         "-1": 0,
         "confused": 0,
         "eyes": 0,
-        "heart": 0,
+        "heart": 1,
         "hooray": 0,
         "laugh": 0,
         "rocket": 0,
-        "total_count": 0,
+        "total_count": 1,
         "url": "https://api.github.com/repos/cython/cython/issues/6221/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
@@ -437,7 +482,7 @@
     "state_reason": null,
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/6221/timeline",
     "title": "Rough plan for free-threading thread safety",
-    "updated_at": "2024-06-02T19:48:56Z",
+    "updated_at": "2024-09-09T18:31:10Z",
     "url": "https://api.github.com/repos/cython/cython/issues/6221",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
