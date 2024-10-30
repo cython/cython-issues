@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/6435"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/78e9561d6273413259c13689590f541420737353"
+            "href": "https://api.github.com/repos/cython/cython/statuses/874e2225c619ad1f7869892caff62921199fc66c"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1487,
-            "forks_count": 1487,
+            "forks": 1489,
+            "forks_count": 1489,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1340,
-            "open_issues_count": 1340,
+            "open_issues": 1356,
+            "open_issues_count": 1356,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -119,11 +119,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-10-20T19:14:15Z",
+            "pushed_at": "2024-10-25T21:09:11Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 74452,
+            "size": 74624,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 9461,
+            "stargazers_count": 9477,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -142,11 +142,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-10-21T11:57:50Z",
+            "updated_at": "2024-10-26T18:10:14Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 9461,
-            "watchers_count": 9461,
+            "watchers": 9477,
+            "watchers_count": 9477,
             "web_commit_signoff_required": false
         },
         "sha": "18ad92814af4905ae24160f0d19ea5a9ac6847d6",
@@ -189,7 +189,7 @@
             },
             "author_association": "MEMBER",
             "body": "I think I need to exclude closure variables here too.",
-            "commit_id": "78e9561d6273413259c13689590f541420737353",
+            "commit_id": "874e2225c619ad1f7869892caff62921199fc66c",
             "created_at": "2024-10-20T12:31:15Z",
             "diff_hunk": "@@ -1586,6 +1591,61 @@ def _extract_index_id(self, index_node):\n             return None\n         return (base.name, index_val)\n \n+    def visit_ReturnStatNode(self, node):\n+        in_return_or_yield, self.in_return_or_yield = self.in_return_or_yield, True\n+        result = self.visit_Node(node)\n+        self.in_return_or_yield = in_return_or_yield\n+        return result\n+\n+    def visit_YieldExprNode(self, node):\n+        return self.visit_ReturnStatNode(node)\n+\n+    def visit_ParallelStatNode(self, node):\n+        in_parallel, self.in_parallel = self.in_parallel, True\n+        result = self.visit_Node(node)\n+        self.in_parallel = in_parallel\n+        return result\n+\n+    def visit_MemoryViewSliceNode(self, node):\n+        result = self.visit_Node(node)\n+        if not node.type.is_memoryviewslice or not node.is_temp:\n+            return result\n+        if self.in_return_or_yield:\n+            return result\n+        # What we're trying to work out is whether we can drop\n+        # the reference counting for the temp.\n+        # We should be fairly conservative here.\n+        # We require a local variable name node (so that\n+        # we know what nothing external can reassign it while\n+        # we're working)\n+        if not node.base.is_name:\n+            return result\n+        entry = node.base.entry\n+        if not entry or entry.scope.is_module_scope:",
             "html_url": "https://github.com/cython/cython/pull/6435#discussion_r1807805747",
@@ -258,7 +258,7 @@
             },
             "author_association": "MEMBER",
             "body": "This stuff is copied fairly directly from https://github.com/cython/cython/pull/6226 since it's useful here.",
-            "commit_id": "78e9561d6273413259c13689590f541420737353",
+            "commit_id": "874e2225c619ad1f7869892caff62921199fc66c",
             "created_at": "2024-10-20T18:31:34Z",
             "diff_hunk": "@@ -1887,8 +1888,13 @@ class FuncDefNode(StatNode, BlockNode):\n     #       by AnalyseDeclarationsTransform, so it can replace CFuncDefNodes\n     #       with fused argument types with a FusedCFuncDefNode\n \n+    class NeedsClosure(enum.IntEnum):",
             "html_url": "https://github.com/cython/cython/pull/6435#discussion_r1807918794",
@@ -882,6 +882,87 @@
             ],
             "sha": "78e9561d6273413259c13689590f541420737353",
             "url": "https://api.github.com/repos/cython/cython/commits/78e9561d6273413259c13689590f541420737353"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/874e2225c619ad1f7869892caff62921199fc66c/comments",
+            "commit": {
+                "author": {
+                    "date": "2024-10-26T15:15:02Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2024-10-26T15:15:02Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Disable test on pypy",
+                "tree": {
+                    "sha": "4f7f35ccff07790a0c91c417cfab7b6738b4b043",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/4f7f35ccff07790a0c91c417cfab7b6738b4b043"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/874e2225c619ad1f7869892caff62921199fc66c",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/874e2225c619ad1f7869892caff62921199fc66c",
+            "node_id": "C_kwDOAhr4b9oAKDg3NGUyMjI1YzYxOWFkMWY3ODY5ODkyY2FmZjYyOTIxMTk5ZmM2NmM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/78e9561d6273413259c13689590f541420737353",
+                    "sha": "78e9561d6273413259c13689590f541420737353",
+                    "url": "https://api.github.com/repos/cython/cython/commits/78e9561d6273413259c13689590f541420737353"
+                }
+            ],
+            "sha": "874e2225c619ad1f7869892caff62921199fc66c",
+            "url": "https://api.github.com/repos/cython/cython/commits/874e2225c619ad1f7869892caff62921199fc66c"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/6435/commits",
@@ -977,9 +1058,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2024-10-20T19:58:24Z",
+            "pushed_at": "2024-10-27T14:03:35Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 77696,
+            "size": 77563,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -998,7 +1079,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "78e9561d6273413259c13689590f541420737353",
+        "sha": "874e2225c619ad1f7869892caff62921199fc66c",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -1036,7 +1117,7 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "2d48c933741bbfcb7d39a1621e35e2c74bbafd63",
+    "merge_commit_sha": "33a10eb34e4cba8a05c085dc08c955522a195ea6",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc5_ORuB",
@@ -1047,9 +1128,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6435/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/78e9561d6273413259c13689590f541420737353",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/874e2225c619ad1f7869892caff62921199fc66c",
     "title": "Optimize refcounting in memoryviewslices",
-    "updated_at": "2024-10-20T19:58:25Z",
+    "updated_at": "2024-10-26T15:15:20Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6435",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
