@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1493,
-            "forks_count": 1493,
+            "forks": 1490,
+            "forks_count": 1490,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1363,
-            "open_issues_count": 1363,
+            "open_issues": 1379,
+            "open_issues_count": 1379,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -119,11 +119,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-11-05T11:36:28Z",
+            "pushed_at": "2024-11-23T09:20:51Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 74645,
+            "size": 74935,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 9504,
+            "stargazers_count": 9536,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -142,11 +142,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-11-05T15:39:15Z",
+            "updated_at": "2024-11-23T15:09:57Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 9504,
-            "watchers_count": 9504,
+            "watchers": 9536,
+            "watchers_count": 9536,
             "web_commit_signoff_required": false
         },
         "sha": "8203a0a21a33d2032afe59cfcb82b3d2729b8843",
@@ -1075,6 +1075,489 @@
                 "url": "https://api.github.com/users/bbb23exposed",
                 "user_view_type": "public"
             }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6448#discussion_r1854234116"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6448"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1854234116"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n                utility_code=UtilityCode.load_cached(\"round_float\", \"Builtins.c\"),\r\n                args=[self.arg],\r\n                is_temp=False).analyse_types(env)\r\n```\r\netc.",
+            "commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "created_at": "2024-11-22T16:30:42Z",
+            "diff_hunk": "@@ -7166,6 +7166,62 @@ def generate_result_code(self, code):\n                 code.error_goto_if_null(self.result(), self.pos)))\n         self.generate_gotref(code)\n \n+class SimpleRoundNode(CallNode):\n+    subexprs = ['arg']\n+    is_temp = False\n+\n+    def analyse_types(self, env):\n+        self.arg = self.arg.analyse_types(env)\n+\n+        input_types = (PyrexTypes.c_longdouble_type, PyrexTypes.c_double_type, PyrexTypes.c_float_type)\n+\n+        if self.arg.type not in input_types:\n+            for type_ in input_types:\n+                if type_.assignable_from(self.arg.type):\n+                    self.arg = self.arg.coerce_to(type_, self.current_env())\n+                    self.type = type_\n+                    break\n+            else:\n+                return SimpleCallNode(self.pos,\n+                    function=NameNode(self.pos, name=\"round\", entry=Builtin.builtin_scope.lookup(\"round\")),\n+                    args=[self.arg.coerce_to(py_object_type, self.current_env())]).analyse_types(env)\n+        else:\n+            self.type = self.arg.type\n+\n+        if self.arg.type is PyrexTypes.c_float_type:\n+            return PythonCapiCallNode(\n+                self.pos, \"__Pyx_round_float\",\n+                func_type = PyrexTypes.CFuncType(\n+                    PyrexTypes.c_float_type, [\n+                        PyrexTypes.CFuncTypeArg(\"arg\", PyrexTypes.c_float_type, None)\n+                        ],\n+                    is_strict_signature=True, nogil=True),\n+                utility_code = UtilityCode.load_cached(\"round_float\", \"Builtins.c\"),\n+                args = [self.arg],\n+                is_temp = False).analyse_types(env)",
+            "html_url": "https://github.com/cython/cython/pull/6448#discussion_r1854234116",
+            "id": 1854234116,
+            "line": 7201,
+            "node_id": "PRRC_kwDOABDGAc5uhV4E",
+            "original_commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "original_line": 7201,
+            "original_position": 36,
+            "original_start_line": 7199,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 36,
+            "pull_request_review_id": 2454931471,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6448",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854234116/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 7199,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-11-22T17:03:19Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854234116",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6448#discussion_r1854259274"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6448"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1854259274"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I'd include C integers here as pass-through. Needs testing as well, though.\r\n```suggestion\r\n        arg_type = self.arg.type\r\n        if arg_type.is_int:\r\n            # C Integers do not change when rounding.\r\n            return self.arg\r\n        elif arg_type is PyrexTypes.c_float_type:\r\n```\r\nWhat other types were you envisioning that could be assigned to C floating point types?",
+            "commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "created_at": "2024-11-22T16:39:42Z",
+            "diff_hunk": "@@ -7166,6 +7166,62 @@ def generate_result_code(self, code):\n                 code.error_goto_if_null(self.result(), self.pos)))\n         self.generate_gotref(code)\n \n+class SimpleRoundNode(CallNode):\n+    subexprs = ['arg']\n+    is_temp = False\n+\n+    def analyse_types(self, env):\n+        self.arg = self.arg.analyse_types(env)\n+\n+        input_types = (PyrexTypes.c_longdouble_type, PyrexTypes.c_double_type, PyrexTypes.c_float_type)\n+\n+        if self.arg.type not in input_types:\n+            for type_ in input_types:\n+                if type_.assignable_from(self.arg.type):\n+                    self.arg = self.arg.coerce_to(type_, self.current_env())\n+                    self.type = type_\n+                    break\n+            else:\n+                return SimpleCallNode(self.pos,\n+                    function=NameNode(self.pos, name=\"round\", entry=Builtin.builtin_scope.lookup(\"round\")),\n+                    args=[self.arg.coerce_to(py_object_type, self.current_env())]).analyse_types(env)\n+        else:\n+            self.type = self.arg.type\n+\n+        if self.arg.type is PyrexTypes.c_float_type:",
+            "html_url": "https://github.com/cython/cython/pull/6448#discussion_r1854259274",
+            "id": 1854259274,
+            "line": 7191,
+            "node_id": "PRRC_kwDOABDGAc5uhcBK",
+            "original_commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "original_line": 7191,
+            "original_position": 26,
+            "original_start_line": 7176,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 26,
+            "pull_request_review_id": 2454931471,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6448",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854259274/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 7176,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-11-22T17:03:19Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854259274",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6448#discussion_r1854273487"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6448"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1854273487"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n        elif arg_type is PyrexTypes.c_longdouble_type:\r\n            return PythonCapiCallNode(\r\n                self.pos, \"__Pyx_round_longdouble\",\r\n                func_type=PyrexTypes.CFuncType(\r\n                    PyrexTypes.c_longdouble_type, [\r\n                        PyrexTypes.CFuncTypeArg(\"arg\", PyrexTypes.c_longdouble_type, None)\r\n                        ],\r\n                    is_strict_signature=True, nogil=True),\r\n                utility_code=UtilityCode.load_cached(\"round_longdouble\", \"Builtins.c\"),\r\n                args=[self.arg],\r\n                is_temp=False,\r\n            ).analyse_types(env)\r\n        else:\r\n            return SimpleCallNode(self.pos,\r\n                function=NameNode(self.pos, name=\"round\", entry=env.builtin_scope().lookup(\"round\")),\r\n                args=[self.arg.coerce_to_pyobject(env)],\r\n            ).analyse_types(env)\r\n```\r\n",
+            "commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "created_at": "2024-11-22T16:45:40Z",
+            "diff_hunk": "@@ -7166,6 +7166,62 @@ def generate_result_code(self, code):\n                 code.error_goto_if_null(self.result(), self.pos)))\n         self.generate_gotref(code)\n \n+class SimpleRoundNode(CallNode):\n+    subexprs = ['arg']\n+    is_temp = False\n+\n+    def analyse_types(self, env):\n+        self.arg = self.arg.analyse_types(env)\n+\n+        input_types = (PyrexTypes.c_longdouble_type, PyrexTypes.c_double_type, PyrexTypes.c_float_type)\n+\n+        if self.arg.type not in input_types:\n+            for type_ in input_types:\n+                if type_.assignable_from(self.arg.type):\n+                    self.arg = self.arg.coerce_to(type_, self.current_env())\n+                    self.type = type_\n+                    break\n+            else:\n+                return SimpleCallNode(self.pos,\n+                    function=NameNode(self.pos, name=\"round\", entry=Builtin.builtin_scope.lookup(\"round\")),\n+                    args=[self.arg.coerce_to(py_object_type, self.current_env())]).analyse_types(env)\n+        else:\n+            self.type = self.arg.type\n+\n+        if self.arg.type is PyrexTypes.c_float_type:\n+            return PythonCapiCallNode(\n+                self.pos, \"__Pyx_round_float\",\n+                func_type = PyrexTypes.CFuncType(\n+                    PyrexTypes.c_float_type, [\n+                        PyrexTypes.CFuncTypeArg(\"arg\", PyrexTypes.c_float_type, None)\n+                        ],\n+                    is_strict_signature=True, nogil=True),\n+                utility_code = UtilityCode.load_cached(\"round_float\", \"Builtins.c\"),\n+                args = [self.arg],\n+                is_temp = False).analyse_types(env)\n+        elif self.arg.type is PyrexTypes.c_double_type:\n+            return PythonCapiCallNode(\n+                self.pos, \"__Pyx_round_double\",\n+                func_type = PyrexTypes.CFuncType(\n+                    PyrexTypes.c_double_type, [\n+                        PyrexTypes.CFuncTypeArg(\"arg\", PyrexTypes.c_double_type, None)\n+                        ],\n+                    is_strict_signature=True, nogil=True),\n+                utility_code = UtilityCode.load_cached(\"round_double\", \"Builtins.c\"),\n+                args = [self.arg],\n+                is_temp = False).analyse_types(env)\n+        elif self.arg.type is PyrexTypes.c_longdouble_type:\n+            return PythonCapiCallNode(\n+                self.pos, \"__Pyx_round_longdouble\",\n+                func_type = PyrexTypes.CFuncType(\n+                    PyrexTypes.c_longdouble_type, [\n+                        PyrexTypes.CFuncTypeArg(\"arg\", PyrexTypes.c_longdouble_type, None)\n+                        ],\n+                    is_strict_signature=True, nogil=True),\n+                utility_code = UtilityCode.load_cached(\"round_longdouble\", \"Builtins.c\"),\n+                args = [self.arg],\n+                is_temp = False).analyse_types(env)",
+            "html_url": "https://github.com/cython/cython/pull/6448#discussion_r1854273487",
+            "id": 1854273487,
+            "line": 7223,
+            "node_id": "PRRC_kwDOABDGAc5uhffP",
+            "original_commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "original_line": 7223,
+            "original_position": 58,
+            "original_start_line": 7213,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 58,
+            "pull_request_review_id": 2454931471,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6448",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854273487/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 7213,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-11-22T17:03:19Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854273487",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6448#discussion_r1854279427"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6448"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1854279427"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I don't see why this would need to be a `CallNode`.\r\n```suggestion\r\nclass SimpleRoundNode(ExprNode):\r\n```",
+            "commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "created_at": "2024-11-22T16:49:32Z",
+            "diff_hunk": "@@ -7166,6 +7166,62 @@ def generate_result_code(self, code):\n                 code.error_goto_if_null(self.result(), self.pos)))\n         self.generate_gotref(code)\n \n+class SimpleRoundNode(CallNode):",
+            "html_url": "https://github.com/cython/cython/pull/6448#discussion_r1854279427",
+            "id": 1854279427,
+            "line": 7169,
+            "node_id": "PRRC_kwDOABDGAc5uhg8D",
+            "original_commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "original_line": 7169,
+            "original_position": 4,
+            "original_start_line": null,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 4,
+            "pull_request_review_id": 2454931471,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6448",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854279427/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2024-11-22T17:03:19Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854279427",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6448#discussion_r1854285350"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6448"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1854285350"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "This isn't entirely correct since calling `float()` on a C `long double` would previously coerce it to a Python float, i.e. plain C `double`. I can imagine that not always being desired, but simply changing it here seems bold. Especially as part of an unrelated change.",
+            "commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "created_at": "2024-11-22T16:54:25Z",
+            "diff_hunk": "@@ -1673,7 +1673,7 @@ def _handle_simple_function_float(self, node, pos_args):\n         if len(pos_args) > 1:\n             self._error_wrong_arg_count('float', node, pos_args, 1)\n         arg_type = getattr(pos_args[0], 'type', None)\n-        if arg_type in (PyrexTypes.c_double_type, Builtin.float_type):\n+        if arg_type in (PyrexTypes.c_longdouble_type, PyrexTypes.c_double_type, Builtin.float_type):",
+            "html_url": "https://github.com/cython/cython/pull/6448#discussion_r1854285350",
+            "id": 1854285350,
+            "line": 1676,
+            "node_id": "PRRC_kwDOABDGAc5uhiYm",
+            "original_commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "original_line": 1676,
+            "original_position": 5,
+            "original_start_line": 1676,
+            "path": "Cython/Compiler/Optimize.py",
+            "position": 5,
+            "pull_request_review_id": 2454931471,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6448",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854285350/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 1676,
+            "start_side": "LEFT",
+            "subject_type": "line",
+            "updated_at": "2024-11-22T17:03:19Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854285350",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6448#discussion_r1854293405"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6448"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1854293405"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n    \"\"\"Optimised implementation for the builtin 'round()' function.\r\n\r\n    To be injected by an optimisation transform before type analysis.\r\n    \"\"\"\r\n    subexprs = ['arg']\r\n    is_temp = False\r\n```",
+            "commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "created_at": "2024-11-22T17:00:03Z",
+            "diff_hunk": "@@ -7166,6 +7166,62 @@ def generate_result_code(self, code):\n                 code.error_goto_if_null(self.result(), self.pos)))\n         self.generate_gotref(code)\n \n+class SimpleRoundNode(CallNode):\n+    subexprs = ['arg']\n+    is_temp = False",
+            "html_url": "https://github.com/cython/cython/pull/6448#discussion_r1854293405",
+            "id": 1854293405,
+            "line": 7171,
+            "node_id": "PRRC_kwDOABDGAc5uhkWd",
+            "original_commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "original_line": 7171,
+            "original_position": 6,
+            "original_start_line": 7170,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 6,
+            "pull_request_review_id": 2454931471,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6448",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854293405/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 7170,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-11-22T17:03:19Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854293405",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6448#discussion_r1854301439"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6448"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1854301439"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I'd merge these back into the test functions below.\r\nI'd also add tree assertions that the optimisation was actually applied, i.e. that there is no longer a `SimpleCallNode` but a `PythonCapiCallNode` in the syntax tree.",
+            "commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "created_at": "2024-11-22T17:03:02Z",
+            "diff_hunk": "@@ -0,0 +1,83 @@\n+# mode: run\n+\n+import cython\n+\n+\n+@cython.cfunc\n+@cython.returns(cython.float)\n+def round_float(value: cython.float):\n+    return round(value)\n+\n+\n+@cython.cfunc\n+@cython.returns(cython.double)\n+def round_double(value: cython.double):\n+    return round(value)\n+\n+\n+@cython.cfunc\n+@cython.returns(cython.longdouble)\n+def round_long_double(value: cython.longdouble):\n+    return round(value)",
+            "html_url": "https://github.com/cython/cython/pull/6448#discussion_r1854301439",
+            "id": 1854301439,
+            "line": 21,
+            "node_id": "PRRC_kwDOABDGAc5uhmT_",
+            "original_commit_id": "6b89a4c3aa956ce8543763a9c2175bfe106292eb",
+            "original_line": 21,
+            "original_position": 21,
+            "original_start_line": 6,
+            "path": "tests/run/round.py",
+            "position": 21,
+            "pull_request_review_id": 2454931471,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6448",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854301439/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 6,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2024-11-22T17:03:19Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1854301439",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
         }
     ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/6448/comments",
@@ -1617,7 +2100,7 @@
                     "reason": "valid",
                     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnGzwcCRC1aQ7uu5UhlAAALxMQAGfu04wZ7Vs1SDS1t1KzREMw\n/rJBXHTVa59TwoCcnKITh61yPqP3hRIerJEscIA8OabCQq2kf94M4ZSXtnF7h9/F\nPsmDtl0ciCu/aya0SHdaWTcfeEy+oAmSoI/JuZMMe5rN3VkrcnOQEpNTZpfeutSx\nRKav33jAM6BZ6agoaJEhZakjVJInYBfyRL/y7FopMzseEfHwYzjS5IgQrZ+MMgbr\ndbcGJVXbMbb6y7PwRp0BGCwdFsz7mMVETDrAgJQwrzsZmfFK3M73HuLss9Ci/IWL\n7T3ueyfyKVDyUBf+NvqXbqg1PkVbCbZxX/DqiLkyaUf5Eba5TK9k0WVv6333ulsC\nI0Sdj7sKHmSKGWJ5uwav0jgRSrp/VeBuIe3axBDuYGWn0gv/W/pPhars0jjo6kzv\nuQc73WTtWaDFZyNIfJx4mmV49OEOpVKsB4VdO+Gr198a0zKwNeiUtmYjCf67Oo+I\n0sbVCfAWkg6vRkFf0/ZmBXHJ8MGceyd7j8Yg63EUQnNSEiayWz9tdoijFmzfSKVn\nLcmZJwhPo9G4LsVyOJ7VEuO88vkn5LySdIy2elyfrEKLLWn5uRaYFP9HcCqN/nrs\ne67GlNOYC0DCvxAqyhTEvBqHJVT+QT678ZobeYlncfAbpjnSge1KSH8SAznrCDiq\nrmdUUcdkef4qn4nGuYeh\n=5Wu+\n-----END PGP SIGNATURE-----\n",
                     "verified": true,
-                    "verified_at": "2024-11-05T15:40:59Z"
+                    "verified_at": "2024-11-07T21:52:01Z"
                 }
             },
             "committer": {
@@ -1704,7 +2187,7 @@
                     "reason": "valid",
                     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnG8tCCRC1aQ7uu5UhlAAAjWQQAJUOJlCc2zMuxuy800fuzIvn\nhTVtLv22GnfRQKD+r2LlGlkjXf7jARTgdl4e97PrSUISRYo4k/nETQOaIsUrMaeD\n/0BW4UdbqM+avjj5goh1rzSRgRymCFYuMk4JBzvgOOIVJlDFSP4pO0HjyWpJ3v08\nK6cFIsnaW9NWZsTwZVuQoBqqXECMJhc0XtpljNWJmCcSqQSeDJHg7ftPZSoDcPLJ\nCzt+ebctwxfBNUSOtW9sJ7920/uP89C2nJkqB+UNeaQuvJWIqnDbC0DxXl3gv6A6\nC3awBQ1HXGy8XgttBirCz0moxMM3B3ZTzWFK5srh2seC0wDPPt7i8EtxcP8GXZvu\nTLvv34vnv1NYucHYGwh+zU5/MzLwyN0HpNEjduXHwNVkprwykSzthoOOsaJiaqdZ\nvAbT03yjqz8WG0SZG2ma7rnlkHLEvQXpr62WIfkKux1pTIILPUiM2EtuMdnjRSO3\n2Yh22XwYFh5NygjAHLUCTnz+t//hO1c6mJrDJy9HfJaatzjkUb+dxrWrbh7o5Ew2\nA7Bwzaarqo5ahTdYj7Z58BFWY5GQypVyKlNLJBBqQfHumR5Mzye5IVbekj63Stgd\nwoSPoh9aJ0dfxw6d1Ux0O8ufrDUzz4RQP6TAVaf1pXXOKz6o2hr1VOGN85YGMdK2\nDhYbVWno7X2poNT4ciY/\n=eKmi\n-----END PGP SIGNATURE-----\n",
                     "verified": true,
-                    "verified_at": "2024-11-05T15:40:59Z"
+                    "verified_at": "2024-11-07T21:52:01Z"
                 }
             },
             "committer": {
@@ -1786,7 +2269,7 @@
                     "reason": "valid",
                     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnG8tZCRC1aQ7uu5UhlAAAIEsQAFw8VSj9yWypuRbYALVUOXzw\njZqJBR9jQjyO6QcLt+UKOs+f6A1cUZOIseeLjhK2WMOXPi2DQPI3GvmdTimINOwH\nHwt5OlXqnG3FKUV0Zao0bZukeLq/zLoT1k7cl1H8T8/jV6gROEIEy9Dxh8XCRNNp\n1e7eRoe8GT8V2XGuMlVuaDZN9IxPPcmfq6k5LQGMzuZ2/uR4qiRZU0Cly7Ua3pLk\nsOwWHIU+xdx+w/lNpx+Xc2MKj8EMCO9oWKbHahcyjFpqVnsxE4HqCDxUKUDCJDdr\nJYYI8PUeRW72XfO7r2mFJfuLlJImTkQ7/gUnyK+gdeD3tz7Utx4rMvppOV4vO8rN\nQun1gYTzgW+1eArFtDgiffNpkfrcDJUlS48F4PT/D1EpOrud/MM25BgDLrAK1EEh\n3fThhVpCnDwjZ5ldB2Tyg7rwVSyOpdAW2aVBH9nZJV5FakRibnjyHAfWfWKoddbt\nPSi8wKTsnof/+vxONXY+iuuCVqBXOJHYnyURVTME9AWLJbxntfZ2rSDa/zecauQq\njycylAPxplklTrRiZhKwoZt7Fd8PnOPxZiu2T1P0EjYB6sBlwHNHWpei5im/uOV2\nwBJ1cGmic+ImXvftSxUb17xY7BMAqc5TOT8oTRWkqAiNzXxmnBaKRzic5N75KqAA\nTNi3CM63Lgxt3/tuvRl5\n=pUKg\n-----END PGP SIGNATURE-----\n",
                     "verified": true,
-                    "verified_at": "2024-11-05T15:40:59Z"
+                    "verified_at": "2024-11-07T21:52:01Z"
                 }
             },
             "committer": {
@@ -1868,7 +2351,7 @@
                     "reason": "valid",
                     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnG8uDCRC1aQ7uu5UhlAAAGLQQAIOqhi19wdQGCTmw36c6BWHw\nHcWBQSrHgIkVfKuZuyWT3tLlN2XztACuJP/5uer7B73hxjfaAOJVO3Lea3m3IHLN\nQ5/j+SzBE4UdARyb5lHkEqWuv7nHi2fEqdo60tQG/QMllxEBFNjViiYHE0hUIRZl\njcpXJHxAonV7T00Dq6lCRaoC36legfo552U1/QUg8C/EUsK6zVfRR50IMBxRxvPf\n4IDXhsqFK5cQCulxwXUYEMmp6TUmqiZ6SlvKj4ytZQ/F9EmATnEBpMoKhhQ3t0+n\nKTUiw/973nVGOdkz9fVOJ5cqJEJNh/1bsqvxsxOCXnPMLpTtIndGsPzmpGbcT5de\nDLtLQ61WIHzeU/ugY9hFfQAs9p2sP2Hp2ZGhjuj5DqXfCRsst4Vvl2uX7G6v0Sfe\nplHiW5JOFqo4PRDSFcgztzcjGCyHVUV01msrlz0Sz8/d/yAYVIe1sJV5G0DgH67k\nF3RugW00EmnskotTlVN1dk1/nvqJBM1Q7w7h3CG6xKNPhM5kvum5HIm7O/9ccgBg\naLZA9wOVSkvPLn7c9bvIsGpxAjKnPOp+IiHXPmsSYWwEKtbIazJa3yAN3HJFMP4D\nMf43+tmAOn29ib50wklGEhS8gAdJqNhWcRpyxiOIm+X7ixqST1JG62tXBWYUoBEl\nsJzu9kNMKzLTgyAbisGT\n=h/HY\n-----END PGP SIGNATURE-----\n",
                     "verified": true,
-                    "verified_at": "2024-11-05T15:40:59Z"
+                    "verified_at": "2024-11-07T21:52:01Z"
                 }
             },
             "committer": {
@@ -2693,7 +3176,7 @@
                     "reason": "valid",
                     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnJXkrCRC1aQ7uu5UhlAAAmWEQAGHefEhzwJRixJQtv5Ag9w46\nqxWnzKd9nroWE69PWLUND4TmDkxM0z7hg3qFzUu5E54yI2kMR6l5Mkuo29iH7rfO\nTA8pBTnm6yh6VA9BbUouIpXxT2gkeSbILXQRs30oChKJsngMl3grSpKdRZ5Rlo03\nmMHuwqHmI5i87nkpXhq/zm22aYoOjW6vJwB3DzlKkEKl1jJlZy88W6+AzaUB0tdj\n+/00qFrUy4kTESfAHXZDIjlT65UPNNdsRzB1ZTeh69i7PVMxsZoAQDi69lBTW/yn\n8eo4Kycmvd/6o973Q47KNI8q6KQ6EX6AMkDgtrI2eqqr2xk1vCZAJxoDnqjuf5rM\ndf5TBP77nzkKZW7WiHjWn26bl/QyoCl0pulRHZyOgkF8cSCkRzk5bA1ISd6zg3Se\nc++RNQ6SdMIG8BceRUIRwaxr0/n/3O62Ov2MgR2DiSMk9OiB8URFFHxuA+LKdvhl\nU8hsv/wrodt8YVFBwnVeC7MAy8B1xTSTeLwkrxo4k/JxnyFZfxIZYCO1bbEDlwEx\nD3iI8huGQuUaMlntK4+ky5liioTO+6IR27IRs0r3iX7v/IbpLUEQaUzqv6/+tnjI\ngcLXTkak+LbGeC1XQkKdndNcvJBfCKtq/xUvab+ge4DckyoqqZvhAXzsmEpKkNRe\nzeO92A72wmgkF9I9eCrT\n=KPvR\n-----END PGP SIGNATURE-----\n",
                     "verified": true,
-                    "verified_at": "2024-11-05T15:40:59Z"
+                    "verified_at": "2024-11-07T21:52:01Z"
                 }
             },
             "committer": {
@@ -2823,9 +3306,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/bbb23exposed/cython/pulls{/number}",
-            "pushed_at": "2024-11-05T14:48:05Z",
+            "pushed_at": "2024-11-10T11:31:57Z",
             "releases_url": "https://api.github.com/repos/bbb23exposed/cython/releases{/id}",
-            "size": 71704,
+            "size": 71611,
             "ssh_url": "git@github.com:bbb23exposed/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/bbb23exposed/cython/stargazers",
@@ -2872,7 +3355,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/6448",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "8bbcb60a16f9ccd3faac3cb05af946109a64731c",
+    "merge_commit_sha": "19641b222ee75843d85108f244304b8bb36b7260",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc5_ugct",
@@ -2885,7 +3368,7 @@
     "state": "open",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/6b89a4c3aa956ce8543763a9c2175bfe106292eb",
     "title": "Use C implementation for round(<c type>)",
-    "updated_at": "2024-11-05T00:58:59Z",
+    "updated_at": "2024-11-22T17:03:19Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6448",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/138492675?v=4",
