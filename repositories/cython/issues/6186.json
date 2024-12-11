@@ -5,6 +5,7 @@
     "author_association": "CONTRIBUTOR",
     "body": "### Describe your issue\r\n\r\nThere is a related `spin` issue: https://github.com/scientific-python/spin/issues/182.\r\n\r\nI have created a repo to demonstrate how a `spin/meson` build of a Cython project looks and what is needed to get coverage of Cython code working. The README explains the problems:\r\nhttps://github.com/oscarbenjamin/cython_coverage_demo\r\n\r\nThere are two related things that prevent Cython's coverage plugin from working in a meson-based project:\r\n\r\nThe paths recorded in the generated C files in a meson build look like\r\n```c\r\n/* #### Code section: filename_table ### */\r\n\r\nstatic const char *__pyx_f[] = {\r\n  \"thing.pyx\",\r\n  \"<stringsource>\",\r\n};\r\n```\r\nWhen doing an inplace build with setuptools they instead look like:\r\n```c\r\n/* #### Code section: filename_table ### */\r\n\r\nstatic const char *__pyx_f[] = {\r\n  \"src/stuff/thing.pyx\",\r\n  \"<stringsource>\",\r\n};\r\n```\r\nI'm not sure if this is just something that should be changed in `spin/meson` when doing a coverage-enabled build or something. Possibly this is just the way that `cython` is invoked. In any case Cython's coverage plugin breaks if the path to the source file is not included here.\r\n\r\nThe other problem is that Cython's coverage plugin assumes that all files are in-tree like:\r\n```console\r\n$ tree src\r\nsrc\r\n└── stuff\r\n    ├── __init__.py\r\n    ├── meson.build\r\n    ├── __pycache__\r\n    │   ├── __init__.cpython-311.pyc\r\n    │   └── test_thing.cpython-311-pytest-8.2.0.pyc\r\n    ├── test_thing.py\r\n    ├── thing.c\r\n    ├── thing.cpython-311-x86_64-linux-gnu.so\r\n    └── thing.pyx\r\n\r\n2 directories, 8 files\r\n```\r\nThis is not how meson ever lays things out. Instead in a `spin/meson` build:\r\n\r\n1. The source tree is left pristine (no `.c` or `.so` files).\r\n2. Intermediate built files (e.g. `.c`) are in the `build` directory.\r\n3. Final output files (`.so` and `.py`) are assembled in the `build-install` directory.\r\n\r\nIt is the `build-install` directory that is actually used for running tests and generates the coverage data.\r\n\r\nWhen running tests with a coverage-enabled Cython build Cython's coverage plugin fails to find the files that are needed and then coverage reports warnings like:\r\n```\r\n.../site-packages/coverage/report_core.py:115: CoverageWarning: Couldn't parse '/home/oscar/current/active/cython_coverage_demo/thing.pyx': No source for code: '/home/oscar/current/active/cython_coverage_demo/thing.pyx'. (couldnt-parse)\r\n  coverage._warn(msg, slug=\"couldnt-parse\")\r\n```\r\n\r\nI can get coverage working if I patch Cython like this:\r\n```diff\r\n--- Coverage.py.backup\t2024-05-06 15:17:09.336636857 +0100\r\n+++ Coverage.py\t2024-05-06 15:19:55.101376672 +0100\r\n@@ -66,7 +66,19 @@ C_FILE_EXTENSIONS = ['.c', '.cpp', '.cc'\r\n MODULE_FILE_EXTENSIONS = set(['.py', '.pyx', '.pxd'] + C_FILE_EXTENSIONS)\r\n \r\n \r\n+def _find_in_dir(name, dirpath):\r\n+    for root, dirs, files in os.walk(dirpath):\r\n+        if name in files:\r\n+            return os.path.join(root, name)\r\n+\r\n+\r\n def _find_c_source(base_path):\r\n+    if os.path.exists('build'):\r\n+        pyxc_name = os.path.basename(base_path) + '.pyx.c'\r\n+        cfile = _find_in_dir(pyxc_name, 'build')\r\n+        if cfile is not None:\r\n+            return cfile\r\n+\r\n     file_exists = os.path.exists\r\n     for ext in C_FILE_EXTENSIONS:\r\n         file_name = base_path + ext\r\n@@ -79,6 +91,12 @@ def _find_dep_file_path(main_file, file_\r\n     abs_path = os.path.abspath(file_path)\r\n     if not os.path.exists(abs_path) and (file_path.endswith('.pxi') or\r\n                                          relative_path_search):\r\n+        src_path = os.path.join('src', file_path)\r\n+        if os.path.exists(src_path):\r\n+            abs_path = os.path.abspath(src_path)\r\n+            cpath = canonical_filename(abs_path)\r\n+            return cpath\r\n+\r\n         # files are looked up relative to the main source file\r\n         rel_file_path = os.path.join(os.path.dirname(main_file), file_path)\r\n         if os.path.exists(rel_file_path):\r\n```\r\nI also need to patch the generated C files:\r\n```diff\r\ndiff --git a/build/src/stuff/thing.cpython-311-x86_64-linux-gnu.so.p/src/stuff/thing.pyx.c b/build/src/stuff/thing.cpython-311-x86_64-linux-gnu.so.p/src/stuff/thing.pyx.c\r\nindex 4b628fe..38af623 100644\r\n--- a/build/src/stuff/thing.cpython-311-x86_64-linux-gnu.so.p/src/stuff/thing.pyx.c\r\n+++ b/build/src/stuff/thing.cpython-311-x86_64-linux-gnu.so.p/src/stuff/thing.pyx.c\r\n@@ -1467,7 +1467,7 @@ static const char *__pyx_filename;\r\n /* #### Code section: filename_table ### */\r\n \r\n static const char *__pyx_f[] = {\r\n-  \"thing.pyx\",\r\n+  \"src/stuff/thing.pyx\",\r\n   \"<stringsource>\",\r\n };\r\n /* #### Code section: utility_code_proto_before_types ### */\r\n```\r\nThat Cython patch is not really suitable for a PR and so I am wondering what is the proper way to fix it. From my perspective it would be fine if there was a way to explicitly tell the coverage plugin what files are where rather than depending on any guesswork.",
     "closed_at": null,
+    "closed_by": null,
     "comment_data": [
         {
             "author_association": "CONTRIBUTOR",
@@ -47,7 +48,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -91,7 +93,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -135,7 +138,8 @@
                 "starred_url": "https://api.github.com/users/rgommers/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/rgommers/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/rgommers"
+                "url": "https://api.github.com/users/rgommers",
+                "user_view_type": "public"
             }
         },
         {
@@ -179,7 +183,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -223,7 +228,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -267,7 +273,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -311,7 +318,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -355,7 +363,8 @@
                 "starred_url": "https://api.github.com/users/rgommers/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/rgommers/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/rgommers"
+                "url": "https://api.github.com/users/rgommers",
+                "user_view_type": "public"
             }
         },
         {
@@ -399,7 +408,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -443,7 +453,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -487,7 +498,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -531,7 +543,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -575,7 +588,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -619,7 +633,8 @@
                 "starred_url": "https://api.github.com/users/rgommers/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/rgommers/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/rgommers"
+                "url": "https://api.github.com/users/rgommers",
+                "user_view_type": "public"
             }
         },
         {
@@ -663,7 +678,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -707,7 +723,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -751,7 +768,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -795,7 +813,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -839,7 +858,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -883,7 +903,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -927,7 +948,8 @@
                 "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/vyasr"
+                "url": "https://api.github.com/users/vyasr",
+                "user_view_type": "public"
             }
         },
         {
@@ -971,7 +993,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -1015,7 +1038,8 @@
                 "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/vyasr"
+                "url": "https://api.github.com/users/vyasr",
+                "user_view_type": "public"
             }
         },
         {
@@ -1059,7 +1083,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -1103,7 +1128,8 @@
                 "starred_url": "https://api.github.com/users/jakirkham/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/jakirkham/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/jakirkham"
+                "url": "https://api.github.com/users/jakirkham",
+                "user_view_type": "public"
             }
         },
         {
@@ -1147,7 +1173,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -1191,7 +1218,8 @@
                 "starred_url": "https://api.github.com/users/jakirkham/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/jakirkham/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/jakirkham"
+                "url": "https://api.github.com/users/jakirkham",
+                "user_view_type": "public"
             }
         },
         {
@@ -1235,7 +1263,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -1279,11 +1308,282 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "Just get this work, so TLDR for this issue:\r\n\r\nupgrade cython>=3.1.0a1\r\n\r\nenabled cython trace and disable cython `sys.monitoring`\r\n\r\n```meson\r\ncython = find_program('cython')\r\n\r\ncython_args = ['-3']\r\n\r\nif get_option('cython-trace').enabled()\r\n    cython_args += ['-X', 'linetrace=True']\r\n    add_global_arguments('-DCYTHON_TRACE=1', language: 'c')\r\n    add_global_arguments('-DCYTHON_USE_SYS_MONITORING=0', language: 'c')\r\nendif\r\n\r\ncython_gen = generator(\r\n    cython,\r\n    output: ['@BASENAME@.c'],\r\n    arguments: ['@INPUT@', '--output-file', '@OUTPUT0@'] + cython_args,\r\n)\r\n```\r\n\r\nuse custom target copy **generated c file** and binary extension back to source tree then run `pytest --cov`",
+            "created_at": "2024-12-07T21:39:56Z",
+            "html_url": "https://github.com/cython/cython/issues/6186#issuecomment-2525318634",
+            "id": 2525318634,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6186",
+            "node_id": "IC_kwDOABDGAc6WhU3q",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2525318634/reactions"
+            },
+            "updated_at": "2024-12-07T23:14:04Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2525318634",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/13553903?v=4",
+                "events_url": "https://api.github.com/users/trim21/events{/privacy}",
+                "followers_url": "https://api.github.com/users/trim21/followers",
+                "following_url": "https://api.github.com/users/trim21/following{/other_user}",
+                "gists_url": "https://api.github.com/users/trim21/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/trim21",
+                "id": 13553903,
+                "login": "trim21",
+                "node_id": "MDQ6VXNlcjEzNTUzOTAz",
+                "organizations_url": "https://api.github.com/users/trim21/orgs",
+                "received_events_url": "https://api.github.com/users/trim21/received_events",
+                "repos_url": "https://api.github.com/users/trim21/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/trim21/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/trim21/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/trim21",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "xref: https://github.com/cython/cython/issues/6399",
+            "created_at": "2024-12-07T21:55:43Z",
+            "html_url": "https://github.com/cython/cython/issues/6186#issuecomment-2525322074",
+            "id": 2525322074,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6186",
+            "node_id": "IC_kwDOABDGAc6WhVta",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2525322074/reactions"
+            },
+            "updated_at": "2024-12-07T21:55:43Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2525322074",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/3019665?v=4",
+                "events_url": "https://api.github.com/users/jakirkham/events{/privacy}",
+                "followers_url": "https://api.github.com/users/jakirkham/followers",
+                "following_url": "https://api.github.com/users/jakirkham/following{/other_user}",
+                "gists_url": "https://api.github.com/users/jakirkham/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/jakirkham",
+                "id": 3019665,
+                "login": "jakirkham",
+                "node_id": "MDQ6VXNlcjMwMTk2NjU=",
+                "organizations_url": "https://api.github.com/users/jakirkham/orgs",
+                "received_events_url": "https://api.github.com/users/jakirkham/received_events",
+                "repos_url": "https://api.github.com/users/jakirkham/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/jakirkham/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/jakirkham/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/jakirkham",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "I'll try to find a way to make coverage plugin do not require c file in source tree.\r\n\r\nLooks like it's pretty easy...",
+            "created_at": "2024-12-07T23:29:51Z",
+            "html_url": "https://github.com/cython/cython/issues/6186#issuecomment-2525343093",
+            "id": 2525343093,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6186",
+            "node_id": "IC_kwDOABDGAc6Wha11",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2525343093/reactions"
+            },
+            "updated_at": "2024-12-08T03:51:50Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2525343093",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/13553903?v=4",
+                "events_url": "https://api.github.com/users/trim21/events{/privacy}",
+                "followers_url": "https://api.github.com/users/trim21/followers",
+                "following_url": "https://api.github.com/users/trim21/following{/other_user}",
+                "gists_url": "https://api.github.com/users/trim21/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/trim21",
+                "id": 13553903,
+                "login": "trim21",
+                "node_id": "MDQ6VXNlcjEzNTUzOTAz",
+                "organizations_url": "https://api.github.com/users/trim21/orgs",
+                "received_events_url": "https://api.github.com/users/trim21/received_events",
+                "repos_url": "https://api.github.com/users/trim21/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/trim21/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/trim21/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/trim21",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "Can we maybe just add env vars to let users explicitly specify build and binary directories for the lookups in the coverage plugin?",
+            "created_at": "2024-12-08T07:48:03Z",
+            "html_url": "https://github.com/cython/cython/issues/6186#issuecomment-2525479473",
+            "id": 2525479473,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6186",
+            "node_id": "IC_kwDOABDGAc6Wh8Ix",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2525479473/reactions"
+            },
+            "updated_at": "2024-12-08T07:48:03Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2525479473",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "Or, at least for meson, the generated files tree looks like this:\r\n\r\n```text\r\n$ tree build/\r\nbuild/\r\n`-- cp312\r\n    `-- _quoting_c.cp312-win_amd64.pyd.p\r\n        |-- meson-generated_pkg__quoting_c.c.obj\r\n        `-- pkg\r\n            `-- _quoting_c.c\r\n\r\n3 directories, 2 files\r\n```\r\n\r\nwe may need to parse build system's target file to get c/pyx files mapping.\r\n\r\nhttps://github.com/cython/cython/issues/6186#issuecomment-2294343963\r\n",
+            "created_at": "2024-12-08T13:11:36Z",
+            "html_url": "https://github.com/cython/cython/issues/6186#issuecomment-2525844539",
+            "id": 2525844539,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6186",
+            "node_id": "IC_kwDOABDGAc6WjVQ7",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2525844539/reactions"
+            },
+            "updated_at": "2024-12-08T13:11:36Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2525844539",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/13553903?v=4",
+                "events_url": "https://api.github.com/users/trim21/events{/privacy}",
+                "followers_url": "https://api.github.com/users/trim21/followers",
+                "following_url": "https://api.github.com/users/trim21/following{/other_user}",
+                "gists_url": "https://api.github.com/users/trim21/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/trim21",
+                "id": 13553903,
+                "login": "trim21",
+                "node_id": "MDQ6VXNlcjEzNTUzOTAz",
+                "organizations_url": "https://api.github.com/users/trim21/orgs",
+                "received_events_url": "https://api.github.com/users/trim21/received_events",
+                "repos_url": "https://api.github.com/users/trim21/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/trim21/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/trim21/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/trim21",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "> Can we maybe just add env vars to let users explicitly specify build and binary directories for the lookups in the coverage plugin?\r\n\r\nThe coverage plugin can be configured by coveragerc which is already used for excluded lines config:\r\nhttps://github.com/cython/cython/blob/771655d894cc5c06cbf2582f2140e7859c0bd705/Cython/Coverage.py#L130-L133\r\nThe [coverage plugin docs](https://coverage.readthedocs.io/en/7.6.8/plugins.html) say that plugins can add their own config options. That would be the natural way to configure anything here I think rather than environment variables.\r\n\r\nFor the lookups in the coverage plugin it would be much better not to extend the existing heuristic search but to have something that explicitly knows how to find exactly all of the files. I think it would be hard to explain to the plugin exactly where the .c files are and which are the cython-generated ones without either:\r\n\r\n- The Cython plugin explicitly knows that this is a meson project and knows how to look for the files in a meson project.\r\n- Or, the project provides some code that generates the list of files somehow and passes that to the plugin.\r\n- The project generates the list of files beforehand and writes it to a file that the plugin can read.\r\n\r\nI think that the \"list of files\" option is a good idea regardless because it naturally makes the plugin extensible in a way that is easy for anyone downstream to understand. Some projects might be able to hard-code the list while others might need to have a script that generates it. Either way it is much easier for Cython to support every kind of build setup via the list of files option than if the plugin must always be responsible for file discovery.\r\n\r\nThe layout in the build directory looks like this:\r\n```\r\nbuild/\r\n├── build.ninja\r\n├── compile_commands.json\r\n├── meson-info\r\n│   ├── intro-benchmarks.json\r\n│   ├── intro-buildoptions.json\r\n...\r\n├── meson-logs\r\n│   ├── install-log.txt\r\n│   └── meson-log.txt\r\n├── meson-private\r\n│   ├── build.dat\r\n│   ├── cmd_line.txt\r\n...\r\n└── src\r\n    └── flint\r\n        ├── flint_base\r\n        │   ├── flint_base.cpython-312-x86_64-linux-gnu.so\r\n        │   ├── flint_base.cpython-312-x86_64-linux-gnu.so.p\r\n        │   │   ├── meson-generated_src_flint_flint_base_flint_base.pyx.c.o\r\n        │   │   └── src\r\n        │   │       └── flint\r\n        │   │           └── flint_base\r\n        │   │               ├── flint_base.pyx.c\r\n        │   │               └── flint_base.pyx.c.dep\r\n        │   ├── flint_context.cpython-312-x86_64-linux-gnu.so\r\n        │   └── flint_context.cpython-312-x86_64-linux-gnu.so.p\r\n        │       ├── meson-generated_src_flint_flint_base_flint_context.pyx.c.o\r\n        │       └── src\r\n        │           └── flint\r\n        │               └── flint_base\r\n        │                   ├── flint_context.pyx.c\r\n        │                   └── flint_context.pyx.c.dep\r\n        ├── functions\r\n        │   ├── showgood.cpython-312-x86_64-linux-gnu.so\r\n        │   └── showgood.cpython-312-x86_64-linux-gnu.so.p\r\n        │       ├── meson-generated_src_flint_functions_showgood.pyx.c.o\r\n        │       └── src\r\n        │           └── flint\r\n        │               └── functions\r\n        │                   ├── showgood.pyx.c\r\n        │                   └── showgood.pyx.c.dep\r\n...\r\n```\r\nThe filenames are somewhat unpredictable because they have generated stuff like `312-x86_64-linux-gnu` in the paths. It is however easy to find exactly all of the files that are the cython-generated c files by parsing build.ninja which is what the plugin I wrote does:\r\nhttps://github.com/flintlib/python-flint/blob/286a54bac8dc24e445d1beacaaa8829b73533afa/coverage_plugin.py#L28-L61",
+            "created_at": "2024-12-08T13:46:42Z",
+            "html_url": "https://github.com/cython/cython/issues/6186#issuecomment-2525942619",
+            "id": 2525942619,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6186",
+            "node_id": "IC_kwDOABDGAc6WjtNb",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2525942619/reactions"
+            },
+            "updated_at": "2024-12-08T13:46:42Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2525942619",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1159732?v=4",
+                "events_url": "https://api.github.com/users/oscarbenjamin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/oscarbenjamin/followers",
+                "following_url": "https://api.github.com/users/oscarbenjamin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/oscarbenjamin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/oscarbenjamin",
+                "id": 1159732,
+                "login": "oscarbenjamin",
+                "node_id": "MDQ6VXNlcjExNTk3MzI=",
+                "organizations_url": "https://api.github.com/users/oscarbenjamin/orgs",
+                "received_events_url": "https://api.github.com/users/oscarbenjamin/received_events",
+                "repos_url": "https://api.github.com/users/oscarbenjamin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         }
     ],
-    "comments": 29,
+    "comments": 35,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/6186/comments",
     "created_at": "2024-05-06T15:26:00Z",
     "event_data": [
@@ -1306,7 +1606,8 @@
                 "starred_url": "https://api.github.com/users/leofang/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/leofang/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/leofang"
+                "url": "https://api.github.com/users/leofang",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -1336,7 +1637,8 @@
                 "starred_url": "https://api.github.com/users/rgommers/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/rgommers/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/rgommers"
+                "url": "https://api.github.com/users/rgommers",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -1366,7 +1668,8 @@
                 "starred_url": "https://api.github.com/users/rgommers/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/rgommers/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/rgommers"
+                "url": "https://api.github.com/users/rgommers",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -1405,7 +1708,7 @@
     "state_reason": null,
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/6186/timeline",
     "title": "Coverage measurement of Cython code in a meson build",
-    "updated_at": "2024-08-24T17:08:10Z",
+    "updated_at": "2024-12-08T13:46:43Z",
     "url": "https://api.github.com/repos/cython/cython/issues/6186",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/1159732?v=4",
@@ -1425,6 +1728,7 @@
         "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/oscarbenjamin"
+        "url": "https://api.github.com/users/oscarbenjamin",
+        "user_view_type": "public"
     }
 }
