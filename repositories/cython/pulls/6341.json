@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1471,
-            "forks_count": 1471,
+            "forks": 1501,
+            "forks_count": 1501,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1335,
-            "open_issues_count": 1335,
+            "open_issues": 1411,
+            "open_issues_count": 1411,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -114,15 +114,16 @@
                 "starred_url": "https://api.github.com/users/cython/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/cython/subscriptions",
                 "type": "Organization",
-                "url": "https://api.github.com/users/cython"
+                "url": "https://api.github.com/users/cython",
+                "user_view_type": "public"
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2024-08-28T07:23:35Z",
+            "pushed_at": "2025-02-07T13:20:29Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 74163,
+            "size": 74953,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 9284,
+            "stargazers_count": 9761,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,11 +142,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2024-08-28T11:03:53Z",
+            "updated_at": "2025-02-09T12:25:23Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 9284,
-            "watchers_count": 9284,
+            "watchers": 9761,
+            "watchers_count": 9761,
             "web_commit_signoff_required": false
         },
         "sha": "1d7100d867a8b64b6f661009ec2ed45a4d8d5dba",
@@ -167,7 +168,8 @@
             "starred_url": "https://api.github.com/users/cython/starred{/owner}{/repo}",
             "subscriptions_url": "https://api.github.com/users/cython/subscriptions",
             "type": "Organization",
-            "url": "https://api.github.com/users/cython"
+            "url": "https://api.github.com/users/cython",
+            "user_view_type": "public"
         }
     },
     "body": "When cython is run on a file that is not in the current working directory it outputs filepaths that are either absolute or are basenames. It is not good to output absolute paths in the generated C code and outputing only basenames messes up coverage measurement.\r\n\r\nPartial fix for gh-6186. In combination with https://github.com/flintlib/python-flint/pull/188 this makes it possible to measure coverage of Cython for for python-flint which uses meson as its build system.\r\n\r\nThe two places changed here were inconsistent. In ModuleNodes.py the code detects an absolute path and then outputs `basename(path)` instead. The path in question will usually not be absolute but it will be absolute if the source file being compiled is not in CWD and so in that case it is the basename that is emitted to the generated C code. The case in ExprNodes.py outputs the path without checking but again that will be an absolute path if the source file is not iin CWD.\r\n\r\nHere in both cases we instead output the \"description\" which is the path relative to import root. If the project has a `src` directory then the path output for `src/foo/bar.pyx` (module `foo.bar`) would be `foo/bar.pyx` i.e. it is the path relative to the `src` directory or more generally the path of the source file relative to `sys.path`. In both cases we only do this if we would otherwise output an absolute path which in turn is a case that arises from compiling a `.pyx` file in another directory sort of like:\r\n```\r\ncd build && cython ../src/foo/bar.pyx\r\n```\r\nThis change is needed to make coverage measurement work in a meson build. In https://github.com/flintlib/python-flint/pull/188 I have almost entirely rewritten Cython's coverage plugin: \r\nhttps://github.com/cython/cython/blob/master/Cython/Coverage.py.\r\nThis PR for Cython and that one for python-flint together make it so that I can measure coverage in python-flint's meson build. (This is the last outstanding item for us to drop the setuptools build.)\r\n\r\nThe only significant thing I have kept in the rewritten plugin is the function for parsing the .c files. The rest of the code is just for discovering the source files and implementing the coverage plugin interface. A lot of that is meson-specific because it is a lot easier to implement those parts if you make use of the information provided by the build system (much of the complexity in Cython's plugin comes from just not knowing where exactly the .c and .pyx etc files are).\r\n\r\nI would like to upstream that plugin somehow but I'm not sure that Cython itself is the right place for it because a lot of it is meson specific. I also think that changing anything about Cython's coverage plugin looks quite hairy because there are a lot of heuristics in there to make different (setuptools-based) situations just about work and I expect that any change will break someone.\r\n\r\nFor now though, this PR which fixes the paths that Cython stores in the .c files is the minimum that is needed to get coverage working for a meson build. This is needed because there's only so much a plugin can do if the paths in the trace events are not right. At least under the conditions that I am running Cython the change in this PR ensures that all the paths provided from coverage to the plugin are exactly of a predictable form that the plugin can handle without heuristics.",
@@ -238,7 +240,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -306,7 +309,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -374,7 +378,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -442,7 +447,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -510,7 +516,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -578,7 +585,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -646,7 +654,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -714,7 +723,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -783,7 +793,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -852,7 +863,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -920,7 +932,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -988,7 +1001,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -1057,7 +1071,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -1125,7 +1140,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -1194,7 +1210,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -1263,7 +1280,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -1332,7 +1350,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -1401,7 +1420,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -1470,7 +1490,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         },
         {
@@ -1539,7 +1560,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             }
         }
     ],
@@ -1564,7 +1586,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/eaf723893e6800a67e9771c3522ca12b45dd9051/comments",
             "commit": {
@@ -1589,7 +1612,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1610,7 +1634,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/eaf723893e6800a67e9771c3522ca12b45dd9051",
             "node_id": "C_kwDOJZ9mD9oAKGVhZjcyMzg5M2U2ODAwYTY3ZTk3NzFjMzUyMmNhMTJiNDVkZDkwNTE",
@@ -1643,7 +1668,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/1c9967b317dee3ff3eab2a8a622af10a38c1a079/comments",
             "commit": {
@@ -1668,7 +1694,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1689,7 +1716,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/1c9967b317dee3ff3eab2a8a622af10a38c1a079",
             "node_id": "C_kwDOJZ9mD9oAKDFjOTk2N2IzMTdkZWUzZmYzZWFiMmE4YTYyMmFmMTBhMzhjMWEwNzk",
@@ -1722,7 +1750,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/2ae15478cb6769a66e5cda93a68bcddc3c349ac8/comments",
             "commit": {
@@ -1747,7 +1776,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1768,7 +1798,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/2ae15478cb6769a66e5cda93a68bcddc3c349ac8",
             "node_id": "C_kwDOJZ9mD9oAKDJhZTE1NDc4Y2I2NzY5YTY2ZTVjZGE5M2E2OGJjZGRjM2MzNDlhYzg",
@@ -1801,7 +1832,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/c1d71e0f4f2687c124da256fecb6eea631bd36a2/comments",
             "commit": {
@@ -1826,7 +1858,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1847,7 +1880,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/c1d71e0f4f2687c124da256fecb6eea631bd36a2",
             "node_id": "C_kwDOJZ9mD9oAKGMxZDcxZTBmNGYyNjg3YzEyNGRhMjU2ZmVjYjZlZWE2MzFiZDM2YTI",
@@ -1880,7 +1914,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/7b0f6a3bb895f85877bcda5cbe9856c5d56b8e7b/comments",
             "commit": {
@@ -1905,7 +1940,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1926,7 +1962,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/7b0f6a3bb895f85877bcda5cbe9856c5d56b8e7b",
             "node_id": "C_kwDOJZ9mD9oAKDdiMGY2YTNiYjg5NWY4NTg3N2JjZGE1Y2JlOTg1NmM1ZDU2YjhlN2I",
@@ -1959,7 +1996,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/8c59bd50965edc3a3ff718f66b6da8a176f10d75/comments",
             "commit": {
@@ -1984,7 +2022,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -2005,7 +2044,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/8c59bd50965edc3a3ff718f66b6da8a176f10d75",
             "node_id": "C_kwDOJZ9mD9oAKDhjNTliZDUwOTY1ZWRjM2EzZmY3MThmNjZiNmRhOGExNzZmMTBkNzU",
@@ -2038,7 +2078,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/9777ca6f24400e9a686556fe5e5f97b216bff72c/comments",
             "commit": {
@@ -2063,7 +2104,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -2084,7 +2126,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/9777ca6f24400e9a686556fe5e5f97b216bff72c",
             "node_id": "C_kwDOJZ9mD9oAKDk3NzdjYTZmMjQ0MDBlOWE2ODY1NTZmZTVlNWY5N2IyMTZiZmY3MmM",
@@ -2117,7 +2160,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/4545b729379911dc5c6d424660bd170923a5cb82/comments",
             "commit": {
@@ -2142,7 +2186,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -2163,7 +2208,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/4545b729379911dc5c6d424660bd170923a5cb82",
             "node_id": "C_kwDOJZ9mD9oAKDQ1NDViNzI5Mzc5OTExZGM1YzZkNDI0NjYwYmQxNzA5MjNhNWNiODI",
@@ -2196,7 +2242,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/dbb72430da2cec25853a46944678b12b4c8c22bd/comments",
             "commit": {
@@ -2221,7 +2268,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -2242,7 +2290,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/dbb72430da2cec25853a46944678b12b4c8c22bd",
             "node_id": "C_kwDOJZ9mD9oAKGRiYjcyNDMwZGEyY2VjMjU4NTNhNDY5NDQ2NzhiMTJiNGM4YzIyYmQ",
@@ -2275,7 +2324,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/b19e9125524779ca603c0eff1df82ed1a5b9a89b/comments",
             "commit": {
@@ -2300,7 +2350,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -2321,7 +2372,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/b19e9125524779ca603c0eff1df82ed1a5b9a89b",
             "node_id": "C_kwDOJZ9mD9oAKGIxOWU5MTI1NTI0Nzc5Y2E2MDNjMGVmZjFkZjgyZWQxYTViOWE4OWI",
@@ -2354,7 +2406,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/d208414dd7ba822dfb1b27222e29f3a366d5f2bd/comments",
             "commit": {
@@ -2379,7 +2432,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -2400,7 +2454,8 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/d208414dd7ba822dfb1b27222e29f3a366d5f2bd",
             "node_id": "C_kwDOJZ9mD9oAKGQyMDg0MTRkZDdiYTgyMmRmYjFiMjcyMjJlMjlmM2EzNjZkNWYyYmQ",
@@ -2438,7 +2493,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/9a37c049ed54b68defa1da9960b5d1cba455bb1b/comments",
             "commit": {
@@ -2463,7 +2519,8 @@
                     "payload": "tree 8559254c3c730ccc46ca66e5a5731cb0e81a8f93\nparent d208414dd7ba822dfb1b27222e29f3a366d5f2bd\nauthor scoder <stefan_ml@behnel.de> 1723925627 +0200\ncommitter GitHub <noreply@github.com> 1723925627 +0200\n\ntest runner: Fix error reporting when not using chdir().",
                     "reason": "valid",
                     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmwQR8CRC1aQ7uu5UhlAAA9k0QAAg8irsMJ+VbfdG0QgSRzaWJ\njjlulW+ONQVb4B+1nnefArbmW/n6cBb0dWkQt8N1ARWzLVjShuxfr73PwwFl/Cb0\n3D6sple1UQIax3BFJet5Sa8JCzqb7Gp5GfASH6ZTZ7zmMMWyAhf2YZljJpHMQmCs\ncigL3tkrTBUTOSsajz8xFAJs1JBQ74P67MPHPh552PvcfrW13WhLSPsX3AIlYmwo\nWLoEccG2t+rfgL1RSl3YbECo4Zc1qGbz6GPJdUvqLxc5Gf3ZOwlFGS+RUmFHS9Wy\na1BEpILNPELjV9OVQ0tYuJloMKKl1U7VrsURxoll6Ht1ot6yKrcBJM8F8pYLtgs6\n1MgNnhD/Fi+lqTwcoPOBcTcF/Vq2J7CpgXdcO5r0SvXvUgNevVzA007qc9S5Cuku\nZH2AXCl/d0rUaQpDRGtpGrpEuyALIWHXjXalmslncBtkqtX3qPJQ/qUG4538eHv4\nUrvUbzIGuoQLCjDQeInRuGsSD6IjgOE97mkGWiFT4qvs6sxOL3IfPDgEpsx1vaHO\n0j00vAKRGaybkIr/aKZFNsDlpmO8YMPzLIt4z3JP136S/9c6GZlaTcZYvcj7mIVP\nivXrDpuX+nPxo4aMh+ais7Rs33gX1ueGXj643/Mw0gRhKfI+pDG/quyVWTBcSkIN\nOeg1OUd9lUyH6e047hwF\n=C7r+\n-----END PGP SIGNATURE-----\n",
-                    "verified": true
+                    "verified": true,
+                    "verified_at": "2024-11-11T04:38:52Z"
                 }
             },
             "committer": {
@@ -2484,7 +2541,8 @@
                 "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/web-flow"
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/9a37c049ed54b68defa1da9960b5d1cba455bb1b",
             "node_id": "C_kwDOJZ9mD9oAKDlhMzdjMDQ5ZWQ1NGI2OGRlZmExZGE5OTYwYjVkMWNiYTQ1NWJiMWI",
@@ -2587,13 +2645,14 @@
                 "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/oscarbenjamin"
+                "url": "https://api.github.com/users/oscarbenjamin",
+                "user_view_type": "public"
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/oscarbenjamin/cython/pulls{/number}",
-            "pushed_at": "2024-08-27T21:39:41Z",
+            "pushed_at": "2025-02-08T14:52:32Z",
             "releases_url": "https://api.github.com/repos/oscarbenjamin/cython/releases{/id}",
-            "size": 70468,
+            "size": 70329,
             "ssh_url": "git@github.com:oscarbenjamin/cython.git",
             "stargazers_count": 1,
             "stargazers_url": "https://api.github.com/repos/oscarbenjamin/cython/stargazers",
@@ -2631,7 +2690,8 @@
             "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
             "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
             "type": "User",
-            "url": "https://api.github.com/users/oscarbenjamin"
+            "url": "https://api.github.com/users/oscarbenjamin",
+            "user_view_type": "public"
         }
     },
     "html_url": "https://github.com/cython/cython/pull/6341",
@@ -2671,7 +2731,7 @@
     "merged_at": "2024-08-24T07:30:31Z",
     "milestone": {
         "closed_at": null,
-        "closed_issues": 212,
+        "closed_issues": 334,
         "created_at": "2019-02-24T14:21:23Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -2691,9 +2751,10 @@
             "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
             "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
             "type": "User",
-            "url": "https://api.github.com/users/scoder"
+            "url": "https://api.github.com/users/scoder",
+            "user_view_type": "public"
         },
-        "description": "* Remove code for Python 2 and Python < 3.7.\r\n* Integrate better with Python 3.\r\n* Improve support for the Limited API.\r\n* Start supporting GIL-free Python 3.13.\r\n* Support the Py3.13 `sys.monitoring` API.\r\n* Support and use `am_send` for coroutines.",
+        "description": "* Remove code for Python 2 and Python < 3.8.\r\n* Integrate better with Python 3.\r\n* Improve support for the Limited API.\r\n* Start supporting GIL-free Python 3.13.\r\n* Support the Py3.13 `sys.monitoring` API.\r\n* Support and use `am_send` for coroutines.",
         "due_on": null,
         "html_url": "https://github.com/cython/cython/milestone/65",
         "id": 4082235,
@@ -2703,7 +2764,7 @@
         "open_issues": 19,
         "state": "open",
         "title": "3.1",
-        "updated_at": "2024-08-28T09:42:15Z",
+        "updated_at": "2025-02-07T13:20:29Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/65"
     },
     "node_id": "PR_kwDOABDGAc54fJOc",
@@ -2716,7 +2777,7 @@
     "state": "closed",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/9a37c049ed54b68defa1da9960b5d1cba455bb1b",
     "title": "Output import-relative paths in generated C code.",
-    "updated_at": "2024-08-27T21:39:42Z",
+    "updated_at": "2025-02-08T14:52:32Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6341",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/1159732?v=4",
@@ -2736,6 +2797,7 @@
         "starred_url": "https://api.github.com/users/oscarbenjamin/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/oscarbenjamin/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/oscarbenjamin"
+        "url": "https://api.github.com/users/oscarbenjamin",
+        "user_view_type": "public"
     }
 }
