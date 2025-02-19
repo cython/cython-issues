@@ -5,6 +5,7 @@
     "author_association": "NONE",
     "body": "I've been looking at Cython with an eye toward replacing some hand written\r\ncpython extension code binding a C++ library.  This library is for a network\r\nclient and server, and includes a number of callbacks from C++ into python code.\r\nIt also makes heavy use of std::shared_ptr.\r\n\r\nI find myself wanting the ability to add custom code to tp_traverse and tp_clear\r\nto find additional python objects referenced indirectly through c++ objects.\r\n\r\nI don't think this is presently possible?\r\n\r\nA strawman example of the situation is as follows.\r\nThe reference cycles to be broken would include.\r\n\r\nHolder.iface -> PyImpl.held -> Held -> ... -> Holder\r\n\r\n```py\r\ncdef extern from \"foo.h\":\r\n    cdef cppclass Interface:\r\n        ...\r\n        void callback() # pure virtual\r\n    cdef cppclass PyImpl(Interface):\r\n        ...\r\n        void callback() # calls held.callback()\r\n        object held\r\n\r\n    ctypedef Interface* pInterface\r\n\r\ncdef class Held:\r\n    def callback(self, arg):\r\n        pass\r\n\r\ncdef class Holder:\r\n    cdef shared_ptr[Interface] iface\r\n\r\n    # I would like to be able to do something like this:\r\n    def tp_traverse(self, visit):\r\n        cdef PyImpl* impl\r\n        if self.iface:\r\n            impl = dynamic_cast[pInterface](self.iface.get())\r\n            if impl:\r\n                visit(impl.held)\r\n```\r\n",
     "closed_at": null,
+    "closed_by": null,
     "comment_data": [
         {
             "author_association": "MEMBER",
@@ -47,7 +48,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -91,7 +93,8 @@
                 "starred_url": "https://api.github.com/users/mdavidsaver/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mdavidsaver/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mdavidsaver"
+                "url": "https://api.github.com/users/mdavidsaver",
+                "user_view_type": "public"
             }
         },
         {
@@ -135,7 +138,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -179,7 +183,8 @@
                 "starred_url": "https://api.github.com/users/jdemeyer/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/jdemeyer/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/jdemeyer"
+                "url": "https://api.github.com/users/jdemeyer",
+                "user_view_type": "public"
             }
         },
         {
@@ -223,7 +228,8 @@
                 "starred_url": "https://api.github.com/users/navytux/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/navytux/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/navytux"
+                "url": "https://api.github.com/users/navytux",
+                "user_view_type": "public"
             }
         },
         {
@@ -267,7 +273,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -311,7 +318,8 @@
                 "starred_url": "https://api.github.com/users/navytux/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/navytux/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/navytux"
+                "url": "https://api.github.com/users/navytux",
+                "user_view_type": "public"
             }
         },
         {
@@ -355,11 +363,192 @@
                 "starred_url": "https://api.github.com/users/synodriver/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/synodriver/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/synodriver"
+                "url": "https://api.github.com/users/synodriver",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "+1 for the feature.\n\nThere are very significant speedups and advantages to using non-cpython structures when managing lists of items (list -> vector, dict -> map), in addition to not requiring the gil when accessing them.\n\nUsing a decorator for the PyObject* containers that we would want to include in tp_traverse/clear it not enough, as it would cause safety issues when tp_clear is run while the another thread uses the data without holding the gil. It needs to be a special method to properly handle user locking.",
+            "created_at": "2025-02-14T22:32:18Z",
+            "html_url": "https://github.com/cython/cython/issues/2737#issuecomment-2660387855",
+            "id": 2660387855,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2737",
+            "node_id": "IC_kwDOABDGAc6ekkwP",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2660387855/reactions"
+            },
+            "updated_at": "2025-02-14T22:32:18Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2660387855",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/2546609?v=4",
+                "events_url": "https://api.github.com/users/axeldavy/events{/privacy}",
+                "followers_url": "https://api.github.com/users/axeldavy/followers",
+                "following_url": "https://api.github.com/users/axeldavy/following{/other_user}",
+                "gists_url": "https://api.github.com/users/axeldavy/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/axeldavy",
+                "id": 2546609,
+                "login": "axeldavy",
+                "node_id": "MDQ6VXNlcjI1NDY2MDk=",
+                "organizations_url": "https://api.github.com/users/axeldavy/orgs",
+                "received_events_url": "https://api.github.com/users/axeldavy/received_events",
+                "repos_url": "https://api.github.com/users/axeldavy/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/axeldavy/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/axeldavy/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/axeldavy",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "I am broadly in favour of providing this because it is reasonable for classes to hold Python objects not directly through Cython (e.g. C++ containers). I think the main barrier is just whether this gets to the top of anyone's list of things to implement, rather than the the principle of the idea.\n\nOne question is whether it should override Cython's own default `tp_clear` and `tp_traverse` or add to them. I can see both variations being useful, and so it'd be good to have a nice was of doing this. Maybe just `__clear__` and `__clear_ex__` or something like that?",
+            "created_at": "2025-02-15T08:28:22Z",
+            "html_url": "https://github.com/cython/cython/issues/2737#issuecomment-2660813703",
+            "id": 2660813703,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2737",
+            "node_id": "IC_kwDOABDGAc6emMuH",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2660813703/reactions"
+            },
+            "updated_at": "2025-02-15T08:28:22Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2660813703",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "I agree, two methods seems reasonable, and user is free to use one of them depend on whether they want to control python attributes.",
+            "created_at": "2025-02-15T09:17:37Z",
+            "html_url": "https://github.com/cython/cython/issues/2737#issuecomment-2660834801",
+            "id": 2660834801,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2737",
+            "node_id": "IC_kwDOABDGAc6emR3x",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2660834801/reactions"
+            },
+            "updated_at": "2025-02-15T09:17:37Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2660834801",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/50922489?v=4",
+                "events_url": "https://api.github.com/users/synodriver/events{/privacy}",
+                "followers_url": "https://api.github.com/users/synodriver/followers",
+                "following_url": "https://api.github.com/users/synodriver/following{/other_user}",
+                "gists_url": "https://api.github.com/users/synodriver/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/synodriver",
+                "id": 50922489,
+                "login": "synodriver",
+                "node_id": "MDQ6VXNlcjUwOTIyNDg5",
+                "organizations_url": "https://api.github.com/users/synodriver/orgs",
+                "received_events_url": "https://api.github.com/users/synodriver/received_events",
+                "repos_url": "https://api.github.com/users/synodriver/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/synodriver/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/synodriver/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/synodriver",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "For simplicity, let's add two new special methods, `__traverse__` and `__clear__`, which should behave like `__cinit__` in that Cython would call them from `tp_traverse()` and `tp_clear()` respectively.\n\nI suggest calling them `__ctraverse__` and `__cclear__` to distinguish them from the bare protocols. Their intention is not to replace `tp_traverse` and `tp_clear` but to add to them in case Python object references are hidden from Cython by C pointers/structures/containers.\n\nAt which point in the `tp_*` methods the call happens is probably not very relevant, so I propose doing it *before* traversing the regular Python attributes. In the case of `tp_clear`, that means that the object is still (mostly) intact and thus more usable than afterwards. If users really, really need to clear something in a different order, they can manually clear object fields. Cython uses `Py_CLEAR()` for the fields, thus ignoring already cleared ones.\n\nFor an implementation, look at how `__cinit__` is implemented and do something similar.",
+            "created_at": "2025-02-15T09:35:25Z",
+            "html_url": "https://github.com/cython/cython/issues/2737#issuecomment-2660841331",
+            "id": 2660841331,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/2737",
+            "node_id": "IC_kwDOABDGAc6emTdz",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2660841331/reactions"
+            },
+            "updated_at": "2025-02-15T09:35:25Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2660841331",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         }
     ],
-    "comments": 8,
+    "comments": 12,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/2737/comments",
     "created_at": "2018-11-28T05:27:37Z",
     "event_data": [
@@ -382,7 +571,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -416,7 +606,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -450,7 +641,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -480,7 +672,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -536,9 +729,14 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "state_reason": null,
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/2737/timeline",
     "title": "add custom code to tp_traverse and tp_clear?",
-    "updated_at": "2024-07-29T12:46:45Z",
+    "updated_at": "2025-02-15T09:35:26Z",
     "url": "https://api.github.com/repos/cython/cython/issues/2737",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/4429215?v=4",
@@ -558,6 +756,7 @@
         "starred_url": "https://api.github.com/users/mdavidsaver/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/mdavidsaver/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/mdavidsaver"
+        "url": "https://api.github.com/users/mdavidsaver",
+        "user_view_type": "public"
     }
 }
