@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/3694"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/18be453c6b63c8666e30d20f7dbadfe36adb7ad1"
+            "href": "https://api.github.com/repos/cython/cython/statuses/c0c9168844db40de8b7451017f28c630e9f02475"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1504,
-            "forks_count": 1504,
+            "forks": 1506,
+            "forks_count": 1506,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1415,
-            "open_issues_count": 1415,
+            "open_issues": 1416,
+            "open_issues_count": 1416,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -119,11 +119,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2025-02-15T20:35:43Z",
+            "pushed_at": "2025-02-22T14:51:23Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 74806,
+            "size": 74822,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 9781,
+            "stargazers_count": 9795,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -142,14 +142,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2025-02-17T13:42:52Z",
+            "updated_at": "2025-02-22T14:51:30Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 9781,
-            "watchers_count": 9781,
+            "watchers": 9795,
+            "watchers_count": 9795,
             "web_commit_signoff_required": false
         },
-        "sha": "5084ea9a3be311b771baf3cdafe464914f86ec35",
+        "sha": "4c3b5ecaad9215989c34b3f501163b2f1a8391d8",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -173,7 +173,7 @@
         }
     },
     "body": "Some more changes that improve the limited API experience.\r\n\r\n(Note that the tp_name one is already in review at #3693 )",
-    "closed_at": null,
+    "closed_at": "2025-02-22T11:56:31Z",
     "comment_data": [
         {
             "_links": {
@@ -189,7 +189,7 @@
             },
             "author_association": "MEMBER",
             "body": "Maybe we should just handle declared builtin types differently, much earlier on. I mean, they don't need to be imported, for example. They are just statically there. This place here seems _very_ late for this distinction.",
-            "commit_id": "18be453c6b63c8666e30d20f7dbadfe36adb7ad1",
+            "commit_id": "c0c9168844db40de8b7451017f28c630e9f02475",
             "created_at": "2020-06-20T20:01:14Z",
             "diff_hunk": "@@ -3537,9 +3539,14 @@ def generate_type_import_call(self, type, code, import_generator, error_code=Non\n                 code.putln(\"\")  # start in new line\n             code.putln(\"#if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000\")\n             code.putln('sizeof(%s),' % objstruct)\n-            code.putln(\"#elif CYTHON_COMPILING_IN_LIMITED_API\")\n-            code.putln('sizeof(%s),' % objstruct)\n-            code.putln(\"#else\")\n+            if is_builtin_type:\n+                # Builtin types are opaque in when the limited API is enabled\n+                # and subsequents attempt to access their fields will trigger\n+                # compile errors. Skip the struct size check here so things keep\n+                # working when a builtin type is imported but not actually used.",
             "html_url": "https://github.com/cython/cython/pull/3694#discussion_r443156110",
@@ -258,7 +258,7 @@
             },
             "author_association": "MEMBER",
             "body": "Yeah, we should guard this as well. There are more places like this, though. I've push cd3ce37dfbff134baa110437a0597cd5f8663d97 to master.",
-            "commit_id": "18be453c6b63c8666e30d20f7dbadfe36adb7ad1",
+            "commit_id": "c0c9168844db40de8b7451017f28c630e9f02475",
             "created_at": "2020-06-20T20:29:25Z",
             "diff_hunk": "@@ -2808,9 +2808,13 @@ def generate_result_code(self, code):\n             # PyObject_GetIter() fails if \"tp_iternext\" is not set, but the check below\n             # makes it visible to the C compiler that the pointer really isn't NULL, so that\n             # it can distinguish between the special cases and the generic case\n+            code.putln(\"#if CYTHON_USE_TYPE_SLOTS\")\n             code.putln(\"%s = Py_TYPE(%s)->tp_iternext; %s\" % (",
             "html_url": "https://github.com/cython/cython/pull/3694#discussion_r443157781",
@@ -327,7 +327,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "I mean the the problem comes down to the fact that the `ctypedef class xxx [object yyy]:` construct is too powerful for the limited API. It gives cython code the ability to access fields within those types which is impossible to support in a limited API setting.\r\n\r\nI think ideally cython should just `#error` when the source file containes such a `ctypedef class` and the user compiled in limited API mode. In practice that wasn't really possible because some modules do `cimport cpython.xxx` files that contain such `ctypedef`s (even though the modules at hand included them for some functions and not for the types). ",
-            "commit_id": "18be453c6b63c8666e30d20f7dbadfe36adb7ad1",
+            "commit_id": "c0c9168844db40de8b7451017f28c630e9f02475",
             "created_at": "2020-06-20T20:44:20Z",
             "diff_hunk": "@@ -3537,9 +3539,14 @@ def generate_type_import_call(self, type, code, import_generator, error_code=Non\n                 code.putln(\"\")  # start in new line\n             code.putln(\"#if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000\")\n             code.putln('sizeof(%s),' % objstruct)\n-            code.putln(\"#elif CYTHON_COMPILING_IN_LIMITED_API\")\n-            code.putln('sizeof(%s),' % objstruct)\n-            code.putln(\"#else\")\n+            if is_builtin_type:\n+                # Builtin types are opaque in when the limited API is enabled\n+                # and subsequents attempt to access their fields will trigger\n+                # compile errors. Skip the struct size check here so things keep\n+                # working when a builtin type is imported but not actually used.",
             "html_url": "https://github.com/cython/cython/pull/3694#discussion_r443158702",
@@ -397,7 +397,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n\r\n        code.putln(f' if (!{typeptr_cname}) {error_code}')\r\n```",
-            "commit_id": "18be453c6b63c8666e30d20f7dbadfe36adb7ad1",
+            "commit_id": "c0c9168844db40de8b7451017f28c630e9f02475",
             "created_at": "2025-02-15T21:28:46Z",
             "diff_hunk": "@@ -3878,14 +3883,6 @@ def generate_type_import_call(self, type, code, import_generator, error_code=Non\n                 f\"invalid value for check_size '{type.check_size}' when compiling {module_name}.{type.name}\")\n         code.put(f'__Pyx_ImportType_CheckSize_{check_size.title()}_{Naming.cyversion});')\n ",
             "html_url": "https://github.com/cython/cython/pull/3694#discussion_r1957194433",
@@ -466,7 +466,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n                code.putln('0, 0,')\r\n```",
-            "commit_id": "18be453c6b63c8666e30d20f7dbadfe36adb7ad1",
+            "commit_id": "c0c9168844db40de8b7451017f28c630e9f02475",
             "created_at": "2025-02-16T10:03:27Z",
             "diff_hunk": "@@ -3862,7 +3858,16 @@ def generate_type_import_call(self, type, code, import_generator, error_code=Non\n             code.putln(\"\")  # start in new line\n             code.putln(\"#if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000\")\n             code.putln(f'sizeof({objstruct}), {alignment_func}({objstruct}),')\n-            code.putln(\"#else\")\n+            code.putln(\"#elif CYTHON_COMPILING_IN_LIMITED_API\")\n+            if is_builtin:\n+                # Builtin types are opaque in when the limited API is enabled\n+                # and subsequents attempt to access their fields will trigger\n+                # compile errors. Skip the struct size check here so things keep\n+                # working when a builtin type is imported but not actually used.\n+                code.putln('0,')",
             "html_url": "https://github.com/cython/cython/pull/3694#discussion_r1957287983",
@@ -1527,6 +1527,93 @@
             ],
             "sha": "18be453c6b63c8666e30d20f7dbadfe36adb7ad1",
             "url": "https://api.github.com/repos/cython/cython/commits/18be453c6b63c8666e30d20f7dbadfe36adb7ad1"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/c0c9168844db40de8b7451017f28c630e9f02475/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-02-22T09:34:43Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-02-22T09:34:43Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Merge branch 'master' into limited_api_work",
+                "tree": {
+                    "sha": "b38c72b893e8de18645903561ec74d810995a709",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/b38c72b893e8de18645903561ec74d810995a709"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/c0c9168844db40de8b7451017f28c630e9f02475",
+                "verification": {
+                    "payload": "tree b38c72b893e8de18645903561ec74d810995a709\nparent 18be453c6b63c8666e30d20f7dbadfe36adb7ad1\nparent 4c3b5ecaad9215989c34b3f501163b2f1a8391d8\nauthor da-woods <dw-git@d-woods.co.uk> 1740216883 +0000\ncommitter GitHub <noreply@github.com> 1740216883 +0000\n\nMerge branch 'master' into limited_api_work",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnuZozCRC1aQ7uu5UhlAAAmO8QAJUq2qKKVfHwAdjBZ699Ta1i\nvaI3e4+4LX8mWJsrVRUuy9uiz8IMJQ4nx8+csl02Vm977DFpu/RaCudvvvHVrDeB\nUuNqQo2MKEdjmBEQb75DANaDTQIjtlPqbhOlvrDoeeCEHmtPkwN9t6T3CMQnoMpi\nkeVIO89Hdjwn5CbDOEJ9eeqOd+YNd9zso82dUxBmcGtGfF5tVLFeWD+5+jp/2j6d\nthAYINmGIYe67bhtR8+dds7c4w4pSTrIDZL0RwlBiq4D5xh9YSjJg3OekUaAAmgS\n7zDKgjmPPGFbrD8HHtwqQwQ9SjlOgQq9pdpSNSiwSEDL5/54JNs1BSe1OK/eDUC2\nKh8azybjqkY4fVCzqz6i5YbLNH+EVc3Ym9B3mI5PyQLpem2qky8zJwRKBat0MAH7\nFYZgafcK7uqERXwn+2PI6/esRmzBeiDxOaG3o5TxuOKsYdiVGVGjeiUnq2lByKew\nnndzdgKrKIjBDBgovuzV16oeOB4/D07p2XSHhZxt7uVvs2nAOP/JJ+oIVnjwSsiJ\nSw00K2QqkRHxYCqnBbc5krGl8uivJx+7LMWI1OwsrHbTzEPz7Sf/rqfs5sWD05CU\nFHLERw89E5zyxsYzihccMMFtvJLDBLNG3GXP4xZb25drlomA9LlqeWn13TMr/etT\nyHHY9uZXtu//GqG+MC3L\n=Ssx3\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2025-02-22T09:34:46Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/c0c9168844db40de8b7451017f28c630e9f02475",
+            "node_id": "C_kwDOEEqaadoAKGMwYzkxNjg4NDRkYjQwZGU4Yjc0NTEwMTdmMjhjNjMwZTlmMDI0NzU",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/18be453c6b63c8666e30d20f7dbadfe36adb7ad1",
+                    "sha": "18be453c6b63c8666e30d20f7dbadfe36adb7ad1",
+                    "url": "https://api.github.com/repos/cython/cython/commits/18be453c6b63c8666e30d20f7dbadfe36adb7ad1"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/4c3b5ecaad9215989c34b3f501163b2f1a8391d8",
+                    "sha": "4c3b5ecaad9215989c34b3f501163b2f1a8391d8",
+                    "url": "https://api.github.com/repos/cython/cython/commits/4c3b5ecaad9215989c34b3f501163b2f1a8391d8"
+                }
+            ],
+            "sha": "c0c9168844db40de8b7451017f28c630e9f02475",
+            "url": "https://api.github.com/repos/cython/cython/commits/c0c9168844db40de8b7451017f28c630e9f02475"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/3694/commits",
@@ -1622,9 +1709,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/MatzeB/cython/pulls{/number}",
-            "pushed_at": "2025-02-16T11:50:06Z",
+            "pushed_at": "2025-02-22T09:34:44Z",
             "releases_url": "https://api.github.com/repos/MatzeB/cython/releases{/id}",
-            "size": 74638,
+            "size": 74545,
             "ssh_url": "git@github.com:MatzeB/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/MatzeB/cython/stargazers",
@@ -1643,7 +1730,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "18be453c6b63c8666e30d20f7dbadfe36adb7ad1",
+        "sha": "c0c9168844db40de8b7451017f28c630e9f02475",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/71571?v=4",
             "events_url": "https://api.github.com/users/MatzeB/events{/privacy}",
@@ -1681,9 +1768,46 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "baf70431bb15c18b425b6ea05c40d6e267df3506",
-    "merged_at": null,
-    "milestone": null,
+    "merge_commit_sha": "06619189714f41869a949b789f16f6444fc17200",
+    "merged_at": "2025-02-22T11:56:31Z",
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 342,
+        "created_at": "2019-02-24T14:21:23Z",
+        "creator": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/scoder",
+            "user_view_type": "public"
+        },
+        "description": "* Remove code for Python 2 and Python < 3.8.\r\n* Integrate better with Python 3.\r\n* Improve support for the Limited API.\r\n* Start supporting GIL-free Python 3.13.\r\n* Support the Py3.13 `sys.monitoring` API.\r\n* Support and use `am_send` for coroutines.",
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestone/65",
+        "id": 4082235,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/65/labels",
+        "node_id": "MDk6TWlsZXN0b25lNDA4MjIzNQ==",
+        "number": 65,
+        "open_issues": 20,
+        "state": "open",
+        "title": "3.1",
+        "updated_at": "2025-02-22T14:51:24Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/65"
+    },
     "node_id": "MDExOlB1bGxSZXF1ZXN0NDM3MzM0ODk2",
     "number": 3694,
     "patch_url": "https://github.com/cython/cython/pull/3694.patch",
@@ -1691,10 +1815,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/3694/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/18be453c6b63c8666e30d20f7dbadfe36adb7ad1",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/c0c9168844db40de8b7451017f28c630e9f02475",
     "title": "Limited api work",
-    "updated_at": "2025-02-16T11:50:07Z",
+    "updated_at": "2025-02-22T11:56:44Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/3694",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/71571?v=4",

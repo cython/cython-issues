@@ -1,9 +1,11 @@
 {
+    "active_lock_reason": null,
     "assignee": null,
     "assignees": [],
-    "author_association": "CONTRIBUTOR",
+    "author_association": "MEMBER",
     "body": "I've been looking at the code for fastcall and vectorcall functions, and one issue seems to be that for a function like:\r\n\r\n    def f(a, *args, **kwds):\r\n        # something...\r\n\r\nthe wrapper function immediately generates a tuple for `args` and a dict for `kwds`, which presumably misses most of the benefits of the more efficient calling method.\r\n\r\nWhat I was considering is creating some types `cython.fastcalltuple` and `cython.fastcalldict` that `args` and `kwds` could be typed with. These would ultimately reduce to a basic, non-refcounted structure, and so could be used directly and more efficiently. However, they would only support very limited operations.\r\n\r\nFor example `cython.fastcalltuple` could support:\r\n* integer indexing\r\n* very simple slicing (integer start and end, positive step)\r\n* Assignment to split into multiple values `a, b, c = args`\r\n* Explicit conversion to a Python sequence (e.g. `tuple(args)`)\r\n* Maybe calling other functions with them under very limited circumstances (i.e. when they can be fed directly into a fastcall/vectorcall)\r\n\r\nAnything else would fail at compile-time, so it couldn't auto-coerce to a Python object. `cython.fastcalldict` would be similarly restricted (although I've given it less thought).\r\n\r\nThe idea being that for a lot of functions these operations are all that's ever done to the star/starstar args, so this provides a fairly easy user-selectable optimization. (Obviously a future step might be to apply the optimization automatically when possible, but that's obvious a bit harder).\r\n\r\n-------------------------------------------------\r\n\r\nIt's possible that I've mis-understood something and this wouldn't provide real benefits, hence I'm creating an issue in advance of doing anything so that I can be told why I'm wrong.",
     "closed_at": null,
+    "closed_by": null,
     "comment_data": [
         {
             "author_association": "MEMBER",
@@ -13,10 +15,23 @@
             "id": 580800025,
             "issue_url": "https://api.github.com/repos/cython/cython/issues/3343",
             "node_id": "MDEyOklzc3VlQ29tbWVudDU4MDgwMDAyNQ==",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/580800025/reactions"
+            },
             "updated_at": "2020-01-31T16:17:46Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/580800025",
             "user": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -33,17 +48,243 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "I would suggest not to type with cython.fastcalltuple and cython.fastcalldict specifically, but instead cython.callargs and cython.callkwds.\n\nIn addition to the listed operations, could also be supported 'contains' (using the optimized code written for #6684), 'pop' and iterating (`.keys()`, `.items()`, `.values()`).\n\nAll the tuple and dict operations could be supported, except the direct cpython operations. tuple() and dict() would allow the explicit conversion to be allowed those calls. Alternatively, when they are used as object somewhere in the code, they would get automatically promoted to tuple()/dict() just before (and only once).\n\nThe advantage of the change is that under the hood, cython would be allowed to duplicate the implementation, one where the vectorcall protocol is used, and one when it isn't. For item instanciation for instance, both paths could co-exist.\n\nIf vectorcall is not used, `tuple(args)` and `dict(kwargs)` would be no-op.\n\nFinally passing kwargs should be optimized. If anything, #6684 shows that building a dict out of vectorcall parameters is not cheap. It should be avoided to promote kwargs to dict when calling a method (and the method should be called with the vectorcall protocol if possible). In addition if one wants to build a args or kwargs to pass to a method, cython.callargs and cython.callkwds should be accessible to build ones.\n\n",
+            "created_at": "2025-02-24T21:06:28Z",
+            "html_url": "https://github.com/cython/cython/issues/3343#issuecomment-2679648765",
+            "id": 2679648765,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3343",
+            "node_id": "IC_kwDOABDGAc6fuDH9",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2679648765/reactions"
+            },
+            "updated_at": "2025-02-24T21:06:28Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2679648765",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/2546609?v=4",
+                "events_url": "https://api.github.com/users/axeldavy/events{/privacy}",
+                "followers_url": "https://api.github.com/users/axeldavy/followers",
+                "following_url": "https://api.github.com/users/axeldavy/following{/other_user}",
+                "gists_url": "https://api.github.com/users/axeldavy/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/axeldavy",
+                "id": 2546609,
+                "login": "axeldavy",
+                "node_id": "MDQ6VXNlcjI1NDY2MDk=",
+                "organizations_url": "https://api.github.com/users/axeldavy/orgs",
+                "received_events_url": "https://api.github.com/users/axeldavy/received_events",
+                "repos_url": "https://api.github.com/users/axeldavy/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/axeldavy/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/axeldavy/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/axeldavy",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "I had an implementation, but it's significantly out of date and probably too complicated for the fairly marginal benefits it brought.\n\n> I would suggest not to type with cython.fastcalltuple and cython.fastcalldict specifically, but instead cython.callargs and cython.callkwds.\n\nI think my view was that it should be transparent and not something you can request - just something that Cython does for you provided you don't do anything unsupported on the arguments. On that basis the name doesn't matter - it's internal only.\n\n> In addition to the listed operations, could also be supported 'contains' (using the optimized code written for [#6684](https://github.com/cython/cython/pull/6684)), 'pop' and iterating (`.keys()`, `.items()`, `.values()`).\n\nI think there's a strong argument for keeping anything like this as simple as possible. At least for the pseudo-dict I don't think it's worth implementing much beyond just passing it to another function. Even that isn't easy because the keys end up tied up with the args tuple.",
+            "created_at": "2025-02-24T22:39:06Z",
+            "html_url": "https://github.com/cython/cython/issues/3343#issuecomment-2679828064",
+            "id": 2679828064,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3343",
+            "node_id": "IC_kwDOABDGAc6fuu5g",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2679828064/reactions"
+            },
+            "updated_at": "2025-02-24T22:39:06Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2679828064",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "I would tend to disagree, and favor various pythonic fast accessors. Or if not, ability to access the internals and have users implement what they want with it.\n\nI'm always surprised to see Cython being used in almost all well known Python libraries, and people have various uses. That's why I'd favor having items that behave like dict and tuple, but avoid creating a python item unless needed.\n\nTo give one example of 'complex' kwargs handling that benefits from a dict-like interface (here I'm citing one of my code, but there must be many other complex usages as well):\n- Using pop to handle some kwargs before others, if defined \n- passing the kwargs after the pop operation to another function that takes **kwargs\n- iterate through the kwargs (and doing `setattr(self, name, value)`)\n\n(Note I believe these operations would be faster using the vectorcall objects, rather than a tuple/dict)\n\nSome libraries also seem to use kwargs names as user-defined keys (tables headers, etc).\n\nThat's why I believe it would be leaner and more pythonic if the arguments would be behaving like tuple/dict and the actual backing (vectorcall or actual tuple/dict) would be made such that it doesn't matter which is behind (no specific code handling on user side).",
+            "created_at": "2025-02-24T23:19:38Z",
+            "html_url": "https://github.com/cython/cython/issues/3343#issuecomment-2679910756",
+            "id": 2679910756,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3343",
+            "node_id": "IC_kwDOABDGAc6fvDFk",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2679910756/reactions"
+            },
+            "updated_at": "2025-02-24T23:21:22Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2679910756",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/2546609?v=4",
+                "events_url": "https://api.github.com/users/axeldavy/events{/privacy}",
+                "followers_url": "https://api.github.com/users/axeldavy/followers",
+                "following_url": "https://api.github.com/users/axeldavy/following{/other_user}",
+                "gists_url": "https://api.github.com/users/axeldavy/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/axeldavy",
+                "id": 2546609,
+                "login": "axeldavy",
+                "node_id": "MDQ6VXNlcjI1NDY2MDk=",
+                "organizations_url": "https://api.github.com/users/axeldavy/orgs",
+                "received_events_url": "https://api.github.com/users/axeldavy/received_events",
+                "repos_url": "https://api.github.com/users/axeldavy/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/axeldavy/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/axeldavy/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/axeldavy",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "Here are some links of examples of complex kwargs usage:\n[dearcygui](https://github.com/DearCyGui/DearCyGui/blob/179105b7388dd107d0684f5fc9aba3a85c872ca7/dearcygui/core.pyx#L1405)\n[dearcygui](https://github.com/DearCyGui/DearCyGui/blob/179105b7388dd107d0684f5fc9aba3a85c872ca7/dearcygui/widget.pyx#L1295)\n[h5py](https://github.com/h5py/h5py/blob/e4aa0d2da6082aaaf11746f3154cdd1588992cf8/h5py/_hl/files.py#L577)",
+            "created_at": "2025-02-25T12:02:55Z",
+            "html_url": "https://github.com/cython/cython/issues/3343#issuecomment-2681736040",
+            "id": 2681736040,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3343",
+            "node_id": "IC_kwDOABDGAc6f2Ato",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2681736040/reactions"
+            },
+            "updated_at": "2025-02-25T12:02:55Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2681736040",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/2546609?v=4",
+                "events_url": "https://api.github.com/users/axeldavy/events{/privacy}",
+                "followers_url": "https://api.github.com/users/axeldavy/followers",
+                "following_url": "https://api.github.com/users/axeldavy/following{/other_user}",
+                "gists_url": "https://api.github.com/users/axeldavy/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/axeldavy",
+                "id": 2546609,
+                "login": "axeldavy",
+                "node_id": "MDQ6VXNlcjI1NDY2MDk=",
+                "organizations_url": "https://api.github.com/users/axeldavy/orgs",
+                "received_events_url": "https://api.github.com/users/axeldavy/received_events",
+                "repos_url": "https://api.github.com/users/axeldavy/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/axeldavy/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/axeldavy/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/axeldavy",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "`pop` is definitely not an option - the sensible (i.e. copy-free) implementation of this needs to be read-only.\n\nIteration could work fairly straightforwardly - it's mainly just that the more you implement the more complicated the feature is. \n\n`contains` again could work. It'd have difficult performance characteristics than people would expect from a `dict` (probably better for small numbers of args, but would scale worse) so would be a bit of a pitfall if you applied it automatically and thus I think it'd probably be a mistake. \n\n-----------\n\nIt's probably largely academic for now - I don't think anyone really has the inclination to dig out and fix my old PR for this.",
+            "created_at": "2025-02-25T22:40:06Z",
+            "html_url": "https://github.com/cython/cython/issues/3343#issuecomment-2683455007",
+            "id": 2683455007,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/3343",
+            "node_id": "IC_kwDOABDGAc6f8kYf",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2683455007/reactions"
+            },
+            "updated_at": "2025-02-25T22:40:06Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2683455007",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         }
     ],
-    "comments": 1,
+    "comments": 6,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/3343/comments",
     "created_at": "2020-01-31T12:23:39Z",
     "event_data": [
         {
             "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -60,7 +301,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -72,11 +314,12 @@
                 "name": "feature"
             },
             "node_id": "MDEyOkxhYmVsZWRFdmVudDI5OTc2NTc0NTA=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2997657450"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -93,7 +336,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -105,11 +349,12 @@
                 "name": "Type Analysis"
             },
             "node_id": "MDEyOkxhYmVsZWRFdmVudDI5OTc2NTc0NTM=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2997657453"
         },
         {
             "actor": {
-                "avatar_url": "https://avatars0.githubusercontent.com/u/491659?v=4",
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
                 "events_url": "https://api.github.com/users/scoder/events{/privacy}",
                 "followers_url": "https://api.github.com/users/scoder/followers",
                 "following_url": "https://api.github.com/users/scoder/following{/other_user}",
@@ -126,7 +371,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -138,6 +384,7 @@
                 "name": "Optimization"
             },
             "node_id": "MDEyOkxhYmVsZWRFdmVudDI5OTc2NTc3MDg=",
+            "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/2997657708"
         }
     ],
@@ -145,6 +392,15 @@
     "html_url": "https://github.com/cython/cython/issues/3343",
     "id": 558101225,
     "labels": [
+        {
+            "color": "c2e0c6",
+            "default": false,
+            "description": null,
+            "id": 414805463,
+            "name": "feature",
+            "node_id": "MDU6TGFiZWw0MTQ4MDU0NjM=",
+            "url": "https://api.github.com/repos/cython/cython/labels/feature"
+        },
         {
             "color": "444444",
             "default": false,
@@ -162,15 +418,6 @@
             "name": "Type Analysis",
             "node_id": "MDU6TGFiZWw0MjU1NTg4MjQ=",
             "url": "https://api.github.com/repos/cython/cython/labels/Type%20Analysis"
-        },
-        {
-            "color": "c2e0c6",
-            "default": false,
-            "description": null,
-            "id": 414805463,
-            "name": "feature",
-            "node_id": "MDU6TGFiZWw0MTQ4MDU0NjM=",
-            "url": "https://api.github.com/repos/cython/cython/labels/feature"
         }
     ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/3343/labels{/name}",
@@ -178,13 +425,33 @@
     "milestone": null,
     "node_id": "MDU6SXNzdWU1NTgxMDEyMjU=",
     "number": 3343,
+    "performed_via_github_app": null,
+    "reactions": {
+        "+1": 0,
+        "-1": 0,
+        "confused": 0,
+        "eyes": 0,
+        "heart": 0,
+        "hooray": 0,
+        "laugh": 0,
+        "rocket": 0,
+        "total_count": 0,
+        "url": "https://api.github.com/repos/cython/cython/issues/3343/reactions"
+    },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
+    "state_reason": null,
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
+    "timeline_url": "https://api.github.com/repos/cython/cython/issues/3343/timeline",
     "title": "Fastcall/vectorcall specialized argument types",
-    "updated_at": "2020-01-31T16:18:04Z",
+    "updated_at": "2025-02-25T22:40:07Z",
     "url": "https://api.github.com/repos/cython/cython/issues/3343",
     "user": {
-        "avatar_url": "https://avatars0.githubusercontent.com/u/10536947?v=4",
+        "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
         "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
         "followers_url": "https://api.github.com/users/da-woods/followers",
         "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
@@ -201,6 +468,7 @@
         "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/da-woods"
+        "url": "https://api.github.com/users/da-woods",
+        "user_view_type": "public"
     }
 }
