@@ -4,10 +4,31 @@
     "assignees": [],
     "author_association": "NONE",
     "body": "I have a small piece of code which runs `gevent.subprocess.run` to execute `netstat -nr`, before which I set the environment variables. The code looks like:\r\n\r\n```\r\nimport os\r\nimport gevent.subprocess\r\n\r\ndef run():\r\n    env = dict(os.environ)\r\n    gevent.subprocess.run(...., env=env)\r\n```\r\nNote:\r\n- so this `run()` is called pretty frequently: Once in every 5 seconds\r\n- It runs fine for a few hours before just aborting at the code. I ran my cythonized code with `-g3 and -O0` to get better stack traces and here's how it looks like:\r\n\r\n```\r\n#1  0x0000000801a730c4 in raise () from /lib/libc.so.7                                                                                                                  #2  0x0000000801a73039 in abort () from /lib/libc.so.7\r\n#3  0x0000000800b968c9 in ?? () from /usr/local/lib/libpython3.8.so.1.0                                                                                                 #4  0x0000000800b965b3 in Py_FatalError () from /usr/local/lib/libpython3.8.so.1.0\r\n#5  0x0000000800af44e9 in ?? () from /usr/local/lib/libpython3.8.so.1.0                                                                                                 #6  0x0000000800b01728 in _PyUnicodeWriter_PrepareInternal () from /usr/local/lib/libpython3.8.so.1.0\r\n#7  0x0000000800afa859 in PyUnicode_DecodeASCII () from /usr/local/lib/libpython3.8.so.1.0\r\n#8  0x0000000800afa56d in PyUnicode_Decode () from /usr/local/lib/libpython3.8.so.1.0\r\n#9  0x0000000800afa2f4 in PyUnicode_FromEncodedObject () from /usr/local/lib/libpython3.8.so.1.0\r\n#10 0x0000000800a887ed in ?? () from /usr/local/lib/libpython3.8.so.1.0\r\n#11 0x0000000800a96b84 in ?? () from /usr/local/lib/libpython3.8.so.1.0\r\n#12 0x0000000800b59ae4 in ?? () from /usr/local/lib/libpython3.8.so.1.0\r\n#13 0x0000000800b56c40 in _PyEval_EvalFrameDefault () from /usr/local/lib/libpython3.8.so.1.0\r\n#14 0x0000000800b5a7b0 in _PyEval_EvalCodeWithName () from /usr/local/lib/libpython3.8.so.1.0\r\n#15 0x0000000800a8dd9b in _PyFunction_Vectorcall () from /usr/local/lib/libpython3.8.so.1.0\r\n#16 0x0000000800b59ae4 in ?? () from /usr/local/lib/libpython3.8.so.1.0\r\n#17 0x0000000800b56c64 in _PyEval_EvalFrameDefault () from /usr/local/lib/libpython3.8.so.1.0\r\n#18 0x0000000800a9e224 in ?? () from /usr/local/lib/libpython3.8.so.1.0\r\n#19 0x0000000800b52bf5 in _PyEval_EvalFrameDefault () from /usr/local/lib/libpython3.8.so.1.0\r\n#20 0x0000000800a9e224 in ?? () from /usr/local/lib/libpython3.8.so.1.0\r\n#21 0x0000000800aaa3e3 in ?? () from /usr/local/lib/libpython3.8.so.1.0\r\n#22 0x0000000800a78ac8 in ?? () from /usr/local/lib/libpython3.8.so.1.0\r\n#23 0x0000000800abf651 in ?? () from /usr/local/lib/libpython3.8.so.1.0\r\n#24 0x0000000800ac443f in ?? () from /usr/local/lib/libpython3.8.so.1.0\r\n#25 0x0000000800ae24b1 in ?? () from /usr/local/lib/libpython3.8.so.1.0\r\n#26 0x000000080976d1d5 in __Pyx_PyObject_Call (func=<type at remote 0x800efa060>, Python Exception <class 'gdb.error'>: There is no member named dk_nentries.\r\narg=, kw=0x0) at common/cmd.c:3645\r\n#27 0x000000080976e1b5 in __Pyx__PyObject_CallOneArg (func=<type at remote 0x800efa060>, Python Exception <class 'gdb.error'>: There is no member named dk_nentries.\r\narg=) at common/cmd.c:3684\r\n#28 0x000000080976cef2 in __Pyx_PyObject_CallOneArg (func=<type at remote 0x800efa060>, Python Exception <class 'gdb.error'>: There is no member named dk_nentries.\r\narg=) at common/cmd.c:3703\r\n#29 0x000000080976a5a3 in __pyx_pf_3cmd_run (__pyx_self=<cython_function_or_method at remote 0x8078b7930>, __pyx_v_command='netstat',\r\n    __pyx_v_envvars=None, __pyx_v_args=('-rn',)) at common/cmd.c:1463\r\n#30 0x0000000809769cfd in __pyx_pw_3cmd_1run (__pyx_self=<cython_function_or_method at remote 0x8078b7930>, __pyx_args=('netstat', '-rn'),\r\n    __pyx_kwds=0x0) at common/cmd.c:1393\r\n\r\n//.... other frames\r\n```\r\n\r\nAfter jumping to frame 29, I see that this is the generated line at which it failed:\r\n\r\n```\r\n(gdb) f 29\r\n#29 0x000000080976a5a3 in __pyx_pf_3cmd_run (__pyx_self=<cython_function_or_method at remote 0x8078b7930>, __pyx_v_command='netstat',\r\n    __pyx_v_envvars=None, __pyx_v_args=('-rn',)) at common/cmd.c:1463\r\n1463      __pyx_t_1 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyDict_Type)), __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 24, __pyx_L1_error)\r\n(gdb) l\r\n1458      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_os); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 24, __pyx_L1_error)\r\n1459      __Pyx_GOTREF(__pyx_t_1);\r\n1460      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_environ); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 24, __pyx_L1_error)\r\n1461      __Pyx_GOTREF(__pyx_t_3);\r\n1462      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;\r\n1463      __pyx_t_1 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyDict_Type)), __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 24, __pyx_L1_error)\r\n1464      __Pyx_GOTREF(__pyx_t_1);\r\n1465      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;\r\n1466      __pyx_v_env = ((PyObject*)__pyx_t_1);\r\n1467      __pyx_t_1 = 0;\r\n(gdb)\r\n```\r\n\r\nWhich mapped to this code (as per the `cmd.c` file):\r\n```\r\n/* \"common/cmd.py\":24\r\n*     # Run the subprocess\r\n*     env = dict(os.environ)             # <<<<<<<<<<<<<<\r\n*/\r\n __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_os); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 24, __pyx_L1_error)\r\n __Pyx_GOTREF(__pyx_t_1);\r\n __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_environ); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 24, __pyx_L1_error)\r\n __Pyx_GOTREF(__pyx_t_3);\r\n __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;\r\n __pyx_t_1 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyDict_Type)), __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 24, __pyx_L1_error)\r\n __Pyx_GOTREF(__pyx_t_1);\r\n __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;\r\n __pyx_v_env = ((PyObject*)__pyx_t_1);\r\n __pyx_t_1 = 0;\r\n```\r\n\r\nCould anyone please help out in what could be going wrong here?\r\n\r\n**Environment:**\r\n - OS: FreeBSD 11.4\r\n - Python 3.8.12\r\n - Cython 0.29.23\r\n",
-    "closed_at": null,
+    "closed_at": "2025-02-26T19:54:05Z",
+    "closed_by": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+        "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+        "followers_url": "https://api.github.com/users/scoder/followers",
+        "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+        "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/scoder",
+        "id": 491659,
+        "login": "scoder",
+        "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+        "organizations_url": "https://api.github.com/users/scoder/orgs",
+        "received_events_url": "https://api.github.com/users/scoder/received_events",
+        "repos_url": "https://api.github.com/users/scoder/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/scoder",
+        "user_view_type": "public"
+    },
     "comment_data": [
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "There's a lot that could be going on here: one possibility is a long-term reference counting error on `dict` that means it gets deallocated.\r\n\r\nUnfortunately that means the line in the traceback is probably unlike to be the real problem... It's much more likely to be some corruption of internal state that's happened beforehand.\r\n\r\nI don't think we have enough information here to diagnose the issue.",
             "created_at": "2022-01-15T09:17:34Z",
             "html_url": "https://github.com/cython/cython/issues/4573#issuecomment-1013649283",
@@ -47,11 +68,12 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "It could also be an issue with the version of Cython gevent is built with (3.0.0a9 I think) or with something else in gevent unrelated to Cython",
             "created_at": "2022-01-15T09:20:40Z",
             "html_url": "https://github.com/cython/cython/issues/4573#issuecomment-1013649639",
@@ -91,7 +113,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -135,11 +158,12 @@
                 "starred_url": "https://api.github.com/users/Rahul-RB/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/Rahul-RB/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/Rahul-RB"
+                "url": "https://api.github.com/users/Rahul-RB",
+                "user_view_type": "public"
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": ">     * I just run the `cythonize` command on all the python files in my project. Then I link the libraries etc. to generate a binary. For gevent, I use whatever is provided via pip (currently at 21.12.0). So wouldn't gevent be built `cythonize` version of whatever I ran?\r\n\r\nNo, pip probably installs a precompiled version of `gevent`. And they specifically require a Cython 3 alpha. That shouldn't cause issues for you - it's just another place the bug could be.\r\n\r\n>     * Would moving the `dict` line to global namespace be of any help (say once during the process invocation)?\r\n\r\nI doubt it. Because the issue is most likely not that line specifically but some state getting messed up elsewhere",
             "created_at": "2022-01-15T09:35:09Z",
             "html_url": "https://github.com/cython/cython/issues/4573#issuecomment-1013651392",
@@ -179,7 +203,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -223,11 +248,12 @@
                 "starred_url": "https://api.github.com/users/Rahul-RB/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/Rahul-RB/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/Rahul-RB"
+                "url": "https://api.github.com/users/Rahul-RB",
+                "user_view_type": "public"
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "No I don't. As I said before I don't think we have anywhere near enough information to find the problem.\r\n\r\nYou might try installing the Python debug symbols. That would at least let you see what is crashing in libpython.",
             "created_at": "2022-01-15T09:44:06Z",
             "html_url": "https://github.com/cython/cython/issues/4573#issuecomment-1013652530",
@@ -267,7 +293,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -311,7 +338,8 @@
                 "starred_url": "https://api.github.com/users/Rahul-RB/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/Rahul-RB/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/Rahul-RB"
+                "url": "https://api.github.com/users/Rahul-RB",
+                "user_view_type": "public"
             }
         },
         {
@@ -355,7 +383,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -399,11 +428,12 @@
                 "starred_url": "https://api.github.com/users/Rahul-RB/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/Rahul-RB/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/Rahul-RB"
+                "url": "https://api.github.com/users/Rahul-RB",
+                "user_view_type": "public"
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "> Before that I'm planning to build python with debug on and use that to run the binaries\r\n\r\nAt least on Linux you can usually get the debug symbols from the package manager so you don't need to build it yourself (I don't know about FreeBSD though)",
             "created_at": "2022-01-16T08:12:45Z",
             "html_url": "https://github.com/cython/cython/issues/4573#issuecomment-1013830800",
@@ -443,11 +473,57 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "Closing as \"third-party\" since we didn't receive any update for three years.",
+            "created_at": "2025-02-26T19:54:05Z",
+            "html_url": "https://github.com/cython/cython/issues/4573#issuecomment-2686051198",
+            "id": 2686051198,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4573",
+            "node_id": "IC_kwDOABDGAc6gGeN-",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2686051198/reactions"
+            },
+            "updated_at": "2025-02-26T19:54:05Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2686051198",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         }
     ],
-    "comments": 10,
+    "comments": 11,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4573/comments",
     "created_at": "2022-01-15T05:00:25Z",
     "event_data": [
@@ -470,7 +546,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -500,7 +577,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -530,7 +608,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -560,7 +639,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -570,12 +650,89 @@
             "node_id": "SE_lADOABDGAc5B1AuNzwAAAAFfqPMy",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/5899875122"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2025-02-26T19:53:06Z",
+            "event": "labeled",
+            "id": 16485938687,
+            "label": {
+                "color": "000000",
+                "name": "R: third party"
+            },
+            "node_id": "LE_lADOABDGAc5B1AuNzwAAAAPWo3X_",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/16485938687"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2025-02-26T19:54:05Z",
+            "event": "closed",
+            "id": 16485956933,
+            "node_id": "CE_lADOABDGAc5B1AuNzwAAAAPWo71F",
+            "performed_via_github_app": null,
+            "state_reason": "not_planned",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/16485956933"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/4573/events",
     "html_url": "https://github.com/cython/cython/issues/4573",
     "id": 1104415629,
-    "labels": [],
+    "labels": [
+        {
+            "color": "000000",
+            "default": false,
+            "description": "",
+            "id": 1840758668,
+            "name": "R: third party",
+            "node_id": "MDU6TGFiZWwxODQwNzU4NjY4",
+            "url": "https://api.github.com/repos/cython/cython/labels/R:%20third%20party"
+        }
+    ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/4573/labels{/name}",
     "locked": false,
     "milestone": null,
@@ -595,10 +752,16 @@
         "url": "https://api.github.com/repos/cython/cython/issues/4573/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
+    "state_reason": "not_planned",
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4573/timeline",
     "title": "[BUG] SIGABRT while running generated __Pyx_PyObject_CallOneArg",
-    "updated_at": "2022-01-16T08:12:45Z",
+    "updated_at": "2025-02-26T19:54:06Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4573",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/19649954?v=4",
@@ -618,6 +781,7 @@
         "starred_url": "https://api.github.com/users/Rahul-RB/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/Rahul-RB/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/Rahul-RB"
+        "url": "https://api.github.com/users/Rahul-RB",
+        "user_view_type": "public"
     }
 }

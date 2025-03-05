@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/6669"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/a86c337d86e952880b2d923f94df3bd50be0bc65"
+            "href": "https://api.github.com/repos/cython/cython/statuses/9e8a5ab8b25e516cbd66f491e93205f7855c2766"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1502,
-            "forks_count": 1502,
+            "forks": 1511,
+            "forks_count": 1511,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1416,
-            "open_issues_count": 1416,
+            "open_issues": 1426,
+            "open_issues_count": 1426,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -119,11 +119,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2025-02-14T10:32:38Z",
+            "pushed_at": "2025-03-03T07:22:21Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 74681,
+            "size": 74669,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 9771,
+            "stargazers_count": 9821,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -142,14 +142,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2025-02-14T10:32:43Z",
+            "updated_at": "2025-03-05T13:04:34Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 9771,
-            "watchers_count": 9771,
+            "watchers": 9821,
+            "watchers_count": 9821,
             "web_commit_signoff_required": false
         },
-        "sha": "d5c3b71e4a24ba5ae358504b9b2bba6ca9492ece",
+        "sha": "3eeb059c8c377599d9a6a90717c6438a3ff76eef",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -172,9 +172,148 @@
             "user_view_type": "public"
         }
     },
-    "body": "Use an atomic flag indicating \"initialized\" and a PyMutex which is only held while it's actively being initialized.\r\n\r\nOn non-freethreading versions, handle the edge-case where another thread manages to initialize it while we're working (and so a reference count is lost).\r\n\r\nSwitch to vectorcall.\r\n\r\nFixes #6666",
+    "body": "Use an atomic flag indicating the initialized-status. If in the intermediate \"initializing\" state then be lock-free and operate on a non-shared version instead.\r\n\r\nOn non-freethreading versions, handle the edge-case where another thread manages to initialize it while we're working (and so a reference count is lost).\r\n\r\nSwitch to vectorcall.\r\n\r\nFixes #6666",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6669#discussion_r1978295202"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6669"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1978295202"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n    Py_XSETREF(target->method, result);\r\n#else\r\n    target->method = result;\r\n```",
+            "commit_id": "9e8a5ab8b25e516cbd66f491e93205f7855c2766",
+            "created_at": "2025-03-03T21:50:45Z",
+            "diff_hunk": "@@ -1839,9 +1884,15 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n             if (unlikely(!unbound_method)) return -1;\n             // New PyCFunction will own method reference, thus decref __Pyx_PyObject_GetAttrStr\n             Py_DECREF(method);\n-            target->method = unbound_method;\n+            result = unbound_method;\n         }\n     }\n+#if !CYTHON_COMPILING_IN_CPYTHON_FREETHREADING\n+    // Unlikely corner-case where another thread has initialized target->method first.\n+    // Can't happen in free-threading because the whole thing is locked.\n+    Py_XDECREF(target->method);",
+            "html_url": "https://github.com/cython/cython/pull/6669#discussion_r1978295202",
+            "id": 1978295202,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc516mOi",
+            "original_commit_id": "41a08c5fc18a44e6c1a6ba661c15aac18923eb3b",
+            "original_line": 1893,
+            "original_position": 103,
+            "original_start_line": null,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": null,
+            "pull_request_review_id": 2655437903,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6669",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1978295202/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2025-03-03T21:51:15Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1978295202",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/6669#discussion_r1978295481"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/6669"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/1978295481"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n```",
+            "commit_id": "9e8a5ab8b25e516cbd66f491e93205f7855c2766",
+            "created_at": "2025-03-03T21:50:59Z",
+            "diff_hunk": "@@ -1839,9 +1884,15 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {\n             if (unlikely(!unbound_method)) return -1;\n             // New PyCFunction will own method reference, thus decref __Pyx_PyObject_GetAttrStr\n             Py_DECREF(method);\n-            target->method = unbound_method;\n+            result = unbound_method;\n         }\n     }\n+#if !CYTHON_COMPILING_IN_CPYTHON_FREETHREADING\n+    // Unlikely corner-case where another thread has initialized target->method first.\n+    // Can't happen in free-threading because the whole thing is locked.\n+    Py_XDECREF(target->method);\n+#endif\n+    target->method = result;",
+            "html_url": "https://github.com/cython/cython/pull/6669#discussion_r1978295481",
+            "id": 1978295481,
+            "line": 1897,
+            "node_id": "PRRC_kwDOABDGAc516mS5",
+            "original_commit_id": "41a08c5fc18a44e6c1a6ba661c15aac18923eb3b",
+            "original_line": 1895,
+            "original_position": 105,
+            "original_start_line": null,
+            "path": "Cython/Utility/ObjectHandling.c",
+            "position": 107,
+            "pull_request_review_id": 2655437903,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6669",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/1978295481/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2025-03-03T21:51:15Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/1978295481",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/6669/comments",
     "commit_data": [
         {
@@ -340,12 +479,509 @@
             ],
             "sha": "a86c337d86e952880b2d923f94df3bd50be0bc65",
             "url": "https://api.github.com/repos/cython/cython/commits/a86c337d86e952880b2d923f94df3bd50be0bc65"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/2e89d927e27cdc48f19c4ae0768f5f067192a31b/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-03-03T19:03:56Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-03-03T19:03:56Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Merge remote-tracking branch 'real_origin/master' into freethreaded-cached-unbound",
+                "tree": {
+                    "sha": "8690d6c79c592b9675fd006d84509ed0610a0f92",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/8690d6c79c592b9675fd006d84509ed0610a0f92"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/2e89d927e27cdc48f19c4ae0768f5f067192a31b",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/2e89d927e27cdc48f19c4ae0768f5f067192a31b",
+            "node_id": "C_kwDOAhr4b9oAKDJlODlkOTI3ZTI3Y2RjNDhmMTljNGFlMDc2OGY1ZjA2NzE5MmEzMWI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/a86c337d86e952880b2d923f94df3bd50be0bc65",
+                    "sha": "a86c337d86e952880b2d923f94df3bd50be0bc65",
+                    "url": "https://api.github.com/repos/cython/cython/commits/a86c337d86e952880b2d923f94df3bd50be0bc65"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/3eeb059c8c377599d9a6a90717c6438a3ff76eef",
+                    "sha": "3eeb059c8c377599d9a6a90717c6438a3ff76eef",
+                    "url": "https://api.github.com/repos/cython/cython/commits/3eeb059c8c377599d9a6a90717c6438a3ff76eef"
+                }
+            ],
+            "sha": "2e89d927e27cdc48f19c4ae0768f5f067192a31b",
+            "url": "https://api.github.com/repos/cython/cython/commits/2e89d927e27cdc48f19c4ae0768f5f067192a31b"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/55f9e455480583c649419109dde1e43b659f5bc7/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-03-03T20:37:52Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-03-03T20:40:02Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Lock-free version",
+                "tree": {
+                    "sha": "3ee65f3450756e223bf9b5561693bb797ab448a4",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/3ee65f3450756e223bf9b5561693bb797ab448a4"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/55f9e455480583c649419109dde1e43b659f5bc7",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/55f9e455480583c649419109dde1e43b659f5bc7",
+            "node_id": "C_kwDOAhr4b9oAKDU1ZjllNDU1NDgwNTgzYzY0OTQxOTEwOWRkZTFlNDNiNjU5ZjViYzc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/2e89d927e27cdc48f19c4ae0768f5f067192a31b",
+                    "sha": "2e89d927e27cdc48f19c4ae0768f5f067192a31b",
+                    "url": "https://api.github.com/repos/cython/cython/commits/2e89d927e27cdc48f19c4ae0768f5f067192a31b"
+                }
+            ],
+            "sha": "55f9e455480583c649419109dde1e43b659f5bc7",
+            "url": "https://api.github.com/repos/cython/cython/commits/55f9e455480583c649419109dde1e43b659f5bc7"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/41a08c5fc18a44e6c1a6ba661c15aac18923eb3b/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-03-03T20:47:22Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-03-03T20:47:22Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Remove pointless asserts",
+                "tree": {
+                    "sha": "0ed688e8ca19b76e22bdfd265cc3706934501059",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/0ed688e8ca19b76e22bdfd265cc3706934501059"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/41a08c5fc18a44e6c1a6ba661c15aac18923eb3b",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/41a08c5fc18a44e6c1a6ba661c15aac18923eb3b",
+            "node_id": "C_kwDOAhr4b9oAKDQxYTA4YzVmYzE4YTQ0ZTZjMWE2YmE2NjFjMTVhYWMxODkyM2ViM2I",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/55f9e455480583c649419109dde1e43b659f5bc7",
+                    "sha": "55f9e455480583c649419109dde1e43b659f5bc7",
+                    "url": "https://api.github.com/repos/cython/cython/commits/55f9e455480583c649419109dde1e43b659f5bc7"
+                }
+            ],
+            "sha": "41a08c5fc18a44e6c1a6ba661c15aac18923eb3b",
+            "url": "https://api.github.com/repos/cython/cython/commits/41a08c5fc18a44e6c1a6ba661c15aac18923eb3b"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/c876e64c4d0f3f55cdd1065d447cbff44326ea88/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-03-03T21:51:54Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-03-03T21:51:54Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "cover even more unlikely corner case",
+                "tree": {
+                    "sha": "d5c737cb5682b31041104e8a21ed157868f3289a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/d5c737cb5682b31041104e8a21ed157868f3289a"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/c876e64c4d0f3f55cdd1065d447cbff44326ea88",
+                "verification": {
+                    "payload": "tree d5c737cb5682b31041104e8a21ed157868f3289a\nparent 41a08c5fc18a44e6c1a6ba661c15aac18923eb3b\nauthor da-woods <dw-git@d-woods.co.uk> 1741038714 +0000\ncommitter GitHub <noreply@github.com> 1741038714 +0000\n\ncover even more unlikely corner case",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnxiR7CRC1aQ7uu5UhlAAANxYQAGU+nnc2iSVtcX105orpWAgK\nR3H77Be6BvyL9vNsIgwHsJHZWc+7U1NUl4OiEnZhHWVqo0D2ITrbF7jiwcIfJTRX\nGMAa2RmGGcMBmyJqZwtt3Ch2W475AVAPdyWGrqP3sNCC+uKThAFGmMHfPncYaeWX\n6GgmrmCIcDS+165rjgac7EcdOkhrAYE9P7kPcwA6CPY2TiLQn5n2F6nYWXXOwiyE\n84YYXtQuq0fChbBL7DgiGJ3+dZX7XIZ4ozbWrabaMh8YQPcFfp3L3CrgkTiKL4jO\nErwqeRAqTudC6H21CZLqbuPMKADmNy1M+bi2a0P5aBjngi7vA1HM/I+qcGaykgUk\nTOLIC3635o2Jd+a0HgUHKpbh91hh+qpNu8uopjpIszMEe283hUS2U5hluvnKqW8V\nZOD0pyhChatfbDaPD07pJI+5vcV5+KJ7Dy8hsc/PBvEvTFPVLuNLy6cY1FILRqBC\nI+FS8DfLh6+jv528sgXPkWhDw1OLLjXX3y2zoE3fdGmGsgl1uftcmw3irq8nau0p\nJM0klqPDNquS6rd/IHBjGkvFIYrEUcSTVWKcyvCZqcxH8uHT2tPS2NAIf62Lba8g\nmXug6FcIUvaCDYPEJ+wlhSColps/a+XwwGqnbrkrF2lX5Xx8TW1bKlMBDRDMzZqc\nYJConpAudsjPCfm7cRe3\n=NWUC\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2025-03-03T21:54:15Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/c876e64c4d0f3f55cdd1065d447cbff44326ea88",
+            "node_id": "C_kwDOAhr4b9oAKGM4NzZlNjRjNGQwZjNmNTVjZGQxMDY1ZDQ0N2NiZmY0NDMyNmVhODg",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/41a08c5fc18a44e6c1a6ba661c15aac18923eb3b",
+                    "sha": "41a08c5fc18a44e6c1a6ba661c15aac18923eb3b",
+                    "url": "https://api.github.com/repos/cython/cython/commits/41a08c5fc18a44e6c1a6ba661c15aac18923eb3b"
+                }
+            ],
+            "sha": "c876e64c4d0f3f55cdd1065d447cbff44326ea88",
+            "url": "https://api.github.com/repos/cython/cython/commits/c876e64c4d0f3f55cdd1065d447cbff44326ea88"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/70e1ebd5a646851bea8269e473e0a7fad58abbe2/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-03-04T07:34:08Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-03-04T07:34:08Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Try to fix C++ issue",
+                "tree": {
+                    "sha": "8063f1dd7904c90dc4fc1c6c3d35abb1ef22d71e",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/8063f1dd7904c90dc4fc1c6c3d35abb1ef22d71e"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/70e1ebd5a646851bea8269e473e0a7fad58abbe2",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/70e1ebd5a646851bea8269e473e0a7fad58abbe2",
+            "node_id": "C_kwDOAhr4b9oAKDcwZTFlYmQ1YTY0Njg1MWJlYTgyNjllNDczZTBhN2ZhZDU4YWJiZTI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/c876e64c4d0f3f55cdd1065d447cbff44326ea88",
+                    "sha": "c876e64c4d0f3f55cdd1065d447cbff44326ea88",
+                    "url": "https://api.github.com/repos/cython/cython/commits/c876e64c4d0f3f55cdd1065d447cbff44326ea88"
+                }
+            ],
+            "sha": "70e1ebd5a646851bea8269e473e0a7fad58abbe2",
+            "url": "https://api.github.com/repos/cython/cython/commits/70e1ebd5a646851bea8269e473e0a7fad58abbe2"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/9e8a5ab8b25e516cbd66f491e93205f7855c2766/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-03-04T07:45:00Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-03-04T07:45:00Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Limited API",
+                "tree": {
+                    "sha": "b7bf538dff616de0107ec7f9f23817570ab6f65f",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/b7bf538dff616de0107ec7f9f23817570ab6f65f"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/9e8a5ab8b25e516cbd66f491e93205f7855c2766",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/9e8a5ab8b25e516cbd66f491e93205f7855c2766",
+            "node_id": "C_kwDOAhr4b9oAKDllOGE1YWI4YjI1ZTUxNmNiZDY2ZjQ5MWU5MzIwNWY3ODU1YzI3NjY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/70e1ebd5a646851bea8269e473e0a7fad58abbe2",
+                    "sha": "70e1ebd5a646851bea8269e473e0a7fad58abbe2",
+                    "url": "https://api.github.com/repos/cython/cython/commits/70e1ebd5a646851bea8269e473e0a7fad58abbe2"
+                }
+            ],
+            "sha": "9e8a5ab8b25e516cbd66f491e93205f7855c2766",
+            "url": "https://api.github.com/repos/cython/cython/commits/9e8a5ab8b25e516cbd66f491e93205f7855c2766"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/6669/commits",
     "created_at": "2025-02-13T21:47:53Z",
     "diff_url": "https://github.com/cython/cython/pull/6669.diff",
-    "draft": true,
+    "draft": false,
     "head": {
         "label": "da-woods:freethreaded-cached-unbound",
         "ref": "freethreaded-cached-unbound",
@@ -435,9 +1071,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2025-02-14T10:48:24Z",
+            "pushed_at": "2025-03-04T21:43:09Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 77882,
+            "size": 78040,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -449,14 +1085,14 @@
             "teams_url": "https://api.github.com/repos/da-woods/cython/teams",
             "topics": [],
             "trees_url": "https://api.github.com/repos/da-woods/cython/git/trees{/sha}",
-            "updated_at": "2024-04-06T10:51:16Z",
+            "updated_at": "2025-03-03T07:24:35Z",
             "url": "https://api.github.com/repos/da-woods/cython",
             "visibility": "public",
             "watchers": 2,
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "a86c337d86e952880b2d923f94df3bd50be0bc65",
+        "sha": "9e8a5ab8b25e516cbd66f491e93205f7855c2766",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -494,7 +1130,7 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "91d820472aa44689b9a1570058051e8e38120070",
+    "merge_commit_sha": "15287325b9ce59770a5bb634b66bcca125c88416",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc6LKjuz",
@@ -505,9 +1141,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6669/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/a86c337d86e952880b2d923f94df3bd50be0bc65",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/9e8a5ab8b25e516cbd66f491e93205f7855c2766",
     "title": "Make CachedCFunction mechanism thread-safe",
-    "updated_at": "2025-02-13T22:00:02Z",
+    "updated_at": "2025-03-04T07:45:40Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6669",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
