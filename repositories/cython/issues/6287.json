@@ -5,11 +5,90 @@
     "author_association": "NONE",
     "body": "### Describe the bug\r\n\r\nWhen trying to build a cython module that include code from another cython module, which in itself has relative includes for cython headers, the build fails.  This appears to be due to the Utils.find_root_package_dir which is looking for __init__.py files in directories to determine the root.  Implicitly namespaced packages will not have an __init__.py file.  Note that there is a previous fix for a similar issue to do with implicitly namespaced packages which I have in the Cython verson I'm using.\r\n\r\n### Code to reproduce the behaviour:\r\n\r\n```\r\n#! /bin/bash\r\nmkdir -p one/src/foo/one\r\nmkdir -p two/src/foo/two\r\n\r\ncat >> one/pypackage.toml <<__EOF__\r\n[build-system]\r\nrequires = [\"setuptools\", \"wheel\", \"cython\"]\r\nbuild-backend = \"setuptools.build_meta\"\r\n__EOF__\r\ncat >> one/setup.py <<__EOF__\r\nfrom setuptools import setup, find_namespace_packages, Extension\r\nfrom Cython.Build import cythonize\r\nimport os\r\n\r\n# Define the extension module\r\nextensions = cythonize([\r\n    Extension(\r\n        \"foo.one.cython_code\",\r\n        [os.path.join(\"src\", \"foo\", \"one\", \"cython_code.pyx\")],\r\n        include_dirs=[os.path.join(\"src\", \"foo\", \"one\")]\r\n    )\r\n])\r\n\r\n\r\nsetup(\r\n    name='foo.one',\r\n    ext_modules=extensions,\r\n    packages=find_namespace_packages(where='src'),\r\n    package_dir={'': 'src'},\r\n    package_data={'foo.one': ['*.pxd']},\r\n)\r\n__EOF__\r\ntouch one/src/foo/one/__init__.py\r\ncat >> one/src/foo/one/cython_code.pyx <<__EOF__\r\ncdef public int add(int a, int b):\r\n    return a + b\r\n__EOF__\r\ncat >> one/src/foo/one/cython_code2.pyx <<__EOF__\r\ncdef public int subtract(int a, int b):\r\n    return a - b\r\n__EOF__\r\ncat >> one/src/foo/one/cython_code.pxd <<__EOF__\r\nfrom .cython_code2 cimport subtract\r\n\r\ncdef public int add(int a, int b)\r\n__EOF__\r\ncat >> one/src/foo/one/cython_code2.pxd <<__EOF__\r\ncdef public int subtract(int a, int b)\r\n__EOF__\r\ncat >> two/pyproject.toml <<__EOF__\r\n[build-system]\r\nrequires = [\"setuptools\", \"wheel\", \"cython\"]\r\nbuild-backend = \"setuptools.build_meta\"\r\n__EOF__\r\ncat >> two/setup.py <<__EOF__\r\nfrom setuptools import setup, find_namespace_packages, Extension\r\nfrom Cython.Build import cythonize\r\nimport os\r\n\r\n# Define the extension module\r\nextensions = cythonize([\r\n    Extension(\r\n        \"foo.two.dependent_code\",\r\n        [os.path.join(\"src\", \"foo\", \"two\", \"dependent_code.pyx\")],\r\n        include_dirs=[os.path.join(\"src\", \"foo\", \"two\")]\r\n    )\r\n])\r\n\r\n\r\nsetup(\r\n    name='foo.two',\r\n    ext_modules=extensions,\r\n    packages=find_namespace_packages(where='src'),\r\n    package_dir={'': 'src'},\r\n)\r\n__EOF__\r\ntouch two/src/foo/two/__init__.py\r\ncat >> two/src/foo/two/dependent_code.pyx <<__EOF__\r\nfrom foo.one.cython_code cimport add\r\n\r\ndef use_add():\r\n    result = add(3, 4)\r\n    print(f\"The result of add(3, 4) is {result}\")\r\n\r\nif __name__ == \"__main__\":\r\n    use_add()\r\n__EOF__\r\ncat >> build.sh <<__EOF__\r\n#!/bin/bash -ex\r\n\r\n# Create a virtual environment\r\npython -m venv venv\r\nsource venv/bin/activate\r\n\r\npython -m pip install setuptools wheel cython\r\n\r\n# Install cython_module\r\ncd one\r\npython -m pip install --use-pep517 --no-build-isolation -e .\r\ncd ..\r\n\r\n# Install dependent_module\r\ncd two\r\npython -m pip install --use-pep517 --no-build-isolation -e .\r\ncd ..\r\n__EOF__\r\ncat >> clean.sh <<__EOF__\r\n#!/bin/bash\r\n  \r\n# Remove build artifacts from cython_module\r\ncd one\r\nrm -rf build dist src/*.egg-info\r\nrm src/foo/one/*.c\r\nrm src/foo/one/*.h\r\nrm src/foo/one/*.so\r\ncd ..\r\n\r\n# Remove build artifacts from dependent_module\r\ncd two\r\nrm -rf build dist src/*.egg-info\r\nrm src/foo/two/*.c\r\nrm src/foo/two/*.h\r\nrm src/foo/two/*.so\r\ncd ..\r\n  \r\n# Remove the virtual environment\r\nrm -rf venv\r\n__EOF__\r\nchmod u+x build.sh clean.sh\r\n\r\n```\r\n### Expected behaviour\r\n\r\nRunning the above to produce the demo files and setup you should have:\r\n```\r\n./one/pyproject.toml\r\n./one/src/foo/one/cython_code2.pyx\r\n./one/src/foo/one/cython_code.pxd\r\n./one/src/foo/one/__init__.py\r\n./one/src/foo/one/cython_code.pyx\r\n./one/src/foo/one/cython_code2.pxd\r\n./one/setup.py\r\n./clean.sh\r\n./build.sh\r\n./two/pyproject.toml\r\n./two/src/foo/two/__init__.py\r\n./two/src/foo/two/dependent_code.pyx\r\n./two/setup.py\r\n\r\n```\r\nThen run ./build.sh\r\n\r\nI would expect it to build and install the two packages, however, instead I get:\r\n\r\n```\r\n+ python -m pip install --use-pep517 --no-build-isolation -e .\r\nObtaining file:///mnt/projects/test/two\r\n  Checking if build backend supports build_editable ... done\r\n  Preparing editable metadata (pyproject.toml) ... error\r\n  error: subprocess-exited-with-error\r\n  \r\n  × Preparing editable metadata (pyproject.toml) did not run successfully.\r\n  │ exit code: 1\r\n  ╰─> [44 lines of output]\r\n      /mnt/projects/test/venv/lib/python3.12/site-packages/Cython/Compiler/Main.py:381: FutureWarning: Cython directive 'language_level' not set, using '3str' for now (Py3). This has changed from earlier releases! File: /mnt/projects/test/two/src/foo/two/dependent_code.pyx\r\n        tree = Parsing.p_module(s, pxd, full_module_name)\r\n      \r\n      Error compiling Cython file:\r\n      ------------------------------------------------------------\r\n      ...\r\n      from .cython_code2 cimport subtract\r\n      ^\r\n      ------------------------------------------------------------\r\n      \r\n      /mnt/projects/test/one/src/foo/one/cython_code.pxd:1:0: 'foo/one/cython_code2.pxd' not found\r\n      \r\n      Error compiling Cython file:\r\n      ------------------------------------------------------------\r\n      ...\r\n      from .cython_code2 cimport subtract\r\n      ^\r\n      ------------------------------------------------------------\r\n      \r\n      /mnt/projects/test/one/src/foo/one/cython_code.pxd:1:0: 'foo/one/cython_code2/subtract.pxd' not found\r\n      Compiling src/foo/two/dependent_code.pyx because it changed.\r\n      [1/1] Cythonizing src/foo/two/dependent_code.pyx\r\n      Traceback (most recent call last):\r\n        File \"/mnt/projects/test/venv/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py\", line 353, in <module>\r\n          main()\r\n        File \"/mnt/projects/test/venv/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py\", line 335, in main\r\n          json_out['return_val'] = hook(**hook_input['kwargs'])\r\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n        File \"/mnt/projects/test/venv/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py\", line 181, in prepare_metadata_for_build_editable\r\n          return hook(metadata_directory, config_settings)\r\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n        File \"/mnt/test/venv/lib/python3.12/site-packages/setuptools/build_meta.py\", line 463, in prepare_metadata_for_build_editable\r\n          return self.prepare_metadata_for_build_wheel(\r\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n        File \"/mnt/projects/test/venv/lib/python3.12/site-packages/setuptools/build_meta.py\", line 368, in prepare_metadata_for_build_wheel\r\n          self.run_setup()\r\n        File \"/mnt/projects/test/venv/lib/python3.12/site-packages/setuptools/build_meta.py\", line 313, in run_setup\r\n          exec(code, locals())\r\n        File \"<string>\", line 6, in <module>\r\n        File \"/mnt/projects/test/venv/lib/python3.12/site-packages/Cython/Build/Dependencies.py\", line 1154, in cythonize\r\n          cythonize_one(*args)\r\n        File \"/mnt/projects/test/venv/lib/python3.12/site-packages/Cython/Build/Dependencies.py\", line 1321, in cythonize_one\r\n          raise CompileError(None, pyx_file)\r\n      Cython.Compiler.Errors.CompileError: src/foo/two/dependent_code.pyx\r\n      [end of output]\r\n  \r\n  note: This error originates from a subprocess, and is likely not a problem with pip.\r\nerror: metadata-generation-failed\r\n\r\n× Encountered error while generating package metadata.\r\n╰─> See above for output.\r\n\r\nnote: This is an issue with the package mentioned above, not pip.\r\nhint: See above for details.\r\n\r\n```\r\n### OS\r\n\r\nLinux\r\n\r\n### Python version\r\n\r\n3.12.3\r\n\r\n### Cython version\r\n\r\n3.0.10\r\n\r\n### Additional context\r\n\r\nAdding an __init__.py in the one/src/foo directory fixes the issue.  I mentioned that there is a previous change, that I have in my Cython version, I believe that fixes the inclusion of cython_code.pxd in the dependent_code.",
     "closed_at": null,
-    "comment_data": [],
-    "comments": 0,
+    "closed_by": null,
+    "comment_data": [
+        {
+            "author_association": "NONE",
+            "body": "In my opinion, Cython should try to behave similarly to Python. Since Python dropped the requirement for `__init__.py` since 3.3, see [PEP 420](https://peps.python.org/pep-0420/), so should Cython.",
+            "created_at": "2025-03-10T00:10:07Z",
+            "html_url": "https://github.com/cython/cython/issues/6287#issuecomment-2709150555",
+            "id": 2709150555,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6287",
+            "node_id": "IC_kwDOABDGAc6heltb",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2709150555/reactions"
+            },
+            "updated_at": "2025-03-10T00:10:07Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2709150555",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/5002794?v=4",
+                "events_url": "https://api.github.com/users/andrey-khropov/events{/privacy}",
+                "followers_url": "https://api.github.com/users/andrey-khropov/followers",
+                "following_url": "https://api.github.com/users/andrey-khropov/following{/other_user}",
+                "gists_url": "https://api.github.com/users/andrey-khropov/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/andrey-khropov",
+                "id": 5002794,
+                "login": "andrey-khropov",
+                "node_id": "MDQ6VXNlcjUwMDI3OTQ=",
+                "organizations_url": "https://api.github.com/users/andrey-khropov/orgs",
+                "received_events_url": "https://api.github.com/users/andrey-khropov/received_events",
+                "repos_url": "https://api.github.com/users/andrey-khropov/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/andrey-khropov/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/andrey-khropov/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/andrey-khropov",
+                "user_view_type": "public"
+            }
+        }
+    ],
+    "comments": 1,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/6287/comments",
     "created_at": "2024-07-09T15:02:19Z",
-    "event_data": [],
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/5002794?v=4",
+                "events_url": "https://api.github.com/users/andrey-khropov/events{/privacy}",
+                "followers_url": "https://api.github.com/users/andrey-khropov/followers",
+                "following_url": "https://api.github.com/users/andrey-khropov/following{/other_user}",
+                "gists_url": "https://api.github.com/users/andrey-khropov/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/andrey-khropov",
+                "id": 5002794,
+                "login": "andrey-khropov",
+                "node_id": "MDQ6VXNlcjUwMDI3OTQ=",
+                "organizations_url": "https://api.github.com/users/andrey-khropov/orgs",
+                "received_events_url": "https://api.github.com/users/andrey-khropov/received_events",
+                "repos_url": "https://api.github.com/users/andrey-khropov/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/andrey-khropov/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/andrey-khropov/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/andrey-khropov",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2025-03-10T00:03:36Z",
+            "event": "subscribed",
+            "id": 16646439765,
+            "node_id": "SE_lADOABDGAc6O9ZLQzwAAAAPgNINV",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/16646439765"
+        }
+    ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/6287/events",
     "html_url": "https://github.com/cython/cython/issues/6287",
     "id": 2398458576,
@@ -21,7 +100,7 @@
     "number": 6287,
     "performed_via_github_app": null,
     "reactions": {
-        "+1": 0,
+        "+1": 2,
         "-1": 0,
         "confused": 0,
         "eyes": 0,
@@ -29,15 +108,20 @@
         "hooray": 0,
         "laugh": 0,
         "rocket": 0,
-        "total_count": 0,
+        "total_count": 2,
         "url": "https://api.github.com/repos/cython/cython/issues/6287/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "state_reason": null,
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/6287/timeline",
     "title": "[BUG] fails to find relative include from dependent module with implicit namespaces",
-    "updated_at": "2024-07-09T15:06:01Z",
+    "updated_at": "2025-03-10T00:10:08Z",
     "url": "https://api.github.com/repos/cython/cython/issues/6287",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/108001959?v=4",
@@ -57,6 +141,7 @@
         "starred_url": "https://api.github.com/users/scott-harrison-opsview/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/scott-harrison-opsview/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/scott-harrison-opsview"
+        "url": "https://api.github.com/users/scott-harrison-opsview",
+        "user_view_type": "public"
     }
 }
