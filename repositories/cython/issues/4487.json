@@ -5,9 +5,10 @@
     "author_association": "CONTRIBUTOR",
     "body": "<!--\r\n**Note:**\r\n- Do not use the bug and feature tracker for support requests. Use the `cython-users` mailing list instead.\r\n- Did you search for similar issues already? Please do, it helps to save us precious time that we otherwise could not invest into development.\r\n- Did you try the latest master branch or pre-release? It might already have what you want to report. Also see the [Changelog](https://github.com/cython/cython/blob/master/CHANGES.rst) regarding recent changes.\r\n-->\r\n\r\n**Is your feature request related to a problem? Please describe.**\r\n\r\nIn some Cython implementations, one may need resizable buffers which they would like to return as `np.ndarray` to Python callers.\r\n\r\nIn term of technical choice, C++ `std::vector` comes as handy datastructures in Cython for interacting efficiently with resizable buffers.\r\n\r\nYet to my knowledge, there isn't a way to return those vectors to python callers within Cython, especially as np.ndarray.\r\n\r\n**Describe the solution you'd like**\r\n\r\nInternals fixtures which allow returning `std::vector` as `np.ndarray` efficiently, i.e. fixtures which allows writing such function:\r\n\r\n```cython\r\ncpdef np.ndarray get_np_array_std_vector_backed(int n_elements):\r\n    cdef vector[int] vector_of_ints = # ... returned by C++ or a Cython implementation\r\n    return vector_of_ints\r\n```\r\n\r\n**Describe alternatives you've considered**\r\nA simple solution would be to use `np.asarray` on `std::vector` but it seems that this first coerces them to python lists (not sure). If this is the case, this creates copy and reallocated elements, which we do not want to perform as it's costly.\r\n\r\nAnother option would be to use a dedicated base object as a sentinel, as implemented by this simple proof of concept : https://gist.github.com/jjerphan/6b90a9691e67444adc7a8a658747ebe1\r\n\r\nI have a few questions:\r\n 1. Is there already a way to coerce `std::vector` in numpy array efficiently within Cython?\r\n 2. If not, is the proposed fixture a good technical solution for such a coercion?\r\n 3. If so, could it further be improved to support type covariance, allowing using it easily \"dtype-invariantly\"?\r\n \r\n I am willing to contribute to Cython to integrate such a coercion.\r\n\r\n**Additional context**\r\n\r\nThis coercion use-case is motivated by new implementation for scikit-learn explored in https://github.com/scikit-learn/scikit-learn/pull/20254.\r\nThe given coercion POC has been extracted from those experiments.\r\nSee the original implementation in its context: https://github.com/jjerphan/scikit-learn/blob/34468ad098b49c218306e06ecb1ecedf40b6a570/sklearn/metrics/_pairwise_distances_reduction.pyx#L63-L108\r\n",
     "closed_at": null,
+    "closed_by": null,
     "comment_data": [
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "I looks like you're have a fairly thorough implementation that deals with the vector lifetime well. I can suggest a couple of variations that let you avoid using the Numpy C API yourself:\r\n\r\n1. You could go through a typed memoryview (untested code so you may need small changes):\r\n\r\n```\r\ncdef vector[double] some_vector # ...\r\ncdef double[::1] x = <double[:some_vector.size():1]>some_vector.data()\r\narr = np.asarray(x).copy()  # if you're certain the vector will outlive the array then skip the copy!\r\n```\r\n\r\n2. You could implement the buffer interface for your `StdVectorSentinal` class - see https://cython.readthedocs.io/en/latest/src/userguide/buffer.html.\r\n\r\nThe second option is probably the \"right\" way, but the first option is quick and convenient.\r\n\r\n---------------------------------------------\r\n\r\nYour fundamental problem (I think) is the lack of fused classes. (Which I think are unlikely to be a feature soon). One thing to try is to look at doing a bit of work in C++ to create a single \"type erased\" holder class. To implement the buffer protocol you basically need a container size, an item size, and an item type. An untested C++ outline (I've been a bit lazy here and used a virtual class rather than the full hidden type erasure pattern):\r\n\r\n```\r\ntemplate <typename T>\r\nchar typeToTypeCode() {\r\n    static_assert(sizeof(T) == 0); // force the general case to fail\r\n}\r\n\r\ntemplate <>\r\nchar typeToTypeCode<char>() {\r\n    return 'b'; // etc for the rest of the data types you want\r\n}\r\n\r\nclass VectorHolder {\r\npublic:\r\n   virtual ~VectorHolder() = default;\r\n   virtual char to_type_code() const = 0;\r\n   virtual size_t element_size() const = 0;\r\n   virtual size_t size() const = 0;\r\n   virtual void* data() = 0;\r\n\r\n  template <typename T>\r\n  static VectorHolder* create(std::vector<T>&& v) {\r\n    return new VectorHolderImpl<T>(std::move(v));\r\n  }\r\n};\r\n\r\ntemplate <typename T>\r\nclass VectorHolderImpl : public VectorHolder {\r\npublic:\r\n   VectorHolderImpl(std::vector<T>&& v) : vec(std::move(v)) {}\r\n\r\n  char to_type_code() const override { return typeToTypeCode<T>(); }\r\n  size_t elemnt_size() const override { return sizeof(T); }\r\n  size_t size() const override { return vec.size(); }\r\n  void* data() override { return vec.data(); } // maybe a cast is needed?\r\n\r\nprivate:\r\n  std::vector<T> vec;\r\n};\r\n```\r\n\r\nYou'd then make a Cython class that wraps `VectorHolder` (it'd need to wrap a pointer and have a `__dealloc__(self): del v` of course). I believe that exposes all the info you need to make a buffer and could probably be done with fused types.",
             "created_at": "2021-12-02T12:21:47Z",
             "html_url": "https://github.com/cython/cython/issues/4487#issuecomment-984578868",
@@ -47,11 +48,12 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "In terms of \"what should we add to Cython\" - some unordered thoughts:\r\n\r\n* I don't really like the current auto-conversions to/from lists etc (there's a number of cases where they behave awkwardly, and they hide quite a bit of copying work). However they exist and it's too late to change them.\r\n* I'm in favour of providing some wrapper classes for some of the common standard library types:\r\n  * We don't currently have any though, and other people with more say might disagree!\r\n  * I'd think they should be a class that provides a \"list-like\" interface + buffer protocol rather than directly to a Numpy array (but of course `np.asarray` handles that well anyway)\r\n  * They'd probably be better as string-substituted utility code rather than my \"type-erased\" version above, since we'd want features like `__getitem__` which don't currently exist.\r\n  * If we did make them, they'd be in Cython 3+ and no backported, which might limit their usefulness in the short-term\r\n* generally we're increasingly trying to treat `np.ndarray` like any other class/module and just handle it through generic protocols like the buffer protocol rather than special-case it too much (hence my suggestion that the conversion should be to \"wrapper class\" rather than to \"ndarray\"",
             "created_at": "2021-12-02T12:50:44Z",
             "html_url": "https://github.com/cython/cython/issues/4487#issuecomment-984599014",
@@ -60,7 +62,7 @@
             "node_id": "IC_kwDOABDGAc46r8nm",
             "performed_via_github_app": null,
             "reactions": {
-                "+1": 1,
+                "+1": 2,
                 "-1": 0,
                 "confused": 0,
                 "eyes": 0,
@@ -68,7 +70,7 @@
                 "hooray": 0,
                 "laugh": 0,
                 "rocket": 0,
-                "total_count": 1,
+                "total_count": 2,
                 "url": "https://api.github.com/repos/cython/cython/issues/comments/984599014/reactions"
             },
             "updated_at": "2021-12-02T12:50:44Z",
@@ -91,7 +93,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -135,11 +138,12 @@
                 "starred_url": "https://api.github.com/users/jjerphan/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/jjerphan/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/jjerphan"
+                "url": "https://api.github.com/users/jjerphan",
+                "user_view_type": "public"
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "> Regarding your second comment regarding an eventual integration of such fixtures in Cython, let me know if I can be of any help.\r\n\r\nI think writing the code for the fixture classes should be fairly easy. However, getting a nice Cython interface that let's you `cdef` these classes and causes the utility code to be generated will probably be quite tricky and so I'm reluctant to ask anyone to do it lightly!",
             "created_at": "2021-12-03T13:33:14Z",
             "html_url": "https://github.com/cython/cython/issues/4487#issuecomment-985524715",
@@ -179,11 +183,57 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "CONTRIBUTOR",
+            "body": "Cross-referencing issue ( https://github.com/cython/cython/issues/3416 ), which discusses a similar idea",
+            "created_at": "2025-03-21T20:41:11Z",
+            "html_url": "https://github.com/cython/cython/issues/4487#issuecomment-2744407049",
+            "id": 2744407049,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4487",
+            "node_id": "IC_kwDOABDGAc6jlFQJ",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 1,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 1,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2744407049/reactions"
+            },
+            "updated_at": "2025-03-21T20:41:11Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2744407049",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/3019665?v=4",
+                "events_url": "https://api.github.com/users/jakirkham/events{/privacy}",
+                "followers_url": "https://api.github.com/users/jakirkham/followers",
+                "following_url": "https://api.github.com/users/jakirkham/following{/other_user}",
+                "gists_url": "https://api.github.com/users/jakirkham/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/jakirkham",
+                "id": 3019665,
+                "login": "jakirkham",
+                "node_id": "MDQ6VXNlcjMwMTk2NjU=",
+                "organizations_url": "https://api.github.com/users/jakirkham/orgs",
+                "received_events_url": "https://api.github.com/users/jakirkham/received_events",
+                "repos_url": "https://api.github.com/users/jakirkham/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/jakirkham/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/jakirkham/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/jakirkham",
+                "user_view_type": "public"
             }
         }
     ],
-    "comments": 4,
+    "comments": 5,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4487/comments",
     "created_at": "2021-12-02T11:15:49Z",
     "event_data": [
@@ -206,7 +256,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -236,7 +287,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -246,6 +298,37 @@
             "node_id": "SE_lADOABDGAc4_viavzwAAAAFUFTIh",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/5705642529"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/5534781?v=4",
+                "events_url": "https://api.github.com/users/leofang/events{/privacy}",
+                "followers_url": "https://api.github.com/users/leofang/followers",
+                "following_url": "https://api.github.com/users/leofang/following{/other_user}",
+                "gists_url": "https://api.github.com/users/leofang/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/leofang",
+                "id": 5534781,
+                "login": "leofang",
+                "node_id": "MDQ6VXNlcjU1MzQ3ODE=",
+                "organizations_url": "https://api.github.com/users/leofang/orgs",
+                "received_events_url": "https://api.github.com/users/leofang/received_events",
+                "repos_url": "https://api.github.com/users/leofang/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/leofang/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/leofang/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/leofang",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2021-12-13T02:51:24Z",
+            "event": "subscribed",
+            "id": 5753884266,
+            "node_id": "SE_lADOABDGAc4_viavzwAAAAFW9U5q",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/5753884266"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/4487/events",
@@ -259,7 +342,7 @@
     "number": 4487,
     "performed_via_github_app": null,
     "reactions": {
-        "+1": 0,
+        "+1": 2,
         "-1": 0,
         "confused": 0,
         "eyes": 0,
@@ -267,14 +350,21 @@
         "hooray": 0,
         "laugh": 0,
         "rocket": 0,
-        "total_count": 0,
+        "total_count": 2,
         "url": "https://api.github.com/repos/cython/cython/issues/4487/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
+    "state_reason": null,
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4487/timeline",
     "title": "[ENH] `std::vector` to `np.ndarray` coercion",
-    "updated_at": "2021-12-03T13:33:14Z",
+    "type": null,
+    "updated_at": "2025-03-21T20:41:12Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4487",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/13029839?v=4",
@@ -294,6 +384,7 @@
         "starred_url": "https://api.github.com/users/jjerphan/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/jjerphan/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/jjerphan"
+        "url": "https://api.github.com/users/jjerphan",
+        "user_view_type": "public"
     }
 }
