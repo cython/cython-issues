@@ -5,6 +5,7 @@
     "author_association": "NONE",
     "body": "### Describe the bug\n\nWhen a local variable has multiple types that happen to be compatible, Cython's output will vary between invocations. Different invocations will pick different types.\r\n\r\nI think the key thing is that the types are compatible (thus avoiding any compiler errors) and similar enough (to avoid Cython using e.g. PyObject).\r\n\r\nThe net effect is the output C code varies between invocations, which makes build systems that use content hashing to detect file changes rebuild more than necessary (e.g. Bazel and others).\r\n\r\nMy guess is this is related to some `set` object. A coworker pointed to the sets in FlowControl.py and TypeInference.py, but we weren't able to track it down exactly. Setting `PYTHONHASHSEED=0` doesn't avoid the issue, which tends to implicate `sets` as the culprit. These files look similar between the 3.x and 0.29 releases, so I wouldn't be surprised if this still exists in 3.x, but haven't tested that myself.\n\n### Code to reproduce the behaviour:\n\nThe case I ran into is pandas's timedeltas.pyx file. It has a series of if-else blocks where each uses the same variable name, but some of the blocks assign a different, but compatible, type. When transpiled into C, with the variable hoisted up and declared, Cython alternates between picking int64_t and npy_timedelta (an alias for int64_t) for the variable type.\r\n\r\nhttps://github.com/pandas-dev/pandas/blob/2110b742039c2ed0b1089015e2c39b6ef905dd7b/pandas/_libs/tslibs/timedeltas.pyx#L1848\r\n\r\nAdding `new_value: int64_t` to the panda's timedeltas.pyx file works around the issue.\r\n\r\nI unfortunately don't have a simple repro, as I ran into this using Bazel with some bespoke build infrastructure.\n\n### Expected behaviour\n\nCython produces the same output when variables use different types in the same scope.\n\n### OS\n\nLinux\n\n### Python version\n\n3.11\n\n### Cython version\n\n0.29.35\n\n### Additional context\n\nIf there are some suggested patches to try out, let me know. Its easy for me to locally patch Cython and validate behavior.",
     "closed_at": null,
+    "closed_by": null,
     "comment_data": [
         {
             "author_association": "MEMBER",
@@ -47,7 +48,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -91,7 +93,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -135,11 +138,57 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "I spent some time testing with python-pandas 2.2.3 on this issue and found, the result depends on the length of path, maybe the libc version and it becomes a bit more stable, if ASLR is disabled (but not fully deterministic).\nThis suggests, that details of memory alignment could play a role.\n\nhttps://rb.zq1.de/other/cythonreproducer.tar.xz has my small reproducer \n```\n( cd /tmp/cythonreproducer/; for r in $(seq 19 40) ; do export r; ./t.sh ;done)|sort|uniq -c\n     13 594dad0383b7f5baa109\n      9 e04fe3ec12d95aa9e434\n```",
+            "created_at": "2025-04-01T13:09:33Z",
+            "html_url": "https://github.com/cython/cython/issues/5986#issuecomment-2769308025",
+            "id": 2769308025,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/5986",
+            "node_id": "IC_kwDOABDGAc6lEEl5",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2769308025/reactions"
+            },
+            "updated_at": "2025-04-01T13:20:49Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2769308025",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/637990?v=4",
+                "events_url": "https://api.github.com/users/bmwiedemann/events{/privacy}",
+                "followers_url": "https://api.github.com/users/bmwiedemann/followers",
+                "following_url": "https://api.github.com/users/bmwiedemann/following{/other_user}",
+                "gists_url": "https://api.github.com/users/bmwiedemann/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/bmwiedemann",
+                "id": 637990,
+                "login": "bmwiedemann",
+                "node_id": "MDQ6VXNlcjYzNzk5MA==",
+                "organizations_url": "https://api.github.com/users/bmwiedemann/orgs",
+                "received_events_url": "https://api.github.com/users/bmwiedemann/received_events",
+                "repos_url": "https://api.github.com/users/bmwiedemann/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/bmwiedemann/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/bmwiedemann/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/bmwiedemann",
+                "user_view_type": "public"
             }
         }
     ],
-    "comments": 3,
+    "comments": 4,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/5986/comments",
     "created_at": "2024-02-08T22:14:43Z",
     "event_data": [],
@@ -168,9 +217,15 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "state_reason": null,
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/5986/timeline",
     "title": "[BUG] Non-deterministic output for local vars with multiple types",
-    "updated_at": "2024-02-19T10:40:16Z",
+    "type": null,
+    "updated_at": "2025-04-01T13:20:50Z",
     "url": "https://api.github.com/repos/cython/cython/issues/5986",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/34175098?v=4",
@@ -190,6 +245,7 @@
         "starred_url": "https://api.github.com/users/rickeylev/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/rickeylev/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/rickeylev"
+        "url": "https://api.github.com/users/rickeylev",
+        "user_view_type": "public"
     }
 }
