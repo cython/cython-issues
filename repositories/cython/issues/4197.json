@@ -5,6 +5,7 @@
     "author_association": "CONTRIBUTOR",
     "body": "I would like to start working on [HPy](https://hpyproject.org/) support for cython. At the end, I would like to be able to output code something like the code below, where the significant changes are\r\n- `#include \"hpy.h\"` not `#include \"Python.h\"` (in the default mode, `hpy.h` pulls in `Python.h`, in the universal mode it does not)\r\n- Module init is now `HPy_MODINIT...`\r\n- There is support (in the default mode) for \"legacy\" c-api functions. \r\n\r\nIn default mode the end result for CPython is a c-extension module that is almost equivalent to a non-HPy one: clever use of C macros should generate pretty much the same preprocessed code. Now the questions:\r\n\r\n1. I think it makes sense to add a `@cython.hpy` decorator in order to provide a migration path as HPy is not complete yet. Also there may be optimizations Cython can do with legacy code, so users might want to stay with mixed modules for a while. Adding such a decorator would modify the module `init`, and would allow for mixed modules.\r\n\r\n2. Currently, the approach to multi-mode cython code (like `limited_api`) has been to add C-level macros to switch on and off different behaviour. Then the c code is generated once, and users can toggle behaviour at compile time. I think HPy should do something different and generate different C code if it is turned on. This means there should be a global \"in HPy mode\" flag as well as a \"HPy\" Node attribute.\r\n\r\n3. For now I will only attempt to support the default mode. Universal mode will be a future enhancement since it does not support legacy code.\r\n\r\nDoes this approach (using decorators, generating different C code, global HPy and Node-level HPy attributes) make sense?\r\n\r\n<details>\r\n\r\n```\r\n#include \"hpy.h\"\r\n\r\n/* a HPy style function */\r\nHPyDef_METH(add_ints, \"add_ints\", add_ints_impl, HPyFunc_VARARGS)\r\nstatic HPy add_ints_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)\r\n{\r\n    long a, b;\r\n    if (!HPyArg_Parse(ctx, NULL, args, nargs, \"ll\", &a, &b))\r\n        return HPy_NULL;\r\n    return HPyLong_FromLong(ctx, a+b);\r\n}\r\n\r\n\r\n/* A old-style function */\r\nstatic PyObject *\r\nadd_ints2(PyObject *self, PyObject *args)\r\n{\r\n\r\n    long a, b, ret;\r\n    if (!PyArg_ParseTuple(args, \"ll\", &a, &b))\r\n        return NULL;\r\n    ret = a + b;\r\n    return PyLong_FromLong(ret);\r\n}\r\n\r\nstatic HPyDef *hpy_defines[] = {\r\n    &add_ints,\r\n    NULL\r\n};\r\n\r\nstatic PyMethodDef py_defines[] = {\r\n    {\"add_ints_legacy\", add_ints2, METH_VARARGS, \"add two ints\"},\r\n    {NULL, NULL, 0, NULL}    /* Sentinel */\r\n};\r\n\r\nstatic HPyModuleDef moduledef = {\r\n    HPyModuleDef_HEAD_INIT,\r\n    .m_name = \"simple\",\r\n    .m_doc = \"HPy Example\",\r\n    .m_size = -1,\r\n    .defines = hpy_defines,\r\n    .legacy_methods = py_defines\r\n};\r\n\r\n\r\nHPy_MODINIT(simple)\r\nstatic HPy init_simple_impl(HPyContext *ctx)\r\n{\r\n    HPy m;\r\n    m = HPyModule_Create(ctx, &moduledef);\r\n    if (HPy_IsNull(m))\r\n        return HPy_NULL;\r\n    return m;\r\n}\r\n\r\n```",
     "closed_at": null,
+    "closed_by": null,
     "comment_data": [
         {
             "author_association": "NONE",
@@ -47,7 +48,8 @@
                 "starred_url": "https://api.github.com/users/antocuni/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/antocuni/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/antocuni"
+                "url": "https://api.github.com/users/antocuni",
+                "user_view_type": "public"
             }
         },
         {
@@ -91,7 +93,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
@@ -135,7 +138,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -179,7 +183,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
@@ -223,7 +228,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -267,7 +273,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
@@ -311,7 +318,8 @@
                 "starred_url": "https://api.github.com/users/antocuni/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/antocuni/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/antocuni"
+                "url": "https://api.github.com/users/antocuni",
+                "user_view_type": "public"
             }
         },
         {
@@ -355,7 +363,8 @@
                 "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/robertwb"
+                "url": "https://api.github.com/users/robertwb",
+                "user_view_type": "public"
             }
         },
         {
@@ -368,7 +377,7 @@
             "node_id": "IC_kwDOABDGAc45xGEs",
             "performed_via_github_app": null,
             "reactions": {
-                "+1": 1,
+                "+1": 2,
                 "-1": 0,
                 "confused": 0,
                 "eyes": 0,
@@ -376,10 +385,10 @@
                 "hooray": 0,
                 "laugh": 0,
                 "rocket": 0,
-                "total_count": 1,
+                "total_count": 2,
                 "url": "https://api.github.com/repos/cython/cython/issues/comments/969171244/reactions"
             },
-            "updated_at": "2021-11-15T17:59:11Z",
+            "updated_at": "2025-06-04T10:55:47Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/969171244",
             "user": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/22740616?v=4",
@@ -399,7 +408,8 @@
                 "starred_url": "https://api.github.com/users/ShadowJonathan/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/ShadowJonathan/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/ShadowJonathan"
+                "url": "https://api.github.com/users/ShadowJonathan",
+                "user_view_type": "public"
             }
         },
         {
@@ -443,11 +453,57 @@
                 "starred_url": "https://api.github.com/users/HiperMaximus/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/HiperMaximus/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/HiperMaximus"
+                "url": "https://api.github.com/users/HiperMaximus",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "About a year ago, I did promise I'd have a look into how we could start to get this merged.\n\nEssentially the current \"best prototype\" is at https://github.com/hpyproject/cython/tree/hpy_backend. I think that's somewhat working but also fairly incomplete (I'm not sure cdef classes work yet for example).  Based on a look at it, there's a useful start, but a lot of renaming and moving to make it fit into our code style.\n\nIf we did want to try to merge this I think it's best approached as \"many small changes, hope it comes together into something usable\" rather than a few enormous PRs. I have the start of that in a few branches https://github.com/da-woods/cython/tree/hpy-step0 https://github.com/da-woods/cython/tree/hpy-step1 https://github.com/da-woods/cython/tree/hpy-step-pyxh and a few ideas about the next thing after that, that I can turn into PRs if there's demand.\n\n*However*:\n\n* A useful HPy implementation looks like a lot of work (more that the Limited API)\n* It necessarily makes our code messier (e.g. defines for \"object\", handling the context function arguments)\n* I don't personally have the enthusiasm to see it through. I don't mind doing a bit to set up the framework but it'd absolutely rely on other people caring enough to finish it off after that.\n* I'm not sure how much _real_ demand there is for for this, or how well maintained HPy is or will continue to be. So it may be a lot of work for little real benefit\n\nSo the question is: is it worth trying to merge some \"getting started\" changes to try to provide a framework to add it gradually? Or is it not?",
+            "created_at": "2025-06-04T11:07:18Z",
+            "html_url": "https://github.com/cython/cython/issues/4197#issuecomment-2939604220",
+            "id": 2939604220,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4197",
+            "node_id": "IC_kwDOABDGAc6vNsz8",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/2939604220/reactions"
+            },
+            "updated_at": "2025-06-04T11:07:18Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/2939604220",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         }
     ],
-    "comments": 10,
+    "comments": 11,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4197/comments",
     "created_at": "2021-05-27T09:47:15Z",
     "event_data": [
@@ -470,7 +526,8 @@
                 "starred_url": "https://api.github.com/users/leofang/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/leofang/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/leofang"
+                "url": "https://api.github.com/users/leofang",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -500,7 +557,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -530,7 +588,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -560,7 +619,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -594,7 +654,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -628,7 +689,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -673,20 +735,26 @@
         "+1": 0,
         "-1": 0,
         "confused": 0,
-        "eyes": 0,
-        "heart": 3,
+        "eyes": 2,
+        "heart": 7,
         "hooray": 0,
         "laugh": 0,
         "rocket": 0,
-        "total_count": 3,
+        "total_count": 9,
         "url": "https://api.github.com/repos/cython/cython/issues/4197/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "state_reason": null,
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4197/timeline",
     "title": "[ENH] Preliminary support for HPy",
-    "updated_at": "2022-06-14T16:59:10Z",
+    "type": null,
+    "updated_at": "2025-06-04T11:07:20Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4197",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/823911?v=4",
@@ -706,6 +774,7 @@
         "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/mattip"
+        "url": "https://api.github.com/users/mattip",
+        "user_view_type": "public"
     }
 }
