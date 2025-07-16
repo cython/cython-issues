@@ -5,9 +5,30 @@
     "author_association": "CONTRIBUTOR",
     "body": "I am trying to debug a strange crash in [scipy's sobel.pyx](https://github.com/scipy/scipy/blob/master/scipy/stats/_sobol.pyx) on pypy. I think (am not 100% sure) that the use of this paradigm is causing problems\r\n```\r\nDEF MAXDIM = 21201  # max number of dimensions\r\nDEF MAXDEG = 18  # max polynomial degree\r\ncdef int poly[MAXDIM]\r\ncdef int vinit[MAXDIM][MAXDEG]\r\n...\r\ndef initialize_direction_numbers():\r\n    global is_initialized, poly, vinit\r\n    if not is_initialized:\r\n        dns = np.load(os.path.join(os.path.dirname(__file__), \"_sobol_direction_numbers.npz\"))\r\n        poly = dns[\"poly\"]\r\n        vinit = dns[\"vinit\"]\r\n        is_initialized = True\r\n```\r\n\r\nThis turns into C code like\r\n```\r\nstatic int __pyx_v_5scipy_5stats_6_sobol_poly[0x52D1];\r\nstatic int __pyx_v_5scipy_5stats_6_sobol_vinit[0x52D1][18];\r\n...\r\n\r\nstatic PyObject *__pyx_pf_5scipy_5stats_6_sobol_initialize_direction_numbers(CYTHON_UNUSED PyObject *__pyx_self) {\r\n  ....\r\n  int __pyx_t_11[0x52D1];\r\n  int __pyx_t_12[0x52D1][18];\r\n ....\r\n    if (unlikely(__Pyx_carray_from_py_int___5b_18_5d_(__pyx_t_2, __pyx_t_12, 0x52D1) < 0)) __PYX_ERR(0, 98, __pyx_L1_error)\r\n    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;\r\n    if (unlikely((0x52D1) != (0x52D1))) {\r\n      PyErr_Format(PyExc_ValueError, \"Assignment to slice of wrong length, expected %\" CYTHON_FORMAT_SSIZE_T \"d, got %\" CYTHON_FORMAT_SSIZE_T \"d\", (Py_ssize_t)(0x52D1), (Py_ssize_t)(0x52D1));\r\n      __PYX_ERR(0, 98, __pyx_L1_error)\r\n    }\r\n    memcpy(&(__pyx_v_5scipy_5stats_6_sobol_vinit[0]), __pyx_t_12, sizeof(__pyx_v_5scipy_5stats_6_sobol_vinit[0]) * (0x52D1));\r\n\r\n\r\n```\r\n\r\nSo at the beginning of the function there is a very large array. Is it reasonable that this is causing a stack overflow? I see very strange phenomenon that point to that direction. Perhaps PyPy's C headers are preventing inlining the static function?\r\n\r\nMaybe this is more applicable to the mailing list, but I am opening it as an issue since one alternative would be to avoid doubly statically allocating  the global 2d-array and memcpying it.",
     "closed_at": null,
+    "closed_by": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/823911?v=4",
+        "events_url": "https://api.github.com/users/mattip/events{/privacy}",
+        "followers_url": "https://api.github.com/users/mattip/followers",
+        "following_url": "https://api.github.com/users/mattip/following{/other_user}",
+        "gists_url": "https://api.github.com/users/mattip/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/mattip",
+        "id": 823911,
+        "login": "mattip",
+        "node_id": "MDQ6VXNlcjgyMzkxMQ==",
+        "organizations_url": "https://api.github.com/users/mattip/orgs",
+        "received_events_url": "https://api.github.com/users/mattip/received_events",
+        "repos_url": "https://api.github.com/users/mattip/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/mattip",
+        "user_view_type": "public"
+    },
     "comment_data": [
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "> Perhaps PyPy's C headers are preventing inlining the static function?\r\n\r\nI don't think a def function implementation would ever be meaningfully inlined (with/without PyPy).\r\n\r\n>  I am opening it as an issue since one alternative would be to avoid doubly statically allocating the global 2d-array and memcpying it.\r\n\r\nThe reason it's being statically allocated then memcpyed is that `__Pyx_carray_from_py_int___5b_18_5d_` might throw (presumably because it's been passed data types that don't match). If it wrote directly into the global then this could leave it in a half-written state.\r\n\r\nI'd think the solution (if we did want to fix it) would be to limit the size of C arrays we were prepared to create on the stack and make the temp an allocated variable instead.",
             "created_at": "2021-07-07T20:01:51Z",
             "html_url": "https://github.com/cython/cython/issues/4272#issuecomment-875892792",
@@ -15,6 +36,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4272",
             "node_id": "MDEyOklzc3VlQ29tbWVudDg3NTg5Mjc5Mg==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/875892792/reactions"
+            },
             "updated_at": "2021-07-07T20:01:51Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/875892792",
             "user": {
@@ -35,11 +68,12 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "I suspect there isn't anything special about PyPy here - it's probably on the borderline of overflowing the stack in CPython too, but is just on the right side of the line.",
             "created_at": "2021-07-07T20:04:02Z",
             "html_url": "https://github.com/cython/cython/issues/4272#issuecomment-875894138",
@@ -47,6 +81,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4272",
             "node_id": "MDEyOklzc3VlQ29tbWVudDg3NTg5NDEzOA==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/875894138/reactions"
+            },
             "updated_at": "2021-07-07T20:04:02Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/875894138",
             "user": {
@@ -67,7 +113,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -79,6 +126,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4272",
             "node_id": "MDEyOklzc3VlQ29tbWVudDg3NTkwOTcwMg==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/875909702/reactions"
+            },
             "updated_at": "2021-07-07T20:27:26Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/875909702",
             "user": {
@@ -99,11 +158,12 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "> Is there a simply change scipy could make to the code to avoid this problem?\r\n\r\nprobably to do the copy element-by-element itself:\r\n\r\n```\r\ndnspoly = dns[\"poly\"]\r\nfor i in range(len(dnspoly)):\r\n    poly[i] = dnspoly[i]\r\n```\r\n(and the same for `vint`)\r\n\r\n```\r\n# or maybe?\r\ncdef int[:] dnspoly = dns[\"poly\"]\r\ncdef int[::1] polyview = poly  # may require a cast?\r\npolyview[:] = dnspoly[:]\r\n```",
             "created_at": "2021-07-07T20:30:19Z",
             "html_url": "https://github.com/cython/cython/issues/4272#issuecomment-875911472",
@@ -111,6 +171,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4272",
             "node_id": "MDEyOklzc3VlQ29tbWVudDg3NTkxMTQ3Mg==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 1,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 1,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/875911472/reactions"
+            },
             "updated_at": "2021-07-07T20:32:15Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/875911472",
             "user": {
@@ -131,7 +203,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -143,6 +216,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4272",
             "node_id": "MDEyOklzc3VlQ29tbWVudDg3NTkxMzY2NA==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/875913664/reactions"
+            },
             "updated_at": "2021-07-07T20:33:58Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/875913664",
             "user": {
@@ -163,11 +248,12 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": ">  Feel free to close this or modify the topic to better suit any changes Cython might need to warn/prevent this.\r\n\r\nYeah - I'm not really sure what the right thing to do is. The fact that it's a huge hidden temp that the user has no reason to expect makes me think that it deserves a warning possibly? I think changing the code generation to avoid this error would be too complicated though",
             "created_at": "2021-07-08T07:07:49Z",
             "html_url": "https://github.com/cython/cython/issues/4272#issuecomment-876188869",
@@ -175,6 +261,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4272",
             "node_id": "MDEyOklzc3VlQ29tbWVudDg3NjE4ODg2OQ==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/876188869/reactions"
+            },
             "updated_at": "2021-07-08T07:07:49Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/876188869",
             "user": {
@@ -195,7 +293,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -207,6 +306,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4272",
             "node_id": "MDEyOklzc3VlQ29tbWVudDg3NjM2ODE0MA==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/876368140/reactions"
+            },
             "updated_at": "2021-07-08T11:40:32Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/876368140",
             "user": {
@@ -227,7 +338,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
@@ -239,6 +351,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4272",
             "node_id": "MDEyOklzc3VlQ29tbWVudDg3NjUwOTI5Ng==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/876509296/reactions"
+            },
             "updated_at": "2021-07-08T14:56:56Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/876509296",
             "user": {
@@ -259,7 +383,8 @@
                 "starred_url": "https://api.github.com/users/peterbell10/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/peterbell10/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/peterbell10"
+                "url": "https://api.github.com/users/peterbell10",
+                "user_view_type": "public"
             }
         },
         {
@@ -271,6 +396,18 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4272",
             "node_id": "MDEyOklzc3VlQ29tbWVudDg3NjY3NjI2MA==",
             "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/876676260/reactions"
+            },
             "updated_at": "2021-07-08T19:06:42Z",
             "url": "https://api.github.com/repos/cython/cython/issues/comments/876676260",
             "user": {
@@ -291,11 +428,57 @@
                 "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/robertwb"
+                "url": "https://api.github.com/users/robertwb",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "I've started experiencing a variation of this with `cdef int[0x10000]` in CPython3.14 and musllinux (probably it has very tight stack size limits):\n```cython\n# PERF(vytas): Cache hex characters lookup table\ncdef int[0x10000] HEX_CHARS\nHEX_CHARS[:] = build_hex_table()\n```\n\n`build_hex_table()` returns a Python list, but in order to assign, it allocates a `cdef int[0x10000]` copy on stack?\n\n**Edit**: initializing via a one-by-one loop works fine. 👍 \n\n",
+            "created_at": "2025-07-15T17:21:36Z",
+            "html_url": "https://github.com/cython/cython/issues/4272#issuecomment-3074512018",
+            "id": 3074512018,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/4272",
+            "node_id": "IC_kwDOABDGAc63QVSS",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/3074512018/reactions"
+            },
+            "updated_at": "2025-07-15T17:30:17Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/3074512018",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/3430939?v=4",
+                "events_url": "https://api.github.com/users/vytas7/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vytas7/followers",
+                "following_url": "https://api.github.com/users/vytas7/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vytas7/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/vytas7",
+                "id": 3430939,
+                "login": "vytas7",
+                "node_id": "MDQ6VXNlcjM0MzA5Mzk=",
+                "organizations_url": "https://api.github.com/users/vytas7/orgs",
+                "received_events_url": "https://api.github.com/users/vytas7/received_events",
+                "repos_url": "https://api.github.com/users/vytas7/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/vytas7/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vytas7/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/vytas7",
+                "user_view_type": "public"
             }
         }
     ],
-    "comments": 9,
+    "comments": 10,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4272/comments",
     "created_at": "2021-07-07T19:36:53Z",
     "event_data": [
@@ -318,7 +501,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -327,6 +511,7 @@
             "id": 4994418758,
             "node_id": "MDExOkNsb3NlZEV2ZW50NDk5NDQxODc1OA==",
             "performed_via_github_app": null,
+            "state_reason": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/4994418758"
         },
         {
@@ -348,7 +533,8 @@
                 "starred_url": "https://api.github.com/users/robertwb/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/robertwb/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/robertwb"
+                "url": "https://api.github.com/users/robertwb",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -357,6 +543,7 @@
             "id": 4996728040,
             "node_id": "MDEzOlJlb3BlbmVkRXZlbnQ0OTk2NzI4MDQw",
             "performed_via_github_app": null,
+            "state_reason": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/4996728040"
         }
     ],
@@ -370,10 +557,30 @@
     "node_id": "MDU6SXNzdWU5MzkyMDA4MTk=",
     "number": 4272,
     "performed_via_github_app": null,
+    "reactions": {
+        "+1": 0,
+        "-1": 0,
+        "confused": 0,
+        "eyes": 0,
+        "heart": 0,
+        "hooray": 0,
+        "laugh": 0,
+        "rocket": 0,
+        "total_count": 0,
+        "url": "https://api.github.com/repos/cython/cython/issues/4272/reactions"
+    },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
+    "state_reason": null,
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
+    "timeline_url": "https://api.github.com/repos/cython/cython/issues/4272/timeline",
     "title": "[BUG] `global` can overflow stack?",
-    "updated_at": "2021-07-08T19:06:42Z",
+    "type": null,
+    "updated_at": "2025-07-15T17:30:17Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4272",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/823911?v=4",
@@ -393,6 +600,7 @@
         "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/mattip"
+        "url": "https://api.github.com/users/mattip",
+        "user_view_type": "public"
     }
 }
