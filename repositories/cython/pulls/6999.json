@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/6999"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/6e4e34d6e2e20896c07cfe7ed2d86587428a76aa"
+            "href": "https://api.github.com/repos/cython/cython/statuses/f8fbf1e628753e8e32d98e1c56df1ef2217123c7"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1536,
-            "forks_count": 1536,
+            "forks": 1537,
+            "forks_count": 1537,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1444,
-            "open_issues_count": 1444,
+            "open_issues": 1450,
+            "open_issues_count": 1450,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -119,11 +119,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2025-07-22T09:40:55Z",
+            "pushed_at": "2025-07-26T10:15:39Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 76135,
+            "size": 76471,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10157,
+            "stargazers_count": 10172,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -142,14 +142,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2025-07-22T13:01:41Z",
+            "updated_at": "2025-07-26T13:32:49Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10157,
-            "watchers_count": 10157,
+            "watchers": 10172,
+            "watchers_count": 10172,
             "web_commit_signoff_required": false
         },
-        "sha": "93edfdba69d4a5a2dc858e83901101a3a99b26fb",
+        "sha": "8abb066d81cfb3a39976510edfdf52dda6e99e4b",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -173,7 +173,7 @@
         }
     },
     "body": "It should be safe to block for the GIL while holding the lock provided we never do it the other way around (which we don't because we control access to the lock). That probably makes things worse if you're mixing locking with and without the GIL, but it does at least mean that you eventually succeed.\r\n\r\nAdd a manual benchmark that can be used to measure it. I don't think it makes sense as an automatic benchmark because you're interested in both wall-clock time and CPU time, but it was useful while investigating this.\r\n\r\nI also note that in some cases (very contended, with both timeouts set to 0) the PyMutex never seems to finish. This isn't something we can really control but arguably it might be worth documenting.\r\n\r\nFixes https://github.com/cython/cython/issues/7023 and the comment https://github.com/cython/cython/pull/6579#discussion_r2176556402",
-    "closed_at": null,
+    "closed_at": "2025-07-25T20:31:46Z",
     "comment_data": [
         {
             "_links": {
@@ -189,7 +189,7 @@
             },
             "author_association": "MEMBER",
             "body": "Probably fine, just wanted to note that `PY_LOCK_ACQUIRED` is part of an enum also in PyPy, so `defined()` will not usually prevent the override. We could add a version guard for PyPy < 7.3.20, though future enum value changes are very unlikely here.",
-            "commit_id": "6e4e34d6e2e20896c07cfe7ed2d86587428a76aa",
+            "commit_id": "f8fbf1e628753e8e32d98e1c56df1ef2217123c7",
             "created_at": "2025-07-22T05:02:09Z",
             "diff_hunk": "@@ -23,57 +23,79 @@ static CYTHON_INLINE void __Pyx_Locks_PyThreadTypeLock_LockGil(__Pyx_Locks_PyThr\n \n ////////////////////// PyThreadTypeLock ////////////////\n \n-static void __Pyx__Locks_PyThreadTypeLock_LockGil_slow_spin(__Pyx_Locks_PyThreadTypeLock lock) {\n-    while (1) {\n-        // If we've been spinning for a while take a slower path, where\n-        // we release the GIL, get the lock, release the lock, reacquire the GIL\n-        // and then hope the lock is still available when we try to reacquire it.\n-        Py_BEGIN_ALLOW_THREADS\n-        (void)PyThread_acquire_lock(lock, WAIT_LOCK);\n-        PyThread_release_lock(lock);\n-        Py_END_ALLOW_THREADS\n-        if (likely(PyThread_acquire_lock_timed(lock, 0, 0) == PY_LOCK_ACQUIRED)) {\n-            // All good - we got the lock\n-            return;\n-        }\n-    }\n-}\n+#if CYTHON_COMPILING_IN_PYPY && !defined(PY_LOCK_ACQUIRED)",
             "html_url": "https://github.com/cython/cython/pull/6999#discussion_r2221152197",
@@ -258,19 +258,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n////////////////////// PyThreadTypeLock ////////////////\r\n//@requires: ModuleSetupCode.c::GetRuntimeVersion\r\n```",
-            "commit_id": "6e4e34d6e2e20896c07cfe7ed2d86587428a76aa",
+            "commit_id": "f8fbf1e628753e8e32d98e1c56df1ef2217123c7",
             "created_at": "2025-07-22T05:10:24Z",
             "diff_hunk": "@@ -23,57 +23,79 @@ static CYTHON_INLINE void __Pyx_Locks_PyThreadTypeLock_LockGil(__Pyx_Locks_PyThr\n \n ////////////////////// PyThreadTypeLock ////////////////",
             "html_url": "https://github.com/cython/cython/pull/6999#discussion_r2221172414",
             "id": 2221172414,
-            "line": 24,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6EZGa-",
             "original_commit_id": "799fa0d4bc508724e9859d63e117d784b4afb64e",
             "original_line": 24,
             "original_position": 2,
             "original_start_line": null,
             "path": "Cython/Utility/Lock.c",
-            "position": 2,
+            "position": null,
             "pull_request_review_id": 3041044997,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6999",
             "reactions": {
@@ -327,19 +327,19 @@
             },
             "author_association": "MEMBER",
             "body": "Can we avoid this dance (at least in some cases) by passing the current (sometimes) known GIL state into the call?",
-            "commit_id": "6e4e34d6e2e20896c07cfe7ed2d86587428a76aa",
+            "commit_id": "f8fbf1e628753e8e32d98e1c56df1ef2217123c7",
             "created_at": "2025-07-22T05:16:50Z",
             "diff_hunk": "@@ -23,57 +23,79 @@ static CYTHON_INLINE void __Pyx_Locks_PyThreadTypeLock_LockGil(__Pyx_Locks_PyThr\n \n ////////////////////// PyThreadTypeLock ////////////////\n \n-static void __Pyx__Locks_PyThreadTypeLock_LockGil_slow_spin(__Pyx_Locks_PyThreadTypeLock lock) {\n-    while (1) {\n-        // If we've been spinning for a while take a slower path, where\n-        // we release the GIL, get the lock, release the lock, reacquire the GIL\n-        // and then hope the lock is still available when we try to reacquire it.\n-        Py_BEGIN_ALLOW_THREADS\n-        (void)PyThread_acquire_lock(lock, WAIT_LOCK);\n-        PyThread_release_lock(lock);\n-        Py_END_ALLOW_THREADS\n-        if (likely(PyThread_acquire_lock_timed(lock, 0, 0) == PY_LOCK_ACQUIRED)) {\n-            // All good - we got the lock\n-            return;\n-        }\n-    }\n-}\n+#if CYTHON_COMPILING_IN_PYPY && !defined(PY_LOCK_ACQUIRED)\n+#define PY_LOCK_ACQUIRED 1\n+#endif\n \n-static void __Pyx__Locks_PyThreadTypeLock_LockGil_quick_spin(__Pyx_Locks_PyThreadTypeLock lock) {\n-    for (int spin_count=0; spin_count<100; ++spin_count) {\n-        // Release and re-acquire the GIL, try to get the lock again.\n+static void __Pyx__Locks_PyThreadTypeLock_LockGil_spin(__Pyx_Locks_PyThreadTypeLock lock) {\n+    while (1) {\n+        int res;\n         Py_BEGIN_ALLOW_THREADS\n+#if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07031400\n+        // Don't block indefinitely. This ensures we don't deadlock (forever) on\n+        //\n+        // with nogil:\n+        //   with lock:\n+        //     with gil:\n+        //       ...\n+        //\n+        // Arguably that's user error, but it seems better to try to help them out.\n+        res = PyThread_acquire_lock_timed(lock, CYTHON_LOCK_AND_GIL_DEADLOCK_AVOIDANCE_TIME, 0);\n+#else\n+        res = PyThread_acquire_lock(lock, WAIT_LOCK);\n+#endif\n+        // Wait on the GIL while holding the lock. But importantly we never do the inverse\n+        // and wait on the lock while holding the GIL.\n         Py_END_ALLOW_THREADS\n-        if (likely(PyThread_acquire_lock_timed(lock, 0, 0) == PY_LOCK_ACQUIRED)) {\n+        if (likely(res == PY_LOCK_ACQUIRED)) {\n             // All good - we got the lock\n             return;\n         }\n     }\n-    __Pyx__Locks_PyThreadTypeLock_LockGil_slow_spin(lock);\n }\n \n static CYTHON_INLINE void __Pyx__Locks_PyThreadTypeLock_LockGil(__Pyx_Locks_PyThreadTypeLock lock) {\n+    #if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07031400\n+    // This is possibly dubious - it makes things faster in the uncontended case, but\n+    // in the heavily-contended case it makes it more likely that one thread will dominate.\n     if (likely(PyThread_acquire_lock_timed(lock, 0, 0) == PY_LOCK_ACQUIRED)) {\n         // All good - we got the lock\n         return;\n     }\n-    __Pyx__Locks_PyThreadTypeLock_LockGil_quick_spin(lock);\n+    #endif\n+    __Pyx__Locks_PyThreadTypeLock_LockGil_spin(lock);\n }\n \n static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock) {\n+    int has_gil = 0;\n #if CYTHON_COMPILING_IN_LIMITED_API\n-    // We can't tell if we have the GIL. Therefore make sure we do have it\n-    // and then restore whatever state was there before.\n-    PyGILState_STATE state = PyGILState_Ensure();\n-    __Pyx_Locks_PyThreadTypeLock_LockNogil(lock);\n-    PyGILState_Release(state);\n+    if (__PYX_LIMITED_VERSION_HEX >= 0x030d0000 || __Pyx_get_runtime_version() >= 0x030d0000) {\n+        // Swap the existing thread state to see if we had the GIL.\n+        // Requires re-acquiring the thread state if we had it, but no-op if we didn't.\n+        PyThreadState *tstate = PyThreadState_Swap(NULL);\n+        has_gil = tstate != NULL;\n+        if (has_gil)\n+            PyThreadState_Swap(tstate);",
             "html_url": "https://github.com/cython/cython/pull/6999#discussion_r2221183634",
             "id": 2221183634,
-            "line": 78,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6EZJKS",
             "original_commit_id": "799fa0d4bc508724e9859d63e117d784b4afb64e",
             "original_line": 78,
             "original_position": 82,
             "original_start_line": 73,
             "path": "Cython/Utility/Lock.c",
-            "position": 82,
+            "position": null,
             "pull_request_review_id": 3041044997,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6999",
             "reactions": {
@@ -355,7 +355,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2221183634/reactions"
             },
             "side": "RIGHT",
-            "start_line": 73,
+            "start_line": null,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2025-07-22T05:18:03Z",
@@ -396,20 +396,20 @@
             },
             "author_association": "MEMBER",
             "body": "We do (by calling a different function rather than as an argument)\r\n\r\nhttps://github.com/cython/cython/blob/c253f8952bfe36e755226d9cfe8c8d5fe62791b2/Cython/Compiler/Nodes.py#L9169-L9176",
-            "commit_id": "6e4e34d6e2e20896c07cfe7ed2d86587428a76aa",
+            "commit_id": "f8fbf1e628753e8e32d98e1c56df1ef2217123c7",
             "created_at": "2025-07-22T05:58:50Z",
             "diff_hunk": "@@ -23,57 +23,79 @@ static CYTHON_INLINE void __Pyx_Locks_PyThreadTypeLock_LockGil(__Pyx_Locks_PyThr\n \n ////////////////////// PyThreadTypeLock ////////////////\n \n-static void __Pyx__Locks_PyThreadTypeLock_LockGil_slow_spin(__Pyx_Locks_PyThreadTypeLock lock) {\n-    while (1) {\n-        // If we've been spinning for a while take a slower path, where\n-        // we release the GIL, get the lock, release the lock, reacquire the GIL\n-        // and then hope the lock is still available when we try to reacquire it.\n-        Py_BEGIN_ALLOW_THREADS\n-        (void)PyThread_acquire_lock(lock, WAIT_LOCK);\n-        PyThread_release_lock(lock);\n-        Py_END_ALLOW_THREADS\n-        if (likely(PyThread_acquire_lock_timed(lock, 0, 0) == PY_LOCK_ACQUIRED)) {\n-            // All good - we got the lock\n-            return;\n-        }\n-    }\n-}\n+#if CYTHON_COMPILING_IN_PYPY && !defined(PY_LOCK_ACQUIRED)\n+#define PY_LOCK_ACQUIRED 1\n+#endif\n \n-static void __Pyx__Locks_PyThreadTypeLock_LockGil_quick_spin(__Pyx_Locks_PyThreadTypeLock lock) {\n-    for (int spin_count=0; spin_count<100; ++spin_count) {\n-        // Release and re-acquire the GIL, try to get the lock again.\n+static void __Pyx__Locks_PyThreadTypeLock_LockGil_spin(__Pyx_Locks_PyThreadTypeLock lock) {\n+    while (1) {\n+        int res;\n         Py_BEGIN_ALLOW_THREADS\n+#if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07031400\n+        // Don't block indefinitely. This ensures we don't deadlock (forever) on\n+        //\n+        // with nogil:\n+        //   with lock:\n+        //     with gil:\n+        //       ...\n+        //\n+        // Arguably that's user error, but it seems better to try to help them out.\n+        res = PyThread_acquire_lock_timed(lock, CYTHON_LOCK_AND_GIL_DEADLOCK_AVOIDANCE_TIME, 0);\n+#else\n+        res = PyThread_acquire_lock(lock, WAIT_LOCK);\n+#endif\n+        // Wait on the GIL while holding the lock. But importantly we never do the inverse\n+        // and wait on the lock while holding the GIL.\n         Py_END_ALLOW_THREADS\n-        if (likely(PyThread_acquire_lock_timed(lock, 0, 0) == PY_LOCK_ACQUIRED)) {\n+        if (likely(res == PY_LOCK_ACQUIRED)) {\n             // All good - we got the lock\n             return;\n         }\n     }\n-    __Pyx__Locks_PyThreadTypeLock_LockGil_slow_spin(lock);\n }\n \n static CYTHON_INLINE void __Pyx__Locks_PyThreadTypeLock_LockGil(__Pyx_Locks_PyThreadTypeLock lock) {\n+    #if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07031400\n+    // This is possibly dubious - it makes things faster in the uncontended case, but\n+    // in the heavily-contended case it makes it more likely that one thread will dominate.\n     if (likely(PyThread_acquire_lock_timed(lock, 0, 0) == PY_LOCK_ACQUIRED)) {\n         // All good - we got the lock\n         return;\n     }\n-    __Pyx__Locks_PyThreadTypeLock_LockGil_quick_spin(lock);\n+    #endif\n+    __Pyx__Locks_PyThreadTypeLock_LockGil_spin(lock);\n }\n \n static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock) {\n+    int has_gil = 0;\n #if CYTHON_COMPILING_IN_LIMITED_API\n-    // We can't tell if we have the GIL. Therefore make sure we do have it\n-    // and then restore whatever state was there before.\n-    PyGILState_STATE state = PyGILState_Ensure();\n-    __Pyx_Locks_PyThreadTypeLock_LockNogil(lock);\n-    PyGILState_Release(state);\n+    if (__PYX_LIMITED_VERSION_HEX >= 0x030d0000 || __Pyx_get_runtime_version() >= 0x030d0000) {\n+        // Swap the existing thread state to see if we had the GIL.\n+        // Requires re-acquiring the thread state if we had it, but no-op if we didn't.\n+        PyThreadState *tstate = PyThreadState_Swap(NULL);\n+        has_gil = tstate != NULL;\n+        if (has_gil)\n+            PyThreadState_Swap(tstate);",
             "html_url": "https://github.com/cython/cython/pull/6999#discussion_r2221314611",
             "id": 2221314611,
             "in_reply_to_id": 2221183634,
-            "line": 78,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6EZpIz",
             "original_commit_id": "799fa0d4bc508724e9859d63e117d784b4afb64e",
             "original_line": 78,
             "original_position": 82,
             "original_start_line": 73,
             "path": "Cython/Utility/Lock.c",
-            "position": 82,
+            "position": null,
             "pull_request_review_id": 3041276451,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6999",
             "reactions": {
@@ -425,7 +425,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2221314611/reactions"
             },
             "side": "RIGHT",
-            "start_line": 73,
+            "start_line": null,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2025-07-22T05:58:51Z",
@@ -466,7 +466,7 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n```",
-            "commit_id": "6e4e34d6e2e20896c07cfe7ed2d86587428a76aa",
+            "commit_id": "f8fbf1e628753e8e32d98e1c56df1ef2217123c7",
             "created_at": "2025-07-22T09:42:02Z",
             "diff_hunk": "@@ -22,58 +22,81 @@ static CYTHON_INLINE void __Pyx_Locks_PyThreadTypeLock_LockGil(__Pyx_Locks_PyThr\n }\n \n ////////////////////// PyThreadTypeLock ////////////////\n+//@requires: ModuleSetupCode.c::GetRuntimeVersion",
             "html_url": "https://github.com/cython/cython/pull/6999#discussion_r2221920052",
@@ -535,20 +535,20 @@
             },
             "author_association": "MEMBER",
             "body": "Ok, so this is called from `nogil` functions that don't know if they own the GIL – but they probably don't because that's the main reason to declare the function `nogil` in the first place. Then trying to acquire it and accidentally releasing it if it was owned, as you do above, seems the right tradeoff to me.",
-            "commit_id": "6e4e34d6e2e20896c07cfe7ed2d86587428a76aa",
+            "commit_id": "f8fbf1e628753e8e32d98e1c56df1ef2217123c7",
             "created_at": "2025-07-22T09:47:12Z",
             "diff_hunk": "@@ -23,57 +23,79 @@ static CYTHON_INLINE void __Pyx_Locks_PyThreadTypeLock_LockGil(__Pyx_Locks_PyThr\n \n ////////////////////// PyThreadTypeLock ////////////////\n \n-static void __Pyx__Locks_PyThreadTypeLock_LockGil_slow_spin(__Pyx_Locks_PyThreadTypeLock lock) {\n-    while (1) {\n-        // If we've been spinning for a while take a slower path, where\n-        // we release the GIL, get the lock, release the lock, reacquire the GIL\n-        // and then hope the lock is still available when we try to reacquire it.\n-        Py_BEGIN_ALLOW_THREADS\n-        (void)PyThread_acquire_lock(lock, WAIT_LOCK);\n-        PyThread_release_lock(lock);\n-        Py_END_ALLOW_THREADS\n-        if (likely(PyThread_acquire_lock_timed(lock, 0, 0) == PY_LOCK_ACQUIRED)) {\n-            // All good - we got the lock\n-            return;\n-        }\n-    }\n-}\n+#if CYTHON_COMPILING_IN_PYPY && !defined(PY_LOCK_ACQUIRED)\n+#define PY_LOCK_ACQUIRED 1\n+#endif\n \n-static void __Pyx__Locks_PyThreadTypeLock_LockGil_quick_spin(__Pyx_Locks_PyThreadTypeLock lock) {\n-    for (int spin_count=0; spin_count<100; ++spin_count) {\n-        // Release and re-acquire the GIL, try to get the lock again.\n+static void __Pyx__Locks_PyThreadTypeLock_LockGil_spin(__Pyx_Locks_PyThreadTypeLock lock) {\n+    while (1) {\n+        int res;\n         Py_BEGIN_ALLOW_THREADS\n+#if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07031400\n+        // Don't block indefinitely. This ensures we don't deadlock (forever) on\n+        //\n+        // with nogil:\n+        //   with lock:\n+        //     with gil:\n+        //       ...\n+        //\n+        // Arguably that's user error, but it seems better to try to help them out.\n+        res = PyThread_acquire_lock_timed(lock, CYTHON_LOCK_AND_GIL_DEADLOCK_AVOIDANCE_TIME, 0);\n+#else\n+        res = PyThread_acquire_lock(lock, WAIT_LOCK);\n+#endif\n+        // Wait on the GIL while holding the lock. But importantly we never do the inverse\n+        // and wait on the lock while holding the GIL.\n         Py_END_ALLOW_THREADS\n-        if (likely(PyThread_acquire_lock_timed(lock, 0, 0) == PY_LOCK_ACQUIRED)) {\n+        if (likely(res == PY_LOCK_ACQUIRED)) {\n             // All good - we got the lock\n             return;\n         }\n     }\n-    __Pyx__Locks_PyThreadTypeLock_LockGil_slow_spin(lock);\n }\n \n static CYTHON_INLINE void __Pyx__Locks_PyThreadTypeLock_LockGil(__Pyx_Locks_PyThreadTypeLock lock) {\n+    #if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07031400\n+    // This is possibly dubious - it makes things faster in the uncontended case, but\n+    // in the heavily-contended case it makes it more likely that one thread will dominate.\n     if (likely(PyThread_acquire_lock_timed(lock, 0, 0) == PY_LOCK_ACQUIRED)) {\n         // All good - we got the lock\n         return;\n     }\n-    __Pyx__Locks_PyThreadTypeLock_LockGil_quick_spin(lock);\n+    #endif\n+    __Pyx__Locks_PyThreadTypeLock_LockGil_spin(lock);\n }\n \n static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock) {\n+    int has_gil = 0;\n #if CYTHON_COMPILING_IN_LIMITED_API\n-    // We can't tell if we have the GIL. Therefore make sure we do have it\n-    // and then restore whatever state was there before.\n-    PyGILState_STATE state = PyGILState_Ensure();\n-    __Pyx_Locks_PyThreadTypeLock_LockNogil(lock);\n-    PyGILState_Release(state);\n+    if (__PYX_LIMITED_VERSION_HEX >= 0x030d0000 || __Pyx_get_runtime_version() >= 0x030d0000) {\n+        // Swap the existing thread state to see if we had the GIL.\n+        // Requires re-acquiring the thread state if we had it, but no-op if we didn't.\n+        PyThreadState *tstate = PyThreadState_Swap(NULL);\n+        has_gil = tstate != NULL;\n+        if (has_gil)\n+            PyThreadState_Swap(tstate);",
             "html_url": "https://github.com/cython/cython/pull/6999#discussion_r2221934622",
             "id": 2221934622,
             "in_reply_to_id": 2221183634,
-            "line": 78,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6EcAge",
             "original_commit_id": "799fa0d4bc508724e9859d63e117d784b4afb64e",
             "original_line": 78,
             "original_position": 82,
             "original_start_line": 73,
             "path": "Cython/Utility/Lock.c",
-            "position": 82,
+            "position": null,
             "pull_request_review_id": 3042156218,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/6999",
             "reactions": {
@@ -564,7 +564,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2221934622/reactions"
             },
             "side": "RIGHT",
-            "start_line": 73,
+            "start_line": null,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2025-07-22T09:47:13Z",
@@ -1254,6 +1254,180 @@
             ],
             "sha": "6e4e34d6e2e20896c07cfe7ed2d86587428a76aa",
             "url": "https://api.github.com/repos/cython/cython/commits/6e4e34d6e2e20896c07cfe7ed2d86587428a76aa"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/1120efbde7e2c64c8fd7d6ef2a80fe94b7e5dd44/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-07-25T17:36:34Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-07-25T17:36:34Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Merge remote-tracking branch 'real_origin/master' into improve-heavily-contended-pythread-type-lock",
+                "tree": {
+                    "sha": "8f20291c1cf715e2396f04bb6b2f174c60b90bcc",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/8f20291c1cf715e2396f04bb6b2f174c60b90bcc"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/1120efbde7e2c64c8fd7d6ef2a80fe94b7e5dd44",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/1120efbde7e2c64c8fd7d6ef2a80fe94b7e5dd44",
+            "node_id": "C_kwDOAhr4b9oAKDExMjBlZmJkZTdlMmM2NGM4ZmQ3ZDZlZjJhODBmZTk0YjdlNWRkNDQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/5c14956f3d9f187c0f5ff09f75785751084996a4",
+                    "sha": "5c14956f3d9f187c0f5ff09f75785751084996a4",
+                    "url": "https://api.github.com/repos/cython/cython/commits/5c14956f3d9f187c0f5ff09f75785751084996a4"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/8abb066d81cfb3a39976510edfdf52dda6e99e4b",
+                    "sha": "8abb066d81cfb3a39976510edfdf52dda6e99e4b",
+                    "url": "https://api.github.com/repos/cython/cython/commits/8abb066d81cfb3a39976510edfdf52dda6e99e4b"
+                }
+            ],
+            "sha": "1120efbde7e2c64c8fd7d6ef2a80fe94b7e5dd44",
+            "url": "https://api.github.com/repos/cython/cython/commits/1120efbde7e2c64c8fd7d6ef2a80fe94b7e5dd44"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/f8fbf1e628753e8e32d98e1c56df1ef2217123c7/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-07-25T17:39:26Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-07-25T17:39:26Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Merge remote-tracking branch 'origin/improve-heavily-contended-pythread-type-lock' into improve-heavily-contended-pythread-type-lock",
+                "tree": {
+                    "sha": "8f20291c1cf715e2396f04bb6b2f174c60b90bcc",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/8f20291c1cf715e2396f04bb6b2f174c60b90bcc"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/f8fbf1e628753e8e32d98e1c56df1ef2217123c7",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/f8fbf1e628753e8e32d98e1c56df1ef2217123c7",
+            "node_id": "C_kwDOAhr4b9oAKGY4ZmJmMWU2Mjg3NTNlOGUzMmQ5OGUxYzU2ZGYxZWYyMjE3MTIzYzc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/1120efbde7e2c64c8fd7d6ef2a80fe94b7e5dd44",
+                    "sha": "1120efbde7e2c64c8fd7d6ef2a80fe94b7e5dd44",
+                    "url": "https://api.github.com/repos/cython/cython/commits/1120efbde7e2c64c8fd7d6ef2a80fe94b7e5dd44"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/6e4e34d6e2e20896c07cfe7ed2d86587428a76aa",
+                    "sha": "6e4e34d6e2e20896c07cfe7ed2d86587428a76aa",
+                    "url": "https://api.github.com/repos/cython/cython/commits/6e4e34d6e2e20896c07cfe7ed2d86587428a76aa"
+                }
+            ],
+            "sha": "f8fbf1e628753e8e32d98e1c56df1ef2217123c7",
+            "url": "https://api.github.com/repos/cython/cython/commits/f8fbf1e628753e8e32d98e1c56df1ef2217123c7"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/6999/commits",
@@ -1349,9 +1523,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2025-07-22T09:42:27Z",
+            "pushed_at": "2025-07-26T11:23:51Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 79232,
+            "size": 79761,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -1370,7 +1544,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "6e4e34d6e2e20896c07cfe7ed2d86587428a76aa",
+        "sha": "f8fbf1e628753e8e32d98e1c56df1ef2217123c7",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -1417,11 +1591,11 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "8071572b833a6615f2d4cd4b62605b20f29d3d85",
-    "merged_at": null,
+    "merge_commit_sha": "3f00d921588f06f971ad321d462a50fdcc5649f0",
+    "merged_at": "2025-07-25T20:31:46Z",
     "milestone": {
         "closed_at": null,
-        "closed_issues": 5,
+        "closed_issues": 11,
         "created_at": "2025-06-08T05:14:56Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -1451,10 +1625,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/115/labels",
         "node_id": "MI_kwDOABDGAc4AxxM2",
         "number": 115,
-        "open_issues": 2,
+        "open_issues": 1,
         "state": "open",
         "title": "3.1.3",
-        "updated_at": "2025-07-19T11:08:53Z",
+        "updated_at": "2025-07-26T09:44:30Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/115"
     },
     "node_id": "PR_kwDOABDGAc6c-TCz",
@@ -1464,10 +1638,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/6999/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/6e4e34d6e2e20896c07cfe7ed2d86587428a76aa",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/f8fbf1e628753e8e32d98e1c56df1ef2217123c7",
     "title": "Improve heavily contended PyThreadType lock",
-    "updated_at": "2025-07-22T09:47:12Z",
+    "updated_at": "2025-07-26T09:49:43Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/6999",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
