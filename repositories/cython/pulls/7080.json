@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/7080"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/a74a5342f3f4b1b2f063067ba70a6467aef9583d"
+            "href": "https://api.github.com/repos/cython/cython/statuses/c25ee2c4294d3162bff5fdb4f92c128cc28d47cf"
         }
     },
     "active_lock_reason": null,
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1470,
-            "open_issues_count": 1470,
+            "open_issues": 1473,
+            "open_issues_count": 1473,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -123,7 +123,7 @@
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
             "size": 76556,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10214,
+            "stargazers_count": 10217,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -142,11 +142,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2025-08-13T10:05:47Z",
+            "updated_at": "2025-08-15T01:48:21Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10214,
-            "watchers_count": 10214,
+            "watchers": 10217,
+            "watchers_count": 10217,
             "web_commit_signoff_required": false
         },
         "sha": "a5fe318694c06150fbedaa5be7bdd431d409ec48",
@@ -189,19 +189,19 @@
             },
             "author_association": "MEMBER",
             "body": "What speaks against a directly inlined hash function, given that we need to provide our own implementation below either way? That CityHash is probably much faster in practice than the generic hash implementation that is indirectly called by the call to `Py_HashBuffer`.",
-            "commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
             "created_at": "2025-08-13T07:58:09Z",
             "diff_hunk": "@@ -2699,344 +2746,436 @@ static SRWLOCK __Pyx_ModuleStateLookup_mutex = SRWLOCK_INIT;\n \n \n typedef struct {\n+    // module == NULL -> free to use/reuse\n+    // id == 0 -> uninitialized and thus searches for an id should not go further\n+    // id == -1 -> set to this before setting the module to NULL, so searches\n+    //             for other ids can continue beyond it, but it doesn't get mistaken for a valid id.\n+  #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n     int64_t id;\n     PyObject *module;\n+  #else\n+    __pyx_atomic_intn_type(64) id;\n+    __pyx_atomic_ptr_type module;\n+  #endif\n } __Pyx_InterpreterIdAndModule;\n \n typedef struct {\n-    char interpreter_id_as_index;\n-    Py_ssize_t count;\n-    Py_ssize_t allocated;\n-    __Pyx_InterpreterIdAndModule table[1];\n+    Py_ssize_t size;\n+    __Pyx_InterpreterIdAndModule entries[1];\n+} __Pyx_ModuleStateLookupTable;\n+\n+typedef struct __Pyx_ModuleStateLookupData {\n+  __PYX_MODULE_STATE_MUTEX_DECL\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    __pyx_atomic_int_type read_counter;\n+  #endif\n+    // special case for interpreter 0\n+    PyObject *module0;\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    __pyx_atomic_intn_type(64) count;\n+    __pyx_atomic_ptr_type table;\n+  #else\n+    int64_t count;\n+    __Pyx_ModuleStateLookupTable* table;\n+  #endif\n } __Pyx_ModuleStateLookupData;\n \n-#define __PYX_MODULE_STATE_LOOKUP_SMALL_SIZE 32\n-// \"interpreter_id_as_index\" above means \"the maximum interpreter ID ever seen is smaller than\n-// __PYX_MODULE_STATE_LOOKUP_SMALL_SIZE and thus they're stored in an array\n-// where the index corresponds to interpreter ID, and __Pyx_ModuleStateLookup_count\n-// is the size of the array.\n-\n-#if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-static __pyx_atomic_int_type __Pyx_ModuleStateLookup_read_counter = 0;\n-#endif\n-\n-// A sorted list of (sub)interpreter IDs and the module that was imported into that interpreter.\n-// For now look this up via binary search.\n-#if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-static __pyx_atomic_ptr_type __Pyx_ModuleStateLookup_data = 0;\n-#else\n-static __Pyx_ModuleStateLookupData* __Pyx_ModuleStateLookup_data = NULL;\n+static __Pyx_ModuleStateLookupData __Pyx_ModuleStateLookup_data = {\n+    __PYX_MODULE_STATE_MUTEX_INIT\n+// C++ is a bit picky about how we initialize. Before C++11 {} doesn't work.\n+// On some compilers after C++11, 0 doesn't work for atomics. \n+#if defined(__cplusplus) && __cplusplus >= 201103L\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    {}, // read_counter\n+  #endif\n+    {}, {}, {}\n+#elif !defined(__cplusplus)\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    0, // read_counter\n+  #endif\n+    0, // module0\n+    0, // count\n+    0 // table\n #endif\n+};\n \n \n-static __Pyx_InterpreterIdAndModule* __Pyx_State_FindModuleStateLookupTableLowerBound(\n-        __Pyx_InterpreterIdAndModule* table,\n-        Py_ssize_t count,\n-        int64_t interpreterId) {\n-    __Pyx_InterpreterIdAndModule* begin = table;\n-    __Pyx_InterpreterIdAndModule* end = begin + count;\n \n-    // fairly likely - e.g. single interpreter\n-    if (begin->id == interpreterId) {\n-        return begin;\n-    }\n-\n-    while ((end - begin) > __PYX_MODULE_STATE_LOOKUP_SMALL_SIZE) {\n-        __Pyx_InterpreterIdAndModule* halfway = begin + (end - begin)/2;\n-        if (halfway->id == interpreterId) {\n-            return halfway;\n-        }\n-        if (halfway->id < interpreterId) {\n-            begin = halfway;\n-        } else {\n-            end = halfway;\n-        }\n-    }\n-\n-    // Assume that for small ranges, it's quicker to do a linear search\n-    for (; begin < end; ++begin) {\n-        if (begin->id >= interpreterId) return begin;\n-    }\n-    return begin;\n+static int64_t __Pyx_ModuleStateLookup_HashId(int64_t id)\n+{\n+  #if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030E0000\n+    int64_t v = Py_HashBuffer((void*)&id, sizeof(id));\n+    return v >= 0 ? v : -(v+1);  // make sure we return something +ve\n+  #else",
             "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2272414170",
             "id": 2272414170,
-            "line": 2809,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6Hckna",
             "original_commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
             "original_line": 2809,
             "original_position": 304,
             "original_start_line": 2806,
             "path": "Cython/Utility/ModuleSetupCode.c",
-            "position": 304,
+            "position": null,
             "pull_request_review_id": 3114397156,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
             "reactions": {
@@ -217,7 +217,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2272414170/reactions"
             },
             "side": "RIGHT",
-            "start_line": 2806,
+            "start_line": null,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2025-08-13T09:06:56Z",
@@ -258,19 +258,19 @@
             },
             "author_association": "MEMBER",
             "body": "Do you think that we'd have a reason to shrink the table in the real world? I'd expect the number of interpreters to stay somewhat small, and this is just a table, probably dwarfed by the actual module state data. IIUC, we spend 16 bytes per module. Even if an application ends up running 1000 interpreters at a time, that'd just be a table of 16KiB, probably less than 30KiB as a hash table. And it seems unlikely that such a peak usage only appears once in a longer running application.\r\n\r\nYou know your code better than me – if it's not a big deal to allow shrinking then why not, but it can sometimes simplify the implementation to allow only growth. And it avoids excessive rehashing on larger fluctuations, e.g. when several interpreters are started and terminated repeatedly in batches (as you could expect in a long-running server setting).",
-            "commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
             "created_at": "2025-08-13T08:18:49Z",
             "diff_hunk": "@@ -2699,344 +2746,436 @@ static SRWLOCK __Pyx_ModuleStateLookup_mutex = SRWLOCK_INIT;\n \n \n typedef struct {\n+    // module == NULL -> free to use/reuse\n+    // id == 0 -> uninitialized and thus searches for an id should not go further\n+    // id == -1 -> set to this before setting the module to NULL, so searches\n+    //             for other ids can continue beyond it, but it doesn't get mistaken for a valid id.\n+  #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n     int64_t id;\n     PyObject *module;\n+  #else\n+    __pyx_atomic_intn_type(64) id;\n+    __pyx_atomic_ptr_type module;\n+  #endif\n } __Pyx_InterpreterIdAndModule;\n \n typedef struct {\n-    char interpreter_id_as_index;\n-    Py_ssize_t count;\n-    Py_ssize_t allocated;\n-    __Pyx_InterpreterIdAndModule table[1];\n+    Py_ssize_t size;\n+    __Pyx_InterpreterIdAndModule entries[1];\n+} __Pyx_ModuleStateLookupTable;\n+\n+typedef struct __Pyx_ModuleStateLookupData {\n+  __PYX_MODULE_STATE_MUTEX_DECL\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    __pyx_atomic_int_type read_counter;\n+  #endif\n+    // special case for interpreter 0\n+    PyObject *module0;\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    __pyx_atomic_intn_type(64) count;\n+    __pyx_atomic_ptr_type table;\n+  #else\n+    int64_t count;\n+    __Pyx_ModuleStateLookupTable* table;\n+  #endif\n } __Pyx_ModuleStateLookupData;\n \n-#define __PYX_MODULE_STATE_LOOKUP_SMALL_SIZE 32\n-// \"interpreter_id_as_index\" above means \"the maximum interpreter ID ever seen is smaller than\n-// __PYX_MODULE_STATE_LOOKUP_SMALL_SIZE and thus they're stored in an array\n-// where the index corresponds to interpreter ID, and __Pyx_ModuleStateLookup_count\n-// is the size of the array.\n-\n-#if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-static __pyx_atomic_int_type __Pyx_ModuleStateLookup_read_counter = 0;\n-#endif\n-\n-// A sorted list of (sub)interpreter IDs and the module that was imported into that interpreter.\n-// For now look this up via binary search.\n-#if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-static __pyx_atomic_ptr_type __Pyx_ModuleStateLookup_data = 0;\n-#else\n-static __Pyx_ModuleStateLookupData* __Pyx_ModuleStateLookup_data = NULL;\n+static __Pyx_ModuleStateLookupData __Pyx_ModuleStateLookup_data = {\n+    __PYX_MODULE_STATE_MUTEX_INIT\n+// C++ is a bit picky about how we initialize. Before C++11 {} doesn't work.\n+// On some compilers after C++11, 0 doesn't work for atomics. \n+#if defined(__cplusplus) && __cplusplus >= 201103L\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    {}, // read_counter\n+  #endif\n+    {}, {}, {}\n+#elif !defined(__cplusplus)\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    0, // read_counter\n+  #endif\n+    0, // module0\n+    0, // count\n+    0 // table\n #endif\n+};\n \n \n-static __Pyx_InterpreterIdAndModule* __Pyx_State_FindModuleStateLookupTableLowerBound(\n-        __Pyx_InterpreterIdAndModule* table,\n-        Py_ssize_t count,\n-        int64_t interpreterId) {\n-    __Pyx_InterpreterIdAndModule* begin = table;\n-    __Pyx_InterpreterIdAndModule* end = begin + count;\n \n-    // fairly likely - e.g. single interpreter\n-    if (begin->id == interpreterId) {\n-        return begin;\n-    }\n-\n-    while ((end - begin) > __PYX_MODULE_STATE_LOOKUP_SMALL_SIZE) {\n-        __Pyx_InterpreterIdAndModule* halfway = begin + (end - begin)/2;\n-        if (halfway->id == interpreterId) {\n-            return halfway;\n-        }\n-        if (halfway->id < interpreterId) {\n-            begin = halfway;\n-        } else {\n-            end = halfway;\n-        }\n-    }\n-\n-    // Assume that for small ranges, it's quicker to do a linear search\n-    for (; begin < end; ++begin) {\n-        if (begin->id >= interpreterId) return begin;\n-    }\n-    return begin;\n+static int64_t __Pyx_ModuleStateLookup_HashId(int64_t id)\n+{\n+  #if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030E0000\n+    int64_t v = Py_HashBuffer((void*)&id, sizeof(id));\n+    return v >= 0 ? v : -(v+1);  // make sure we return something +ve\n+  #else\n+    // CityHash\n+    char* buf = (char*)&id;\n+    uint64_t a = 0, b = 0;\n+    memcpy(&a, buf, 4);\n+    memcpy(&b, buf+4, 4);\n+\n+    uint64_t u = 8+(a<<3);\n+    uint64_t v = b;\n+\n+    const uint64_t kMul = 0x9ddfea08eb382d69ULL;\n+    a = (u ^ v) * kMul;\n+    a ^= (a >> 47);\n+    b = (v ^ a) * kMul;\n+    b ^= (b >> 47);\n+    b *= kMul;\n+    return (b >> 1); // lose a bit and convert to signed int\n+  #endif\n }\n \n-static PyObject *__Pyx_State_FindModule(CYTHON_UNUSED void* dummy) {\n-    int64_t interpreter_id = PyInterpreterState_GetID(__Pyx_PyInterpreterState_Get());\n-    if (interpreter_id == -1) return NULL;\n-\n+static __Pyx_ModuleStateLookupTable* __Pyx_ModuleStateLookup_load_table_for_read(__Pyx_ModuleStateLookupData *data) {\n #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-    __Pyx_ModuleStateLookupData* data = (__Pyx_ModuleStateLookupData*)__pyx_atomic_pointer_load_relaxed(&__Pyx_ModuleStateLookup_data);\n+    __Pyx_ModuleStateLookupTable* table = (__Pyx_ModuleStateLookupTable*)__pyx_atomic_pointer_load_relaxed(&data->table);\n     {\n         // Thread sanitizer says that this is OK relaxed, but I think it needs to be acquire-release\n-        __pyx_atomic_incr_acq_rel(&__Pyx_ModuleStateLookup_read_counter);\n-        // data == NULL can either mean we're writing, or it's uninitialized.\n+        __pyx_atomic_incr_acq_rel(&data->read_counter);\n+        // table == NULL can either mean we're writing, or it's uninitialized.\n         // Uninitialized only happens infrequently on the first few calls, so it's fine\n         // to be on the slow path.\n-        if (likely(data)) {\n-            __Pyx_ModuleStateLookupData* new_data = (__Pyx_ModuleStateLookupData*)__pyx_atomic_pointer_load_acquire(&__Pyx_ModuleStateLookup_data);\n-            if (likely(data == new_data)) {\n+        if (likely(table)) {\n+            __Pyx_ModuleStateLookupTable* new_table = (__Pyx_ModuleStateLookupTable*)__pyx_atomic_pointer_load_acquire(&data->table);\n+            if (likely(table == new_table)) {\n                 // Nothing has written the data between incrementing the read counter and loading the pointer.\n                 goto read_finished;\n             }\n         }\n         // In principle DW believes this could be \"relaxed\", but it's on the unlikely slow path anyway\n         // so let's not add more macros.\n         // Undo our addition to the read counter.\n-        __pyx_atomic_decr_acq_rel(&__Pyx_ModuleStateLookup_read_counter);\n+        __pyx_atomic_decr_acq_rel(&data->read_counter);\n         // Wait for the write to finish and try again\n-        __Pyx_ModuleStateLookup_Lock();\n-        __pyx_atomic_incr_relaxed(&__Pyx_ModuleStateLookup_read_counter);\n-        data = (__Pyx_ModuleStateLookupData*)__pyx_atomic_pointer_load_relaxed(&__Pyx_ModuleStateLookup_data);\n-        __Pyx_ModuleStateLookup_Unlock();\n+        __Pyx_ModuleStateLookup_Lock(data);\n+        __pyx_atomic_incr_relaxed(&data->read_counter);\n+        table = (__Pyx_ModuleStateLookupTable*)__pyx_atomic_pointer_load_relaxed(&data->table);\n+        __Pyx_ModuleStateLookup_Unlock(data);\n     }\n   read_finished:;\n \n #else\n-    __Pyx_ModuleStateLookupData* data = __Pyx_ModuleStateLookup_data;\n+    __Pyx_ModuleStateLookupTable* table = data->table;\n #endif\n+    return table;\n+}\n \n-    __Pyx_InterpreterIdAndModule* found = NULL;\n-\n+static __Pyx_InterpreterIdAndModule *__Pyx_ModuleStateLookup_find_id_in_table(__Pyx_ModuleStateLookupTable* table, int64_t interpreter_id)\n+{\n     // There's one \"already imported\" check that'll hit this\n-    if (unlikely(!data)) goto end;\n-\n-    if (data->interpreter_id_as_index) {\n-        if (interpreter_id < data->count) {\n-            found = data->table+interpreter_id;\n+    if (unlikely(!table)) return NULL;\n+\n+    int64_t hash_id = __Pyx_ModuleStateLookup_HashId(interpreter_id);\n+    int64_t starting_bucket = hash_id % table->size;\n+    int n;\n+    for (n=0; n<2; ++n) {\n+        int64_t start = (n==0) ? starting_bucket : 0;\n+        int64_t stop = (n==0) ? table->size : starting_bucket;\n+        int64_t bucket;\n+        for (bucket=start; bucket<stop; ++bucket) {\n+          #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+            int64_t bucket_id = table->entries[bucket].id;\n+          #else\n+            int64_t bucket_id = __pyx_atomic_load_n(64, &table->entries[bucket].id);\n+          #endif\n+            if (bucket_id == interpreter_id) {\n+                return &table->entries[bucket];\n+            } else if (bucket_id == 0) {\n+                return NULL; // shouldn't happen, but we're not going to find it\n+            }\n         }\n-    } else {\n-        found = __Pyx_State_FindModuleStateLookupTableLowerBound(\n-            data->table, data->count, interpreter_id);\n     }\n+    return NULL;\n+}\n \n-  end:\n-    {\n-        PyObject *result=NULL;\n+static PyObject *__Pyx_ModuleStateLookup_FindModule(__Pyx_ModuleStateLookupData *data, int64_t interpreter_id) {\n+    if (interpreter_id == 0) return data->module0;\n+    if (interpreter_id == -1) return NULL;\n+\n+    __Pyx_ModuleStateLookupTable *table = __Pyx_ModuleStateLookup_load_table_for_read(data);\n+\n+    PyObject* found = NULL;\n+    __Pyx_InterpreterIdAndModule *id_and_module = __Pyx_ModuleStateLookup_find_id_in_table(table, interpreter_id);\n+    if (id_and_module) {\n+      #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+        found = (PyObject*)id_and_module->module;\n+      #else\n+        found = (PyObject*)__pyx_atomic_pointer_load_acquire(&id_and_module->module);\n+      #endif\n+    }\n \n-        if (found && found->id == interpreter_id) {\n-            result = found->module;\n-        }\n #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-        __pyx_atomic_decr_acq_rel(&__Pyx_ModuleStateLookup_read_counter);\n+    __pyx_atomic_decr_acq_rel(&data->read_counter);\n #endif\n-        return result;\n-    }\n+    return found;\n+}\n+\n+static PyObject *__Pyx_State_FindModule(CYTHON_UNUSED void* dummy) {\n+    __PYX_MODULE_STATE_MUTEX_RUNTIME_INIT_GLOBAL();\n+    int64_t interpreter_id = __Pyx_GetCurrentInterpreterId();\n+    return __Pyx_ModuleStateLookup_FindModule(&__Pyx_ModuleStateLookup_data, interpreter_id);\n }\n \n #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-static void __Pyx_ModuleStateLookup_wait_until_no_readers(void) {\n+static void __Pyx_ModuleStateLookup_wait_until_no_readers(__Pyx_ModuleStateLookupData *data) {\n     // Wait for any readers still working on the old data. Spin-lock is\n     // fine because readers should be much faster than memory allocation.\n-    while (__pyx_atomic_load(&__Pyx_ModuleStateLookup_read_counter) != 0);\n+    // This is called while also being a reader, so allow one reader.\n+    while (__pyx_atomic_load(&data->read_counter) > 1);\n }\n #else\n-#define __Pyx_ModuleStateLookup_wait_until_no_readers()\n-#endif\n-\n-static int __Pyx_State_AddModuleInterpIdAsIndex(__Pyx_ModuleStateLookupData **old_data, PyObject* module, int64_t interpreter_id) {\n-    Py_ssize_t to_allocate = (*old_data)->allocated;\n-    while (to_allocate <= interpreter_id) {\n-        if (to_allocate == 0) to_allocate = 1;\n-        else to_allocate *= 2;\n-    }\n-    __Pyx_ModuleStateLookupData *new_data = *old_data;\n-    if (to_allocate != (*old_data)->allocated) {\n-         new_data = (__Pyx_ModuleStateLookupData *)realloc(\n-            *old_data,\n-            sizeof(__Pyx_ModuleStateLookupData)+(to_allocate-1)*sizeof(__Pyx_InterpreterIdAndModule));\n-        if (!new_data) {\n-            PyErr_NoMemory();\n-            return -1;\n-        }\n-        for (Py_ssize_t i = new_data->allocated; i < to_allocate; ++i) {\n-            new_data->table[i].id = i;\n-            new_data->table[i].module = NULL;\n+#define __Pyx_ModuleStateLookup_wait_until_no_readers(data)\n+#endif\n+\n+static int __Pyx_ModuleStateLookup_add_to_table(int64_t interpreter_id, PyObject *module, __Pyx_ModuleStateLookupTable* table) {\n+    int64_t hash_id = __Pyx_ModuleStateLookup_HashId(interpreter_id);\n+    int64_t starting_bucket = hash_id % table->size;\n+    int n;\n+    for (n=0; n<2; ++n) {\n+        int64_t start = (n==0) ? starting_bucket : 0;\n+        int64_t stop = (n==0) ? table->size : starting_bucket;\n+        int64_t bucket;\n+        for (bucket=start; bucket<stop; ++bucket) {\n+            // We can insert module into the next available bucket with a NULL module\n+          #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+            if (table->entries[bucket].module == 0) {\n+                table->entries[bucket].module = module;\n+                table->entries[bucket].id = interpreter_id;\n+                return 0;\n+            }\n+          #else\n+            __pyx_nonatomic_ptr_type expected = 0;\n+            if (__pyx_atomic_pointer_cmp_exchange(&table->entries[bucket].module, &expected, (__pyx_nonatomic_ptr_type)module)) {\n+                __pyx_atomic_store_n(64, &table->entries[bucket].id, interpreter_id);\n+                return 0;\n+            }\n+          #endif\n         }\n-        new_data->allocated = to_allocate;\n-    }\n-    new_data->table[interpreter_id].module = module;\n-    if (new_data->count < interpreter_id+1) {\n-        new_data->count = interpreter_id+1;\n     }\n-    *old_data = new_data;\n-    return 0;\n+    PyErr_Format(\n+      PyExc_SystemError,\n+      \"Cython failed to add interpreter %lli to lookup table\",\n+      (long long)interpreter_id\n+    );\n+    return -1;\n }\n \n-static void __Pyx_State_ConvertFromInterpIdAsIndex(__Pyx_ModuleStateLookupData *data) {\n-    __Pyx_InterpreterIdAndModule *read = data->table;\n-    __Pyx_InterpreterIdAndModule *write = data->table;\n-    __Pyx_InterpreterIdAndModule *end = read + data->count;\n+static Py_ssize_t __Pyx_ModuleStateLookup_calculate_target_size(__Pyx_ModuleStateLookupData* data, __Pyx_ModuleStateLookupTable *table) {\n+  #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    int64_t count = data->count;\n+  #else\n+    int64_t count = __pyx_atomic_load_n(64, &data->count);\n+  #endif\n+    Py_ssize_t allocated = table ? table->size : 0;\n+    Py_ssize_t target = allocated;\n+    // arbitrary minimum size\n+    if (target < 10) target = 10;\n \n-    for (; read<end; ++read) {\n-        if (read->module) {\n-            write->id = read->id;\n-            write->module = read->module;\n-            ++write;\n-        }\n-        // Otherwise empty; don't copy\n+    // keep it less than half filled\n+    while (target <= count*2) {\n+        target *= 2;\n     }\n-    data->count = write - data->table;\n-    for (; write<end; ++write) {\n-        // clear rest of array\n-        write->id = 0;\n-        write->module = NULL;\n+    // but shrink if less than 10% filled\n+    while (target < count/10) {\n+        target /= 2;\n+        if (target < 10) {\n+            return 10;\n+        }\n     }",
             "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2272473924",
             "id": 2272473924,
-            "line": 2984,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6HczNE",
             "original_commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
             "original_line": 2984,
             "original_position": 560,
             "original_start_line": 2978,
             "path": "Cython/Utility/ModuleSetupCode.c",
-            "position": 560,
+            "position": null,
             "pull_request_review_id": 3114397156,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
             "reactions": {
@@ -286,7 +286,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2272473924/reactions"
             },
             "side": "RIGHT",
-            "start_line": 2978,
+            "start_line": null,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2025-08-13T09:06:56Z",
@@ -327,19 +327,19 @@
             },
             "author_association": "MEMBER",
             "body": "I think we can simplify the usage here:\r\n```suggestion\r\ndef add_macro(macro_name, value):\r\n    def update(ext):\r\n        ext.define_macros.append((macro_name, value))\r\n        return ext\r\n    return update\r\n```\r\n(I considered making the value optional but chose not to because it would require a different function name.)",
-            "commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
             "created_at": "2025-08-13T08:39:00Z",
             "diff_hunk": "@@ -264,9 +264,11 @@ def exclude_test_if_no_gdb(*, _has_gdb=[None]):\n     return not _has_gdb[0]\n \n \n-def update_linetrace_extension(ext):\n-    ext.define_macros.append(('CYTHON_TRACE', 1))\n-    return ext\n+def get_update_with_macro(macro):\n+    def update(ext):\n+        ext.define_macros.append(macro)\n+        return ext\n+    return update",
             "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2272529365",
             "id": 2272529365,
-            "line": 271,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6HdAvV",
             "original_commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
             "original_line": 271,
             "original_position": 11,
             "original_start_line": 267,
             "path": "runtests.py",
-            "position": 11,
+            "position": null,
             "pull_request_review_id": 3114397156,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
             "reactions": {
@@ -355,7 +355,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2272529365/reactions"
             },
             "side": "RIGHT",
-            "start_line": 267,
+            "start_line": null,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2025-08-13T09:06:56Z",
@@ -396,19 +396,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n    'tag:trace' : add_macro('CYTHON_TRACE', 1),\r\n    'tag:cppexecpolicies': require_gcc(\"9.1\"),\r\n    'tag:module_state_utility_code' : add_macro('CYTHON_TEST_MODULE_STATE_LOOKUP', 1),\r\n```",
-            "commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
             "created_at": "2025-08-13T08:40:54Z",
             "diff_hunk": "@@ -473,8 +475,9 @@ def get_openmp_compiler_flags(language):\n     'tag:cpp17': update_cpp17_extension,\n     'tag:cpp20': update_cpp20_extension,\n     'tag:c11': update_c11_extension,\n-    'tag:trace' : update_linetrace_extension,\n+    'tag:trace' : get_update_with_macro(('CYTHON_TRACE', 1)),\n     'tag:cppexecpolicies': require_gcc(\"9.1\"),\n+    'tag:module_state_utility_code' : get_update_with_macro(('CYTHON_TEST_MODULE_STATE_LOOKUP', 1))",
             "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2272534366",
             "id": 2272534366,
-            "line": 480,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6HdB9e",
             "original_commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
             "original_line": 480,
             "original_position": 22,
             "original_start_line": 478,
             "path": "runtests.py",
-            "position": 22,
+            "position": null,
             "pull_request_review_id": 3114397156,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
             "reactions": {
@@ -424,7 +424,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2272534366/reactions"
             },
             "side": "RIGHT",
-            "start_line": 478,
+            "start_line": null,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2025-08-13T09:06:56Z",
@@ -465,19 +465,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n\r\ndef test_module0():\r\n```",
-            "commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
             "created_at": "2025-08-13T08:42:56Z",
             "diff_hunk": "@@ -0,0 +1,132 @@\n+# mode: run\n+# tag: module_state_utility_code\n+\n+# cython: language_level=3\n+\n+# Currently this test only checks the adding/removal of modules\n+# and not the thread safety.\n+\n+from cpython.ref cimport PyObject\n+from libc.stdint cimport int64_t\n+\n+cdef extern from *:\n+    ctypedef struct __Pyx_ModuleStateLookupData:\n+        pass\n+\n+    __Pyx_ModuleStateLookupData* __Pyx_ModuleStateLookup_allocate_for_tests() except NULL\n+    void __Pyx_ModuleStateLookup_free_for_tests(__Pyx_ModuleStateLookupData*)\n+    PyObject *__Pyx_ModuleStateLookup_FindModule(__Pyx_ModuleStateLookupData*, int64_t)\n+    int __Pyx_ModuleStateLookup_AddModule(__Pyx_ModuleStateLookupData*, int64_t, PyObject*) except -1\n+    int __Pyx_ModuleStateLookup_RemoveModule(__Pyx_ModuleStateLookupData*, int64_t) except -1\n+\n+def test_module0():",
             "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2272539059",
             "id": 2272539059,
-            "line": 22,
+            "line": 23,
             "node_id": "PRRC_kwDOABDGAc6HdDGz",
             "original_commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
             "original_line": 22,
             "original_position": 22,
             "original_start_line": null,
             "path": "tests/run/modulestatelookup_impl.pyx",
-            "position": 22,
+            "position": 23,
             "pull_request_review_id": 3114397156,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
             "reactions": {
@@ -534,19 +534,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n\r\ndef test_add_modules():\r\n```",
-            "commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
             "created_at": "2025-08-13T08:43:13Z",
             "diff_hunk": "@@ -0,0 +1,132 @@\n+# mode: run\n+# tag: module_state_utility_code\n+\n+# cython: language_level=3\n+\n+# Currently this test only checks the adding/removal of modules\n+# and not the thread safety.\n+\n+from cpython.ref cimport PyObject\n+from libc.stdint cimport int64_t\n+\n+cdef extern from *:\n+    ctypedef struct __Pyx_ModuleStateLookupData:\n+        pass\n+\n+    __Pyx_ModuleStateLookupData* __Pyx_ModuleStateLookup_allocate_for_tests() except NULL\n+    void __Pyx_ModuleStateLookup_free_for_tests(__Pyx_ModuleStateLookupData*)\n+    PyObject *__Pyx_ModuleStateLookup_FindModule(__Pyx_ModuleStateLookupData*, int64_t)\n+    int __Pyx_ModuleStateLookup_AddModule(__Pyx_ModuleStateLookupData*, int64_t, PyObject*) except -1\n+    int __Pyx_ModuleStateLookup_RemoveModule(__Pyx_ModuleStateLookupData*, int64_t) except -1\n+\n+def test_module0():\n+    \"\"\"\n+    >>> test_module0()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == NULL\n+\n+        example_mod = object()\n+        __Pyx_ModuleStateLookup_AddModule(data, 0, <PyObject*>example_mod)\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == <PyObject*>example_mod\n+\n+        __Pyx_ModuleStateLookup_RemoveModule(data, 0)\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == NULL\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_add_modules():",
             "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2272539664",
             "id": 2272539664,
-            "line": 39,
+            "line": 41,
             "node_id": "PRRC_kwDOABDGAc6HdDQQ",
             "original_commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
             "original_line": 39,
             "original_position": 39,
             "original_start_line": null,
             "path": "tests/run/modulestatelookup_impl.pyx",
-            "position": 39,
+            "position": 41,
             "pull_request_review_id": 3114397156,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
             "reactions": {
@@ -603,19 +603,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n\r\ndef test_remove_modules():\r\n```",
-            "commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
             "created_at": "2025-08-13T08:43:19Z",
             "diff_hunk": "@@ -0,0 +1,132 @@\n+# mode: run\n+# tag: module_state_utility_code\n+\n+# cython: language_level=3\n+\n+# Currently this test only checks the adding/removal of modules\n+# and not the thread safety.\n+\n+from cpython.ref cimport PyObject\n+from libc.stdint cimport int64_t\n+\n+cdef extern from *:\n+    ctypedef struct __Pyx_ModuleStateLookupData:\n+        pass\n+\n+    __Pyx_ModuleStateLookupData* __Pyx_ModuleStateLookup_allocate_for_tests() except NULL\n+    void __Pyx_ModuleStateLookup_free_for_tests(__Pyx_ModuleStateLookupData*)\n+    PyObject *__Pyx_ModuleStateLookup_FindModule(__Pyx_ModuleStateLookupData*, int64_t)\n+    int __Pyx_ModuleStateLookup_AddModule(__Pyx_ModuleStateLookupData*, int64_t, PyObject*) except -1\n+    int __Pyx_ModuleStateLookup_RemoveModule(__Pyx_ModuleStateLookupData*, int64_t) except -1\n+\n+def test_module0():\n+    \"\"\"\n+    >>> test_module0()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == NULL\n+\n+        example_mod = object()\n+        __Pyx_ModuleStateLookup_AddModule(data, 0, <PyObject*>example_mod)\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == <PyObject*>example_mod\n+\n+        __Pyx_ModuleStateLookup_RemoveModule(data, 0)\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == NULL\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_add_modules():\n+    \"\"\"\n+    >>> test_add_modules()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        modules = [object() for _ in range(500)]\n+        for n, module in enumerate(modules):\n+            assert __Pyx_ModuleStateLookup_FindModule(data, n) == NULL\n+            __Pyx_ModuleStateLookup_AddModule(data, n, <PyObject*>module)\n+\n+        for n, module in enumerate(modules):\n+            assert __Pyx_ModuleStateLookup_FindModule(data, n) == <PyObject*>module\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_remove_modules():",
             "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2272539943",
             "id": 2272539943,
-            "line": 55,
+            "line": 58,
             "node_id": "PRRC_kwDOABDGAc6HdDUn",
             "original_commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
             "original_line": 55,
             "original_position": 55,
             "original_start_line": null,
             "path": "tests/run/modulestatelookup_impl.pyx",
-            "position": 55,
+            "position": 58,
             "pull_request_review_id": 3114397156,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
             "reactions": {
@@ -672,19 +672,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\r\n\r\ndef test_random_add_removal():\r\n```",
-            "commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
             "created_at": "2025-08-13T08:43:26Z",
             "diff_hunk": "@@ -0,0 +1,132 @@\n+# mode: run\n+# tag: module_state_utility_code\n+\n+# cython: language_level=3\n+\n+# Currently this test only checks the adding/removal of modules\n+# and not the thread safety.\n+\n+from cpython.ref cimport PyObject\n+from libc.stdint cimport int64_t\n+\n+cdef extern from *:\n+    ctypedef struct __Pyx_ModuleStateLookupData:\n+        pass\n+\n+    __Pyx_ModuleStateLookupData* __Pyx_ModuleStateLookup_allocate_for_tests() except NULL\n+    void __Pyx_ModuleStateLookup_free_for_tests(__Pyx_ModuleStateLookupData*)\n+    PyObject *__Pyx_ModuleStateLookup_FindModule(__Pyx_ModuleStateLookupData*, int64_t)\n+    int __Pyx_ModuleStateLookup_AddModule(__Pyx_ModuleStateLookupData*, int64_t, PyObject*) except -1\n+    int __Pyx_ModuleStateLookup_RemoveModule(__Pyx_ModuleStateLookupData*, int64_t) except -1\n+\n+def test_module0():\n+    \"\"\"\n+    >>> test_module0()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == NULL\n+\n+        example_mod = object()\n+        __Pyx_ModuleStateLookup_AddModule(data, 0, <PyObject*>example_mod)\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == <PyObject*>example_mod\n+\n+        __Pyx_ModuleStateLookup_RemoveModule(data, 0)\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == NULL\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_add_modules():\n+    \"\"\"\n+    >>> test_add_modules()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        modules = [object() for _ in range(500)]\n+        for n, module in enumerate(modules):\n+            assert __Pyx_ModuleStateLookup_FindModule(data, n) == NULL\n+            __Pyx_ModuleStateLookup_AddModule(data, n, <PyObject*>module)\n+\n+        for n, module in enumerate(modules):\n+            assert __Pyx_ModuleStateLookup_FindModule(data, n) == <PyObject*>module\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_remove_modules():\n+    \"\"\"\n+    test_remove_modules()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        modules = [object() for _ in range(500)]\n+        for n, module in enumerate(modules):\n+            try:\n+                __Pyx_ModuleStateLookup_RemoveModule(data, n)\n+            except SystemError:\n+                pass  # expected\n+            else:\n+                assert False, \"Didn't raise SystemError\"\n+            __Pyx_ModuleStateLookup_AddModule(data, n, <PyObject*>module)\n+\n+        for n, module in range(len(modules)):\n+            __Pyx_ModuleStateLookup_RemoveModule(data, n)\n+        for n, module in range(len(modules)):\n+            assert __Pyx_ModuleStateLookup_FindModule(data, n) == NULL\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_random_add_removal():",
             "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2272540208",
             "id": 2272540208,
-            "line": 78,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6HdDYw",
             "original_commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
             "original_line": 78,
             "original_position": 78,
             "original_start_line": null,
             "path": "tests/run/modulestatelookup_impl.pyx",
-            "position": 78,
+            "position": null,
             "pull_request_review_id": 3114397156,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
             "reactions": {
@@ -741,19 +741,19 @@
             },
             "author_association": "MEMBER",
             "body": "Randomisation makes test failures difficult to debug. Can we use a deterministic series of operations? E.g. create a few modules, then do a couple of add-remove cycles, maybe nest some add-remove cycles, maybe nest some in increasingly growing depths, then clean up? You could use the permutation generators in `itertools` to create varying degrees of add-remove nesting.",
-            "commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
             "created_at": "2025-08-13T08:49:12Z",
             "diff_hunk": "@@ -0,0 +1,132 @@\n+# mode: run\n+# tag: module_state_utility_code\n+\n+# cython: language_level=3\n+\n+# Currently this test only checks the adding/removal of modules\n+# and not the thread safety.\n+\n+from cpython.ref cimport PyObject\n+from libc.stdint cimport int64_t\n+\n+cdef extern from *:\n+    ctypedef struct __Pyx_ModuleStateLookupData:\n+        pass\n+\n+    __Pyx_ModuleStateLookupData* __Pyx_ModuleStateLookup_allocate_for_tests() except NULL\n+    void __Pyx_ModuleStateLookup_free_for_tests(__Pyx_ModuleStateLookupData*)\n+    PyObject *__Pyx_ModuleStateLookup_FindModule(__Pyx_ModuleStateLookupData*, int64_t)\n+    int __Pyx_ModuleStateLookup_AddModule(__Pyx_ModuleStateLookupData*, int64_t, PyObject*) except -1\n+    int __Pyx_ModuleStateLookup_RemoveModule(__Pyx_ModuleStateLookupData*, int64_t) except -1\n+\n+def test_module0():\n+    \"\"\"\n+    >>> test_module0()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == NULL\n+\n+        example_mod = object()\n+        __Pyx_ModuleStateLookup_AddModule(data, 0, <PyObject*>example_mod)\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == <PyObject*>example_mod\n+\n+        __Pyx_ModuleStateLookup_RemoveModule(data, 0)\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == NULL\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_add_modules():\n+    \"\"\"\n+    >>> test_add_modules()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        modules = [object() for _ in range(500)]\n+        for n, module in enumerate(modules):\n+            assert __Pyx_ModuleStateLookup_FindModule(data, n) == NULL\n+            __Pyx_ModuleStateLookup_AddModule(data, n, <PyObject*>module)\n+\n+        for n, module in enumerate(modules):\n+            assert __Pyx_ModuleStateLookup_FindModule(data, n) == <PyObject*>module\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_remove_modules():\n+    \"\"\"\n+    test_remove_modules()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        modules = [object() for _ in range(500)]\n+        for n, module in enumerate(modules):\n+            try:\n+                __Pyx_ModuleStateLookup_RemoveModule(data, n)\n+            except SystemError:\n+                pass  # expected\n+            else:\n+                assert False, \"Didn't raise SystemError\"\n+            __Pyx_ModuleStateLookup_AddModule(data, n, <PyObject*>module)\n+\n+        for n, module in range(len(modules)):\n+            __Pyx_ModuleStateLookup_RemoveModule(data, n)\n+        for n, module in range(len(modules)):\n+            assert __Pyx_ModuleStateLookup_FindModule(data, n) == NULL\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_random_add_removal():\n+    \"\"\"\n+    >>> test_random_add_removal()\n+    \"\"\"\n+    import random\n+\n+    generator = random.Random()",
             "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2272555062",
             "id": 2272555062,
-            "line": 84,
+            "line": 92,
             "node_id": "PRRC_kwDOABDGAc6HdHA2",
             "original_commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
             "original_line": 84,
             "original_position": 84,
             "original_start_line": 82,
             "path": "tests/run/modulestatelookup_impl.pyx",
-            "position": 84,
+            "position": 92,
             "pull_request_review_id": 3114397156,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
             "reactions": {
@@ -769,7 +769,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2272555062/reactions"
             },
             "side": "RIGHT",
-            "start_line": 82,
+            "start_line": 90,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2025-08-13T09:06:56Z",
@@ -793,6 +793,562 @@
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
                 "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7080#discussion_r2274154495"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7080"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2274154495"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I think in principle we want to be able to remove modules from the table - I think it should be possible to unload and reload a module. I suspect it wouldn't work right now for reference counting reasons, but I don't think this table should block it.\r\n\r\nBeing able to shrink the allocation is less important but doesn't add a lot of complication. I think I'll remove it just to avoid fluctuations, but it really only avoids the 4 lines above.",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "created_at": "2025-08-13T17:23:36Z",
+            "diff_hunk": "@@ -2699,344 +2746,436 @@ static SRWLOCK __Pyx_ModuleStateLookup_mutex = SRWLOCK_INIT;\n \n \n typedef struct {\n+    // module == NULL -> free to use/reuse\n+    // id == 0 -> uninitialized and thus searches for an id should not go further\n+    // id == -1 -> set to this before setting the module to NULL, so searches\n+    //             for other ids can continue beyond it, but it doesn't get mistaken for a valid id.\n+  #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n     int64_t id;\n     PyObject *module;\n+  #else\n+    __pyx_atomic_intn_type(64) id;\n+    __pyx_atomic_ptr_type module;\n+  #endif\n } __Pyx_InterpreterIdAndModule;\n \n typedef struct {\n-    char interpreter_id_as_index;\n-    Py_ssize_t count;\n-    Py_ssize_t allocated;\n-    __Pyx_InterpreterIdAndModule table[1];\n+    Py_ssize_t size;\n+    __Pyx_InterpreterIdAndModule entries[1];\n+} __Pyx_ModuleStateLookupTable;\n+\n+typedef struct __Pyx_ModuleStateLookupData {\n+  __PYX_MODULE_STATE_MUTEX_DECL\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    __pyx_atomic_int_type read_counter;\n+  #endif\n+    // special case for interpreter 0\n+    PyObject *module0;\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    __pyx_atomic_intn_type(64) count;\n+    __pyx_atomic_ptr_type table;\n+  #else\n+    int64_t count;\n+    __Pyx_ModuleStateLookupTable* table;\n+  #endif\n } __Pyx_ModuleStateLookupData;\n \n-#define __PYX_MODULE_STATE_LOOKUP_SMALL_SIZE 32\n-// \"interpreter_id_as_index\" above means \"the maximum interpreter ID ever seen is smaller than\n-// __PYX_MODULE_STATE_LOOKUP_SMALL_SIZE and thus they're stored in an array\n-// where the index corresponds to interpreter ID, and __Pyx_ModuleStateLookup_count\n-// is the size of the array.\n-\n-#if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-static __pyx_atomic_int_type __Pyx_ModuleStateLookup_read_counter = 0;\n-#endif\n-\n-// A sorted list of (sub)interpreter IDs and the module that was imported into that interpreter.\n-// For now look this up via binary search.\n-#if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-static __pyx_atomic_ptr_type __Pyx_ModuleStateLookup_data = 0;\n-#else\n-static __Pyx_ModuleStateLookupData* __Pyx_ModuleStateLookup_data = NULL;\n+static __Pyx_ModuleStateLookupData __Pyx_ModuleStateLookup_data = {\n+    __PYX_MODULE_STATE_MUTEX_INIT\n+// C++ is a bit picky about how we initialize. Before C++11 {} doesn't work.\n+// On some compilers after C++11, 0 doesn't work for atomics. \n+#if defined(__cplusplus) && __cplusplus >= 201103L\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    {}, // read_counter\n+  #endif\n+    {}, {}, {}\n+#elif !defined(__cplusplus)\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    0, // read_counter\n+  #endif\n+    0, // module0\n+    0, // count\n+    0 // table\n #endif\n+};\n \n \n-static __Pyx_InterpreterIdAndModule* __Pyx_State_FindModuleStateLookupTableLowerBound(\n-        __Pyx_InterpreterIdAndModule* table,\n-        Py_ssize_t count,\n-        int64_t interpreterId) {\n-    __Pyx_InterpreterIdAndModule* begin = table;\n-    __Pyx_InterpreterIdAndModule* end = begin + count;\n \n-    // fairly likely - e.g. single interpreter\n-    if (begin->id == interpreterId) {\n-        return begin;\n-    }\n-\n-    while ((end - begin) > __PYX_MODULE_STATE_LOOKUP_SMALL_SIZE) {\n-        __Pyx_InterpreterIdAndModule* halfway = begin + (end - begin)/2;\n-        if (halfway->id == interpreterId) {\n-            return halfway;\n-        }\n-        if (halfway->id < interpreterId) {\n-            begin = halfway;\n-        } else {\n-            end = halfway;\n-        }\n-    }\n-\n-    // Assume that for small ranges, it's quicker to do a linear search\n-    for (; begin < end; ++begin) {\n-        if (begin->id >= interpreterId) return begin;\n-    }\n-    return begin;\n+static int64_t __Pyx_ModuleStateLookup_HashId(int64_t id)\n+{\n+  #if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030E0000\n+    int64_t v = Py_HashBuffer((void*)&id, sizeof(id));\n+    return v >= 0 ? v : -(v+1);  // make sure we return something +ve\n+  #else\n+    // CityHash\n+    char* buf = (char*)&id;\n+    uint64_t a = 0, b = 0;\n+    memcpy(&a, buf, 4);\n+    memcpy(&b, buf+4, 4);\n+\n+    uint64_t u = 8+(a<<3);\n+    uint64_t v = b;\n+\n+    const uint64_t kMul = 0x9ddfea08eb382d69ULL;\n+    a = (u ^ v) * kMul;\n+    a ^= (a >> 47);\n+    b = (v ^ a) * kMul;\n+    b ^= (b >> 47);\n+    b *= kMul;\n+    return (b >> 1); // lose a bit and convert to signed int\n+  #endif\n }\n \n-static PyObject *__Pyx_State_FindModule(CYTHON_UNUSED void* dummy) {\n-    int64_t interpreter_id = PyInterpreterState_GetID(__Pyx_PyInterpreterState_Get());\n-    if (interpreter_id == -1) return NULL;\n-\n+static __Pyx_ModuleStateLookupTable* __Pyx_ModuleStateLookup_load_table_for_read(__Pyx_ModuleStateLookupData *data) {\n #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-    __Pyx_ModuleStateLookupData* data = (__Pyx_ModuleStateLookupData*)__pyx_atomic_pointer_load_relaxed(&__Pyx_ModuleStateLookup_data);\n+    __Pyx_ModuleStateLookupTable* table = (__Pyx_ModuleStateLookupTable*)__pyx_atomic_pointer_load_relaxed(&data->table);\n     {\n         // Thread sanitizer says that this is OK relaxed, but I think it needs to be acquire-release\n-        __pyx_atomic_incr_acq_rel(&__Pyx_ModuleStateLookup_read_counter);\n-        // data == NULL can either mean we're writing, or it's uninitialized.\n+        __pyx_atomic_incr_acq_rel(&data->read_counter);\n+        // table == NULL can either mean we're writing, or it's uninitialized.\n         // Uninitialized only happens infrequently on the first few calls, so it's fine\n         // to be on the slow path.\n-        if (likely(data)) {\n-            __Pyx_ModuleStateLookupData* new_data = (__Pyx_ModuleStateLookupData*)__pyx_atomic_pointer_load_acquire(&__Pyx_ModuleStateLookup_data);\n-            if (likely(data == new_data)) {\n+        if (likely(table)) {\n+            __Pyx_ModuleStateLookupTable* new_table = (__Pyx_ModuleStateLookupTable*)__pyx_atomic_pointer_load_acquire(&data->table);\n+            if (likely(table == new_table)) {\n                 // Nothing has written the data between incrementing the read counter and loading the pointer.\n                 goto read_finished;\n             }\n         }\n         // In principle DW believes this could be \"relaxed\", but it's on the unlikely slow path anyway\n         // so let's not add more macros.\n         // Undo our addition to the read counter.\n-        __pyx_atomic_decr_acq_rel(&__Pyx_ModuleStateLookup_read_counter);\n+        __pyx_atomic_decr_acq_rel(&data->read_counter);\n         // Wait for the write to finish and try again\n-        __Pyx_ModuleStateLookup_Lock();\n-        __pyx_atomic_incr_relaxed(&__Pyx_ModuleStateLookup_read_counter);\n-        data = (__Pyx_ModuleStateLookupData*)__pyx_atomic_pointer_load_relaxed(&__Pyx_ModuleStateLookup_data);\n-        __Pyx_ModuleStateLookup_Unlock();\n+        __Pyx_ModuleStateLookup_Lock(data);\n+        __pyx_atomic_incr_relaxed(&data->read_counter);\n+        table = (__Pyx_ModuleStateLookupTable*)__pyx_atomic_pointer_load_relaxed(&data->table);\n+        __Pyx_ModuleStateLookup_Unlock(data);\n     }\n   read_finished:;\n \n #else\n-    __Pyx_ModuleStateLookupData* data = __Pyx_ModuleStateLookup_data;\n+    __Pyx_ModuleStateLookupTable* table = data->table;\n #endif\n+    return table;\n+}\n \n-    __Pyx_InterpreterIdAndModule* found = NULL;\n-\n+static __Pyx_InterpreterIdAndModule *__Pyx_ModuleStateLookup_find_id_in_table(__Pyx_ModuleStateLookupTable* table, int64_t interpreter_id)\n+{\n     // There's one \"already imported\" check that'll hit this\n-    if (unlikely(!data)) goto end;\n-\n-    if (data->interpreter_id_as_index) {\n-        if (interpreter_id < data->count) {\n-            found = data->table+interpreter_id;\n+    if (unlikely(!table)) return NULL;\n+\n+    int64_t hash_id = __Pyx_ModuleStateLookup_HashId(interpreter_id);\n+    int64_t starting_bucket = hash_id % table->size;\n+    int n;\n+    for (n=0; n<2; ++n) {\n+        int64_t start = (n==0) ? starting_bucket : 0;\n+        int64_t stop = (n==0) ? table->size : starting_bucket;\n+        int64_t bucket;\n+        for (bucket=start; bucket<stop; ++bucket) {\n+          #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+            int64_t bucket_id = table->entries[bucket].id;\n+          #else\n+            int64_t bucket_id = __pyx_atomic_load_n(64, &table->entries[bucket].id);\n+          #endif\n+            if (bucket_id == interpreter_id) {\n+                return &table->entries[bucket];\n+            } else if (bucket_id == 0) {\n+                return NULL; // shouldn't happen, but we're not going to find it\n+            }\n         }\n-    } else {\n-        found = __Pyx_State_FindModuleStateLookupTableLowerBound(\n-            data->table, data->count, interpreter_id);\n     }\n+    return NULL;\n+}\n \n-  end:\n-    {\n-        PyObject *result=NULL;\n+static PyObject *__Pyx_ModuleStateLookup_FindModule(__Pyx_ModuleStateLookupData *data, int64_t interpreter_id) {\n+    if (interpreter_id == 0) return data->module0;\n+    if (interpreter_id == -1) return NULL;\n+\n+    __Pyx_ModuleStateLookupTable *table = __Pyx_ModuleStateLookup_load_table_for_read(data);\n+\n+    PyObject* found = NULL;\n+    __Pyx_InterpreterIdAndModule *id_and_module = __Pyx_ModuleStateLookup_find_id_in_table(table, interpreter_id);\n+    if (id_and_module) {\n+      #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+        found = (PyObject*)id_and_module->module;\n+      #else\n+        found = (PyObject*)__pyx_atomic_pointer_load_acquire(&id_and_module->module);\n+      #endif\n+    }\n \n-        if (found && found->id == interpreter_id) {\n-            result = found->module;\n-        }\n #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-        __pyx_atomic_decr_acq_rel(&__Pyx_ModuleStateLookup_read_counter);\n+    __pyx_atomic_decr_acq_rel(&data->read_counter);\n #endif\n-        return result;\n-    }\n+    return found;\n+}\n+\n+static PyObject *__Pyx_State_FindModule(CYTHON_UNUSED void* dummy) {\n+    __PYX_MODULE_STATE_MUTEX_RUNTIME_INIT_GLOBAL();\n+    int64_t interpreter_id = __Pyx_GetCurrentInterpreterId();\n+    return __Pyx_ModuleStateLookup_FindModule(&__Pyx_ModuleStateLookup_data, interpreter_id);\n }\n \n #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n-static void __Pyx_ModuleStateLookup_wait_until_no_readers(void) {\n+static void __Pyx_ModuleStateLookup_wait_until_no_readers(__Pyx_ModuleStateLookupData *data) {\n     // Wait for any readers still working on the old data. Spin-lock is\n     // fine because readers should be much faster than memory allocation.\n-    while (__pyx_atomic_load(&__Pyx_ModuleStateLookup_read_counter) != 0);\n+    // This is called while also being a reader, so allow one reader.\n+    while (__pyx_atomic_load(&data->read_counter) > 1);\n }\n #else\n-#define __Pyx_ModuleStateLookup_wait_until_no_readers()\n-#endif\n-\n-static int __Pyx_State_AddModuleInterpIdAsIndex(__Pyx_ModuleStateLookupData **old_data, PyObject* module, int64_t interpreter_id) {\n-    Py_ssize_t to_allocate = (*old_data)->allocated;\n-    while (to_allocate <= interpreter_id) {\n-        if (to_allocate == 0) to_allocate = 1;\n-        else to_allocate *= 2;\n-    }\n-    __Pyx_ModuleStateLookupData *new_data = *old_data;\n-    if (to_allocate != (*old_data)->allocated) {\n-         new_data = (__Pyx_ModuleStateLookupData *)realloc(\n-            *old_data,\n-            sizeof(__Pyx_ModuleStateLookupData)+(to_allocate-1)*sizeof(__Pyx_InterpreterIdAndModule));\n-        if (!new_data) {\n-            PyErr_NoMemory();\n-            return -1;\n-        }\n-        for (Py_ssize_t i = new_data->allocated; i < to_allocate; ++i) {\n-            new_data->table[i].id = i;\n-            new_data->table[i].module = NULL;\n+#define __Pyx_ModuleStateLookup_wait_until_no_readers(data)\n+#endif\n+\n+static int __Pyx_ModuleStateLookup_add_to_table(int64_t interpreter_id, PyObject *module, __Pyx_ModuleStateLookupTable* table) {\n+    int64_t hash_id = __Pyx_ModuleStateLookup_HashId(interpreter_id);\n+    int64_t starting_bucket = hash_id % table->size;\n+    int n;\n+    for (n=0; n<2; ++n) {\n+        int64_t start = (n==0) ? starting_bucket : 0;\n+        int64_t stop = (n==0) ? table->size : starting_bucket;\n+        int64_t bucket;\n+        for (bucket=start; bucket<stop; ++bucket) {\n+            // We can insert module into the next available bucket with a NULL module\n+          #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+            if (table->entries[bucket].module == 0) {\n+                table->entries[bucket].module = module;\n+                table->entries[bucket].id = interpreter_id;\n+                return 0;\n+            }\n+          #else\n+            __pyx_nonatomic_ptr_type expected = 0;\n+            if (__pyx_atomic_pointer_cmp_exchange(&table->entries[bucket].module, &expected, (__pyx_nonatomic_ptr_type)module)) {\n+                __pyx_atomic_store_n(64, &table->entries[bucket].id, interpreter_id);\n+                return 0;\n+            }\n+          #endif\n         }\n-        new_data->allocated = to_allocate;\n-    }\n-    new_data->table[interpreter_id].module = module;\n-    if (new_data->count < interpreter_id+1) {\n-        new_data->count = interpreter_id+1;\n     }\n-    *old_data = new_data;\n-    return 0;\n+    PyErr_Format(\n+      PyExc_SystemError,\n+      \"Cython failed to add interpreter %lli to lookup table\",\n+      (long long)interpreter_id\n+    );\n+    return -1;\n }\n \n-static void __Pyx_State_ConvertFromInterpIdAsIndex(__Pyx_ModuleStateLookupData *data) {\n-    __Pyx_InterpreterIdAndModule *read = data->table;\n-    __Pyx_InterpreterIdAndModule *write = data->table;\n-    __Pyx_InterpreterIdAndModule *end = read + data->count;\n+static Py_ssize_t __Pyx_ModuleStateLookup_calculate_target_size(__Pyx_ModuleStateLookupData* data, __Pyx_ModuleStateLookupTable *table) {\n+  #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    int64_t count = data->count;\n+  #else\n+    int64_t count = __pyx_atomic_load_n(64, &data->count);\n+  #endif\n+    Py_ssize_t allocated = table ? table->size : 0;\n+    Py_ssize_t target = allocated;\n+    // arbitrary minimum size\n+    if (target < 10) target = 10;\n \n-    for (; read<end; ++read) {\n-        if (read->module) {\n-            write->id = read->id;\n-            write->module = read->module;\n-            ++write;\n-        }\n-        // Otherwise empty; don't copy\n+    // keep it less than half filled\n+    while (target <= count*2) {\n+        target *= 2;\n     }\n-    data->count = write - data->table;\n-    for (; write<end; ++write) {\n-        // clear rest of array\n-        write->id = 0;\n-        write->module = NULL;\n+    // but shrink if less than 10% filled\n+    while (target < count/10) {\n+        target /= 2;\n+        if (target < 10) {\n+            return 10;\n+        }\n     }",
+            "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2274154495",
+            "id": 2274154495,
+            "in_reply_to_id": 2272473924,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc6HjNf_",
+            "original_commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+            "original_line": 2984,
+            "original_position": 560,
+            "original_start_line": 2978,
+            "path": "Cython/Utility/ModuleSetupCode.c",
+            "position": null,
+            "pull_request_review_id": 3117027575,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2274154495/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2025-08-13T17:23:36Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2274154495",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7080#discussion_r2274163461"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7080"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2274163461"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "That's why I added `print(f\"Failed: state {initial_state}\")` on failure - I think it should make it possible to debug a failure retrospectively.  For now I'll add in the small bit of code to help that.\r\n\r\nI'm happy to make it deterministic though if that's still an issue",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "created_at": "2025-08-13T17:28:01Z",
+            "diff_hunk": "@@ -0,0 +1,132 @@\n+# mode: run\n+# tag: module_state_utility_code\n+\n+# cython: language_level=3\n+\n+# Currently this test only checks the adding/removal of modules\n+# and not the thread safety.\n+\n+from cpython.ref cimport PyObject\n+from libc.stdint cimport int64_t\n+\n+cdef extern from *:\n+    ctypedef struct __Pyx_ModuleStateLookupData:\n+        pass\n+\n+    __Pyx_ModuleStateLookupData* __Pyx_ModuleStateLookup_allocate_for_tests() except NULL\n+    void __Pyx_ModuleStateLookup_free_for_tests(__Pyx_ModuleStateLookupData*)\n+    PyObject *__Pyx_ModuleStateLookup_FindModule(__Pyx_ModuleStateLookupData*, int64_t)\n+    int __Pyx_ModuleStateLookup_AddModule(__Pyx_ModuleStateLookupData*, int64_t, PyObject*) except -1\n+    int __Pyx_ModuleStateLookup_RemoveModule(__Pyx_ModuleStateLookupData*, int64_t) except -1\n+\n+def test_module0():\n+    \"\"\"\n+    >>> test_module0()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == NULL\n+\n+        example_mod = object()\n+        __Pyx_ModuleStateLookup_AddModule(data, 0, <PyObject*>example_mod)\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == <PyObject*>example_mod\n+\n+        __Pyx_ModuleStateLookup_RemoveModule(data, 0)\n+        assert __Pyx_ModuleStateLookup_FindModule(data, 0) == NULL\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_add_modules():\n+    \"\"\"\n+    >>> test_add_modules()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        modules = [object() for _ in range(500)]\n+        for n, module in enumerate(modules):\n+            assert __Pyx_ModuleStateLookup_FindModule(data, n) == NULL\n+            __Pyx_ModuleStateLookup_AddModule(data, n, <PyObject*>module)\n+\n+        for n, module in enumerate(modules):\n+            assert __Pyx_ModuleStateLookup_FindModule(data, n) == <PyObject*>module\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_remove_modules():\n+    \"\"\"\n+    test_remove_modules()\n+    \"\"\"\n+    data = __Pyx_ModuleStateLookup_allocate_for_tests();\n+    try:\n+        modules = [object() for _ in range(500)]\n+        for n, module in enumerate(modules):\n+            try:\n+                __Pyx_ModuleStateLookup_RemoveModule(data, n)\n+            except SystemError:\n+                pass  # expected\n+            else:\n+                assert False, \"Didn't raise SystemError\"\n+            __Pyx_ModuleStateLookup_AddModule(data, n, <PyObject*>module)\n+\n+        for n, module in range(len(modules)):\n+            __Pyx_ModuleStateLookup_RemoveModule(data, n)\n+        for n, module in range(len(modules)):\n+            assert __Pyx_ModuleStateLookup_FindModule(data, n) == NULL\n+    finally:\n+        __Pyx_ModuleStateLookup_free_for_tests(data)\n+\n+def test_random_add_removal():\n+    \"\"\"\n+    >>> test_random_add_removal()\n+    \"\"\"\n+    import random\n+\n+    generator = random.Random()",
+            "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2274163461",
+            "id": 2274163461,
+            "in_reply_to_id": 2272555062,
+            "line": 92,
+            "node_id": "PRRC_kwDOABDGAc6HjPsF",
+            "original_commit_id": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+            "original_line": 84,
+            "original_position": 84,
+            "original_start_line": 82,
+            "path": "tests/run/modulestatelookup_impl.pyx",
+            "position": 92,
+            "pull_request_review_id": 3117039081,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2274163461/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 90,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2025-08-13T17:28:01Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2274163461",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7080#discussion_r2275689818"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7080"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2275689818"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n    // Leave at enough space to keep the rest of the structure\r\n    // in different cache lines to prevent false sharing.\r\n```",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "created_at": "2025-08-14T07:12:13Z",
+            "diff_hunk": "@@ -2699,344 +2747,443 @@ static SRWLOCK __Pyx_ModuleStateLookup_mutex = SRWLOCK_INIT;\n \n \n typedef struct {\n+    // module == NULL -> free to use/reuse\n+    // id == 0 -> uninitialized and thus searches for an id should not go further\n+    // id == -1 -> set to this before setting the module to NULL, so searches\n+    //             for other ids can continue beyond it, but it doesn't get mistaken for a valid id.\n+  #if !CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n     int64_t id;\n     PyObject *module;\n+  #else\n+    __pyx_atomic_intn_type(64) id;\n+    __pyx_atomic_ptr_type module;\n+  #endif\n } __Pyx_InterpreterIdAndModule;\n \n typedef struct {\n-    char interpreter_id_as_index;\n-    Py_ssize_t count;\n-    Py_ssize_t allocated;\n-    __Pyx_InterpreterIdAndModule table[1];\n+    Py_ssize_t size;\n+    __Pyx_InterpreterIdAndModule entries[1];\n+} __Pyx_ModuleStateLookupTable;\n+\n+typedef struct __Pyx_ModuleStateLookupData {\n+  __PYX_MODULE_STATE_MUTEX_DECL\n+  #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n+    __pyx_atomic_int_type read_counter;\n+    // Leave at enough space to keep the read_counter read_counter the\n+    // rest of the structure in different cache lines to prevent false sharing.",
+            "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2275689818",
+            "id": 2275689818,
+            "line": 2773,
+            "node_id": "PRRC_kwDOABDGAc6HpEVa",
+            "original_commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "original_line": 2773,
+            "original_position": 224,
+            "original_start_line": 2772,
+            "path": "Cython/Utility/ModuleSetupCode.c",
+            "position": 224,
+            "pull_request_review_id": 3119288205,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2275689818/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2772,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2025-08-14T07:59:38Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2275689818",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7080#discussion_r2275699820"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7080"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2275699820"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Ok, it's an atomic load, but that doesn't guarantee that _after_ the loop the read counter is _still_ 0. Doesn't that matter?",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "created_at": "2025-08-14T07:17:05Z",
+            "diff_hunk": "@@ -2915,8 +2915,7 @@ static PyObject *__Pyx_State_FindModule(CYTHON_UNUSED void* dummy) {\n static void __Pyx_ModuleStateLookup_wait_until_no_readers(__Pyx_ModuleStateLookupData *data) {\n     // Wait for any readers still working on the old data. Spin-lock is\n     // fine because readers should be much faster than memory allocation.\n-    // This is called while also being a reader, so allow one reader.\n-    while (__pyx_atomic_load(&data->read_counter) > 1);\n+    while (__pyx_atomic_load(&data->read_counter) > 0);",
+            "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2275699820",
+            "id": 2275699820,
+            "line": 2932,
+            "node_id": "PRRC_kwDOABDGAc6HpGxs",
+            "original_commit_id": "fbb6fefc74cb3fac88d168b7d4572e7830ff538c",
+            "original_line": 2918,
+            "original_position": 6,
+            "original_start_line": null,
+            "path": "Cython/Utility/ModuleSetupCode.c",
+            "position": 464,
+            "pull_request_review_id": 3119288205,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2275699820/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2025-08-14T07:59:38Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2275699820",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7080#discussion_r2275721138"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7080"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2275721138"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Doubling might become excessive at some point, especially if we don't shrink. Here's the overallocation scheme for Python lists, which might be worth adopting or adapting (they've done the thinking already, so…).\r\n```\r\n    /* This over-allocates proportional to the list size, making room\r\n     * for additional growth.  The over-allocation is mild, but is\r\n     * enough to give linear-time amortized behavior over a long\r\n     * sequence of appends() in the presence of a poorly-performing\r\n     * system realloc().\r\n     * Add padding to make the allocated size multiple of 4.\r\n     * The growth pattern is:  0, 4, 8, 16, 24, 32, 40, 52, 64, 76, ...\r\n     * Note: new_allocated won't overflow because the largest possible value\r\n     *       is PY_SSIZE_T_MAX * (9 / 8) + 6 which always fits in a size_t.\r\n     */\r\n    new_allocated = ((size_t)newsize + (newsize >> 3) + 6) & ~(size_t)3;\r\n    /* Do not overallocate if the new size is closer to overallocated size\r\n     * than to the old size.\r\n     */\r\n    if (newsize - Py_SIZE(self) > (Py_ssize_t)(new_allocated - newsize))\r\n        new_allocated = ((size_t)newsize + 3) & ~(size_t)3;\r\n```",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "created_at": "2025-08-14T07:25:55Z",
+            "diff_hunk": "@@ -2969,19 +2964,13 @@ static Py_ssize_t __Pyx_ModuleStateLookup_calculate_target_size(__Pyx_ModuleStat\n     Py_ssize_t allocated = table ? table->size : 0;\n     Py_ssize_t target = allocated;\n     // arbitrary minimum size\n-    if (target < 10) target = 10;\n+    if (target < 8) target = 8;\n \n     // keep it less than half filled\n     while (target <= count*2) {\n         target *= 2;\n     }",
+            "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2275721138",
+            "id": 2275721138,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc6HpL-y",
+            "original_commit_id": "ddcbd3a2fbc862930c5adedbc1e693aab5ffe584",
+            "original_line": 2972,
+            "original_position": 29,
+            "original_start_line": 2969,
+            "path": "Cython/Utility/ModuleSetupCode.c",
+            "position": null,
+            "pull_request_review_id": 3119288205,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2275721138/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2025-08-14T07:59:38Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2275721138",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7080#discussion_r2275784681"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7080"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2275784681"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "IIUC, the size is _sometimes_ available in C++, specifically, when users compile their own code. Binary wheels for distribution usually target some old, generally supported CPU that may or may not match the configuration of the CPU that will eventually run the code. We could argue that users with high performance requirements would have an incentive to compile the code on their side, but many still won't do it for all of their (relevant) dependencies.\r\n\r\nThat written, the L1 cache line size seems to be consistent at least across Intel CPUs and it's an improvement according to your benchmark. It'll probably be ok in practice.\r\n\r\nBTW, we should make sure that this code doesn't get shared across modules as the struct size might end up varying at compile time. This adds at least a difference between C++ and C modules.",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "created_at": "2025-08-14T07:52:27Z",
+            "diff_hunk": "@@ -2768,6 +2769,17 @@ typedef struct __Pyx_ModuleStateLookupData {\n   __PYX_MODULE_STATE_MUTEX_DECL\n   #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n     __pyx_atomic_int_type read_counter;\n+    // Leave at enough space to keep the read_counter read_counter the\n+    // rest of the structure in different cache lines to prevent false sharing.\n+    // On modern C++ the required size is available. Otherwise use an arbitrary value\n+    // of \"twice what most x64 chips are in 2025\".\n+    char blank_space[\n+#if defined(__cplusplus) && defined(__cpp_lib_hardware_interference_size)\n+      std::hardware_destructive_interference_size\n+#else\n+      128\n+#endif\n+    ];",
+            "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2275784681",
+            "id": 2275784681,
+            "line": 2782,
+            "node_id": "PRRC_kwDOABDGAc6Hpbfp",
+            "original_commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "original_line": 2782,
+            "original_position": 22,
+            "original_start_line": 2774,
+            "path": "Cython/Utility/ModuleSetupCode.c",
+            "position": 22,
+            "pull_request_review_id": 3119288205,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2275784681/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2774,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2025-08-14T07:59:38Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2275784681",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7080#discussion_r2277223501"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7080"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2277223501"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Yes what C++ includes is definitely a generic compile-time estimate for the platform rather than an exact match for the user's CPU.\r\n\r\nAs far as I can tell, anything Intel or ARM is 64, but I can find a few less popular platforms that report either 32 (risc-V) or 128 (power64).\r\n\r\nI think the padding is definitely worthwhile but I don't feel strongly about using the C++ library number or hardcoding our own number.\r\n\r\n> BTW, we should make sure that this code doesn't get shared across modules as the struct size might end up varying at compile time. This adds at least a difference between C++ and C modules.\r\n\r\nI think the mutex already makes that true.",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "created_at": "2025-08-14T17:08:03Z",
+            "diff_hunk": "@@ -2768,6 +2769,17 @@ typedef struct __Pyx_ModuleStateLookupData {\n   __PYX_MODULE_STATE_MUTEX_DECL\n   #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE\n     __pyx_atomic_int_type read_counter;\n+    // Leave at enough space to keep the read_counter read_counter the\n+    // rest of the structure in different cache lines to prevent false sharing.\n+    // On modern C++ the required size is available. Otherwise use an arbitrary value\n+    // of \"twice what most x64 chips are in 2025\".\n+    char blank_space[\n+#if defined(__cplusplus) && defined(__cpp_lib_hardware_interference_size)\n+      std::hardware_destructive_interference_size\n+#else\n+      128\n+#endif\n+    ];",
+            "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2277223501",
+            "id": 2277223501,
+            "in_reply_to_id": 2275784681,
+            "line": 2782,
+            "node_id": "PRRC_kwDOABDGAc6Hu6xN",
+            "original_commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "original_line": 2782,
+            "original_position": 22,
+            "original_start_line": 2774,
+            "path": "Cython/Utility/ModuleSetupCode.c",
+            "position": 22,
+            "pull_request_review_id": 3121413639,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2277223501/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 2774,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2025-08-14T17:08:04Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2277223501",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7080#discussion_r2277353906"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7080"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2277353906"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Yes this is essentially the same as the existing version. When waiting to rewrite I swap the table out and set it to NULL. Which means that nobody new starts reading it.",
+            "commit_id": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "created_at": "2025-08-14T17:49:49Z",
+            "diff_hunk": "@@ -2915,8 +2915,7 @@ static PyObject *__Pyx_State_FindModule(CYTHON_UNUSED void* dummy) {\n static void __Pyx_ModuleStateLookup_wait_until_no_readers(__Pyx_ModuleStateLookupData *data) {\n     // Wait for any readers still working on the old data. Spin-lock is\n     // fine because readers should be much faster than memory allocation.\n-    // This is called while also being a reader, so allow one reader.\n-    while (__pyx_atomic_load(&data->read_counter) > 1);\n+    while (__pyx_atomic_load(&data->read_counter) > 0);",
+            "html_url": "https://github.com/cython/cython/pull/7080#discussion_r2277353906",
+            "id": 2277353906,
+            "in_reply_to_id": 2275699820,
+            "line": 2932,
+            "node_id": "PRRC_kwDOABDGAc6Hvamy",
+            "original_commit_id": "fbb6fefc74cb3fac88d168b7d4572e7830ff538c",
+            "original_line": 2918,
+            "original_position": 6,
+            "original_start_line": null,
+            "path": "Cython/Utility/ModuleSetupCode.c",
+            "position": 464,
+            "pull_request_review_id": 3121618553,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7080",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2277353906/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2025-08-14T17:49:49Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2277353906",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
                 "user_view_type": "public"
             }
         }
@@ -1618,12 +2174,586 @@
             ],
             "sha": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
             "url": "https://api.github.com/repos/cython/cython/commits/a74a5342f3f4b1b2f063067ba70a6467aef9583d"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/51ba24592fba00b2156eb0ed6dd6be5d432c7f6b/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-08-13T17:28:11Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-08-13T17:28:11Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Apply suggestions from code review\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "667b056aea1738eae7acd4e406fa4543064dc4d1",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/667b056aea1738eae7acd4e406fa4543064dc4d1"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/51ba24592fba00b2156eb0ed6dd6be5d432c7f6b",
+                "verification": {
+                    "payload": "tree 667b056aea1738eae7acd4e406fa4543064dc4d1\nparent a74a5342f3f4b1b2f063067ba70a6467aef9583d\nauthor da-woods <dw-git@d-woods.co.uk> 1755106091 +0100\ncommitter GitHub <noreply@github.com> 1755106091 +0100\n\nApply suggestions from code review\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJonMsrCRC1aQ7uu5UhlAAAtkkQAKaa0m9CZuG1zK3/eBllOWiH\nMG0ndFvd4yp5Guqc3sjt3tRq1vRUZlNuyoivcQVeZtJqDhCEGVjtx0RaWJuWj7Oz\nUjf5CCDgJ7aAWu/NS0D31ltdcGOdlNorHRF7odYa2/dEOckAMsl5Q2lrB4LrGvjk\nWQpPatQ/yg2ENaRwOFpue+Y2QUm7tZRKqRdOs+8ZgjOY1Af/Ae0xDq9JduCIdnBV\n7Wy30K2amhGmg3gzsaE/chr0eC/6cHdR4CojwCwqjNHZy8JE/E6GiliH/3X/FSWa\n9A5alPPgh04AYpJPxjovViumqdq8Cz+rjz+TevTtfKAFTMdl1T7JZDsO1vuF1f6f\nrCK0s0lZjNGiWHT0/bEUJ8X/7S7dB6AWuhpGtdkFef+23zWkhK821KwPhWywpSM2\nRNV1hibTeACfrHQiXnjNrIpKkklOlMwjoWfNjb3TXl2u0ebM60172Q2YRGuQBSzF\no1alM/K37c9aMdhiIvie6KXFNN3Jk+NMROCnnNAfxxHKBToRgWoTby78xhb4hWEM\n1aIZqxm1e/V2nohTgN4kyltohxkrWE5PbVcXsJ1AVY1qRPOI1iRTmqzIuVpKgeb/\njTX83Ahqj/fnPM9aLUf3PYigTrOLtO/Rk4EBeT6e0CP2z0b3lM333zNq8cLX0aTy\n3uQx7L8d1bHhTFmDUT2s\n=/dgU\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2025-08-13T17:28:11Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/51ba24592fba00b2156eb0ed6dd6be5d432c7f6b",
+            "node_id": "C_kwDOAhr4b9oAKDUxYmEyNDU5MmZiYTAwYjIxNTZlYjBlZDZkZDZiZTVkNDMyYzdmNmI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+                    "sha": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+                    "url": "https://api.github.com/repos/cython/cython/commits/a74a5342f3f4b1b2f063067ba70a6467aef9583d"
+                }
+            ],
+            "sha": "51ba24592fba00b2156eb0ed6dd6be5d432c7f6b",
+            "url": "https://api.github.com/repos/cython/cython/commits/51ba24592fba00b2156eb0ed6dd6be5d432c7f6b"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/ddcbd3a2fbc862930c5adedbc1e693aab5ffe584/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-08-13T17:31:19Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-08-13T17:31:19Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Remove shrink and use of Python hash function",
+                "tree": {
+                    "sha": "904f8d9dd70e647246817aea0fee9598b4d15e91",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/904f8d9dd70e647246817aea0fee9598b4d15e91"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/ddcbd3a2fbc862930c5adedbc1e693aab5ffe584",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/ddcbd3a2fbc862930c5adedbc1e693aab5ffe584",
+            "node_id": "C_kwDOAhr4b9oAKGRkY2JkM2EyZmJjODYyOTMwYzVhZGVkYmMxZTY5M2FhYjVmZmU1ODQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/51ba24592fba00b2156eb0ed6dd6be5d432c7f6b",
+                    "sha": "51ba24592fba00b2156eb0ed6dd6be5d432c7f6b",
+                    "url": "https://api.github.com/repos/cython/cython/commits/51ba24592fba00b2156eb0ed6dd6be5d432c7f6b"
+                }
+            ],
+            "sha": "ddcbd3a2fbc862930c5adedbc1e693aab5ffe584",
+            "url": "https://api.github.com/repos/cython/cython/commits/ddcbd3a2fbc862930c5adedbc1e693aab5ffe584"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/821a51a3fd1af173a6c6c86f47f0784b293ca84a/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-08-13T17:38:05Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-08-13T17:38:05Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Improve test reproducibility",
+                "tree": {
+                    "sha": "bd760c8c10617ae09479292f5b95305a80d6173a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/bd760c8c10617ae09479292f5b95305a80d6173a"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/821a51a3fd1af173a6c6c86f47f0784b293ca84a",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/821a51a3fd1af173a6c6c86f47f0784b293ca84a",
+            "node_id": "C_kwDOAhr4b9oAKDgyMWE1MWEzZmQxYWYxNzNhNmM2Yzg2ZjQ3ZjA3ODRiMjkzY2E4NGE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/ddcbd3a2fbc862930c5adedbc1e693aab5ffe584",
+                    "sha": "ddcbd3a2fbc862930c5adedbc1e693aab5ffe584",
+                    "url": "https://api.github.com/repos/cython/cython/commits/ddcbd3a2fbc862930c5adedbc1e693aab5ffe584"
+                }
+            ],
+            "sha": "821a51a3fd1af173a6c6c86f47f0784b293ca84a",
+            "url": "https://api.github.com/repos/cython/cython/commits/821a51a3fd1af173a6c6c86f47f0784b293ca84a"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/fbb6fefc74cb3fac88d168b7d4572e7830ff538c/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-08-13T19:22:11Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-08-13T19:22:11Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Fixup",
+                "tree": {
+                    "sha": "5b89ba735e31472f1f5515cc1402cd66f34a8233",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/5b89ba735e31472f1f5515cc1402cd66f34a8233"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/fbb6fefc74cb3fac88d168b7d4572e7830ff538c",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/fbb6fefc74cb3fac88d168b7d4572e7830ff538c",
+            "node_id": "C_kwDOAhr4b9oAKGZiYjZmZWZjNzRjYjNmYWM4OGQxNjhiN2Q0NTcyZTc4MzBmZjUzOGM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/821a51a3fd1af173a6c6c86f47f0784b293ca84a",
+                    "sha": "821a51a3fd1af173a6c6c86f47f0784b293ca84a",
+                    "url": "https://api.github.com/repos/cython/cython/commits/821a51a3fd1af173a6c6c86f47f0784b293ca84a"
+                }
+            ],
+            "sha": "fbb6fefc74cb3fac88d168b7d4572e7830ff538c",
+            "url": "https://api.github.com/repos/cython/cython/commits/fbb6fefc74cb3fac88d168b7d4572e7830ff538c"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/0f408a3b100053bb68f674a61e505cef4650a10f/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-08-13T20:42:32Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-08-13T20:44:24Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Add benchmarks",
+                "tree": {
+                    "sha": "34de133185bc90a2f75d381c4cb909147fac0f20",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/34de133185bc90a2f75d381c4cb909147fac0f20"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/0f408a3b100053bb68f674a61e505cef4650a10f",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/0f408a3b100053bb68f674a61e505cef4650a10f",
+            "node_id": "C_kwDOAhr4b9oAKDBmNDA4YTNiMTAwMDUzYmI2OGY2NzRhNjFlNTA1Y2VmNDY1MGExMGY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/fbb6fefc74cb3fac88d168b7d4572e7830ff538c",
+                    "sha": "fbb6fefc74cb3fac88d168b7d4572e7830ff538c",
+                    "url": "https://api.github.com/repos/cython/cython/commits/fbb6fefc74cb3fac88d168b7d4572e7830ff538c"
+                }
+            ],
+            "sha": "0f408a3b100053bb68f674a61e505cef4650a10f",
+            "url": "https://api.github.com/repos/cython/cython/commits/0f408a3b100053bb68f674a61e505cef4650a10f"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/45241417c8ad9caa21c9c0944f8774d6f198e634/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-08-13T21:05:15Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-08-13T21:05:15Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "add thread-safe guard",
+                "tree": {
+                    "sha": "a5f8cd1679550edc68bbf4cf46d5cbc8f6a82dc9",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a5f8cd1679550edc68bbf4cf46d5cbc8f6a82dc9"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/45241417c8ad9caa21c9c0944f8774d6f198e634",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/45241417c8ad9caa21c9c0944f8774d6f198e634",
+            "node_id": "C_kwDOAhr4b9oAKDQ1MjQxNDE3YzhhZDljYWEyMWM5YzA5NDRmODc3NGQ2ZjE5OGU2MzQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/0f408a3b100053bb68f674a61e505cef4650a10f",
+                    "sha": "0f408a3b100053bb68f674a61e505cef4650a10f",
+                    "url": "https://api.github.com/repos/cython/cython/commits/0f408a3b100053bb68f674a61e505cef4650a10f"
+                }
+            ],
+            "sha": "45241417c8ad9caa21c9c0944f8774d6f198e634",
+            "url": "https://api.github.com/repos/cython/cython/commits/45241417c8ad9caa21c9c0944f8774d6f198e634"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/c25ee2c4294d3162bff5fdb4f92c128cc28d47cf/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-08-14T05:57:04Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-08-14T05:59:03Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Leave space to revent false sharing",
+                "tree": {
+                    "sha": "fbc7c2a577c3a74894a39094f12662792d372682",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/fbc7c2a577c3a74894a39094f12662792d372682"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "node_id": "C_kwDOAhr4b9oAKGMyNWVlMmM0Mjk0ZDMxNjJiZmY1ZmRiNGY5MmMxMjhjYzI4ZDQ3Y2Y",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/45241417c8ad9caa21c9c0944f8774d6f198e634",
+                    "sha": "45241417c8ad9caa21c9c0944f8774d6f198e634",
+                    "url": "https://api.github.com/repos/cython/cython/commits/45241417c8ad9caa21c9c0944f8774d6f198e634"
+                }
+            ],
+            "sha": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+            "url": "https://api.github.com/repos/cython/cython/commits/c25ee2c4294d3162bff5fdb4f92c128cc28d47cf"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/7080/commits",
     "created_at": "2025-08-09T12:23:03Z",
     "diff_url": "https://github.com/cython/cython/pull/7080.diff",
-    "draft": false,
+    "draft": true,
     "head": {
         "label": "da-woods:module-state-hash-table",
         "ref": "module-state-hash-table",
@@ -1713,9 +2843,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2025-08-13T05:47:09Z",
+            "pushed_at": "2025-08-15T06:52:55Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 79897,
+            "size": 80199,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -1734,7 +2864,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "a74a5342f3f4b1b2f063067ba70a6467aef9583d",
+        "sha": "c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -1762,7 +2892,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/7080",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "516403e6bbc8e84a83dd92cb3bf3633b7af62e62",
+    "merge_commit_sha": "6fcf2db5713c75b13bf515fc677f3d66944641b1",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc6i4DwZ",
@@ -1773,9 +2903,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7080/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/a74a5342f3f4b1b2f063067ba70a6467aef9583d",
-    "title": "Replace module state lookup with hash table",
-    "updated_at": "2025-08-13T09:06:56Z",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/c25ee2c4294d3162bff5fdb4f92c128cc28d47cf",
+    "title": "[Draft for now, going to pick out independent parts] Replace module state lookup with hash table",
+    "updated_at": "2025-08-14T17:49:49Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/7080",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
