@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/7297"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/c9c53896ead4b7d10a1feaec428c8f3522125670"
+            "href": "https://api.github.com/repos/cython/cython/statuses/d87d21949643ea2fc82f795b44d6537a9ea142f2"
         }
     },
     "active_lock_reason": null,
@@ -66,7 +66,7 @@
             "has_discussions": false,
             "has_downloads": true,
             "has_issues": true,
-            "has_pages": false,
+            "has_pages": true,
             "has_projects": false,
             "has_wiki": true,
             "homepage": "https://cython.org",
@@ -94,8 +94,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1478,
-            "open_issues_count": 1478,
+            "open_issues": 1484,
+            "open_issues_count": 1484,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -119,11 +119,11 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2025-11-12T10:49:55Z",
+            "pushed_at": "2025-11-19T07:40:10Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 77388,
+            "size": 77729,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10439,
+            "stargazers_count": 10453,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -142,14 +142,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2025-11-12T14:28:02Z",
+            "updated_at": "2025-11-19T15:35:18Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10439,
-            "watchers_count": 10439,
+            "watchers": 10453,
+            "watchers_count": 10453,
             "web_commit_signoff_required": false
         },
-        "sha": "3809adccf51431dae3171565f34bbb1948d3a3ea",
+        "sha": "a7aed8536d55c9fc197b24702e4c274c2cbf2951",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -172,7 +172,7 @@
             "user_view_type": "public"
         }
     },
-    "body": "## Summary\r\n\r\nAdds a `locked()` method to `cython.pymutex` to check if a mutex is currently held without blocking or modifying its state.\r\n\r\nFixes #7275\r\n\r\n## Motivation\r\n\r\nCurrently, there's no way to check if a `cython.pymutex` is locked without attempting to acquire it (which blocks). This makes it difficult to:\r\n- Debug deadlocks by inspecting lock states\r\n- Implement conditional locking logic\r\n- Monitor lock contention\r\n- Build sophisticated synchronization patterns\r\n\r\nThis mirrors the functionality of `threading.Lock.locked()` in Python's standard library.\r\n\r\n## Implementation\r\n\r\nThe implementation adapts to different Python versions:\r\n\r\n- **Python 3.14+**: Uses the official `PyMutex_IsLocked()` API\r\n- **Python 3.13**: Uses internal `lock._bits & _Py_LOCKED` structure (safe, frozen in 3.13.x)\r\n- **Python 3.10-3.12**: Raises `NotImplementedError` (pymutex doesn't exist yet)\r\n\r\nThe method:\r\n- ✅ Returns `True` if locked, `False` if free\r\n- ✅ Is non-blocking and read-only\r\n- ✅ Can be called in `nogil` contexts\r\n- ✅ Is thread-safe\r\n\r\n## Changes\r\n\r\n- Added `locked()` method to `Shadow.py` (pure Python fallback)\r\n- Added `locked()` declaration to `PyrexTypes.py` (type system)\r\n- Implemented `__Pyx_Locks_PyMutex_Locked()` in `Synchronization.c` (C implementation)\r\n- Updated `freethreading.rst` documentation with examples\r\n- Added type hints to `Shadow.pyi`\r\n- Created comprehensive test suite (`tests/run/pymutex_locked.pyx`) with 6 test functions covering:\r\n  - Basic functionality\r\n  - Context manager integration\r\n  - NoGIL operation\r\n  - Parallel/concurrent access\r\n  - Class attributes\r\n  - Global variables\r\n\r\n## Testing\r\n\r\nTested on:\r\n- Python 3.14.0 (uses `PyMutex_IsLocked()`)\r\n- Python 3.13.5 (uses `_bits` structure)\r\n- Python 3.10.0 (backward compatibility verified)\r\n\r\nAll 14 test cases pass.\r\n\r\n## Example Usage\r\n\r\n```\r\ncdef cython.pymutex lock\r\n\r\n# Check without blocking\r\nif lock.locked():\r\n    print(\"Lock is held\")\r\nelse:\r\n    print(\"Lock is free\")\r\n    lock.acquire()\r\n\r\n# Works in nogil context\r\ncdef bint is_locked\r\nwith nogil:\r\n    is_locked = lock.locked()",
+    "body": "## Summary\r\n\r\nAdds a `locked()` method to `cython.pymutex` and `cython.pythread_type_lock` to check if a mutex is currently held without blocking or modifying its state.\r\n\r\nAlso adds `can_check_locked()` which always returns `True` since `locked()` is now available on all Python versions.\r\n\r\nFixes #7275\r\n\r\n## Motivation\r\n\r\nCurrently, there's no way to check if a `cython.pymutex` is locked without attempting to acquire it (which blocks). This makes it difficult to:\r\n\r\n- Debug deadlocks by inspecting lock states\r\n- Implement conditional locking logic\r\n- Monitor lock contention\r\n- Build sophisticated synchronization patterns\r\n\r\nThis mirrors the functionality of `threading.Lock.locked()` in Python's standard library.\r\n\r\n## Implementation\r\n\r\nThe implementation adapts to different Python versions:\r\n\r\n- **Python 3.14+**: Uses the official `PyMutex_IsLocked()` API (when available)\r\n- **Python 3.13**: Uses atomic read of `lock._bits & _Py_LOCKED` structure (safe, frozen in 3.13.x)\r\n- **Python < 3.13 or Limited API**: Uses try-acquire approach - attempts a non-blocking acquire and immediately releases if successful\r\n\r\nThe try-acquire approach works by calling `PyThread_acquire_lock(lock, NOWAIT_LOCK)`:\r\n- If the acquire succeeds, the lock was free → release it and return `False`\r\n- If the acquire fails, the lock is held → return `True`\r\n\r\nThis approach is less efficient than atomic reads but provides universal compatibility without fatal errors.\r\n\r\nThe `locked()` method:\r\n- Returns `True` if locked, `False` if free\r\n- Available on all Python versions (3.10+)\r\n- Can be called in `nogil` contexts\r\n- Is thread-safe\r\n- Works in Limited API mode via try-acquire\r\n\r\nThe `can_check_locked()` method:\r\n- Always returns `True` (since `locked()` is now universally available)\r\n- Maintained for API compatibility\r\n- Safe to call on any Python version\r\n\r\n## Changes\r\n\r\n- Added `locked()` and `can_check_locked()` methods to `Shadow.py` and `Shadow.pyi` (pure Python fallback and type stubs)\r\n- Added method declarations to `PyrexTypes.py` (type system)\r\n- Implemented `__Pyx_Locks_PyMutex_Locked()` and `__Pyx_Locks_PyMutex_CanCheckLocked()` in `Synchronization.c`\r\n- Implemented `__Pyx_Locks_PyThreadTypeLock_Locked()` using try-acquire approach for universal compatibility\r\n- Updated `can_check_locked()` to return `1` (True) on all Python versions\r\n- Optimized CanCheckLocked macro to call function instead of hardcoded constant\r\n- Updated `freethreading.rst` documentation to reflect universal availability\r\n- Merged tests into existing `tests/run/pymutex.pyx` test suite\r\n- All tests pass across Python 3.10, 3.12, 3.13 (with and without Limited API)\r\n\r\n## Testing\r\n\r\nTested on:\r\n- ✅ Python 3.13.8 Docker (normal mode): 41 tests passing\r\n- ✅ Python 3.13.8 Docker (Limited API): 41 tests passing (try-acquire fallback works)\r\n- ✅ Python 3.12.4 Windows: 13 tests passing (try-acquire works)\r\n- ✅ Python 3.10.0 Windows: 13 tests passing (try-acquire works)\r\n- All `locked()` functionality now available on all supported Python versions\r\n\r\n## Example Usage\r\n\r\n```python\r\ncdef cython.pymutex lock\r\n\r\n# Simple usage - locked() now works everywhere\r\nif lock.locked():\r\n    print(\"Lock is held\")\r\nelse:\r\n    print(\"Lock is free\")\r\n    lock.acquire()\r\n\r\n# can_check_locked() maintained for API compatibility (always returns True)\r\nif lock.can_check_locked():  # Always True now\r\n    if lock.locked():\r\n        print(\"Lock is held\")\r\n    \r\n# Works in nogil context\r\ncdef bint is_locked\r\nwith nogil:\r\n    is_locked = lock.locked()\r\n    \r\n# Also works with pythread_type_lock\r\ncdef cython.pythread_type_lock thread_lock\r\nif thread_lock.locked():\r\n    print(\"Thread lock is held\")\r\n```\r\n\r\n## Credits\r\n\r\nImplementation approach suggested by @da-woods , using try-acquire provides universal compatibility across all Python versions without requiring fatal errors on older Python versions.",
     "closed_at": null,
     "comment_data": [
         {
@@ -534,19 +534,19 @@
             },
             "author_association": "MEMBER",
             "body": "You'll probably get a warning about an unused argument - `CYTHON_UNUSED_VAR(lock)` should silence that",
-            "commit_id": "c9c53896ead4b7d10a1feaec428c8f3522125670",
+            "commit_id": "4d7b3a119c4182047fd112b76e33214806a28788",
             "created_at": "2025-11-07T17:36:37Z",
             "diff_hunk": "@@ -314,6 +315,16 @@ static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock\n     }\n }\n \n+static int __Pyx_Locks_PyThreadTypeLock_Locked(__Pyx_Locks_PyThreadTypeLock lock) {\n+    // PyThread_type_lock doesn't provide a way to check if it's locked",
             "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2504745315",
             "id": 2504745315,
-            "line": 327,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6VS2Fj",
             "original_commit_id": "91c8129e95d6dc41ef771528923fc4a751028b46",
             "original_line": 319,
             "original_position": 13,
             "original_start_line": null,
             "path": "Cython/Utility/Synchronization.c",
-            "position": 21,
+            "position": 1,
             "pull_request_review_id": 3435364223,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
             "reactions": {
@@ -603,19 +603,19 @@
             },
             "author_association": "MEMBER",
             "body": "As I wrote in the ticket, I'd rather not raise an exception here. The `PyMutex_IsLocked()` function cannot fail and we should keep this as a property of the method. We should not complicate the usage for the hypothetical case that users call it before Py3.13. I think a fatal Python error is ok here.",
-            "commit_id": "c9c53896ead4b7d10a1feaec428c8f3522125670",
+            "commit_id": "d87d21949643ea2fc82f795b44d6537a9ea142f2",
             "created_at": "2025-11-08T20:45:03Z",
             "diff_hunk": "@@ -314,6 +315,17 @@ static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock\n     }\n }\n \n+static int __Pyx_Locks_PyThreadTypeLock_Locked(__Pyx_Locks_PyThreadTypeLock lock) {\n+    CYTHON_UNUSED_VAR(lock);\n+    // PyThread_type_lock doesn't provide a way to check if it's locked\n+    // without trying to acquire it. We raise NotImplementedError.\n+    PyGILState_STATE gstate = PyGILState_Ensure();\n+    PyErr_SetString(PyExc_NotImplementedError, \n+                    \"pythread_type_lock.locked() is not supported\");\n+    PyGILState_Release(gstate);\n+    return -1;  // Indicate error\n+}",
             "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2507131366",
             "id": 2507131366,
-            "line": 334,
+            "line": 335,
             "node_id": "PRRC_kwDOABDGAc6Vb8nm",
             "original_commit_id": "466ddebe16f94f240ed92d7ccf502af17038a946",
             "original_line": 327,
             "original_position": 21,
             "original_start_line": 318,
             "path": "Cython/Utility/Synchronization.c",
-            "position": 28,
+            "position": 29,
             "pull_request_review_id": 3438606497,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
             "reactions": {
@@ -810,19 +810,19 @@
             },
             "author_association": "MEMBER",
             "body": "Hmm, this is CPython specific. Probably fine for the time being, but once other Python implementations catch up, we might have to revisit the atomics usage here. Alternatively, we could use our own atomics implementation in `Synchronization.c`, but I'd guess that that's also something for \"later\".",
-            "commit_id": "c9c53896ead4b7d10a1feaec428c8f3522125670",
+            "commit_id": "d87d21949643ea2fc82f795b44d6537a9ea142f2",
             "created_at": "2025-11-08T20:58:39Z",
             "diff_hunk": "@@ -359,6 +371,17 @@ static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock\n #define __Pyx_Locks_PyMutex_LockGil(l) PyMutex_Lock(&l)\n #define  __Pyx_Locks_PyMutex_LockNogil(l) PyMutex_Lock(&l)\n \n+// For Python 3.13+, check if PyMutex_IsLocked is available\n+#if PY_VERSION_HEX >= 0x030e00C1\n+// Python 3.14+ has PyMutex_IsLocked API\n+#define __Pyx_Locks_PyMutex_Locked(l) PyMutex_IsLocked(&(l))\n+#else\n+// Python 3.13: Use atomic read of lock bits as per CPython's cpython/lock.h\n+// _Py_LOCKED is defined in Include/cpython/lock.h\n+#define __Pyx_Locks_PyMutex_Locked(l) \\\n+    ((int)(_Py_atomic_load_uint8_relaxed(&(l)._bits) & _Py_LOCKED))",
             "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2507143636",
             "id": 2507143636,
-            "line": 389,
+            "line": 390,
             "node_id": "PRRC_kwDOABDGAc6Vb_nU",
             "original_commit_id": "466ddebe16f94f240ed92d7ccf502af17038a946",
             "original_line": 382,
             "original_position": 38,
             "original_start_line": 379,
             "path": "Cython/Utility/Synchronization.c",
-            "position": 45,
+            "position": 46,
             "pull_request_review_id": 3438606497,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
             "reactions": {
@@ -838,7 +838,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2507143636/reactions"
             },
             "side": "RIGHT",
-            "start_line": 386,
+            "start_line": 387,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2025-11-08T20:59:31Z",
@@ -879,20 +879,20 @@
             },
             "author_association": "MEMBER",
             "body": "I think it's probably best to use the CPython atomic operations for this for now.\r\n\r\nFor x86 (and \"relaxed\" especially) it doesn't really matter but these operations don't always translate to simple CPU instructions so there's a bit ABI needed so that all users of the atomic implement it in the same way. Therefore if we're looking into CPython internals we should probably use their atomics.",
-            "commit_id": "c9c53896ead4b7d10a1feaec428c8f3522125670",
+            "commit_id": "d87d21949643ea2fc82f795b44d6537a9ea142f2",
             "created_at": "2025-11-08T21:06:02Z",
             "diff_hunk": "@@ -359,6 +371,17 @@ static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock\n #define __Pyx_Locks_PyMutex_LockGil(l) PyMutex_Lock(&l)\n #define  __Pyx_Locks_PyMutex_LockNogil(l) PyMutex_Lock(&l)\n \n+// For Python 3.13+, check if PyMutex_IsLocked is available\n+#if PY_VERSION_HEX >= 0x030e00C1\n+// Python 3.14+ has PyMutex_IsLocked API\n+#define __Pyx_Locks_PyMutex_Locked(l) PyMutex_IsLocked(&(l))\n+#else\n+// Python 3.13: Use atomic read of lock bits as per CPython's cpython/lock.h\n+// _Py_LOCKED is defined in Include/cpython/lock.h\n+#define __Pyx_Locks_PyMutex_Locked(l) \\\n+    ((int)(_Py_atomic_load_uint8_relaxed(&(l)._bits) & _Py_LOCKED))",
             "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2507153183",
             "id": 2507153183,
             "in_reply_to_id": 2507143636,
-            "line": 389,
+            "line": 390,
             "node_id": "PRRC_kwDOABDGAc6VcB8f",
             "original_commit_id": "466ddebe16f94f240ed92d7ccf502af17038a946",
             "original_line": 382,
             "original_position": 38,
             "original_start_line": 379,
             "path": "Cython/Utility/Synchronization.c",
-            "position": 45,
+            "position": 46,
             "pull_request_review_id": 3438644520,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
             "reactions": {
@@ -908,7 +908,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2507153183/reactions"
             },
             "side": "RIGHT",
-            "start_line": 386,
+            "start_line": 387,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2025-11-08T21:06:03Z",
@@ -949,20 +949,20 @@
             },
             "author_association": "MEMBER",
             "body": "If we do a fatal error here then I think there should be a way of users to query whether they can call it. The rules for when it'll work are a bit complex (>3.13 but not on Stable ABI when it'll probably be >3.15, and maybe different again on other implementations) so it isn't reasonable to expect them to remember it.",
-            "commit_id": "c9c53896ead4b7d10a1feaec428c8f3522125670",
+            "commit_id": "d87d21949643ea2fc82f795b44d6537a9ea142f2",
             "created_at": "2025-11-08T21:08:55Z",
             "diff_hunk": "@@ -314,6 +315,17 @@ static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock\n     }\n }\n \n+static int __Pyx_Locks_PyThreadTypeLock_Locked(__Pyx_Locks_PyThreadTypeLock lock) {\n+    CYTHON_UNUSED_VAR(lock);\n+    // PyThread_type_lock doesn't provide a way to check if it's locked\n+    // without trying to acquire it. We raise NotImplementedError.\n+    PyGILState_STATE gstate = PyGILState_Ensure();\n+    PyErr_SetString(PyExc_NotImplementedError, \n+                    \"pythread_type_lock.locked() is not supported\");\n+    PyGILState_Release(gstate);\n+    return -1;  // Indicate error\n+}",
             "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2507157999",
             "id": 2507157999,
             "in_reply_to_id": 2507131366,
-            "line": 334,
+            "line": 335,
             "node_id": "PRRC_kwDOABDGAc6VcDHv",
             "original_commit_id": "466ddebe16f94f240ed92d7ccf502af17038a946",
             "original_line": 327,
             "original_position": 21,
             "original_start_line": 318,
             "path": "Cython/Utility/Synchronization.c",
-            "position": 28,
+            "position": 29,
             "pull_request_review_id": 3438652483,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
             "reactions": {
@@ -1019,20 +1019,20 @@
             },
             "author_association": "NONE",
             "body": "Should I implement pymutex.can_check_locked() capability check:\r\n\r\n```c\r\nstatic CYTHON_INLINE int __Pyx_Locks_PyMutex_SupportsLocked(void) {\r\n    // Python < 3.13: PyMutex doesn't exist\r\n    #if PY_VERSION_HEX < 0x030d0000\r\n        return 0;\r\n    \r\n    #else\r\n        // Limited API mode that doesn't have locked()\r\n        #ifdef Py_LIMITED_API\r\n            return 0;\r\n        #else\r\n            return 1;\r\n        #endif\r\n    #endif\r\n}\r\n\r\n\r\n```\r\n\r\nOf course in 3.15 and later we should revisit depending on changes.",
-            "commit_id": "c9c53896ead4b7d10a1feaec428c8f3522125670",
+            "commit_id": "d87d21949643ea2fc82f795b44d6537a9ea142f2",
             "created_at": "2025-11-09T06:51:17Z",
             "diff_hunk": "@@ -314,6 +315,17 @@ static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock\n     }\n }\n \n+static int __Pyx_Locks_PyThreadTypeLock_Locked(__Pyx_Locks_PyThreadTypeLock lock) {\n+    CYTHON_UNUSED_VAR(lock);\n+    // PyThread_type_lock doesn't provide a way to check if it's locked\n+    // without trying to acquire it. We raise NotImplementedError.\n+    PyGILState_STATE gstate = PyGILState_Ensure();\n+    PyErr_SetString(PyExc_NotImplementedError, \n+                    \"pythread_type_lock.locked() is not supported\");\n+    PyGILState_Release(gstate);\n+    return -1;  // Indicate error\n+}",
             "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2507638075",
             "id": 2507638075,
             "in_reply_to_id": 2507131366,
-            "line": 334,
+            "line": 335,
             "node_id": "PRRC_kwDOABDGAc6Vd4U7",
             "original_commit_id": "466ddebe16f94f240ed92d7ccf502af17038a946",
             "original_line": 327,
             "original_position": 21,
             "original_start_line": 318,
             "path": "Cython/Utility/Synchronization.c",
-            "position": 28,
+            "position": 29,
             "pull_request_review_id": 3439430413,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
             "reactions": {
@@ -1158,20 +1158,20 @@
             },
             "author_association": "MEMBER",
             "body": "I think it's worth implementing this otherwise it's hard to avoid the `Py_FatalError`",
-            "commit_id": "c9c53896ead4b7d10a1feaec428c8f3522125670",
+            "commit_id": "d87d21949643ea2fc82f795b44d6537a9ea142f2",
             "created_at": "2025-11-10T21:15:50Z",
             "diff_hunk": "@@ -314,6 +315,17 @@ static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock\n     }\n }\n \n+static int __Pyx_Locks_PyThreadTypeLock_Locked(__Pyx_Locks_PyThreadTypeLock lock) {\n+    CYTHON_UNUSED_VAR(lock);\n+    // PyThread_type_lock doesn't provide a way to check if it's locked\n+    // without trying to acquire it. We raise NotImplementedError.\n+    PyGILState_STATE gstate = PyGILState_Ensure();\n+    PyErr_SetString(PyExc_NotImplementedError, \n+                    \"pythread_type_lock.locked() is not supported\");\n+    PyGILState_Release(gstate);\n+    return -1;  // Indicate error\n+}",
             "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2511992913",
             "id": 2511992913,
             "in_reply_to_id": 2507131366,
-            "line": 334,
+            "line": 335,
             "node_id": "PRRC_kwDOABDGAc6VufhR",
             "original_commit_id": "466ddebe16f94f240ed92d7ccf502af17038a946",
             "original_line": 327,
             "original_position": 21,
             "original_start_line": 318,
             "path": "Cython/Utility/Synchronization.c",
-            "position": 28,
+            "position": 29,
             "pull_request_review_id": 3445175372,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
             "reactions": {
@@ -1211,6 +1211,352 @@
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
                 "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7297#discussion_r2535578472"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7297"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2535578472"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n    return not global_lock.locked()\r\n\r\n\r\n# Using C is just a quick way to inject a few Python calls\r\n```",
+            "commit_id": "6cebb9358b3d20c0d60505295912f215616d14e2",
+            "created_at": "2025-11-17T21:33:51Z",
+            "diff_hunk": "@@ -111,6 +134,132 @@ def pass_as_pointer():\n     return count\n \n \n+def test_pymutex_locked_basic():\n+    \"\"\"\n+    Test basic locked() functionality for pymutex.\n+    \n+    >>> test_pymutex_locked_basic() if _locked_available() else True\n+    True\n+    \"\"\"\n+    cdef cython.pymutex lock\n+    \n+    # Lock should not be locked initially\n+    if lock.locked():\n+        return False\n+    \n+    # After acquiring, should be locked\n+    lock.acquire()\n+    if not lock.locked():\n+        lock.release()\n+        return False\n+    \n+    # After releasing, should not be locked\n+    lock.release()\n+    if lock.locked():\n+        return False\n+    \n+    return True\n+\n+\n+def test_pymutex_locked_with_statement():\n+    \"\"\"\n+    Test locked() with context manager (with statement).\n+    \n+    >>> test_pymutex_locked_with_statement() if _locked_available() else True\n+    True\n+    \"\"\"\n+    cdef cython.pymutex lock\n+    cdef bint was_locked_inside = False\n+    cdef bint was_unlocked_before = False\n+    cdef bint was_unlocked_after = False\n+    \n+    was_unlocked_before = not lock.locked()\n+    \n+    with lock:\n+        was_locked_inside = lock.locked()\n+    \n+    was_unlocked_after = not lock.locked()\n+    \n+    return was_unlocked_before and was_locked_inside and was_unlocked_after\n+\n+\n+def test_pymutex_locked_nogil():\n+    \"\"\"\n+    Test locked() in nogil context.\n+    \n+    >>> test_pymutex_locked_nogil() if _locked_available() else True\n+    True\n+    \"\"\"\n+    cdef cython.pymutex lock\n+    cdef bint result = False\n+    \n+    with nogil:\n+        if not lock.locked():\n+            lock.acquire()\n+            if lock.locked():\n+                lock.release()\n+                if not lock.locked():\n+                    result = True\n+    \n+    return result\n+\n+\n+def test_pymutex_locked_in_parallel():\n+    \"\"\"\n+    Test locked() in parallel prange context.\n+    \n+    >>> test_pymutex_locked_in_parallel() if _locked_available() else True\n+    True\n+    \"\"\"\n+    cdef cython.pymutex lock\n+    cdef int i\n+    cdef int failures = 0\n+    \n+    for i in cython.parallel.prange(100, nogil=True):\n+        # Each thread checks if unlocked, acquires, checks if locked, releases\n+        if not lock.locked():\n+            lock.acquire()\n+            if not lock.locked():\n+                failures = failures + 1\n+            lock.release()\n+    \n+    return failures == 0\n+\n+\n+def test_locked_on_attribute():\n+    \"\"\"\n+    Test locked() on a lock stored as an attribute.\n+    \n+    >>> test_locked_on_attribute() if _locked_available() else True\n+    True\n+    \"\"\"\n+    cdef HasLockAttribute obj = HasLockAttribute()\n+    \n+    if obj.lock.locked():\n+        return False\n+    \n+    obj.lock.acquire()\n+    result = obj.lock.locked()\n+    obj.lock.release()\n+    \n+    return result and not obj.lock.locked()\n+\n+\n+def test_global_lock_locked():\n+    \"\"\"\n+    Test locked() on a global lock variable.\n+    \n+    >>> test_global_lock_locked() if _locked_available() else True\n+    True\n+    \"\"\"\n+    if global_lock.locked():\n+        return False\n+    \n+    with global_lock:\n+        if not global_lock.locked():\n+            return False\n+    \n+    return not global_lock.locked()\n # Using C is just a quick way to inject a few Python calls",
+            "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2535578472",
+            "id": 2535578472,
+            "line": 273,
+            "node_id": "PRRC_kwDOABDGAc6XIdto",
+            "original_commit_id": "6cebb9358b3d20c0d60505295912f215616d14e2",
+            "original_line": 263,
+            "original_position": 167,
+            "original_start_line": 262,
+            "path": "tests/run/pymutex.pyx",
+            "position": 1,
+            "pull_request_review_id": 3474638202,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2535578472/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 270,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2025-11-17T21:33:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2535578472",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7297#discussion_r2539029011"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7297"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2539029011"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "These should have a `can_check_locked` as well now, I think.",
+            "commit_id": "d87d21949643ea2fc82f795b44d6537a9ea142f2",
+            "created_at": "2025-11-18T17:08:51Z",
+            "diff_hunk": "@@ -267,6 +267,53 @@ class typedef(CythonType, Generic[_T]):\n \n NULL: pointer[Any]\n \n+# Lock types for synchronization",
+            "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2539029011",
+            "id": 2539029011,
+            "line": 270,
+            "node_id": "PRRC_kwDOABDGAc6XVoIT",
+            "original_commit_id": "4d7b3a119c4182047fd112b76e33214806a28788",
+            "original_line": 270,
+            "original_position": 4,
+            "original_start_line": null,
+            "path": "Cython/Shadow.pyi",
+            "position": 4,
+            "pull_request_review_id": 3478883763,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2539029011/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2025-11-18T17:14:30Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2539029011",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7297#discussion_r2539031899"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7297"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2539031899"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\r\n        Aborts with a fatal Python error as PyThread_type_lock does not support this operation.\r\n```\r\nThere might be a way to express this in `typing`, although that could turn out to be unhelpful.",
+            "commit_id": "4d7b3a119c4182047fd112b76e33214806a28788",
+            "created_at": "2025-11-18T17:09:36Z",
+            "diff_hunk": "@@ -267,6 +267,53 @@ class typedef(CythonType, Generic[_T]):\n \n NULL: pointer[Any]\n \n+# Lock types for synchronization\n+class pymutex:\n+    \"\"\"\n+    A low-cost mutex lock type.\n+    In Python 3.13+, it uses the fast PyMutex implementation. In older Python versions,\n+    it falls back to the heavier \"PyThread_type_lock\".\n+    Can be used in 'with' statements and supports nogil context.\n+    \"\"\"\n+    def acquire(self) -> None: ...\n+    def release(self) -> None: ...\n+    def locked(self) -> bool:\n+        \"\"\"\n+        Check if the lock is currently held.\n+        Returns True if locked, False otherwise.\n+        Only available on Python 3.13+.\n+        \"\"\"\n+        ...\n+    def __enter__(self) -> None: ...\n+    def __exit__(\n+        self,\n+        exc_type: Optional[Type[BaseException]],\n+        exc: Optional[BaseException],\n+        tb: Optional[TracebackType]\n+    ) -> None: ...\n+\n+class pythread_type_lock:\n+    \"\"\"\n+    A mutex lock type using PyThread_type_lock.\n+    Can be used in 'with' statements and supports nogil context.\n+    Compatible with the Limited API.\n+    \"\"\"\n+    def acquire(self) -> None: ...\n+    def release(self) -> None: ...\n+    def locked(self) -> bool:\n+        \"\"\"\n+        Check if the lock is currently held.\n+        Raises NotImplementedError as PyThread_type_lock doesn't support this operation.",
+            "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2539031899",
+            "id": 2539031899,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc6XVo1b",
+            "original_commit_id": "4d7b3a119c4182047fd112b76e33214806a28788",
+            "original_line": 306,
+            "original_position": 40,
+            "original_start_line": null,
+            "path": "Cython/Shadow.pyi",
+            "position": 1,
+            "pull_request_review_id": 3478883763,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2539031899/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2025-11-18T17:14:30Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2539031899",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7297#discussion_r2539041890"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7297"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2539041890"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Why isn't this just a constant 0, like for the constant 1 above? Making this a compile time constant would really be advantageous.",
+            "commit_id": "d87d21949643ea2fc82f795b44d6537a9ea142f2",
+            "created_at": "2025-11-18T17:12:15Z",
+            "diff_hunk": "@@ -367,6 +400,8 @@ static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock\n #define __Pyx_Locks_PyMutex_Unlock(l) __Pyx_Locks_PyThreadTypeLock_Unlock(l)\n #define __Pyx_Locks_PyMutex_LockGil(l) __Pyx_Locks_PyThreadTypeLock_LockGil(l)\n #define __Pyx_Locks_PyMutex_LockNogil(l) __Pyx_Locks_PyThreadTypeLock_LockNogil(l)\n+#define __Pyx_Locks_PyMutex_Locked(l) __Pyx_Locks_PyThreadTypeLock_Locked(l)\n+#define __Pyx_Locks_PyMutex_CanCheckLocked(l) __Pyx_Locks_PyThreadTypeLock_CanCheckLocked(l)",
+            "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2539041890",
+            "id": 2539041890,
+            "line": 405,
+            "node_id": "PRRC_kwDOABDGAc6XVrRi",
+            "original_commit_id": "4d7b3a119c4182047fd112b76e33214806a28788",
+            "original_line": 404,
+            "original_position": 59,
+            "original_start_line": null,
+            "path": "Cython/Utility/Synchronization.c",
+            "position": 60,
+            "pull_request_review_id": 3478883763,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2539041890/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2025-11-18T17:14:30Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2539041890",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7297#discussion_r2539481332"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7297"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/2539481332"
+                }
+            },
+            "author_association": "NONE",
+            "body": "Yeah of course, I didn't want to make this one different than ones above but you're right.",
+            "commit_id": "d87d21949643ea2fc82f795b44d6537a9ea142f2",
+            "created_at": "2025-11-18T19:46:15Z",
+            "diff_hunk": "@@ -367,6 +400,8 @@ static void __Pyx__Locks_PyThreadTypeLock_Lock(__Pyx_Locks_PyThreadTypeLock lock\n #define __Pyx_Locks_PyMutex_Unlock(l) __Pyx_Locks_PyThreadTypeLock_Unlock(l)\n #define __Pyx_Locks_PyMutex_LockGil(l) __Pyx_Locks_PyThreadTypeLock_LockGil(l)\n #define __Pyx_Locks_PyMutex_LockNogil(l) __Pyx_Locks_PyThreadTypeLock_LockNogil(l)\n+#define __Pyx_Locks_PyMutex_Locked(l) __Pyx_Locks_PyThreadTypeLock_Locked(l)\n+#define __Pyx_Locks_PyMutex_CanCheckLocked(l) __Pyx_Locks_PyThreadTypeLock_CanCheckLocked(l)",
+            "html_url": "https://github.com/cython/cython/pull/7297#discussion_r2539481332",
+            "id": 2539481332,
+            "in_reply_to_id": 2539041890,
+            "line": 405,
+            "node_id": "PRRC_kwDOABDGAc6XXWj0",
+            "original_commit_id": "4d7b3a119c4182047fd112b76e33214806a28788",
+            "original_line": 404,
+            "original_position": 59,
+            "original_start_line": null,
+            "path": "Cython/Utility/Synchronization.c",
+            "position": 60,
+            "pull_request_review_id": 3479486849,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7297",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/2539481332/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2025-11-18T19:46:15Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/2539481332",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/78751009?v=4",
+                "events_url": "https://api.github.com/users/Zahkklm/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Zahkklm/followers",
+                "following_url": "https://api.github.com/users/Zahkklm/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Zahkklm/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Zahkklm",
+                "id": 78751009,
+                "login": "Zahkklm",
+                "node_id": "MDQ6VXNlcjc4NzUxMDA5",
+                "organizations_url": "https://api.github.com/users/Zahkklm/orgs",
+                "received_events_url": "https://api.github.com/users/Zahkklm/received_events",
+                "repos_url": "https://api.github.com/users/Zahkklm/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Zahkklm/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Zahkklm/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Zahkklm",
                 "user_view_type": "public"
             }
         }
@@ -2471,6 +2817,431 @@
             ],
             "sha": "c9c53896ead4b7d10a1feaec428c8f3522125670",
             "url": "https://api.github.com/repos/cython/cython/commits/c9c53896ead4b7d10a1feaec428c8f3522125670"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/78751009?v=4",
+                "events_url": "https://api.github.com/users/Zahkklm/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Zahkklm/followers",
+                "following_url": "https://api.github.com/users/Zahkklm/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Zahkklm/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Zahkklm",
+                "id": 78751009,
+                "login": "Zahkklm",
+                "node_id": "MDQ6VXNlcjc4NzUxMDA5",
+                "organizations_url": "https://api.github.com/users/Zahkklm/orgs",
+                "received_events_url": "https://api.github.com/users/Zahkklm/received_events",
+                "repos_url": "https://api.github.com/users/Zahkklm/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Zahkklm/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Zahkklm/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Zahkklm",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/1032e331cb32e2fd7d379dbb9505c70935f40c61/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-11-15T11:33:39Z",
+                    "email": "ozgurpeynirci@gmail.com",
+                    "name": "Özgür Peynirci"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-11-15T11:33:39Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Merge branch 'master' into feature/mutex-locked",
+                "tree": {
+                    "sha": "e3218f16f728bbba1f5d65230acccb2c8d75df7e",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/e3218f16f728bbba1f5d65230acccb2c8d75df7e"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/1032e331cb32e2fd7d379dbb9505c70935f40c61",
+                "verification": {
+                    "payload": "tree e3218f16f728bbba1f5d65230acccb2c8d75df7e\nparent c9c53896ead4b7d10a1feaec428c8f3522125670\nparent 5f6d0367a73db90897792c252d538fd398aae4ff\nauthor Özgür Peynirci <ozgurpeynirci@gmail.com> 1763206419 +0300\ncommitter GitHub <noreply@github.com> 1763206419 +0300\n\nMerge branch 'master' into feature/mutex-locked",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpGGUTCRC1aQ7uu5UhlAAAoIAQAI6vLJ0wJv2lUTaqVaThfu/h\nQvLbwnyR6zYdGkpFwXLv0Dz7bgU7RIiFx87lyhP2qa5zi1TN9Fm8QdhldtXGAdzy\nBhKU1eNuKwBT+a/Y1b1EUM0GYm9lFsIVGB9rNFF9OXxxL4drvQymlpuHpLwrvxeX\namQkOScP9MfrmRHTScekKvyEwMoqTRcTVXoSzFMo+VgFWmN8zlF0hjHBrF8lvN0/\nfemhzqqpw3DWkdqgDFpbQ8Xd5pT1XkTeg888niUB0fuR2U9PgIyJkK0ohqmRASUf\nJz3UXNtgxi1pfQyoqqF9rKDUdxPzhnPmcIWAQ2UT8roWl52Kpvoua1gGVcAWfFnR\n6P9nV2DH0WqH4IdxjIk+bN/c5TQP5kwrXcy8LNbnD5B6SyVgBpRP40suyKbIVfTg\n8YS7J35nGK0MUvEHxyhifc1m9I6KSJ/HZJ60cpQW/EVNQq3aAr2DAlwVCKHB7ZwY\nw7wvdk16IgyXPIrY4zRdJJdb5LuRLIC+JfkRMbA5aY4+K2tse5oeBAm9byQjUdFZ\ntWvux5SPVYKJlKGRdyYo1vHIWg9N0R0dIH6R9Y5wEJhnKQv+p0YZqSIQE5wx+9m4\ng+0HjVWrsd31Wpz3g5Wiik07mJ1cWAMAxfgMqCvXr+QyQWp2OUvJjx1aYAOSEUcU\nTfS/sYQo/DlqnrLG9icY\n=JnX8\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2025-11-15T11:33:39Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/1032e331cb32e2fd7d379dbb9505c70935f40c61",
+            "node_id": "C_kwDOQRMSdNoAKDEwMzJlMzMxY2IzMmUyZmQ3ZDM3OWRiYjk1MDVjNzA5MzVmNDBjNjE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/c9c53896ead4b7d10a1feaec428c8f3522125670",
+                    "sha": "c9c53896ead4b7d10a1feaec428c8f3522125670",
+                    "url": "https://api.github.com/repos/cython/cython/commits/c9c53896ead4b7d10a1feaec428c8f3522125670"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/5f6d0367a73db90897792c252d538fd398aae4ff",
+                    "sha": "5f6d0367a73db90897792c252d538fd398aae4ff",
+                    "url": "https://api.github.com/repos/cython/cython/commits/5f6d0367a73db90897792c252d538fd398aae4ff"
+                }
+            ],
+            "sha": "1032e331cb32e2fd7d379dbb9505c70935f40c61",
+            "url": "https://api.github.com/repos/cython/cython/commits/1032e331cb32e2fd7d379dbb9505c70935f40c61"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/78751009?v=4",
+                "events_url": "https://api.github.com/users/Zahkklm/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Zahkklm/followers",
+                "following_url": "https://api.github.com/users/Zahkklm/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Zahkklm/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Zahkklm",
+                "id": 78751009,
+                "login": "Zahkklm",
+                "node_id": "MDQ6VXNlcjc4NzUxMDA5",
+                "organizations_url": "https://api.github.com/users/Zahkklm/orgs",
+                "received_events_url": "https://api.github.com/users/Zahkklm/received_events",
+                "repos_url": "https://api.github.com/users/Zahkklm/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Zahkklm/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Zahkklm/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Zahkklm",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/6cebb9358b3d20c0d60505295912f215616d14e2/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-11-17T19:59:27Z",
+                    "email": "ozgurpeynirci@gmail.com",
+                    "name": "Özgür Peynirci"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-11-17T19:59:27Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Merge branch 'master' into feature/mutex-locked",
+                "tree": {
+                    "sha": "4e2343a409bbc3c0d7e5feb2b0f3863c1e203215",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/4e2343a409bbc3c0d7e5feb2b0f3863c1e203215"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/6cebb9358b3d20c0d60505295912f215616d14e2",
+                "verification": {
+                    "payload": "tree 4e2343a409bbc3c0d7e5feb2b0f3863c1e203215\nparent 1032e331cb32e2fd7d379dbb9505c70935f40c61\nparent b8b703a5f23cfd3b8591150ec255a52d5e3f8caa\nauthor Özgür Peynirci <ozgurpeynirci@gmail.com> 1763409567 +0300\ncommitter GitHub <noreply@github.com> 1763409567 +0300\n\nMerge branch 'master' into feature/mutex-locked",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpG36gCRC1aQ7uu5UhlAAAjycQAKo6LR0WckmaIyU2chzlnzIA\nXAofBv6d1WRY3upmNd05aurVg6z2G9uQVTgtXPPPxQVwTOclZLTvNEJ+YmwGcf/C\nY+Aii2uGgBUYy6b65544Mva0fFikpaZxiNZarQVm6X+lncpmIFFhhZfhRzXsGYUy\nnr9hxOgzBtkqlECOUqSPZJ//bSMXMAjHgENZF9jgXCRSQkoGYhhOc0KzLjWH8gz6\nC/s3bRZ88JzmFFK3wh0iIbxIvSMuxJhPD3FkHsfoIEujD8kO+FVZeVKT8HLhHE0d\nUfz+f+7p5udSQDdX87jo+a1daKQ+62fbLeiqpzgD0uC4vdsxDgorSvoHHLYkKuGE\nyPxFcPRiE/kd6O0Yw+eb3PEdaE9FZ+bZ2FwU9TWGbJPU34rE6xkpaIXKpDXofoxQ\ntedK4AehEWB56s17Lh60wE20kUqBgz21dp09uVcLhHPnK0Ffic9S5rONBqUOX6Jm\nYnr/4ZUkPInqQMRIZMOsVA6VPn77I6u9xjL0dQVjOU+0RLMoOTEkIhYFwuC9muvb\nf41gKQLAYW6tRt0D5+c73KxdeazkculPKMcbc63sFnyAF2S77slUoJ8THTDyS4Bg\nF+3mqT95EjcNEZTyBxzbADcrS/QiqLmxQuAkIi18QjdhBOEb2VZe15LWCMHRa8l3\nqxhGMYdHG82r8mSLHJuG\n=7PhF\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2025-11-17T19:59:28Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/6cebb9358b3d20c0d60505295912f215616d14e2",
+            "node_id": "C_kwDOQRMSdNoAKDZjZWJiOTM1OGIzZDIwYzBkNjA1MDUyOTU5MTJmMjE1NjE2ZDE0ZTI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/1032e331cb32e2fd7d379dbb9505c70935f40c61",
+                    "sha": "1032e331cb32e2fd7d379dbb9505c70935f40c61",
+                    "url": "https://api.github.com/repos/cython/cython/commits/1032e331cb32e2fd7d379dbb9505c70935f40c61"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/b8b703a5f23cfd3b8591150ec255a52d5e3f8caa",
+                    "sha": "b8b703a5f23cfd3b8591150ec255a52d5e3f8caa",
+                    "url": "https://api.github.com/repos/cython/cython/commits/b8b703a5f23cfd3b8591150ec255a52d5e3f8caa"
+                }
+            ],
+            "sha": "6cebb9358b3d20c0d60505295912f215616d14e2",
+            "url": "https://api.github.com/repos/cython/cython/commits/6cebb9358b3d20c0d60505295912f215616d14e2"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/4d7b3a119c4182047fd112b76e33214806a28788/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-11-17T21:34:08Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-11-17T21:34:08Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Re-add blank line after merge",
+                "tree": {
+                    "sha": "6ebf8906441324d31931599165a7b080a21d00c2",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6ebf8906441324d31931599165a7b080a21d00c2"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/4d7b3a119c4182047fd112b76e33214806a28788",
+                "verification": {
+                    "payload": "tree 6ebf8906441324d31931599165a7b080a21d00c2\nparent 6cebb9358b3d20c0d60505295912f215616d14e2\nauthor da-woods <dw-git@d-woods.co.uk> 1763415248 +0000\ncommitter GitHub <noreply@github.com> 1763415248 +0000\n\nRe-add blank line after merge",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpG5TQCRC1aQ7uu5UhlAAA7WsQAAi5kX8sArFHQdBH0KetHiF4\nEjhpWUz0HStJAhysrZb6tbXglInIARpbzOgozIpiJWHt1Zvpc6Wi+TkR8rpEs2iV\naxZUKttdPnlwFu2nFOm/aUkrTmSeNfJ1ijfzY1pPtyyCvIAh4dk8xaYAZCQFUakh\n745eQAXiBQkZXYNBBzTNwP9MNKibgD9oYCZRMM5sGL3vZcFajX++rdDx+uk/Q3YQ\nSiwpaK+vU8E1++hZ15B618wyH0bIIVEH7FvjN0xRA6SHtQ8cxrjjkPU87OPQ/fP1\nxibsiqCiER6g0QZXpWvJ666yGi26AINJPWG+rzMGOSiXwAj2uFlvqThMP8iwck+u\nYk4im/RihqX4aOhk2G/Xjy21hFHnkeRCJhKIAgZ20zXfnS6bvfaubEeJj+OWVnSM\nyrnjDVvOiS1NVjR8wGtCmvwXnuPYPukJqfQzIWArBh2MAyDgK6esLjD7/tQUlT0R\nmNDtvut83SKN1KlNUgBdiooCc/cm5t1oLgGFwqaIlNzcwE3258bl6nZaERPn5DbP\nOpbnT0M/b2YmRK8CI90Fl+tSkfrGi1+osKEK7oy0HUCtsSFFlpC/O/Zzhdpaa12c\nY17pW4zJhjF3/+f6raHsQnPPjSxeOwjeOW7Z2AWqmg6cKlV4UZh1AotbqQ/3Sx8J\nQPemWGc9jXk3Ub7p+Brm\n=lH6B\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2025-11-17T21:34:09Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/4d7b3a119c4182047fd112b76e33214806a28788",
+            "node_id": "C_kwDOQRMSdNoAKDRkN2IzYTExOWM0MTgyMDQ3ZmQxMTJiNzZlMzMyMTQ4MDZhMjg3ODg",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/6cebb9358b3d20c0d60505295912f215616d14e2",
+                    "sha": "6cebb9358b3d20c0d60505295912f215616d14e2",
+                    "url": "https://api.github.com/repos/cython/cython/commits/6cebb9358b3d20c0d60505295912f215616d14e2"
+                }
+            ],
+            "sha": "4d7b3a119c4182047fd112b76e33214806a28788",
+            "url": "https://api.github.com/repos/cython/cython/commits/4d7b3a119c4182047fd112b76e33214806a28788"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/78751009?v=4",
+                "events_url": "https://api.github.com/users/Zahkklm/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Zahkklm/followers",
+                "following_url": "https://api.github.com/users/Zahkklm/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Zahkklm/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Zahkklm",
+                "id": 78751009,
+                "login": "Zahkklm",
+                "node_id": "MDQ6VXNlcjc4NzUxMDA5",
+                "organizations_url": "https://api.github.com/users/Zahkklm/orgs",
+                "received_events_url": "https://api.github.com/users/Zahkklm/received_events",
+                "repos_url": "https://api.github.com/users/Zahkklm/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Zahkklm/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Zahkklm/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Zahkklm",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/9dc49645c78149fcb1da5517ef99e9d8eb2036e7/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-11-18T19:25:56Z",
+                    "email": "ozgurpeynirci@gmail.com",
+                    "name": "Özgür Peynirci"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-11-18T19:39:54Z",
+                    "email": "ozgurpeynirci@gmail.com",
+                    "name": "Özgür Peynirci"
+                },
+                "message": "Add locked() method for pymutex on all Python versions\n\nUses try-acquire fallback on Python < 3.13, atomic read on 3.13+. Works everywhere including Limited API mode. Fixes #7275",
+                "tree": {
+                    "sha": "9a19b4781a719eadfad21870c6eb34c6fbe8ee81",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/9a19b4781a719eadfad21870c6eb34c6fbe8ee81"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/9dc49645c78149fcb1da5517ef99e9d8eb2036e7",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/78751009?v=4",
+                "events_url": "https://api.github.com/users/Zahkklm/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Zahkklm/followers",
+                "following_url": "https://api.github.com/users/Zahkklm/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Zahkklm/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Zahkklm",
+                "id": 78751009,
+                "login": "Zahkklm",
+                "node_id": "MDQ6VXNlcjc4NzUxMDA5",
+                "organizations_url": "https://api.github.com/users/Zahkklm/orgs",
+                "received_events_url": "https://api.github.com/users/Zahkklm/received_events",
+                "repos_url": "https://api.github.com/users/Zahkklm/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Zahkklm/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Zahkklm/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Zahkklm",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/9dc49645c78149fcb1da5517ef99e9d8eb2036e7",
+            "node_id": "C_kwDOQRMSdNoAKDlkYzQ5NjQ1Yzc4MTQ5ZmNiMWRhNTUxN2VmOTllOWQ4ZWIyMDM2ZTc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/4d7b3a119c4182047fd112b76e33214806a28788",
+                    "sha": "4d7b3a119c4182047fd112b76e33214806a28788",
+                    "url": "https://api.github.com/repos/cython/cython/commits/4d7b3a119c4182047fd112b76e33214806a28788"
+                }
+            ],
+            "sha": "9dc49645c78149fcb1da5517ef99e9d8eb2036e7",
+            "url": "https://api.github.com/repos/cython/cython/commits/9dc49645c78149fcb1da5517ef99e9d8eb2036e7"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/78751009?v=4",
+                "events_url": "https://api.github.com/users/Zahkklm/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Zahkklm/followers",
+                "following_url": "https://api.github.com/users/Zahkklm/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Zahkklm/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Zahkklm",
+                "id": 78751009,
+                "login": "Zahkklm",
+                "node_id": "MDQ6VXNlcjc4NzUxMDA5",
+                "organizations_url": "https://api.github.com/users/Zahkklm/orgs",
+                "received_events_url": "https://api.github.com/users/Zahkklm/received_events",
+                "repos_url": "https://api.github.com/users/Zahkklm/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Zahkklm/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Zahkklm/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Zahkklm",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/d87d21949643ea2fc82f795b44d6537a9ea142f2/comments",
+            "commit": {
+                "author": {
+                    "date": "2025-11-18T19:54:25Z",
+                    "email": "ozgurpeynirci@gmail.com",
+                    "name": "Özgür Peynirci"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2025-11-18T19:54:25Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Merge branch 'master' into feature/mutex-locked",
+                "tree": {
+                    "sha": "86da4d7b3ca9f71d443a6100dce9fcdf1318b29f",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/86da4d7b3ca9f71d443a6100dce9fcdf1318b29f"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/d87d21949643ea2fc82f795b44d6537a9ea142f2",
+                "verification": {
+                    "payload": "tree 86da4d7b3ca9f71d443a6100dce9fcdf1318b29f\nparent 9dc49645c78149fcb1da5517ef99e9d8eb2036e7\nparent a7aed8536d55c9fc197b24702e4c274c2cbf2951\nauthor Özgür Peynirci <ozgurpeynirci@gmail.com> 1763495665 +0300\ncommitter GitHub <noreply@github.com> 1763495665 +0300\n\nMerge branch 'master' into feature/mutex-locked",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpHM7xCRC1aQ7uu5UhlAAAW+QQACceeWY8lYQKdbqvBA9mJiRl\nvrOtJ9E7sxRw89dOcYFeouzWfmlOofP08S/G5dVeY1hGoLqa7YTfKDVNM+cyi+ON\nzQMntdxZJbtVu7iZJgGQ0QAbmbFAv/lXUgFNHnFHtsAfcHswRL/Z8CIce4bScsbB\nwwHZOvO3R6V22TsQdmxb12cvgRzg01q6Cul3UHrtuKFFIRMcKy94Hm9sCa9PnvHy\nEvGb/fznLc4n3/im03xf8LzCYSv5SidFcHjN4m0vyjpQpOLb1X3qtuMVofV2/+/3\n7SjJUg07a/V7iJ8ahDMpUklV2kgReKDu3P4BxA1mndeihGcPtE07uLgAE9sHOqYV\ng6Ra2NVRMcLvao9qjZa2sholUeGniVs6GIVuHhePtn+Wh3NHwZ3/56TfZJRuvYtO\nAdtUZsGuzsWuwb50Wmut8KM9rNOejPvPtUv4elMSwr/N5vOTBV0LqvqSiIVCfq5W\n68Y+yoDUot9DXuU2RNN2ikC4CfBOfh+aqrL1mOSX5ZWastdYiImCBAH5jpkXFj56\nDX5q5P7srhCyMDGzU0rk+aOJXyHkPwgC00g6YjWtcYOwfWGttQX11htLyFGDi6HM\nR0H12+mjNnTyCZPaCtdimF4+8xD/OmsQ8TBDZ3jS1LDBj0qHhXXSen6ZAcHsMm2Z\ndRmMIm2u4FhNTXdVUWDb\n=VQub\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2025-11-18T19:54:26Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/d87d21949643ea2fc82f795b44d6537a9ea142f2",
+            "node_id": "C_kwDOQRMSdNoAKGQ4N2QyMTk0OTY0M2VhMmZjODJmNzk1YjQ0ZDY1MzdhOWVhMTQyZjI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/9dc49645c78149fcb1da5517ef99e9d8eb2036e7",
+                    "sha": "9dc49645c78149fcb1da5517ef99e9d8eb2036e7",
+                    "url": "https://api.github.com/repos/cython/cython/commits/9dc49645c78149fcb1da5517ef99e9d8eb2036e7"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/a7aed8536d55c9fc197b24702e4c274c2cbf2951",
+                    "sha": "a7aed8536d55c9fc197b24702e4c274c2cbf2951",
+                    "url": "https://api.github.com/repos/cython/cython/commits/a7aed8536d55c9fc197b24702e4c274c2cbf2951"
+                }
+            ],
+            "sha": "d87d21949643ea2fc82f795b44d6537a9ea142f2",
+            "url": "https://api.github.com/repos/cython/cython/commits/d87d21949643ea2fc82f795b44d6537a9ea142f2"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/7297/commits",
@@ -2566,9 +3337,9 @@
             },
             "private": false,
             "pulls_url": "https://api.github.com/repos/Zahkklm/cython/pulls{/number}",
-            "pushed_at": "2025-11-11T08:43:15Z",
+            "pushed_at": "2025-11-18T19:54:25Z",
             "releases_url": "https://api.github.com/repos/Zahkklm/cython/releases{/id}",
-            "size": 74003,
+            "size": 74418,
             "ssh_url": "git@github.com:Zahkklm/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/Zahkklm/cython/stargazers",
@@ -2587,7 +3358,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "c9c53896ead4b7d10a1feaec428c8f3522125670",
+        "sha": "d87d21949643ea2fc82f795b44d6537a9ea142f2",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/78751009?v=4",
             "events_url": "https://api.github.com/users/Zahkklm/events{/privacy}",
@@ -2615,63 +3386,20 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/7297",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "30036f4cbf0408cc45a0a02b337576a5749e0320",
+    "merge_commit_sha": "e0233886199f95b85884274d8930d070c854fe69",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc6yLVAm",
     "number": 7297,
     "patch_url": "https://github.com/cython/cython/pull/7297.patch",
-    "requested_reviewers": [
-        {
-            "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
-            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-            "followers_url": "https://api.github.com/users/scoder/followers",
-            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-            "gravatar_id": "",
-            "html_url": "https://github.com/scoder",
-            "id": 491659,
-            "login": "scoder",
-            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-            "organizations_url": "https://api.github.com/users/scoder/orgs",
-            "received_events_url": "https://api.github.com/users/scoder/received_events",
-            "repos_url": "https://api.github.com/users/scoder/repos",
-            "site_admin": false,
-            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-            "type": "User",
-            "url": "https://api.github.com/users/scoder",
-            "user_view_type": "public"
-        },
-        {
-            "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
-            "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
-            "followers_url": "https://api.github.com/users/da-woods/followers",
-            "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
-            "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
-            "gravatar_id": "",
-            "html_url": "https://github.com/da-woods",
-            "id": 10536947,
-            "login": "da-woods",
-            "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
-            "organizations_url": "https://api.github.com/users/da-woods/orgs",
-            "received_events_url": "https://api.github.com/users/da-woods/received_events",
-            "repos_url": "https://api.github.com/users/da-woods/repos",
-            "site_admin": false,
-            "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
-            "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
-            "type": "User",
-            "url": "https://api.github.com/users/da-woods",
-            "user_view_type": "public"
-        }
-    ],
+    "requested_reviewers": [],
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7297/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/c9c53896ead4b7d10a1feaec428c8f3522125670",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/d87d21949643ea2fc82f795b44d6537a9ea142f2",
     "title": "Add locked() method to cython.pymutex",
-    "updated_at": "2025-11-11T20:54:46Z",
+    "updated_at": "2025-11-18T22:15:18Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/7297",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/78751009?v=4",
