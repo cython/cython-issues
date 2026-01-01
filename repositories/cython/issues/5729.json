@@ -5,8 +5,55 @@
     "author_association": "MEMBER",
     "body": "### Is your feature request related to a problem? Please describe.\r\n\r\nWe currently generate a wrapper for the `sq_item` C-API slot that takes the C integer index, creates a Python int object from it, and forwards it to `mp_subscript`. If users define their `__getitem__` method with a C integer type as argument, then this becomes 1) pass C integer, 2) convert to Python int, 3) pass into `mp_subscript`, 4) unpack C integer object from Python int object, 5) run the method with it. The packing-unpacking steps make this unnecessarily slow.\r\n\r\n### Describe the solution you'd like.\r\n\r\nFor code like\r\n```cython\r\ndef __getitem__(self, Py_ssize_t index):  # any C integer, really\r\n    ...\r\n```\r\nCython could put a wrapper into `mp_subscript` instead of `sq_item`, which would unpack the Python index value into the expected C integer and then call `sq_item`.\r\n\r\n### Describe alternatives you've considered.\r\n\r\n–\r\n\r\n### Additional context\r\n\r\nOne drawback is that Python (and Cython 3.0) checks for the `mp_subscript` slot first and, if available, prefers it over `sq_item`. That is already a problem now.\r\n\r\nAn efficient `sq_item` implementation without `mp_subscript` could also allow slightly faster *calling* code for containers declared that are simply declared as `collections.abc.Sequence`, as suggested in https://github.com/cython/cython/issues/5719#issuecomment-1732551597. Here, we could directly prefer `sq_item` over the \"try this first\" `mp_subscript`. Currently, making `sq_item` more efficient than `mp_subscript` would give no win since we'd first try and call `mp_subscript`.\r\n\r\nMaybe we could avoid setting `mp_subscript` all together if the `__getitem__` argument has a C integer type?\r\n",
     "closed_at": null,
-    "comment_data": [],
-    "comments": 0,
+    "closed_by": null,
+    "comment_data": [
+        {
+            "author_association": "MEMBER",
+            "body": "> Maybe we could avoid setting `mp_subscript` all together if the `__getitem__` argument has a C integer type?\n\nExploring this some more, if it hits the case that calling code can pass a C integer into `sq_item()` directly, it's much faster by ~60% according to tests in https://github.com/cython/cython/pull/7434.\n\nIf it needs to test the (then not implemented) mapping slot first and only then the sequence slot, requiring it to unpack an existing Python integer, we lose a tiny bit of performance compared to directly passing the Python integer into the mapping slot and unconditionally unpacking it on the other side. However, that is dwarfed by the large gain of allowing foreign code to pass C integers through the sequence interface.\n\nIn the end, it's a trade-off. Code that is mostly used by Python code that indexes with a Python integer will suffer a bit. If the subscripting is mostly done by C code that can avoid passing through a Python integer, we'll gain a lot. Not implementing the mapping slots allows this code to bypass the \"mapping first\" semantics in Python that would otherwise induce inefficient index passing.\n\nUsers have a way to avoid the downside by simply not typing their index argument but converting it inside of the method. Thus, I think the decision is clear. If users decide to type the index argument as a C integer, we should interpret it as a sign to implement only the sequence slot and not the mapping slot.",
+            "created_at": "2025-12-28T08:36:19Z",
+            "html_url": "https://github.com/cython/cython/issues/5729#issuecomment-3694570997",
+            "id": 3694570997,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/5729",
+            "node_id": "IC_kwDOABDGAc7cNq31",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/3694570997/reactions"
+            },
+            "updated_at": "2025-12-28T08:36:19Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/3694570997",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        }
+    ],
+    "comments": 1,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/5729/comments",
     "created_at": "2023-09-27T15:37:44Z",
     "event_data": [
@@ -29,7 +76,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -63,7 +111,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -97,7 +146,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             },
             "commit_id": null,
             "commit_url": null,
@@ -111,11 +161,110 @@
             "node_id": "LE_lADOABDGAc5yMZiizwAAAAJxNeQd",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/10489291805"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": "9c9affcc62a00fc9ae71fca608943281fe946e11",
+            "commit_url": "https://api.github.com/repos/scoder/cython/commits/9c9affcc62a00fc9ae71fca608943281fe946e11",
+            "created_at": "2025-12-27T16:19:27Z",
+            "event": "referenced",
+            "id": 21766194993,
+            "node_id": "REFE_lADOABDGAc5yMZiizwAAAAURXccx",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/21766194993"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": "a75b7a368c87fcb8955516202cee7e88d89ba5a0",
+            "commit_url": "https://api.github.com/repos/scoder/cython/commits/a75b7a368c87fcb8955516202cee7e88d89ba5a0",
+            "created_at": "2025-12-27T16:37:40Z",
+            "event": "referenced",
+            "id": 21766257195,
+            "node_id": "REFE_lADOABDGAc5yMZiizwAAAAURXror",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/21766257195"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": "a41a6d30b9786dd96a09ce02ab7d46dea9e7d3c6",
+            "commit_url": "https://api.github.com/repos/scoder/cython/commits/a41a6d30b9786dd96a09ce02ab7d46dea9e7d3c6",
+            "created_at": "2025-12-27T17:00:35Z",
+            "event": "referenced",
+            "id": 21766334154,
+            "node_id": "REFE_lADOABDGAc5yMZiizwAAAAURX-bK",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/21766334154"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/5729/events",
     "html_url": "https://github.com/cython/cython/issues/5729",
     "id": 1915852962,
+    "issue_dependencies_summary": {
+        "blocked_by": 0,
+        "blocking": 0,
+        "total_blocked_by": 0,
+        "total_blocking": 0
+    },
     "labels": [
         {
             "color": "f9d0c4",
@@ -166,9 +315,15 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "state_reason": null,
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/5729/timeline",
     "title": "[ENH] special-case `__getitem__(self, Py_ssize_t index)`",
-    "updated_at": "2023-09-29T10:20:55Z",
+    "type": null,
+    "updated_at": "2025-12-28T08:36:19Z",
     "url": "https://api.github.com/repos/cython/cython/issues/5729",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -188,6 +343,7 @@
         "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/scoder"
+        "url": "https://api.github.com/users/scoder",
+        "user_view_type": "public"
     }
 }
