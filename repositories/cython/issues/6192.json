@@ -4,7 +4,28 @@
     "assignees": [],
     "author_association": "CONTRIBUTOR",
     "body": "### Describe the bug\n\nA function with a default parameter value of `str()` or even `int()` appears to to get mapped to `null`. If this value is then later used in a location that performs a null check, such as assigning the value to a dictionary, then the resulting code segfaults. This behavior is new in 3+; in <3, cython appears to correctly map a value such as `str()` into an empty string, and a value such as `int()` to a zero. \r\n\r\nLooking at the cythonized code, I can see that a value such as `''` is treated as an immediate value, whereas `str()` is treated as a dynamic default argument.\r\n\r\nLooking at the cython 0.29 code, I think this is relevant section:\r\n```\r\nif (!__Pyx_CyFunction_InitDefaults(__pyx_t_1, sizeof(__pyx_defaults), 1)) __PYX_ERR(0, 1, __pyx_L1_error)\r\n  __pyx_t_2 = __Pyx_PyObject_CallNoArg(((PyObject *)(&PyString_Type))); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)\r\n  __Pyx_GOTREF(__pyx_t_2);\r\n  __Pyx_CyFunction_Defaults(__pyx_defaults, __pyx_t_1)->__pyx_arg_this_crashes = __pyx_t_2;\r\n  __Pyx_GIVEREF(__pyx_t_2);\r\n  __pyx_t_2 = 0;\r\n```\r\n\r\nYou can see the `__pyx_arg_this_crashes` getting assigned to the default value of `str()` (PyString_Type).\r\n\r\nIn contrast, under 3, it becomes:\r\n\r\n```\r\n  if (!__Pyx_CyFunction_InitDefaults(__pyx_t_2, sizeof(__pyx_defaults), 1)) __PYX_ERR(0, 1, __pyx_L1_error)\r\n  __Pyx_CyFunction_SetDefaultsGetter(__pyx_t_2, __pyx_pf_3wtf_2__defaults__);\r\n  if (PyDict_SetItem(__pyx_d, __pyx_n_s_run_it, __pyx_t_2) < 0) __PYX_ERR(0, 1, __pyx_L1_error)\r\n  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;\r\n  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)\r\n  __Pyx_GOTREF(__pyx_t_2);\r\n  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test, __pyx_t_2) < 0) __PYX_ERR(0, 1, __pyx_L1_error)\r\n  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;\r\n  ```\r\n  With:\r\n  ```\r\n  static PyObject *__pyx_pf_3wtf_2__defaults__(CYTHON_UNUSED PyObject *__pyx_self) {\r\n  PyObject *__pyx_r = NULL;\r\n  __Pyx_RefNannyDeclarations\r\n  PyObject *__pyx_t_1 = NULL;\r\n  PyObject *__pyx_t_2 = NULL;\r\n  int __pyx_lineno = 0;\r\n  const char *__pyx_filename = NULL;\r\n  int __pyx_clineno = 0;\r\n  __Pyx_RefNannySetupContext(\"__defaults__\", 1);\r\n  __Pyx_XDECREF(__pyx_r);\r\n  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)\r\n  __Pyx_GOTREF(__pyx_t_1);\r\n  __Pyx_INCREF(((PyObject*)__pyx_kp_s_));\r\n  __Pyx_GIVEREF(((PyObject*)__pyx_kp_s_));\r\n  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, ((PyObject*)__pyx_kp_s_))) __PYX_ERR(0, 1, __pyx_L1_error);\r\n  __Pyx_INCREF(__Pyx_CyFunction_Defaults(__pyx_defaults, __pyx_self)->__pyx_arg_this_crashes);\r\n  __Pyx_GIVEREF(__Pyx_CyFunction_Defaults(__pyx_defaults, __pyx_self)->__pyx_arg_this_crashes);\r\n  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __Pyx_CyFunction_Defaults(__pyx_defaults, __pyx_self)->__pyx_arg_this_crashes)) __PYX_ERR(0, 1, __pyx_L1_error);\r\n  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)\r\n  __Pyx_GOTREF(__pyx_t_2);\r\n  __Pyx_GIVEREF(__pyx_t_1);\r\n  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error);\r\n  __Pyx_INCREF(Py_None);\r\n  __Pyx_GIVEREF(Py_None);\r\n  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, Py_None)) __PYX_ERR(0, 1, __pyx_L1_error);\r\n  __pyx_t_1 = 0;\r\n  __pyx_r = __pyx_t_2;\r\n  __pyx_t_2 = 0;\r\n  goto __pyx_L0;\r\n  ```\r\n  \r\n  This is just copying values out of the defaults object into a tuple though. I can't find anywhere where `__pyx_arg_this_crashes` is actually set.\r\n  \r\n  \r\n  Any help you can offer would be appreciated.\r\n  \r\nRepro:\r\n\r\nUsing the attached code snippet, invoked as pure-python:\r\n  ```bash\r\n   python3 -c \"from snippet import run_it; run_it()\"\r\n   ```\r\n  \r\n  If I cythonize the attached code using:\r\n  `cythonize -i -f  snippet.py`\r\n  \r\n  Then result segfaults.\r\n  \r\n  \n\n### Code to reproduce the behaviour:\n\n```python\r\ndef run_it(this_works='', this_crashes=str()):\r\n  mydict = dict()\r\n  mydict['this_works'] = this_works\r\n  mydict['this_crashes'] = this_crashes\r\n  print(mydict)\r\n```\r\n\n\n### Expected behaviour\n\nThe code outputs:\r\n  `{'this_works': '', 'this_crashes': ''}`\n\n### OS\n\nLinux\n\n### Python version\n\n3.9.16\n\n### Cython version\n\n3.0.10\n\n### Additional context\n\n_No response_",
-    "closed_at": null,
+    "closed_at": "2026-01-03T20:43:18Z",
+    "closed_by": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+        "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+        "followers_url": "https://api.github.com/users/scoder/followers",
+        "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+        "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/scoder",
+        "id": 491659,
+        "login": "scoder",
+        "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+        "organizations_url": "https://api.github.com/users/scoder/orgs",
+        "received_events_url": "https://api.github.com/users/scoder/received_events",
+        "repos_url": "https://api.github.com/users/scoder/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/scoder",
+        "user_view_type": "public"
+    },
     "comment_data": [
         {
             "author_association": "MEMBER",
@@ -47,7 +68,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -91,7 +113,8 @@
                 "starred_url": "https://api.github.com/users/aws-taylor/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/aws-taylor/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/aws-taylor"
+                "url": "https://api.github.com/users/aws-taylor",
+                "user_view_type": "public"
             }
         },
         {
@@ -135,7 +158,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         }
     ],
@@ -162,7 +186,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             },
             "commit_id": "8e95b8a095c44a40aec650680618012b2c85aa7b",
             "commit_url": "https://api.github.com/repos/da-woods/cython/commits/8e95b8a095c44a40aec650680618012b2c85aa7b",
@@ -172,15 +197,275 @@
             "node_id": "REFE_lADOABDGAc6Iak8gzwAAAAL5ZCgU",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/12774025236"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-01-03T18:33:04Z",
+            "event": "milestoned",
+            "id": 21837429209,
+            "milestone": {
+                "title": "3.2.4"
+            },
+            "node_id": "MIE_lADOABDGAc6Iak8gzwAAAAUVnLnZ",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/21837429209"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-01-03T18:33:21Z",
+            "event": "labeled",
+            "id": 21837432540,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "node_id": "LE_lADOABDGAc6Iak8gzwAAAAUVnMbc",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/21837432540"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-01-03T18:33:21Z",
+            "event": "labeled",
+            "id": 21837432543,
+            "label": {
+                "color": "444444",
+                "name": "Type Analysis"
+            },
+            "node_id": "LE_lADOABDGAc6Iak8gzwAAAAUVnMbf",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/21837432543"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": "c6ef2a6c83a7dc7221be3a59fb1cd9ac0bb60e1e",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/c6ef2a6c83a7dc7221be3a59fb1cd9ac0bb60e1e",
+            "created_at": "2026-01-03T20:43:18Z",
+            "event": "referenced",
+            "id": 21837960945,
+            "node_id": "REFE_lADOABDGAc6Iak8gzwAAAAUVpNbx",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/21837960945"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-01-03T20:43:19Z",
+            "event": "closed",
+            "id": 21837960949,
+            "node_id": "CE_lADOABDGAc6Iak8gzwAAAAUVpNb1",
+            "performed_via_github_app": null,
+            "state_reason": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/21837960949"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": "74b97f92075d2721abce7dfb246f426b0ab401ae",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/74b97f92075d2721abce7dfb246f426b0ab401ae",
+            "created_at": "2026-01-03T21:10:42Z",
+            "event": "referenced",
+            "id": 21838055386,
+            "node_id": "REFE_lADOABDGAc6Iak8gzwAAAAUVpkfa",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/21838055386"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/6192/events",
     "html_url": "https://github.com/cython/cython/issues/6192",
     "id": 2288668448,
-    "labels": [],
+    "issue_dependencies_summary": {
+        "blocked_by": 0,
+        "blocking": 0,
+        "total_blocked_by": 0,
+        "total_blocking": 0
+    },
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425553654,
+            "name": "defect",
+            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425558824,
+            "name": "Type Analysis",
+            "node_id": "MDU6TGFiZWw0MjU1NTg4MjQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Type%20Analysis"
+        }
+    ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/6192/labels{/name}",
     "locked": false,
-    "milestone": null,
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 9,
+        "created_at": "2025-12-13T21:28:09Z",
+        "creator": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+            "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+            "followers_url": "https://api.github.com/users/da-woods/followers",
+            "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+            "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/da-woods",
+            "id": 10536947,
+            "login": "da-woods",
+            "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+            "organizations_url": "https://api.github.com/users/da-woods/orgs",
+            "received_events_url": "https://api.github.com/users/da-woods/received_events",
+            "repos_url": "https://api.github.com/users/da-woods/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/da-woods",
+            "user_view_type": "public"
+        },
+        "description": null,
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestone/125",
+        "id": 14347833,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/125/labels",
+        "node_id": "MI_kwDOABDGAc4A2u45",
+        "number": 125,
+        "open_issues": 0,
+        "state": "open",
+        "title": "3.2.4",
+        "updated_at": "2026-01-04T08:07:27Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/125"
+    },
     "node_id": "I_kwDOABDGAc6Iak8g",
     "number": 6192,
     "performed_via_github_app": null,
@@ -197,11 +482,17 @@
         "url": "https://api.github.com/repos/cython/cython/issues/6192/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
-    "state_reason": null,
+    "state": "closed",
+    "state_reason": "completed",
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/6192/timeline",
     "title": "[BUG] Possible regression in handling of default function arguments",
-    "updated_at": "2024-05-10T20:10:16Z",
+    "type": null,
+    "updated_at": "2026-01-03T20:43:19Z",
     "url": "https://api.github.com/repos/cython/cython/issues/6192",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/57725958?v=4",
@@ -221,6 +512,7 @@
         "starred_url": "https://api.github.com/users/aws-taylor/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/aws-taylor/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/aws-taylor"
+        "url": "https://api.github.com/users/aws-taylor",
+        "user_view_type": "public"
     }
 }
