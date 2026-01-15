@@ -1,0 +1,122 @@
+{
+    "active_lock_reason": null,
+    "assignee": null,
+    "assignees": [],
+    "author_association": "NONE",
+    "body": "### Describe the bug\n\nUsing sizeof(type) as an array dimension inside a struct or union definition causes a compiler crash with \n\"TypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'.\" This is a regression from Cython 3.1.x where the same code compiled successfully for extern block declarations.\n\n### Code to reproduce the behaviour:\n\ntest_sizeof.pxd:\n\n```cython\nfrom libc.stdint cimport uint8_t\n\ncdef extern from \"test.h\":\n    struct foo:\n        uint8_t a\n        uint8_t b\n\n    union bar:\n        foo foo\n        uint8_t buf[sizeof(foo)]  # Crashes in 3.2.x\n```\n\ntest.h:\n\n```c\n#include <stdint.h>\n\nstruct foo { uint8_t a, b; };\n\nunion bar {\n    struct foo foo;\n    uint8_t buf[sizeof(struct foo)];\n};\n```\n\ntest_sizeof.pyx:\n```cython\ncimport test_sizeof\n\ndef test():\n    return sizeof(test_sizeof.foo)\n```\n  \nResults in\n\n```text\n\nError compiling Cython file:\n------------------------------------------------------------\n...\n        uint8_t a\n        uint8_t b\n\n    union bar:\n        foo foo\n        uint8_t buf[sizeof(foo)]  # Crashes in 3.2.x\n                   ^\n------------------------------------------------------------\n/tmp/cython_sizeof_bug/test_sizeof.pxd:10:19: Compiler crash in AnalyseDeclarationsTransform\n\nFile 'ModuleNode.py', line 286, in analyse_declarations: ModuleNode(test_sizeof.pxd:1:0,\n    full_module_name = 'test_sizeof',\n    is_pxd = True)\nFile 'Nodes.py', line 426, in analyse_declarations: StatListNode(test_sizeof.pxd:1:0)\nFile 'Nodes.py', line 481, in analyse_declarations: CDefExternNode(test_sizeof.pxd:3:0,\n    include_file = 'test.h')\nFile 'Nodes.py', line 426, in analyse_declarations: StatListNode(test_sizeof.pxd:4:4)\nFile 'Nodes.py', line 1642, in analyse_declarations: CStructOrUnionDefNode(test_sizeof.pxd:8:4,\n    in_pxd = True,\n    kind = 'union',\n    name = 'bar',\n    visibility = 'extern')\nFile 'Nodes.py', line 1572, in analyse_declarations: CVarDefNode(test_sizeof.pxd:10:8,\n    modifiers = [...]/0,\n    visibility = 'extern')\nFile 'Nodes.py', line 651, in analyse: CArrayDeclaratorNode(test_sizeof.pxd:10:19,\n    calling_convention = '')\n\nCompiler crash traceback from this point on:\n  File \"/home/thormick/gapit/gapit-modbus/.venv/lib/python3.14/site-packages/Cython/Compiler/Nodes.py\", line 650, in analyse\n    size = int(size)\nTypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'\n```\n\n### Expected behaviour\n\n- Cython 3.1.x: Compiles successfully (the sizeof is passed through to C)\n- Cython 3.2.x: Should also compile successfully\n\n\n### OS\n\nLinux\n\n### Python version\n\n3.14\n\n### Cython version\n\n3.2.4\n\n### Additional context\n\nThe immediate cause seems to be how [a2a713e290](https://github.com/cython/cython/commit/a2a713e290#diff-8789a479ea870f7646251224385afa3ebffe9b6acab136ff55011b31386ddd84L625) removed `if size is not None`? No idea if that was done because changes for 3.2 made it so that it cannot be `None` anymore or why that was done.",
+    "closed_at": null,
+    "closed_by": null,
+    "comment_data": [],
+    "comments": 0,
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/7451/comments",
+    "created_at": "2026-01-08T22:00:27Z",
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-01-12T18:20:05Z",
+            "event": "labeled",
+            "id": 21996448864,
+            "label": {
+                "color": "444444",
+                "name": "defect"
+            },
+            "node_id": "LE_lADOABDGAc7iLPJkzwAAAAUfFyxg",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/21996448864"
+        }
+    ],
+    "events_url": "https://api.github.com/repos/cython/cython/issues/7451/events",
+    "html_url": "https://github.com/cython/cython/issues/7451",
+    "id": 3794596452,
+    "issue_dependencies_summary": {
+        "blocked_by": 0,
+        "blocking": 0,
+        "total_blocked_by": 0,
+        "total_blocking": 0
+    },
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425553654,
+            "name": "defect",
+            "node_id": "MDU6TGFiZWw0MjU1NTM2NTQ=",
+            "url": "https://api.github.com/repos/cython/cython/labels/defect"
+        }
+    ],
+    "labels_url": "https://api.github.com/repos/cython/cython/issues/7451/labels{/name}",
+    "locked": false,
+    "milestone": null,
+    "node_id": "I_kwDOABDGAc7iLPJk",
+    "number": 7451,
+    "performed_via_github_app": null,
+    "reactions": {
+        "+1": 0,
+        "-1": 0,
+        "confused": 0,
+        "eyes": 0,
+        "heart": 0,
+        "hooray": 0,
+        "laugh": 0,
+        "rocket": 0,
+        "total_count": 0,
+        "url": "https://api.github.com/repos/cython/cython/issues/7451/reactions"
+    },
+    "repository_url": "https://api.github.com/repos/cython/cython",
+    "state": "open",
+    "state_reason": null,
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
+    "timeline_url": "https://api.github.com/repos/cython/cython/issues/7451/timeline",
+    "title": "[BUG] Compiler crash in 3.2.x when using sizeof() in C array dimension inside struct/union definition",
+    "type": null,
+    "updated_at": "2026-01-12T18:20:05Z",
+    "url": "https://api.github.com/repos/cython/cython/issues/7451",
+    "user": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/673160?v=4",
+        "events_url": "https://api.github.com/users/thormick/events{/privacy}",
+        "followers_url": "https://api.github.com/users/thormick/followers",
+        "following_url": "https://api.github.com/users/thormick/following{/other_user}",
+        "gists_url": "https://api.github.com/users/thormick/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/thormick",
+        "id": 673160,
+        "login": "thormick",
+        "node_id": "MDQ6VXNlcjY3MzE2MA==",
+        "organizations_url": "https://api.github.com/users/thormick/orgs",
+        "received_events_url": "https://api.github.com/users/thormick/received_events",
+        "repos_url": "https://api.github.com/users/thormick/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/thormick/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/thormick/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/thormick",
+        "user_view_type": "public"
+    }
+}
