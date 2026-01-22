@@ -5,6 +5,7 @@
     "author_association": "NONE",
     "body": "### Describe the bug\n\n```error\r\n(template) PS C:\\Users\\user\\Desktop\\template> python .\\setup.py\r\nTraceback (most recent call last):\r\n  File \"C:\\Users\\user\\Desktop\\template\\setup.py\", line 3, in <module>\r\n    from Cython.Build import cythonize\r\n  File \"C:\\Users\\user\\Desktop\\template\\Lib\\site-packages\\Cython\\Build\\__init__.py\", line 1, in <module>\r\n    from .Dependencies import cythonize\r\n  File \"C:\\Users\\user\\Desktop\\template\\Lib\\site-packages\\Cython\\Build\\Dependencies.py\", line 46, in <module>\r\n    from ..Compiler.Main import Context\r\n  File \"C:\\Users\\user\\Desktop\\template\\Lib\\site-packages\\Cython\\Compiler\\Main.py\", line 30, in <module>\r\n    from .Symtab import ModuleScope\r\n  File \"C:\\Users\\user\\Desktop\\template\\Lib\\site-packages\\Cython\\Compiler\\Symtab.py\", line 20, in <module>\r\n    from . import PyrexTypes\r\n  File \"C:\\Users\\user\\Desktop\\template\\Lib\\site-packages\\Cython\\Compiler\\PyrexTypes.py\", line 4850, in <module>\r\n    c_py_unicode_ptr_type = CPtrType(c_py_unicode_type)\r\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n  File \"C:\\Users\\user\\Desktop\\template\\Lib\\site-packages\\Cython\\Compiler\\PyrexTypes.py\", line 2699, in __init__\r\n    self.to_py_utility_code = UtilityCode.load_cached(\r\n                              ^^^^^^^^^^^^^^^^^^^^^^^^\r\n  File \"Cython\\\\Compiler\\\\Code.py\", line 425, in Cython.Compiler.Code.UtilityCodeBase.load_cached\r\n  File \"Cython\\\\Compiler\\\\Code.py\", line 371, in Cython.Compiler.Code.UtilityCodeBase.load\r\n  File \"Cython\\\\Compiler\\\\Code.py\", line 320, in Cython.Compiler.Code.UtilityCodeBase.load_utilities_from_file\r\n  File \"Cython\\\\Compiler\\\\Code.py\", line 223, in Cython.Compiler.Code.read_utilities_from_utility_dir\r\n    try:\r\n  File \"Cython\\\\Utils.py\", line 416, in Cython.Utils.open_source_file\r\nFileNotFoundError: C:\\Users\\user\\Desktop\\template\\Lib\\site-packages\\Cython\\Utility\\StringTools.c\r\n(template) PS C:\\Users\\user\\Desktop\\template> pip show cython\r\nName: Cython\r\nVersion: 3.0.10\r\nSummary: The Cython compiler for writing C extensions in the Python language.\r\nHome-page: https://cython.org/\r\nAuthor: Robert Bradshaw, Stefan Behnel, Dag Seljebotn, Greg Ewing, et al.\r\nAuthor-email: cython-devel@python.org\r\nLicense: Apache-2.0\r\nLocation: C:\\Users\\user\\Desktop\\template\\Lib\\site-packages\r\nRequires:\r\nRequired-by:\r\n(template) PS C:\\Users\\user\\Desktop\\template>\r\n```\n\n### Code to reproduce the behaviour:\n\n```python\r\nimport sys, os, shutil, time\r\nfrom setuptools import setup\r\nfrom Cython.Build import cythonize\r\n\r\nstart_time = time.time()\r\ncurr_dir = os.path.abspath(\".\")\r\nparent_path = sys.argv[1] if len(sys.argv) > 1 else \"\"\r\nsetup_file = __file__.replace(\"/\", \"\\\\\")\r\nbuild_dir = \"build\"\r\nbuild_tmp_dir = build_dir + \"/temp\"\r\n\r\ns = \"# cython: language_level=3\"\r\n\r\n\r\ndef get_py(\r\n    base_path=os.path.abspath(\".\"),\r\n    parent_path=\"\",\r\n    name=\"\",\r\n    excepts=(),\r\n    copyOther=False,\r\n    delC=False,\r\n):\r\n    \"\"\"\r\n    获取py文件的路径\r\n    :param base_path: 根路径\r\n    :param parent_path: 父路径\r\n    :param excepts: 排除文件\r\n    :return: py文件的迭代器\r\n    \"\"\"\r\n    full_path = os.path.join(base_path, parent_path, name)\r\n    for filename in os.listdir(full_path):\r\n        full_filename = os.path.join(full_path, filename)\r\n        if (\r\n            os.path.isdir(full_filename)\r\n            and filename != build_dir\r\n            and not filename.startswith(\".\")\r\n        ):\r\n            for f in get_py(\r\n                base_path,\r\n                os.path.join(parent_path, name),\r\n                filename,\r\n                excepts,\r\n                copyOther,\r\n                delC,\r\n            ):\r\n                yield f\r\n        elif os.path.isfile(full_filename):\r\n            ext = os.path.splitext(filename)[1]\r\n            if ext == \".c\":\r\n                if delC and os.stat(full_filename).st_mtime > start_time:\r\n                    os.remove(full_filename)\r\n            elif full_filename not in excepts and os.path.splitext(filename)[1] not in (\r\n                \".pyc\",\r\n                \".pyx\",\r\n            ):\r\n                if os.path.splitext(filename)[1] in (\r\n                    \".py\",\r\n                    \".pyx\",\r\n                ) and not filename.startswith(\"__\"):\r\n                    path = os.path.join(parent_path, name, filename)\r\n                    yield path\r\n        else:\r\n            pass\r\n\r\n\r\ndef pack_pyd():\r\n    # 获取py列表\r\n    module_list = list(\r\n        get_py(base_path=curr_dir, parent_path=parent_path, excepts=(setup_file,))\r\n    )\r\n    try:\r\n        setup(\r\n            ext_modules=cythonize(\r\n                module_list, compiler_directives={\"language_level\": \"3\"}\r\n            ),\r\n            script_args=[\"build_ext\", \"-b\", build_dir, \"-t\", build_tmp_dir],\r\n        )\r\n    except Exception as ex:\r\n        print(\"error! \", str(ex))\r\n    else:\r\n        module_list = list(\r\n            get_py(\r\n                base_path=curr_dir,\r\n                parent_path=parent_path,\r\n                excepts=(setup_file,),\r\n                copyOther=True,\r\n            )\r\n        )\r\n\r\n    module_list = list(\r\n        get_py(\r\n            base_path=curr_dir,\r\n            parent_path=parent_path,\r\n            excepts=(setup_file,),\r\n            delC=True,\r\n        )\r\n    )\r\n    if os.path.exists(build_tmp_dir):\r\n        shutil.rmtree(build_tmp_dir)\r\n\r\n    print(\"complate! time:\", time.time() - start_time, \"s\")\r\n\r\n\r\ndef delete_c(path=\".\", excepts=(setup_file,)):\r\n    \"\"\"\r\n    删除编译过程中生成的.c文件\r\n    :param path:\r\n    :param excepts:\r\n    :return:\r\n    \"\"\"\r\n    dirs = os.listdir(path)\r\n    for dir in dirs:\r\n        new_dir = os.path.join(path, dir)\r\n        if os.path.isfile(new_dir):\r\n            ext = os.path.splitext(new_dir)[1]\r\n            if ext == \".c\":\r\n                os.remove(new_dir)\r\n        elif os.path.isdir(new_dir):\r\n            delete_c(new_dir)\r\n\r\n\r\nif __name__ == \"__main__\":\r\n    try:\r\n        pack_pyd()\r\n    except Exception as e:\r\n        print(str(e))\r\n    finally:\r\n        delete_c()\r\n\r\n```\n\n### Expected behaviour\n\nI want to package my project using cython\n\n### OS\n\nWindows\n\n### Python version\n\n3.12.2\n\n### Cython version\n\n3.0.10\n\n### Additional context\n\n_No response_",
     "closed_at": null,
+    "closed_by": null,
     "comment_data": [
         {
             "author_association": "NONE",
@@ -47,7 +48,8 @@
                 "starred_url": "https://api.github.com/users/zqq-nuli/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/zqq-nuli/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/zqq-nuli"
+                "url": "https://api.github.com/users/zqq-nuli",
+                "user_view_type": "public"
             }
         },
         {
@@ -91,7 +93,8 @@
                 "starred_url": "https://api.github.com/users/zqq-nuli/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/zqq-nuli/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/zqq-nuli"
+                "url": "https://api.github.com/users/zqq-nuli",
+                "user_view_type": "public"
             }
         },
         {
@@ -135,7 +138,8 @@
                 "starred_url": "https://api.github.com/users/GitBrincie212/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/GitBrincie212/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/GitBrincie212"
+                "url": "https://api.github.com/users/GitBrincie212",
+                "user_view_type": "public"
             }
         },
         {
@@ -148,7 +152,7 @@
             "node_id": "IC_kwDOABDGAc6JPomJ",
             "performed_via_github_app": null,
             "reactions": {
-                "+1": 0,
+                "+1": 1,
                 "-1": 0,
                 "confused": 0,
                 "eyes": 0,
@@ -156,7 +160,7 @@
                 "hooray": 0,
                 "laugh": 0,
                 "rocket": 0,
-                "total_count": 0,
+                "total_count": 1,
                 "url": "https://api.github.com/repos/cython/cython/issues/comments/2302577033/reactions"
             },
             "updated_at": "2024-08-21T17:09:31Z",
@@ -179,17 +183,239 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "> This looks like a broken Cython installation. I suggest deleting and rebuilding your venv to get a clean package installation, and then trying again.\n\nThis solved the issue for me ",
+            "created_at": "2026-01-19T11:07:58Z",
+            "html_url": "https://github.com/cython/cython/issues/6232#issuecomment-3767770581",
+            "id": 3767770581,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6232",
+            "node_id": "IC_kwDOABDGAc7gk53V",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/3767770581/reactions"
+            },
+            "updated_at": "2026-01-19T11:07:58Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/3767770581",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/47508520?v=4",
+                "events_url": "https://api.github.com/users/parad0x96/events{/privacy}",
+                "followers_url": "https://api.github.com/users/parad0x96/followers",
+                "following_url": "https://api.github.com/users/parad0x96/following{/other_user}",
+                "gists_url": "https://api.github.com/users/parad0x96/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/parad0x96",
+                "id": 47508520,
+                "login": "parad0x96",
+                "node_id": "MDQ6VXNlcjQ3NTA4NTIw",
+                "organizations_url": "https://api.github.com/users/parad0x96/orgs",
+                "received_events_url": "https://api.github.com/users/parad0x96/received_events",
+                "repos_url": "https://api.github.com/users/parad0x96/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/parad0x96/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/parad0x96/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/parad0x96",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "NONE",
+            "body": "@zqq-nuli @scoder this issue happens because of your `delete_c` you are recursively deleting all c files in your path including your virtualenv folder, try to exclude the venv folder from the lookup.",
+            "created_at": "2026-01-19T12:03:13Z",
+            "html_url": "https://github.com/cython/cython/issues/6232#issuecomment-3767991997",
+            "id": 3767991997,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6232",
+            "node_id": "IC_kwDOABDGAc7glv69",
+            "performed_via_github_app": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/3767991997/reactions"
+            },
+            "updated_at": "2026-01-19T12:03:26Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/3767991997",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/47508520?v=4",
+                "events_url": "https://api.github.com/users/parad0x96/events{/privacy}",
+                "followers_url": "https://api.github.com/users/parad0x96/followers",
+                "following_url": "https://api.github.com/users/parad0x96/following{/other_user}",
+                "gists_url": "https://api.github.com/users/parad0x96/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/parad0x96",
+                "id": 47508520,
+                "login": "parad0x96",
+                "node_id": "MDQ6VXNlcjQ3NTA4NTIw",
+                "organizations_url": "https://api.github.com/users/parad0x96/orgs",
+                "received_events_url": "https://api.github.com/users/parad0x96/received_events",
+                "repos_url": "https://api.github.com/users/parad0x96/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/parad0x96/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/parad0x96/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/parad0x96",
+                "user_view_type": "public"
             }
         }
     ],
-    "comments": 4,
+    "comments": 6,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/6232/comments",
     "created_at": "2024-06-08T17:19:50Z",
-    "event_data": [],
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-01-19T12:03:15Z",
+            "event": "mentioned",
+            "id": 22136583821,
+            "node_id": "MEE_lADOABDGAc6LlDevzwAAAAUncXaN",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/22136583821"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-01-19T12:03:15Z",
+            "event": "subscribed",
+            "id": 22136583853,
+            "node_id": "SE_lADOABDGAc6LlDevzwAAAAUncXat",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/22136583853"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/70546655?v=4",
+                "events_url": "https://api.github.com/users/zqq-nuli/events{/privacy}",
+                "followers_url": "https://api.github.com/users/zqq-nuli/followers",
+                "following_url": "https://api.github.com/users/zqq-nuli/following{/other_user}",
+                "gists_url": "https://api.github.com/users/zqq-nuli/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/zqq-nuli",
+                "id": 70546655,
+                "login": "zqq-nuli",
+                "node_id": "MDQ6VXNlcjcwNTQ2NjU1",
+                "organizations_url": "https://api.github.com/users/zqq-nuli/orgs",
+                "received_events_url": "https://api.github.com/users/zqq-nuli/received_events",
+                "repos_url": "https://api.github.com/users/zqq-nuli/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/zqq-nuli/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/zqq-nuli/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/zqq-nuli",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-01-19T12:03:15Z",
+            "event": "mentioned",
+            "id": 22136583904,
+            "node_id": "MEE_lADOABDGAc6LlDevzwAAAAUncXbg",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/22136583904"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/70546655?v=4",
+                "events_url": "https://api.github.com/users/zqq-nuli/events{/privacy}",
+                "followers_url": "https://api.github.com/users/zqq-nuli/followers",
+                "following_url": "https://api.github.com/users/zqq-nuli/following{/other_user}",
+                "gists_url": "https://api.github.com/users/zqq-nuli/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/zqq-nuli",
+                "id": 70546655,
+                "login": "zqq-nuli",
+                "node_id": "MDQ6VXNlcjcwNTQ2NjU1",
+                "organizations_url": "https://api.github.com/users/zqq-nuli/orgs",
+                "received_events_url": "https://api.github.com/users/zqq-nuli/received_events",
+                "repos_url": "https://api.github.com/users/zqq-nuli/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/zqq-nuli/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/zqq-nuli/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/zqq-nuli",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-01-19T12:03:15Z",
+            "event": "subscribed",
+            "id": 22136583926,
+            "node_id": "SE_lADOABDGAc6LlDevzwAAAAUncXb2",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/22136583926"
+        }
+    ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/6232/events",
     "html_url": "https://github.com/cython/cython/issues/6232",
     "id": 2341746607,
+    "issue_dependencies_summary": {
+        "blocked_by": 0,
+        "blocking": 0,
+        "total_blocked_by": 0,
+        "total_blocking": 0
+    },
     "labels": [],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/6232/labels{/name}",
     "locked": false,
@@ -198,7 +424,7 @@
     "number": 6232,
     "performed_via_github_app": null,
     "reactions": {
-        "+1": 0,
+        "+1": 1,
         "-1": 0,
         "confused": 0,
         "eyes": 0,
@@ -206,15 +432,21 @@
         "hooray": 0,
         "laugh": 0,
         "rocket": 0,
-        "total_count": 0,
+        "total_count": 1,
         "url": "https://api.github.com/repos/cython/cython/issues/6232/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "state_reason": null,
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/6232/timeline",
     "title": "[BUG] FileNotFoundError Lib\\site-packages\\Cython\\Utility\\StringTools.c",
-    "updated_at": "2024-08-21T17:09:32Z",
+    "type": null,
+    "updated_at": "2026-01-19T12:03:26Z",
     "url": "https://api.github.com/repos/cython/cython/issues/6232",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/70546655?v=4",
@@ -234,6 +466,7 @@
         "starred_url": "https://api.github.com/users/zqq-nuli/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/zqq-nuli/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/zqq-nuli"
+        "url": "https://api.github.com/users/zqq-nuli",
+        "user_view_type": "public"
     }
 }
