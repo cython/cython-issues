@@ -4,7 +4,28 @@
     "assignees": [],
     "author_association": "NONE",
     "body": "We (CPython) should provide a C API for pushing introspectable frames to the call stack, and you (Cython) should use them.\r\n\r\nThe vast majority of Python-to-Python calls do not need to create a heap allocated frame.\r\nIt would be good if Cython could use the same frame stack.\r\n\r\nSeeing as Cython would be main user of this API, it seems sensible to have the discussion here, rather than on BPO.\r\n\r\nThe API could look something like this:\r\n```C\r\ntypedef struct _ {\r\n     PyObject *frame_descriptor;\r\n     /* Some opaque fields */\r\n     int line_number; // Writeable line number\r\n     /* Some more opaque fields */\r\n} InterpreterCFrame;\r\n\r\n/* Calls these once each for each call to the Cython callable */\r\nInterpreterCFrame *_Py_PushCFrame(PyObject *frame_descriptor);\r\nvoid _Py_PopCFrame(InterpreterCFrame *frame); \r\n\r\n/* Call this once when the Cython module is loaded */\r\nPyObject *_Py_CreateCFrameDescriptor(char *name, char *filename, int firstlineno);\r\n```\r\n\r\n`_Py_PushCFrame` and `_Py_PopCFrame`  should be fast, just changing the refcount of `frame_descriptor` and zeroing a few fields.\r\n\r\nThe exact layout of `InterpreterCFrame` might change from version to version, but code that only uses the public fields should recompile without changes.\r\n\r\nThe various opaque fields exists so that Python and C frames have mostly the same binary layout, to avoid runtime checks where possible.\r\n\r\n\r\nhttps://bugs.python.org/issue45905\r\n",
-    "closed_at": null,
+    "closed_at": "2026-03-10T12:28:33Z",
+    "closed_by": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/9448417?v=4",
+        "events_url": "https://api.github.com/users/markshannon/events{/privacy}",
+        "followers_url": "https://api.github.com/users/markshannon/followers",
+        "following_url": "https://api.github.com/users/markshannon/following{/other_user}",
+        "gists_url": "https://api.github.com/users/markshannon/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/markshannon",
+        "id": 9448417,
+        "login": "markshannon",
+        "node_id": "MDQ6VXNlcjk0NDg0MTc=",
+        "organizations_url": "https://api.github.com/users/markshannon/orgs",
+        "received_events_url": "https://api.github.com/users/markshannon/received_events",
+        "repos_url": "https://api.github.com/users/markshannon/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/markshannon/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/markshannon/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/markshannon",
+        "user_view_type": "public"
+    },
     "comment_data": [
         {
             "author_association": "NONE",
@@ -15,6 +36,7 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4484",
             "node_id": "IC_kwDOABDGAc46a90z",
             "performed_via_github_app": null,
+            "pin": null,
             "reactions": {
                 "+1": 0,
                 "-1": 0,
@@ -47,11 +69,12 @@
                 "starred_url": "https://api.github.com/users/markshannon/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/markshannon/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/markshannon"
+                "url": "https://api.github.com/users/markshannon",
+                "user_view_type": "public"
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "I'm slightly reluctant to comment on this because it's a bit of code I don't understand very well but since no-one else has I'll make an attempt:\r\n\r\ncurrently Cython only generates the frames for the tracebacks on demand (i.e. when there's an exception) rather than creating a frame at every function call. This is an optimization that I think we'd like to keep (for example, a lot of functions are \"nogil unless an exception is thrown\"). Your proposed scheme seems to be building it from the top down (so every call pushes and pops the frame) whereas our current one builds builds the traceback in reverse order as it propagates up.\r\n\r\n> An alternative would be to drop the `_Py_CreateCFrameDescriptor` function, and take Cython callables as the argument to `_Py_PushCFrame`, provided they had the same API for use by `inspect` and `traceback`.\r\n\r\nI don't think that would work as a general solution - we do try to create tracebacks from `cdef` functions which are implemented just as C functions and are visible only from within Cython (i.e. there is no associated Python object).\r\n\r\nOne final comment: it'd be useful if this could end up part of the limited API. Looking at the current code, I think we've struggled to implement anything in our (preliminary) limited API implementation.",
             "created_at": "2021-11-29T17:50:41Z",
             "html_url": "https://github.com/cython/cython/issues/4484#issuecomment-981870788",
@@ -59,6 +82,7 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4484",
             "node_id": "IC_kwDOABDGAc46hijE",
             "performed_via_github_app": null,
+            "pin": null,
             "reactions": {
                 "+1": 2,
                 "-1": 0,
@@ -91,7 +115,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -103,6 +128,7 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4484",
             "node_id": "IC_kwDOABDGAc46jnod",
             "performed_via_github_app": null,
+            "pin": null,
             "reactions": {
                 "+1": 0,
                 "-1": 0,
@@ -135,7 +161,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -147,6 +174,7 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4484",
             "node_id": "IC_kwDOABDGAc460trG",
             "performed_via_github_app": null,
+            "pin": null,
             "reactions": {
                 "+1": 0,
                 "-1": 0,
@@ -179,11 +207,12 @@
                 "starred_url": "https://api.github.com/users/markshannon/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/markshannon/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/markshannon"
+                "url": "https://api.github.com/users/markshannon",
+                "user_view_type": "public"
             }
         },
         {
-            "author_association": "COLLABORATOR",
+            "author_association": "MEMBER",
             "body": "Just to follow up a little on this statement and give a concrete example:\r\n\r\n> If a call is really too costly (I am skeptical of this, but let's say it is), then we could make _Py_PushCFrame and _Py_PopCFrame inline functions.\r\n\r\n> We could even say that it the responsibility of the caller to hold a reference to the frame_descriptor for the duration of the call, if you are really that worried about the incref/decref cost.\r\n\r\nwhat I'm think of is something like this:\r\n\r\n```\r\n# cython specific syntax - C function, defined with C \"inline\", runs with without the GIL, return value of -1 may indicate an error\r\ncdef inline int inner_func(int a, int b) nogil except? -1:\r\n    return a/b  # can throw an exception if b==0\r\n\r\ndef doloop(int n):\r\n    cdef int sum=0\r\n    cdef int i\r\n    with nogil:\r\n        for i in range(n):\r\n            sum += inner_func(100, i-10)\r\n    return sum\r\n```\r\n\r\nThis is a fairly artificial example but we have a loop that does does some long computation that runs without the GIL. It calls an optimized inner function that can throw a Python exception in rare circumstances but is otherwise run purely in C. If an exception is thrown then Cython re-acquires the GIL and issues a traceback that includes `inner_func`:\r\n\r\n```\r\n>>> example.doloop(20)\r\nTraceback (most recent call last):\r\n  File \"<stdin>\", line 1, in <module>\r\n  File \"example.pyx\", line 9, in example.doloop\r\n    sum += inner_func(100, i-10)\r\n  File \"example.pyx\", line 2, in example.inner_func\r\n    return a/b  # can throw an exception if b==0\r\nZeroDivisionError: integer division or modulo by zero\r\n```\r\n\r\nMy understanding is that `inner_func` would need to call `_Py_PushCFrame` and `_Py_PopCFrame` on entry and exit and so it would need to re-acquire the GIL on every call. Or we'd need to abandon being able to give tracebacks from this type of function. Or only use `_Py_PushCFrame` and `_Py_PopCFrame` for regular \"python-like\" functions and continue using the existing version for \"C-like\" functions (which probably wouldn't be net benefit for maintainability).\r\n\r\n------------------------\r\n\r\nThere are some benefits to your scheme though: one area where Cython isn't compatible with Python is code that inspects that stack usually fails (sympy is an example) because Cython only generates this information as the exception propagates upwards. Having a quick way of supporting that might be a benefit. (Although real code that does looks at the stack often wants more detailed introspection...)",
             "created_at": "2021-12-07T22:30:37Z",
             "html_url": "https://github.com/cython/cython/issues/4484#issuecomment-988308328",
@@ -191,6 +220,7 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4484",
             "node_id": "IC_kwDOABDGAc466GNo",
             "performed_via_github_app": null,
+            "pin": null,
             "reactions": {
                 "+1": 0,
                 "-1": 0,
@@ -223,7 +253,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -235,6 +266,7 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/4484",
             "node_id": "IC_kwDOABDGAc466X9I",
             "performed_via_github_app": null,
+            "pin": null,
             "reactions": {
                 "+1": 0,
                 "-1": 0,
@@ -267,17 +299,57 @@
                 "starred_url": "https://api.github.com/users/maxbachmann/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/maxbachmann/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/maxbachmann"
+                "url": "https://api.github.com/users/maxbachmann",
+                "user_view_type": "public"
             }
         }
     ],
     "comments": 6,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/4484/comments",
     "created_at": "2021-11-26T16:41:15Z",
-    "event_data": [],
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/9448417?v=4",
+                "events_url": "https://api.github.com/users/markshannon/events{/privacy}",
+                "followers_url": "https://api.github.com/users/markshannon/followers",
+                "following_url": "https://api.github.com/users/markshannon/following{/other_user}",
+                "gists_url": "https://api.github.com/users/markshannon/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/markshannon",
+                "id": 9448417,
+                "login": "markshannon",
+                "node_id": "MDQ6VXNlcjk0NDg0MTc=",
+                "organizations_url": "https://api.github.com/users/markshannon/orgs",
+                "received_events_url": "https://api.github.com/users/markshannon/received_events",
+                "repos_url": "https://api.github.com/users/markshannon/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/markshannon/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/markshannon/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/markshannon",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-03-10T12:28:33Z",
+            "event": "closed",
+            "id": 23430427501,
+            "node_id": "CE_lADOABDGAc4_dc4EzwAAAAV0j_Nt",
+            "performed_via_github_app": null,
+            "state_reason": "not_planned",
+            "url": "https://api.github.com/repos/cython/cython/issues/events/23430427501"
+        }
+    ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/4484/events",
     "html_url": "https://github.com/cython/cython/issues/4484",
     "id": 1064685060,
+    "issue_dependencies_summary": {
+        "blocked_by": 0,
+        "blocking": 0,
+        "total_blocked_by": 0,
+        "total_blocking": 0
+    },
     "labels": [],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/4484/labels{/name}",
     "locked": false,
@@ -285,6 +357,7 @@
     "node_id": "I_kwDOABDGAc4_dc4E",
     "number": 4484,
     "performed_via_github_app": null,
+    "pinned_comment": null,
     "reactions": {
         "+1": 0,
         "-1": 0,
@@ -298,10 +371,17 @@
         "url": "https://api.github.com/repos/cython/cython/issues/4484/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
+    "state": "closed",
+    "state_reason": "not_planned",
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/4484/timeline",
     "title": "[ENH] If we provide a C-API for pushing and popping introspectable frames, will you use it?",
-    "updated_at": "2021-12-08T00:38:58Z",
+    "type": null,
+    "updated_at": "2026-03-10T12:28:33Z",
     "url": "https://api.github.com/repos/cython/cython/issues/4484",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/9448417?v=4",
@@ -321,6 +401,7 @@
         "starred_url": "https://api.github.com/users/markshannon/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/markshannon/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/markshannon"
+        "url": "https://api.github.com/users/markshannon",
+        "user_view_type": "public"
     }
 }
