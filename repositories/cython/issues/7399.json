@@ -834,9 +834,55 @@
                 "url": "https://api.github.com/users/ngoldbaum",
                 "user_view_type": "public"
             }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "A few more thoughts about the viral opaque PyObject ABI issues:\n\n# Impact\n\nI think it's comparatively rare to share Cython-generated cdef classes between projects. So it probably isn't a huge issue. (Although I also don't have visibility on all uses, everywhere).  Until we have a good solution I'd probably recommend that projects either exporting or importing types across an external interface don't use opaque objects.\n\nThe largest project currently using the Stable ABI from Cython is probably RapidsAI.  They don't currently support free-threaded builds at all. They're composed of many different sub-packages that look to have at least some interpackage `cimports`. They also haven't completely switched to Stable ABI (because they have one component that depends on Pybind11). So they _might_ be someone that's unable to use this even if they wanted to. I'll ask them and see what they think.\n\nThe error-checking on the current implementation at least means people shouldn't be caught out and should find out quickly about this limitation.\n\nI'm more concerned right now about typed memoryviews. Partly because I haven't yet got any good detection in place about incompatibilities, and partly because that may also affect simple function interfaces.  I've done some work on trying to improve this (because this would be nice to solve for other reasons too) but it's more complicated than I initially thought.\n\n# Constraints\n\nI think we're fairly constrained in what we can do to fix it:\n\n* I don't think I can (or should) do anything that makes existing, \"normal\" Cython modules slower.\n* For \"regular\" Cython modules, any class that's defined as `public` or `api` has a API constraint that it's defined in the style:\n\n    ```\n    typedef struct {\n        PyObject_HEAD\n        double attr1;\n        int attr2;\n    } struct_name;\n    ```\n\n    because we generate headers in this format. So people need to be able to write code `struct_name *o = ...; o->attr1 = ...`.\n* For any class that gets `cimport`ed anywhere, we also have an ABI constraint that the structure is defined compatible with this way.\n* If I was starting from scratch, I'd probably change this all to:\n\n    ```\n    typedef struct {\n        double attr1;\n        int attr2;\n    } contents;\n\n    typedef struct {\n        PyObject_HEAD\n        contents contents;\n    } struct_name;\n    ```\n\n   which would be a lot easier to work with because `contents` would be identical on opaque and non-opaque builds.\n   However, I don't think that's necessarily even ABI compatible according to the various standards (C++ `std::is_layout_compatible`\n   certainly thinks it isn't). Practically I suspect you _might_ get away with it though.\n\n# Current conclusions\n\nI still think that it'll work to be able to manually mark certain types as \"definitely opaque\" and those should be usable from any other Cython module. But it's one way only.\n\nI'd also be possible for modules to define an \"opaque interface\" which consists of types without members, and with members accessed through functions rather than directly (essentially fairly similar to what Numpy has done for their Cython definitions). In the short-term this would likely be something that authors would have to provide manually.\n\nI don't think it's it important that this is solved immediately though - most people using Cython are mostly using it internally within a package - provided there's enough error checking to catch mistakes early.",
+            "created_at": "2026-03-29T17:30:26Z",
+            "html_url": "https://github.com/cython/cython/issues/7399#issuecomment-4150643293",
+            "id": 4150643293,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/7399",
+            "node_id": "IC_kwDOABDGAc73Zcpd",
+            "performed_via_github_app": null,
+            "pin": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/4150643293/reactions"
+            },
+            "updated_at": "2026-03-29T17:30:26Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/4150643293",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
         }
     ],
-    "comments": 18,
+    "comments": 19,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/7399/comments",
     "created_at": "2025-12-08T20:25:06Z",
     "event_data": [
@@ -1466,7 +1512,7 @@
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/7399/timeline",
     "title": "[INFO] Limited API and freethreading Python 3.15",
     "type": null,
-    "updated_at": "2026-03-18T13:44:06Z",
+    "updated_at": "2026-03-29T17:30:27Z",
     "url": "https://api.github.com/repos/cython/cython/issues/7399",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
