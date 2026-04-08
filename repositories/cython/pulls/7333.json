@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/7333"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/aa411deaa66ebe2f49d5a916fea7774fc6f4770e"
+            "href": "https://api.github.com/repos/cython/cython/statuses/f23470fcae78c8865736dc82ae849306925122cc"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1608,
-            "forks_count": 1608,
+            "forks": 1611,
+            "forks_count": 1611,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -68,6 +68,7 @@
             "has_issues": true,
             "has_pages": true,
             "has_projects": false,
+            "has_pull_requests": true,
             "has_wiki": true,
             "homepage": "https://cython.org",
             "hooks_url": "https://api.github.com/repos/cython/cython/hooks",
@@ -79,7 +80,7 @@
             "issues_url": "https://api.github.com/repos/cython/cython/issues{/number}",
             "keys_url": "https://api.github.com/repos/cython/cython/keys{/key_id}",
             "labels_url": "https://api.github.com/repos/cython/cython/labels{/name}",
-            "language": "Python",
+            "language": "Cython",
             "languages_url": "https://api.github.com/repos/cython/cython/languages",
             "license": {
                 "key": "apache-2.0",
@@ -94,8 +95,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1488,
-            "open_issues_count": 1488,
+            "open_issues": 1501,
+            "open_issues_count": 1501,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -118,12 +119,13 @@
                 "user_view_type": "public"
             },
             "private": false,
+            "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-01-15T08:00:05Z",
+            "pushed_at": "2026-04-02T19:09:12Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 78625,
+            "size": 79771,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10562,
+            "stargazers_count": 10676,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -142,11 +144,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-01-15T13:44:52Z",
+            "updated_at": "2026-04-03T12:01:34Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10562,
-            "watchers_count": 10562,
+            "watchers": 10676,
+            "watchers_count": 10676,
             "web_commit_signoff_required": false
         },
         "sha": "b22be807bd615aef0a8363349d7b5bdfeebb95f5",
@@ -258,7 +260,7 @@
             },
             "author_association": "CONTRIBUTOR",
             "body": "Note that this should be addressed by https://github.com/pypa/distutils/pull/395. Once that gets merged and then propagates into a new `setuptools` release, this can be dropped.",
-            "commit_id": "aa411deaa66ebe2f49d5a916fea7774fc6f4770e",
+            "commit_id": "f23470fcae78c8865736dc82ae849306925122cc",
             "created_at": "2026-01-14T11:21:52Z",
             "diff_hunk": "@@ -3072,30 +3078,51 @@ def generate_module_init_func(self, imported_modules, shared_utility_exporter, e\n         code.putln(\"\")\n         code.put_code_here(UtilityCode.load(\"PyModInitFuncType\", \"ModuleSetupCode.c\"))\n \n+        # modinitfunc_cname is used for the refnanny context - no need to change it in PEP 793\n         modinit_func_name = EncodedString(f\"PyInit_{env.module_name}\")\n         header3 = \"__Pyx_PyMODINIT_FUNC %s(void)\" % self.mod_init_func_cname('PyInit', env)\n+        # for PEP 793 upwards\n+        header_modexport = f\"__Pyx_PyMODEXPORT_FUNC {self.mod_init_func_cname('PyModExport', env)}(void)\"\n         # Optimise for small code size as the module init function is only executed once.\n-        code.putln(\"%s CYTHON_SMALL_CODE; /*proto*/\" % header3)\n+        code.putln(\"#if __PYX_LIMITED_VERSION_HEX >= 0x030F0000 && CYTHON_PEP489_MULTI_PHASE_INIT\")\n+        code.putln(f\"{header_modexport} CYTHON_SMALL_CODE; /*proto*/\")\n+        code.putln(\"#endif\")\n+        # Always define PyInit_ (even with PEP 793) mainly because setuptools on Windows will\n+        # try to export the symbol so it needs to exist.\n+        code.putln(f\"{header3} CYTHON_SMALL_CODE; /*proto*/\")\n         if self.scope.is_package:\n             code.putln(\"#if !defined(CYTHON_NO_PYINIT_EXPORT) && (defined(_WIN32) || defined(WIN32) || defined(MS_WINDOWS))\")\n             code.putln(\"__Pyx_PyMODINIT_FUNC PyInit___init__(void) { return %s(); }\" % (\n                 self.mod_init_func_cname('PyInit', env)))\n             code.putln(\"#endif\")\n         # Hack for a distutils bug - https://bugs.python.org/issue39432\n         # distutils attempts to make visible a slightly wrong PyInitU module name. Just create a dummy\n-        # function to keep it quiet\n+        # function to keep it quiet.\n+        # Don't bother for PEP 793 - distutils has long since stopped being relevant.\n         wrong_punycode_module_name = self.wrong_punycode_module_name(env.module_name)\n         if wrong_punycode_module_name:\n             code.putln(\"#if !defined(CYTHON_NO_PYINIT_EXPORT) && (defined(_WIN32) || defined(WIN32) || defined(MS_WINDOWS))\")\n             code.putln(\"void %s(void) {} /* workaround for https://bugs.python.org/issue39432 */\" % wrong_punycode_module_name)\n             code.putln(\"#endif\")\n-        code.putln(header3)\n \n+        code.putln(header3)\n         # CPython 3.5+ supports multi-phase module initialisation (gives access to __spec__, __file__, etc.)\n         code.putln(\"#if CYTHON_PEP489_MULTI_PHASE_INIT\")\n         code.putln(\"{\")\n+        code.putln(\"#if __PYX_LIMITED_VERSION_HEX >= 0x030F0000 && CYTHON_COMPILING_IN_LIMITED_API\")\n+        # We still define the PyInit function because setuptools will try to export it, but it's unusable with",
             "html_url": "https://github.com/cython/cython/pull/7333#discussion_r2690041887",
@@ -1314,6 +1316,175 @@
             ],
             "sha": "aa411deaa66ebe2f49d5a916fea7774fc6f4770e",
             "url": "https://api.github.com/repos/cython/cython/commits/aa411deaa66ebe2f49d5a916fea7774fc6f4770e"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/5a6d4d9779943c861c9bafc8a072cfa0f6982478/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-04-02T19:05:34Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-04-02T19:05:34Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Add Py_mod_abi\n\nbecause it's now compulsory.",
+                "tree": {
+                    "sha": "99fb9858e19203d7f885d26edb150a7fa924b7ad",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/99fb9858e19203d7f885d26edb150a7fa924b7ad"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/5a6d4d9779943c861c9bafc8a072cfa0f6982478",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/5a6d4d9779943c861c9bafc8a072cfa0f6982478",
+            "node_id": "C_kwDOAhr4b9oAKDVhNmQ0ZDk3Nzk5NDNjODYxYzliYWZjOGEwNzJjZmEwZjY5ODI0Nzg",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/33626e34ab5ffc2482941e5726cdb392a8951c2b",
+                    "sha": "33626e34ab5ffc2482941e5726cdb392a8951c2b",
+                    "url": "https://api.github.com/repos/cython/cython/commits/33626e34ab5ffc2482941e5726cdb392a8951c2b"
+                }
+            ],
+            "sha": "5a6d4d9779943c861c9bafc8a072cfa0f6982478",
+            "url": "https://api.github.com/repos/cython/cython/commits/5a6d4d9779943c861c9bafc8a072cfa0f6982478"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/f23470fcae78c8865736dc82ae849306925122cc/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-04-02T19:06:35Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-04-02T19:06:35Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Merge branch 'pep-793-init' of github.com:da-woods/cython into pep-793-init",
+                "tree": {
+                    "sha": "5bf99c234dd6d33f3da0a10e7a34010ebd281909",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/5bf99c234dd6d33f3da0a10e7a34010ebd281909"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/f23470fcae78c8865736dc82ae849306925122cc",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/f23470fcae78c8865736dc82ae849306925122cc",
+            "node_id": "C_kwDOAhr4b9oAKGYyMzQ3MGZjYWU3OGM4ODY1NzM2ZGM4MmFlODQ5MzA2OTI1MTIyY2M",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/5a6d4d9779943c861c9bafc8a072cfa0f6982478",
+                    "sha": "5a6d4d9779943c861c9bafc8a072cfa0f6982478",
+                    "url": "https://api.github.com/repos/cython/cython/commits/5a6d4d9779943c861c9bafc8a072cfa0f6982478"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/aa411deaa66ebe2f49d5a916fea7774fc6f4770e",
+                    "sha": "aa411deaa66ebe2f49d5a916fea7774fc6f4770e",
+                    "url": "https://api.github.com/repos/cython/cython/commits/aa411deaa66ebe2f49d5a916fea7774fc6f4770e"
+                }
+            ],
+            "sha": "f23470fcae78c8865736dc82ae849306925122cc",
+            "url": "https://api.github.com/repos/cython/cython/commits/f23470fcae78c8865736dc82ae849306925122cc"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/7333/commits",
@@ -1358,6 +1529,7 @@
             "has_issues": false,
             "has_pages": false,
             "has_projects": true,
+            "has_pull_requests": true,
             "has_wiki": true,
             "homepage": "http://cython.org",
             "hooks_url": "https://api.github.com/repos/da-woods/cython/hooks",
@@ -1369,7 +1541,7 @@
             "issues_url": "https://api.github.com/repos/da-woods/cython/issues{/number}",
             "keys_url": "https://api.github.com/repos/da-woods/cython/keys{/key_id}",
             "labels_url": "https://api.github.com/repos/da-woods/cython/labels{/name}",
-            "language": "Python",
+            "language": "Cython",
             "languages_url": "https://api.github.com/repos/da-woods/cython/languages",
             "license": {
                 "key": "apache-2.0",
@@ -1408,10 +1580,11 @@
                 "user_view_type": "public"
             },
             "private": false,
+            "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2026-01-14T20:56:10Z",
+            "pushed_at": "2026-04-02T19:06:44Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 81928,
+            "size": 83868,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -1423,14 +1596,14 @@
             "teams_url": "https://api.github.com/repos/da-woods/cython/teams",
             "topics": [],
             "trees_url": "https://api.github.com/repos/da-woods/cython/git/trees{/sha}",
-            "updated_at": "2025-11-27T18:50:00Z",
+            "updated_at": "2026-02-28T09:15:34Z",
             "url": "https://api.github.com/repos/da-woods/cython",
             "visibility": "public",
             "watchers": 2,
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "aa411deaa66ebe2f49d5a916fea7774fc6f4770e",
+        "sha": "f23470fcae78c8865736dc82ae849306925122cc",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -1458,7 +1631,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/7333",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "65478f96a7e8b97a8ed7bcb3aa23891d9539fe10",
+    "merge_commit_sha": "bd0d8a9c6514f720e917f657b2bf84405a3041e7",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc6zuC4Q",
@@ -1469,9 +1642,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7333/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/aa411deaa66ebe2f49d5a916fea7774fc6f4770e",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/f23470fcae78c8865736dc82ae849306925122cc",
     "title": "Implement PEP793 initialization",
-    "updated_at": "2026-01-14T16:21:00Z",
+    "updated_at": "2026-04-02T19:06:46Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/7333",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
