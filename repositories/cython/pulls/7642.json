@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/7642"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/4a3560389b75864a2918997a6edf9a995bd23158"
+            "href": "https://api.github.com/repos/cython/cython/statuses/bb8223d66246babdce168c2d6789aae41317a3fc"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1613,
-            "forks_count": 1613,
+            "forks": 1614,
+            "forks_count": 1614,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -95,8 +95,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1510,
-            "open_issues_count": 1510,
+            "open_issues": 1519,
+            "open_issues_count": 1519,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -121,11 +121,11 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-04-26T13:56:01Z",
+            "pushed_at": "2026-05-02T16:05:30Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 79774,
+            "size": 79956,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10711,
+            "stargazers_count": 10715,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -144,11 +144,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-04-27T07:37:58Z",
+            "updated_at": "2026-05-05T10:36:57Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10711,
-            "watchers_count": 10711,
+            "watchers": 10715,
+            "watchers_count": 10715,
             "web_commit_signoff_required": false
         },
         "sha": "5ba989ce408791080ad9d86373ec3dad13f8b9f1",
@@ -176,7 +176,564 @@
     },
     "body": "In favour of generating the call to the 'print' function directly through nodes.\r\n\r\nMy reasoning was:\r\n* The utility code is not thread-safe in the freethreading build because it lazily caches the 'print' function and kwargs for a common argument combination.\r\n* While looking at that, I decided it would benefit from vectorcall too.\r\n\r\nI initially thought about rewriting it, but it seemed easier to use our existing vectorcall code generation and just do the transformation into Cython nodes.\r\n\r\nI think the only likely performance degredation is earlier limited api (without vectorcall) using the \"no newline\" syntax. This will now generate a keyword dict each time rather than caching it.",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7642#discussion_r3174975969"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7642"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3174975969"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Isn't it rather the empty string?",
+            "commit_id": "bb8223d66246babdce168c2d6789aae41317a3fc",
+            "created_at": "2026-05-01T20:07:55Z",
+            "diff_hunk": "@@ -6816,61 +6816,40 @@ class PrintStatNode(StatNode):\n     child_attrs = [\"arg_tuple\", \"stream\"]\n \n     def analyse_expressions(self, env):\n-        if self.stream:\n-            stream = self.stream.analyse_expressions(env)\n-            self.stream = stream.coerce_to_pyobject(env)\n-        arg_tuple = self.arg_tuple.analyse_expressions(env)\n-        self.arg_tuple = arg_tuple.coerce_to_pyobject(env)\n-        env.use_utility_code(printing_utility_code)\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            env.use_utility_code(printing_one_utility_code)\n-        return self\n-\n-    nogil_check = Node.gil_error\n-    gil_message = \"Python print statement\"\n-\n-    def generate_execution_code(self, code):\n-        code.mark_pos(self.pos)\n-        if self.stream:\n-            self.stream.generate_evaluation_code(code)\n-            stream_result = self.stream.py_result()\n-        else:\n-            stream_result = '0'\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            arg = self.arg_tuple.args[0]\n-            arg.generate_evaluation_code(code)\n+        from .ExprNodes import (\n+            DictNode, UnicodeNode, SimpleCallNode, GeneralCallNode,\n+            NameNode\n+        )\n \n-            code.putln(\n-                \"if (__Pyx_PrintOne(%s, %s) < 0) %s\" % (\n-                    stream_result,\n-                    arg.py_result(),\n-                    code.error_goto(self.pos)))\n-            arg.generate_disposal_code(code)\n-            arg.free_temps(code)\n+        func = NameNode(\n+            self.pos,\n+            name=\"print\",\n+            entry=env.builtin_scope().lookup_here(\"print\")\n+        )\n+        if self.stream or not self.append_newline:\n+            key_value_pairs = []\n+            if self.stream:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"file\")),\n+                    self.stream\n+                ))\n+            if not self.append_newline:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"end\")),\n+                    UnicodeNode(self.pos, value=EncodedString(\" \"))\n+                ))",
+            "html_url": "https://github.com/cython/cython/pull/7642#discussion_r3174975969",
+            "id": 3174975969,
+            "line": 6845,
+            "node_id": "PRRC_kwDOABDGAc69Pknh",
+            "original_commit_id": "4a3560389b75864a2918997a6edf9a995bd23158",
+            "original_line": 6840,
+            "original_position": 55,
+            "original_start_line": 6836,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 65,
+            "pull_request_review_id": 4213157340,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7642",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3174975969/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 6841,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-05-01T20:24:41Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3174975969",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7642#discussion_r3175000451"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7642"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3175000451"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\n                    IdentifierStringNode(self.pos, value=EncodedString(\"file\")),\n```",
+            "commit_id": "4a3560389b75864a2918997a6edf9a995bd23158",
+            "created_at": "2026-05-01T20:13:37Z",
+            "diff_hunk": "@@ -6816,61 +6816,40 @@ class PrintStatNode(StatNode):\n     child_attrs = [\"arg_tuple\", \"stream\"]\n \n     def analyse_expressions(self, env):\n-        if self.stream:\n-            stream = self.stream.analyse_expressions(env)\n-            self.stream = stream.coerce_to_pyobject(env)\n-        arg_tuple = self.arg_tuple.analyse_expressions(env)\n-        self.arg_tuple = arg_tuple.coerce_to_pyobject(env)\n-        env.use_utility_code(printing_utility_code)\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            env.use_utility_code(printing_one_utility_code)\n-        return self\n-\n-    nogil_check = Node.gil_error\n-    gil_message = \"Python print statement\"\n-\n-    def generate_execution_code(self, code):\n-        code.mark_pos(self.pos)\n-        if self.stream:\n-            self.stream.generate_evaluation_code(code)\n-            stream_result = self.stream.py_result()\n-        else:\n-            stream_result = '0'\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            arg = self.arg_tuple.args[0]\n-            arg.generate_evaluation_code(code)\n+        from .ExprNodes import (\n+            DictNode, UnicodeNode, SimpleCallNode, GeneralCallNode,\n+            NameNode\n+        )\n \n-            code.putln(\n-                \"if (__Pyx_PrintOne(%s, %s) < 0) %s\" % (\n-                    stream_result,\n-                    arg.py_result(),\n-                    code.error_goto(self.pos)))\n-            arg.generate_disposal_code(code)\n-            arg.free_temps(code)\n+        func = NameNode(\n+            self.pos,\n+            name=\"print\",\n+            entry=env.builtin_scope().lookup_here(\"print\")\n+        )\n+        if self.stream or not self.append_newline:\n+            key_value_pairs = []\n+            if self.stream:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"file\")),",
+            "html_url": "https://github.com/cython/cython/pull/7642#discussion_r3175000451",
+            "id": 3175000451,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69PqmD",
+            "original_commit_id": "4a3560389b75864a2918997a6edf9a995bd23158",
+            "original_line": 6833,
+            "original_position": 48,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 1,
+            "pull_request_review_id": 4213157340,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7642",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3175000451/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T20:24:41Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3175000451",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7642#discussion_r3175001691"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7642"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3175001691"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\n                    IdentifierStringNode(self.pos, value=EncodedString(\"end\")),\n```",
+            "commit_id": "4a3560389b75864a2918997a6edf9a995bd23158",
+            "created_at": "2026-05-01T20:14:03Z",
+            "diff_hunk": "@@ -6816,61 +6816,40 @@ class PrintStatNode(StatNode):\n     child_attrs = [\"arg_tuple\", \"stream\"]\n \n     def analyse_expressions(self, env):\n-        if self.stream:\n-            stream = self.stream.analyse_expressions(env)\n-            self.stream = stream.coerce_to_pyobject(env)\n-        arg_tuple = self.arg_tuple.analyse_expressions(env)\n-        self.arg_tuple = arg_tuple.coerce_to_pyobject(env)\n-        env.use_utility_code(printing_utility_code)\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            env.use_utility_code(printing_one_utility_code)\n-        return self\n-\n-    nogil_check = Node.gil_error\n-    gil_message = \"Python print statement\"\n-\n-    def generate_execution_code(self, code):\n-        code.mark_pos(self.pos)\n-        if self.stream:\n-            self.stream.generate_evaluation_code(code)\n-            stream_result = self.stream.py_result()\n-        else:\n-            stream_result = '0'\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            arg = self.arg_tuple.args[0]\n-            arg.generate_evaluation_code(code)\n+        from .ExprNodes import (\n+            DictNode, UnicodeNode, SimpleCallNode, GeneralCallNode,\n+            NameNode\n+        )\n \n-            code.putln(\n-                \"if (__Pyx_PrintOne(%s, %s) < 0) %s\" % (\n-                    stream_result,\n-                    arg.py_result(),\n-                    code.error_goto(self.pos)))\n-            arg.generate_disposal_code(code)\n-            arg.free_temps(code)\n+        func = NameNode(\n+            self.pos,\n+            name=\"print\",\n+            entry=env.builtin_scope().lookup_here(\"print\")\n+        )\n+        if self.stream or not self.append_newline:\n+            key_value_pairs = []\n+            if self.stream:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"file\")),\n+                    self.stream\n+                ))\n+            if not self.append_newline:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"end\")),",
+            "html_url": "https://github.com/cython/cython/pull/7642#discussion_r3175001691",
+            "id": 3175001691,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69Pq5b",
+            "original_commit_id": "4a3560389b75864a2918997a6edf9a995bd23158",
+            "original_line": 6838,
+            "original_position": 53,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 1,
+            "pull_request_review_id": 4213157340,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7642",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3175001691/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T20:24:41Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3175001691",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7642#discussion_r3175003307"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7642"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3175003307"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\n            NameNode, IdentifierStringNode\n```",
+            "commit_id": "4a3560389b75864a2918997a6edf9a995bd23158",
+            "created_at": "2026-05-01T20:14:34Z",
+            "diff_hunk": "@@ -6816,61 +6816,40 @@ class PrintStatNode(StatNode):\n     child_attrs = [\"arg_tuple\", \"stream\"]\n \n     def analyse_expressions(self, env):\n-        if self.stream:\n-            stream = self.stream.analyse_expressions(env)\n-            self.stream = stream.coerce_to_pyobject(env)\n-        arg_tuple = self.arg_tuple.analyse_expressions(env)\n-        self.arg_tuple = arg_tuple.coerce_to_pyobject(env)\n-        env.use_utility_code(printing_utility_code)\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            env.use_utility_code(printing_one_utility_code)\n-        return self\n-\n-    nogil_check = Node.gil_error\n-    gil_message = \"Python print statement\"\n-\n-    def generate_execution_code(self, code):\n-        code.mark_pos(self.pos)\n-        if self.stream:\n-            self.stream.generate_evaluation_code(code)\n-            stream_result = self.stream.py_result()\n-        else:\n-            stream_result = '0'\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            arg = self.arg_tuple.args[0]\n-            arg.generate_evaluation_code(code)\n+        from .ExprNodes import (\n+            DictNode, UnicodeNode, SimpleCallNode, GeneralCallNode,\n+            NameNode",
+            "html_url": "https://github.com/cython/cython/pull/7642#discussion_r3175003307",
+            "id": 3175003307,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69PrSr",
+            "original_commit_id": "4a3560389b75864a2918997a6edf9a995bd23158",
+            "original_line": 6821,
+            "original_position": 29,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 1,
+            "pull_request_review_id": 4213157340,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7642",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3175003307/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T20:24:41Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3175003307",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7642#discussion_r3175077035"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7642"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3175077035"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "That matches what the old code did. I'm not sure I currently have a version of Python2 around to actually test the behaviour it's replicating. But it leaves a space so the next thing you print is separated.",
+            "commit_id": "bb8223d66246babdce168c2d6789aae41317a3fc",
+            "created_at": "2026-05-01T20:30:33Z",
+            "diff_hunk": "@@ -6816,61 +6816,40 @@ class PrintStatNode(StatNode):\n     child_attrs = [\"arg_tuple\", \"stream\"]\n \n     def analyse_expressions(self, env):\n-        if self.stream:\n-            stream = self.stream.analyse_expressions(env)\n-            self.stream = stream.coerce_to_pyobject(env)\n-        arg_tuple = self.arg_tuple.analyse_expressions(env)\n-        self.arg_tuple = arg_tuple.coerce_to_pyobject(env)\n-        env.use_utility_code(printing_utility_code)\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            env.use_utility_code(printing_one_utility_code)\n-        return self\n-\n-    nogil_check = Node.gil_error\n-    gil_message = \"Python print statement\"\n-\n-    def generate_execution_code(self, code):\n-        code.mark_pos(self.pos)\n-        if self.stream:\n-            self.stream.generate_evaluation_code(code)\n-            stream_result = self.stream.py_result()\n-        else:\n-            stream_result = '0'\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            arg = self.arg_tuple.args[0]\n-            arg.generate_evaluation_code(code)\n+        from .ExprNodes import (\n+            DictNode, UnicodeNode, SimpleCallNode, GeneralCallNode,\n+            NameNode\n+        )\n \n-            code.putln(\n-                \"if (__Pyx_PrintOne(%s, %s) < 0) %s\" % (\n-                    stream_result,\n-                    arg.py_result(),\n-                    code.error_goto(self.pos)))\n-            arg.generate_disposal_code(code)\n-            arg.free_temps(code)\n+        func = NameNode(\n+            self.pos,\n+            name=\"print\",\n+            entry=env.builtin_scope().lookup_here(\"print\")\n+        )\n+        if self.stream or not self.append_newline:\n+            key_value_pairs = []\n+            if self.stream:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"file\")),\n+                    self.stream\n+                ))\n+            if not self.append_newline:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"end\")),\n+                    UnicodeNode(self.pos, value=EncodedString(\" \"))\n+                ))",
+            "html_url": "https://github.com/cython/cython/pull/7642#discussion_r3175077035",
+            "id": 3175077035,
+            "in_reply_to_id": 3174975969,
+            "line": 6845,
+            "node_id": "PRRC_kwDOABDGAc69P9Sr",
+            "original_commit_id": "4a3560389b75864a2918997a6edf9a995bd23158",
+            "original_line": 6840,
+            "original_position": 55,
+            "original_start_line": 6836,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 65,
+            "pull_request_review_id": 4213265389,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7642",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3175077035/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 6841,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-05-01T20:30:33Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3175077035",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7642#discussion_r3176287929"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7642"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3176287929"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "This is tested in https://github.com/cython/cython/blob/c52acc09740e4729dafcd804e6820a9ab00b8f81/tests/run/print.pyx#L15 and https://github.com/cython/cython/blob/c52acc09740e4729dafcd804e6820a9ab00b8f81/tests/run/print.pyx#L41",
+            "commit_id": "bb8223d66246babdce168c2d6789aae41317a3fc",
+            "created_at": "2026-05-02T06:58:50Z",
+            "diff_hunk": "@@ -6816,61 +6816,40 @@ class PrintStatNode(StatNode):\n     child_attrs = [\"arg_tuple\", \"stream\"]\n \n     def analyse_expressions(self, env):\n-        if self.stream:\n-            stream = self.stream.analyse_expressions(env)\n-            self.stream = stream.coerce_to_pyobject(env)\n-        arg_tuple = self.arg_tuple.analyse_expressions(env)\n-        self.arg_tuple = arg_tuple.coerce_to_pyobject(env)\n-        env.use_utility_code(printing_utility_code)\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            env.use_utility_code(printing_one_utility_code)\n-        return self\n-\n-    nogil_check = Node.gil_error\n-    gil_message = \"Python print statement\"\n-\n-    def generate_execution_code(self, code):\n-        code.mark_pos(self.pos)\n-        if self.stream:\n-            self.stream.generate_evaluation_code(code)\n-            stream_result = self.stream.py_result()\n-        else:\n-            stream_result = '0'\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            arg = self.arg_tuple.args[0]\n-            arg.generate_evaluation_code(code)\n+        from .ExprNodes import (\n+            DictNode, UnicodeNode, SimpleCallNode, GeneralCallNode,\n+            NameNode\n+        )\n \n-            code.putln(\n-                \"if (__Pyx_PrintOne(%s, %s) < 0) %s\" % (\n-                    stream_result,\n-                    arg.py_result(),\n-                    code.error_goto(self.pos)))\n-            arg.generate_disposal_code(code)\n-            arg.free_temps(code)\n+        func = NameNode(\n+            self.pos,\n+            name=\"print\",\n+            entry=env.builtin_scope().lookup_here(\"print\")\n+        )\n+        if self.stream or not self.append_newline:\n+            key_value_pairs = []\n+            if self.stream:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"file\")),\n+                    self.stream\n+                ))\n+            if not self.append_newline:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"end\")),\n+                    UnicodeNode(self.pos, value=EncodedString(\" \"))\n+                ))",
+            "html_url": "https://github.com/cython/cython/pull/7642#discussion_r3176287929",
+            "id": 3176287929,
+            "in_reply_to_id": 3174975969,
+            "line": 6845,
+            "node_id": "PRRC_kwDOABDGAc69Uk65",
+            "original_commit_id": "4a3560389b75864a2918997a6edf9a995bd23158",
+            "original_line": 6840,
+            "original_position": 55,
+            "original_start_line": 6836,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 65,
+            "pull_request_review_id": 4214639689,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7642",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3176287929/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 6841,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-05-02T06:58:50Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3176287929",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7642#discussion_r3176298255"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7642"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3176298255"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "> it leaves a space so the next thing you print is separated\r\n\r\n… sort of. Py2 had something called \"soft space\" for which it didn't print the space just yet but remembered that there was a space yet to come and injected it when more was printed in the same line. I don't think that would be easy to emulate.\r\n\r\nEDIT: See https://peps.python.org/pep-3105/#specification – there's intentionally no equivalent to it in Py3.",
+            "commit_id": "bb8223d66246babdce168c2d6789aae41317a3fc",
+            "created_at": "2026-05-02T07:09:18Z",
+            "diff_hunk": "@@ -6816,61 +6816,40 @@ class PrintStatNode(StatNode):\n     child_attrs = [\"arg_tuple\", \"stream\"]\n \n     def analyse_expressions(self, env):\n-        if self.stream:\n-            stream = self.stream.analyse_expressions(env)\n-            self.stream = stream.coerce_to_pyobject(env)\n-        arg_tuple = self.arg_tuple.analyse_expressions(env)\n-        self.arg_tuple = arg_tuple.coerce_to_pyobject(env)\n-        env.use_utility_code(printing_utility_code)\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            env.use_utility_code(printing_one_utility_code)\n-        return self\n-\n-    nogil_check = Node.gil_error\n-    gil_message = \"Python print statement\"\n-\n-    def generate_execution_code(self, code):\n-        code.mark_pos(self.pos)\n-        if self.stream:\n-            self.stream.generate_evaluation_code(code)\n-            stream_result = self.stream.py_result()\n-        else:\n-            stream_result = '0'\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            arg = self.arg_tuple.args[0]\n-            arg.generate_evaluation_code(code)\n+        from .ExprNodes import (\n+            DictNode, UnicodeNode, SimpleCallNode, GeneralCallNode,\n+            NameNode\n+        )\n \n-            code.putln(\n-                \"if (__Pyx_PrintOne(%s, %s) < 0) %s\" % (\n-                    stream_result,\n-                    arg.py_result(),\n-                    code.error_goto(self.pos)))\n-            arg.generate_disposal_code(code)\n-            arg.free_temps(code)\n+        func = NameNode(\n+            self.pos,\n+            name=\"print\",\n+            entry=env.builtin_scope().lookup_here(\"print\")\n+        )\n+        if self.stream or not self.append_newline:\n+            key_value_pairs = []\n+            if self.stream:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"file\")),\n+                    self.stream\n+                ))\n+            if not self.append_newline:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"end\")),\n+                    UnicodeNode(self.pos, value=EncodedString(\" \"))\n+                ))",
+            "html_url": "https://github.com/cython/cython/pull/7642#discussion_r3176298255",
+            "id": 3176298255,
+            "in_reply_to_id": 3174975969,
+            "line": 6845,
+            "node_id": "PRRC_kwDOABDGAc69UncP",
+            "original_commit_id": "4a3560389b75864a2918997a6edf9a995bd23158",
+            "original_line": 6840,
+            "original_position": 55,
+            "original_start_line": 6836,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 65,
+            "pull_request_review_id": 4214649167,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7642",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3176298255/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 6841,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-05-02T07:13:39Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3176298255",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7642#discussion_r3176305883"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7642"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3176305883"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "… and since it was never available in Py3, the original C replacement that mapped `print` to `print()` also didn't have it. We're not breaking anything by replacing it with  Python implementation. Problem solved, keep walking, nothing to see here…",
+            "commit_id": "bb8223d66246babdce168c2d6789aae41317a3fc",
+            "created_at": "2026-05-02T07:17:56Z",
+            "diff_hunk": "@@ -6816,61 +6816,40 @@ class PrintStatNode(StatNode):\n     child_attrs = [\"arg_tuple\", \"stream\"]\n \n     def analyse_expressions(self, env):\n-        if self.stream:\n-            stream = self.stream.analyse_expressions(env)\n-            self.stream = stream.coerce_to_pyobject(env)\n-        arg_tuple = self.arg_tuple.analyse_expressions(env)\n-        self.arg_tuple = arg_tuple.coerce_to_pyobject(env)\n-        env.use_utility_code(printing_utility_code)\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            env.use_utility_code(printing_one_utility_code)\n-        return self\n-\n-    nogil_check = Node.gil_error\n-    gil_message = \"Python print statement\"\n-\n-    def generate_execution_code(self, code):\n-        code.mark_pos(self.pos)\n-        if self.stream:\n-            self.stream.generate_evaluation_code(code)\n-            stream_result = self.stream.py_result()\n-        else:\n-            stream_result = '0'\n-        if len(self.arg_tuple.args) == 1 and self.append_newline:\n-            arg = self.arg_tuple.args[0]\n-            arg.generate_evaluation_code(code)\n+        from .ExprNodes import (\n+            DictNode, UnicodeNode, SimpleCallNode, GeneralCallNode,\n+            NameNode\n+        )\n \n-            code.putln(\n-                \"if (__Pyx_PrintOne(%s, %s) < 0) %s\" % (\n-                    stream_result,\n-                    arg.py_result(),\n-                    code.error_goto(self.pos)))\n-            arg.generate_disposal_code(code)\n-            arg.free_temps(code)\n+        func = NameNode(\n+            self.pos,\n+            name=\"print\",\n+            entry=env.builtin_scope().lookup_here(\"print\")\n+        )\n+        if self.stream or not self.append_newline:\n+            key_value_pairs = []\n+            if self.stream:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"file\")),\n+                    self.stream\n+                ))\n+            if not self.append_newline:\n+                key_value_pairs.append((\n+                    UnicodeNode(self.pos, value=EncodedString(\"end\")),\n+                    UnicodeNode(self.pos, value=EncodedString(\" \"))\n+                ))",
+            "html_url": "https://github.com/cython/cython/pull/7642#discussion_r3176305883",
+            "id": 3176305883,
+            "in_reply_to_id": 3174975969,
+            "line": 6845,
+            "node_id": "PRRC_kwDOABDGAc69UpTb",
+            "original_commit_id": "4a3560389b75864a2918997a6edf9a995bd23158",
+            "original_line": 6840,
+            "original_position": 55,
+            "original_start_line": 6836,
+            "path": "Cython/Compiler/Nodes.py",
+            "position": 65,
+            "pull_request_review_id": 4214655841,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7642",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3176305883/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 6841,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-05-02T07:17:56Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3176305883",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/7642/comments",
     "commit_data": [
         {
@@ -424,6 +981,170 @@
             ],
             "sha": "4a3560389b75864a2918997a6edf9a995bd23158",
             "url": "https://api.github.com/repos/cython/cython/commits/4a3560389b75864a2918997a6edf9a995bd23158"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/6049dd68b9fb182c3b425b7e5455a88ca3cccfea/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-02T06:56:08Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-02T06:56:08Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Keep in PrintStatNode",
+                "tree": {
+                    "sha": "a1b4c023e482eef123ed518632d038ef66bbf882",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a1b4c023e482eef123ed518632d038ef66bbf882"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/6049dd68b9fb182c3b425b7e5455a88ca3cccfea",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/6049dd68b9fb182c3b425b7e5455a88ca3cccfea",
+            "node_id": "C_kwDOAhr4b9oAKDYwNDlkZDY4YjlmYjE4MmMzYjQyNWI3ZTU0NTVhODhjYTNjY2NmZWE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/4a3560389b75864a2918997a6edf9a995bd23158",
+                    "sha": "4a3560389b75864a2918997a6edf9a995bd23158",
+                    "url": "https://api.github.com/repos/cython/cython/commits/4a3560389b75864a2918997a6edf9a995bd23158"
+                }
+            ],
+            "sha": "6049dd68b9fb182c3b425b7e5455a88ca3cccfea",
+            "url": "https://api.github.com/repos/cython/cython/commits/6049dd68b9fb182c3b425b7e5455a88ca3cccfea"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/bb8223d66246babdce168c2d6789aae41317a3fc/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-02T07:12:42Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-02T07:12:42Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Spelling",
+                "tree": {
+                    "sha": "9296696afd3e5e88abefb272bcafcf46257d9779",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/9296696afd3e5e88abefb272bcafcf46257d9779"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/bb8223d66246babdce168c2d6789aae41317a3fc",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/bb8223d66246babdce168c2d6789aae41317a3fc",
+            "node_id": "C_kwDOAhr4b9oAKGJiODIyM2Q2NjI0NmJhYmRjZTE2OGMyZDY3ODlhYWU0MTMxN2EzZmM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/6049dd68b9fb182c3b425b7e5455a88ca3cccfea",
+                    "sha": "6049dd68b9fb182c3b425b7e5455a88ca3cccfea",
+                    "url": "https://api.github.com/repos/cython/cython/commits/6049dd68b9fb182c3b425b7e5455a88ca3cccfea"
+                }
+            ],
+            "sha": "bb8223d66246babdce168c2d6789aae41317a3fc",
+            "url": "https://api.github.com/repos/cython/cython/commits/bb8223d66246babdce168c2d6789aae41317a3fc"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/7642/commits",
@@ -521,9 +1242,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2026-04-27T07:22:41Z",
+            "pushed_at": "2026-05-05T07:26:46Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 83687,
+            "size": 83663,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -535,14 +1256,14 @@
             "teams_url": "https://api.github.com/repos/da-woods/cython/teams",
             "topics": [],
             "trees_url": "https://api.github.com/repos/da-woods/cython/git/trees{/sha}",
-            "updated_at": "2026-04-26T16:17:04Z",
+            "updated_at": "2026-05-01T18:32:00Z",
             "url": "https://api.github.com/repos/da-woods/cython",
             "visibility": "public",
             "watchers": 2,
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "4a3560389b75864a2918997a6edf9a995bd23158",
+        "sha": "bb8223d66246babdce168c2d6789aae41317a3fc",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -568,11 +1289,67 @@
     "html_url": "https://github.com/cython/cython/pull/7642",
     "id": 3587672615,
     "issue_url": "https://api.github.com/repos/cython/cython/issues/7642",
-    "labels": [],
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425556330,
+            "name": "Code Generation",
+            "node_id": "MDU6TGFiZWw0MjU1NTYzMzA=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Code%20Generation"
+        },
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425558030,
+            "name": "cleanup",
+            "node_id": "MDU6TGFiZWw0MjU1NTgwMzA=",
+            "url": "https://api.github.com/repos/cython/cython/labels/cleanup"
+        }
+    ],
     "locked": false,
-    "merge_commit_sha": "d54a3a03b94b4c2232d3b26c30dab827144be434",
+    "merge_commit_sha": "9a41b55a2e1abf6762a57ce800deaf091d1f5790",
     "merged_at": null,
-    "milestone": null,
+    "milestone": {
+        "closed_at": null,
+        "closed_issues": 153,
+        "created_at": "2025-09-16T21:22:28Z",
+        "creator": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/scoder",
+            "user_view_type": "public"
+        },
+        "description": "",
+        "due_on": null,
+        "html_url": "https://github.com/cython/cython/milestone/118",
+        "id": 13707627,
+        "labels_url": "https://api.github.com/repos/cython/cython/milestones/118/labels",
+        "node_id": "MI_kwDOABDGAc4A0Slr",
+        "number": 118,
+        "open_issues": 20,
+        "state": "open",
+        "title": "3.3",
+        "updated_at": "2026-05-05T07:08:31Z",
+        "url": "https://api.github.com/repos/cython/cython/milestones/118"
+    },
     "node_id": "PR_kwDOABDGAc7V14on",
     "number": 7642,
     "patch_url": "https://github.com/cython/cython/pull/7642.patch",
@@ -581,9 +1358,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7642/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/4a3560389b75864a2918997a6edf9a995bd23158",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/bb8223d66246babdce168c2d6789aae41317a3fc",
     "title": "Get rid of specialized print statement utility code",
-    "updated_at": "2026-04-27T07:34:04Z",
+    "updated_at": "2026-05-05T07:08:42Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/7642",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",

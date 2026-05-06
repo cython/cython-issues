@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/7288"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/de56500acdb1032cd58731f7276b6af63665cde4"
+            "href": "https://api.github.com/repos/cython/cython/statuses/f2de83d81b601fdfa939ab5d7e1c78d357462dcd"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1612,
-            "forks_count": 1612,
+            "forks": 1613,
+            "forks_count": 1613,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -95,8 +95,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1510,
-            "open_issues_count": 1510,
+            "open_issues": 1514,
+            "open_issues_count": 1514,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -121,11 +121,11 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-04-29T03:52:14Z",
+            "pushed_at": "2026-05-02T16:05:30Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 79869,
+            "size": 79956,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10711,
+            "stargazers_count": 10715,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -144,14 +144,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-04-29T03:52:22Z",
+            "updated_at": "2026-05-03T06:03:48Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10711,
-            "watchers_count": 10711,
+            "watchers": 10715,
+            "watchers_count": 10715,
             "web_commit_signoff_required": false
         },
-        "sha": "fabf0996421122d04965aa00276455d90a8d8e37",
+        "sha": "c52acc09740e4729dafcd804e6820a9ab00b8f81",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -175,7 +175,7 @@
         }
     },
     "body": "This PR adds coercion and inference for `list[TYPE]`. It allows cython optimize following examples:\r\n\r\n```python\r\na: list[str] = 'Foo'\r\nb: list[str] = 'Bar'\r\nprint(a[0] + b[0])\r\n```\r\nThe PR allows cython to optimise `a[0] + b[0]` to use `__Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlaceSafe()` instead of `PyNumber_Add()`\r\n\r\n> [!NOTE]  \r\n> The same effect can be done when code is rewritten as follows:\r\n> ```python\r\n> a: list[str] = 'Foo'\r\n> b: list[str] = 'Bar'\r\n> c: str = a[0]\r\n> d: str = d[0]\r\n> print(c + d)\r\n> ``` \r\n\r\nPR also implements inference allowing to write efficiently loops:\r\n\r\n```python\r\nb: cython.int = 1\r\na: list[cython.int] = [2]\r\nfor c in a:\r\n    print(b + c)\r\n```\r\n\r\nThe example above infer type of `c` variable and declare `__pyx_v_c` as `int`. Hence the `b + c` line is generated as `__pyx_v_b + __pyx_v_c` instead of `PyNumber_Add()`\r\n\r\n> [!NOTE]  \r\n> The same effect can be done when code is rewritten as follows:\r\n> ```python\r\n> b: cython.int = 1\r\n> a: list[cython.int] = [2]\r\n> c: cython.int\r\n> for c in a:\r\n>     print(b + c)\r\n> ``` \r\n> Also note that `infer_types` directive must be set to `True`\r\n\r\n\r\n> [!CAUTION]\r\n> ~~This PR is just for early feedback. The changes are just exploratory containing a lot of dirty workarounds.~~ Caveats:\r\n> * ~~Only `list` is supported for now. It can be easilly extended to `set`. `dict` and `tuple` are more complex and maybe can be done in second round~~ Types `list`, `set`, `frozenset` and `dict` are supported. `tuple` is not in scope of this PR.\r\n> ~~* PR supports coercion and inference for 1 level (`list[tuple]`) all higher nested levels (`list[list[int]]`) looses type information (they work correctly but the generated code is not optimised)~~\r\n\r\n\r\n## TODO:\r\n* [x] Make `get_container_type()` available for all Cython types (see https://github.com/cython/cython/pull/7288#pullrequestreview-3467280514)\r\n* [x] implement casts like `list_long = <list[cython.long]> x` (or `cython.cast(…)`) to change the item type inference from C int to C long. Even `<list[cython.float]> x` seems a reasonable thing to do in that regard. (see https://github.com/cython/cython/pull/7288#issuecomment-3535132454)\r\n* [x] add support recursive types (`list[list[...]`, `list[set[...]]`, `dict[int, list[...]]`, ...)\r\n* [x] infer types also when container methods are used e.g. `.keys()`, `.items()`, ... (partially in #7424)\r\n* [ ] ~~add support for tuples `tuple[cython.int, cython.float]` and `tuple[cython.int, ...]`~~ - this can be tricky to implement, I would postpone it to separate PR...\r\n* [x] Fix https://github.com/cython/cython/pull/7288/files#diff-7f63ffd84e67d3d113d7ad10fa110111c779a8ca5edd7e12dc51097b36405eabR4904\r\n* [x] improve tests to check `x: list[int] = tuple_of_int` - see  https://github.com/cython/cython/pull/7288#discussion_r2529316564\r\nNo",
-    "closed_at": null,
+    "closed_at": "2026-05-02T16:05:30Z",
     "comment_data": [
         {
             "_links": {
@@ -2065,7 +2065,7 @@
             },
             "author_association": "MEMBER",
             "body": "I guess this is just rounding errors going back and forward between C float and a Python float (really a double) that causes the keys not to quite match?",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
             "created_at": "2026-01-02T14:50:39Z",
             "diff_hunk": "@@ -136,7 +137,7 @@ def iter_declared_dict(d):\n \n     # specialized \"compiled\" test in module-level __doc__\n     \"\"\"\n-    typed_dict : Dict[cython.float, cython.float] = d",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r2657848629",
@@ -2134,7 +2134,7 @@
             },
             "author_association": "MEMBER",
             "body": "Yes. Details are already discussed here: https://github.com/cython/cython/pull/7288#issuecomment-3523817706",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
             "created_at": "2026-01-05T23:53:46Z",
             "diff_hunk": "@@ -136,7 +137,7 @@ def iter_declared_dict(d):\n \n     # specialized \"compiled\" test in module-level __doc__\n     \"\"\"\n-    typed_dict : Dict[cython.float, cython.float] = d",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r2663129579",
@@ -4152,19 +4152,19 @@
             },
             "author_association": "MEMBER",
             "body": "This change looks suspicious since we're using `self.base_type` right afterwards. Should we check both, or does one depend on the other? (And could we make that explicit somewhere?)",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
             "created_at": "2026-02-16T16:24:46Z",
             "diff_hunk": "@@ -4834,23 +4849,26 @@ class PythonTypeConstructorMixin:\n     \"\"\"\n     modifier_name = None\n     contains_none = False\n+    base_type = None\n+    subscripted_types = ()\n+\n+    def get_subscripted_type(self, index: int):\n+        try:\n+            return self.subscripted_types[index]\n+        except IndexError:\n+            return None\n \n     def allows_none(self):\n         return (\n             self.modifier_name == 'typing.Optional' or\n             self.modifier_name == 'typing.Union' and self.contains_none\n         )\n \n-    def set_python_type_constructor_name(self, name):\n+    def set_python_type_constructor_name(self, name: str) -> None:\n         self.python_type_constructor_name = name\n \n-    def specialize_here(self, pos, env, template_values=None):\n-        # for a lot of the typing classes it doesn't really matter what the template is\n-        # (i.e. typing.Dict[int] is really just a dict)\n-        return self\n-\n     def __repr__(self):\n-        if self.base_type:\n+        if self.modifier_name:\n             return \"%s[%r]\" % (self.name, self.base_type)",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r2813217393",
             "id": 2813217393,
-            "line": 4951,
+            "line": 4955,
             "node_id": "PRRC_kwDOABDGAc6nrkpx",
             "original_commit_id": "612fef90da1bf62dd36504007c9f181cd5ed4fdd",
             "original_line": 4872,
             "original_position": 78,
             "original_start_line": null,
             "path": "Cython/Compiler/PyrexTypes.py",
-            "position": 101,
+            "position": 118,
             "pull_request_review_id": 3809373301,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
             "reactions": {
@@ -4290,19 +4290,19 @@
             },
             "author_association": "MEMBER",
             "body": "Could this be subsumed in a more general `self.subscripted_types == src_type.subscripted_types` ?",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "85466a18bbeefbf71df4a6a6c4cd64fc396c58d9",
             "created_at": "2026-02-16T16:32:09Z",
             "diff_hunk": "@@ -4863,10 +4881,75 @@ class BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorM\n     \"\"\"\n     builtin types like list, dict etc which can be subscripted in annotations\n     \"\"\"\n+\n     def __init__(self, name, cname, objstruct_cname=None):\n         super().__init__(\n             name, cname, objstruct_cname=objstruct_cname)\n-        self.set_python_type_constructor_name(name)\n+        self.set_python_type_constructor_name(self.get_container_type().name)\n+        self.specializations = {}\n+\n+    def specialize_here(self, pos, env, template_values=None):\n+        if self.name not in ['dict', 'list', 'set', 'frozenset']:\n+            return self\n+        if template_values and None not in template_values and len(template_values) <= 2:\n+            template_values = tuple(template_values)\n+            if template_values in self.specializations:\n+                return self.specializations[template_values]\n+            subscripted_types = ','.join([str(tv) for tv in template_values])\n+            name = f'{self.get_container_type().name}[{subscripted_types}]'\n+\n+            typ = BuiltinTypeConstructorObjectType(name=name, cname=self.cname, objstruct_cname=self.objstruct_cname)\n+            typ.base_type = self\n+            typ.subscripted_types = tuple(template_values)\n+            env.global_scope().declare_type(name, typ, pos, cname=typ.cname)\n+            typ.scope = self.scope\n+            self.specializations[template_values] = typ\n+            return typ\n+        # For a lot of the typing classes it doesn't really matter what the template is\n+        # (e.g. typing.List[int] is really just a list).\n+        return self\n+\n+    def assignable_from(self, src_type):\n+        if self == src_type:\n+            if not self.subscripted_types and not src_type.subscripted_types:\n+                return True",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r2813246017",
             "id": 2813246017,
-            "line": 5005,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6nrrpB",
             "original_commit_id": "612fef90da1bf62dd36504007c9f181cd5ed4fdd",
             "original_line": 4915,
             "original_position": 117,
             "original_start_line": 4914,
             "path": "Cython/Compiler/PyrexTypes.py",
-            "position": 150,
+            "position": 1,
             "pull_request_review_id": 3809373301,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
             "reactions": {
@@ -4318,7 +4318,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2813246017/reactions"
             },
             "side": "RIGHT",
-            "start_line": 5004,
+            "start_line": null,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2026-02-16T16:39:42Z",
@@ -4498,20 +4498,20 @@
             },
             "author_association": "MEMBER",
             "body": "Hmm now looking into the code. Is it even needed? Two classes are subclassing `PythonTypeConstructorMixin`:\r\n* `BuiltinTypeConstructorObjectType` - this class uses `__repr__()` from other parent class (`BuiltinObjectType`)\r\n* `SpecialPythonTypeConstructor` - this class implements it's own `__repr__()` method\r\n\r\nCannot be the solution just to remove `PythonTypeConstructorMixin.__repr__()` method?",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
             "created_at": "2026-02-18T22:49:03Z",
             "diff_hunk": "@@ -4834,23 +4849,26 @@ class PythonTypeConstructorMixin:\n     \"\"\"\n     modifier_name = None\n     contains_none = False\n+    base_type = None\n+    subscripted_types = ()\n+\n+    def get_subscripted_type(self, index: int):\n+        try:\n+            return self.subscripted_types[index]\n+        except IndexError:\n+            return None\n \n     def allows_none(self):\n         return (\n             self.modifier_name == 'typing.Optional' or\n             self.modifier_name == 'typing.Union' and self.contains_none\n         )\n \n-    def set_python_type_constructor_name(self, name):\n+    def set_python_type_constructor_name(self, name: str) -> None:\n         self.python_type_constructor_name = name\n \n-    def specialize_here(self, pos, env, template_values=None):\n-        # for a lot of the typing classes it doesn't really matter what the template is\n-        # (i.e. typing.Dict[int] is really just a dict)\n-        return self\n-\n     def __repr__(self):\n-        if self.base_type:\n+        if self.modifier_name:\n             return \"%s[%r]\" % (self.name, self.base_type)",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r2824822382",
             "id": 2824822382,
             "in_reply_to_id": 2813217393,
-            "line": 4951,
+            "line": 4955,
             "node_id": "PRRC_kwDOABDGAc6oX15u",
             "original_commit_id": "612fef90da1bf62dd36504007c9f181cd5ed4fdd",
             "original_line": 4872,
             "original_position": 78,
             "original_start_line": null,
             "path": "Cython/Compiler/PyrexTypes.py",
-            "position": 101,
+            "position": 118,
             "pull_request_review_id": 3822604477,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
             "reactions": {
@@ -4708,20 +4708,20 @@
             },
             "author_association": "MEMBER",
             "body": "Hmm if you mean to replace:\r\n```python\r\n            if not self.subscripted_types and not src_type.subscripted_types:\r\n                return True\r\n```\r\nwith:\r\n\r\n```python\r\n            if self.subscripted_types == not src_type.subscripted_types:\r\n                return True\r\n```\r\nI would be cautious. Using `==` for recursively subscripted types (`list[list[str]]`, etc.) won't work. Equality operation does not take subscripted types in the account:\r\n```python\r\n    def __eq__(self, other):\r\n        if isinstance(other, BuiltinTypeConstructorObjectType):\r\n            return self.get_container_type().name == other.get_container_type().name\r\n        return NotImplemented\r\n```",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "85466a18bbeefbf71df4a6a6c4cd64fc396c58d9",
             "created_at": "2026-02-22T20:01:37Z",
             "diff_hunk": "@@ -4863,10 +4881,75 @@ class BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorM\n     \"\"\"\n     builtin types like list, dict etc which can be subscripted in annotations\n     \"\"\"\n+\n     def __init__(self, name, cname, objstruct_cname=None):\n         super().__init__(\n             name, cname, objstruct_cname=objstruct_cname)\n-        self.set_python_type_constructor_name(name)\n+        self.set_python_type_constructor_name(self.get_container_type().name)\n+        self.specializations = {}\n+\n+    def specialize_here(self, pos, env, template_values=None):\n+        if self.name not in ['dict', 'list', 'set', 'frozenset']:\n+            return self\n+        if template_values and None not in template_values and len(template_values) <= 2:\n+            template_values = tuple(template_values)\n+            if template_values in self.specializations:\n+                return self.specializations[template_values]\n+            subscripted_types = ','.join([str(tv) for tv in template_values])\n+            name = f'{self.get_container_type().name}[{subscripted_types}]'\n+\n+            typ = BuiltinTypeConstructorObjectType(name=name, cname=self.cname, objstruct_cname=self.objstruct_cname)\n+            typ.base_type = self\n+            typ.subscripted_types = tuple(template_values)\n+            env.global_scope().declare_type(name, typ, pos, cname=typ.cname)\n+            typ.scope = self.scope\n+            self.specializations[template_values] = typ\n+            return typ\n+        # For a lot of the typing classes it doesn't really matter what the template is\n+        # (e.g. typing.List[int] is really just a list).\n+        return self\n+\n+    def assignable_from(self, src_type):\n+        if self == src_type:\n+            if not self.subscripted_types and not src_type.subscripted_types:\n+                return True",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r2838446501",
             "id": 2838446501,
             "in_reply_to_id": 2813246017,
-            "line": 5005,
+            "line": null,
             "node_id": "PRRC_kwDOABDGAc6pL0Gl",
             "original_commit_id": "612fef90da1bf62dd36504007c9f181cd5ed4fdd",
             "original_line": 4915,
             "original_position": 117,
             "original_start_line": 4914,
             "path": "Cython/Compiler/PyrexTypes.py",
-            "position": 150,
+            "position": 1,
             "pull_request_review_id": 3838531620,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
             "reactions": {
@@ -4737,7 +4737,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/2838446501/reactions"
             },
             "side": "RIGHT",
-            "start_line": 5004,
+            "start_line": null,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2026-02-22T20:03:49Z",
@@ -5400,20 +5400,20 @@
             },
             "author_association": "MEMBER",
             "body": "If it's not used, then why did you see a need to change the implementation?",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
             "created_at": "2026-04-14T02:59:37Z",
             "diff_hunk": "@@ -4834,23 +4849,26 @@ class PythonTypeConstructorMixin:\n     \"\"\"\n     modifier_name = None\n     contains_none = False\n+    base_type = None\n+    subscripted_types = ()\n+\n+    def get_subscripted_type(self, index: int):\n+        try:\n+            return self.subscripted_types[index]\n+        except IndexError:\n+            return None\n \n     def allows_none(self):\n         return (\n             self.modifier_name == 'typing.Optional' or\n             self.modifier_name == 'typing.Union' and self.contains_none\n         )\n \n-    def set_python_type_constructor_name(self, name):\n+    def set_python_type_constructor_name(self, name: str) -> None:\n         self.python_type_constructor_name = name\n \n-    def specialize_here(self, pos, env, template_values=None):\n-        # for a lot of the typing classes it doesn't really matter what the template is\n-        # (i.e. typing.Dict[int] is really just a dict)\n-        return self\n-\n     def __repr__(self):\n-        if self.base_type:\n+        if self.modifier_name:\n             return \"%s[%r]\" % (self.name, self.base_type)",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3076903484",
             "id": 3076903484,
             "in_reply_to_id": 2813217393,
-            "line": 4951,
+            "line": 4955,
             "node_id": "PRRC_kwDOABDGAc63ZdI8",
             "original_commit_id": "612fef90da1bf62dd36504007c9f181cd5ed4fdd",
             "original_line": 4872,
             "original_position": 78,
             "original_start_line": null,
             "path": "Cython/Compiler/PyrexTypes.py",
-            "position": 101,
+            "position": 118,
             "pull_request_review_id": 4103041815,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
             "reactions": {
@@ -5539,19 +5539,19 @@
             },
             "author_association": "MEMBER",
             "body": "Do we need to handle the case that the RHS has more or less declared subscript types than the LHS? Both might be compatible in that case, assuming that we pad with `object`. But I don't know if that is allowed in Python's type system.",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
             "created_at": "2026-04-14T03:05:55Z",
             "diff_hunk": "@@ -4952,10 +4970,82 @@ class BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorM\n     \"\"\"\n     builtin types like list, dict etc which can be subscripted in annotations\n     \"\"\"\n-    def __init__(self, name, cname, objstruct_cname=None):\n+\n+    types_supporting_subscripting = {'dict', 'list', 'set', 'frozenset'}\n+\n+    def __init__(self, name, cname, objstruct_cname=None, **kwargs):\n         super().__init__(\n             name, cname, objstruct_cname=objstruct_cname)\n-        self.set_python_type_constructor_name(name)\n+        self.set_python_type_constructor_name(self.get_container_type().name)\n+        self.specializations = {}\n+        for arg in kwargs:\n+            setattr(self, arg, kwargs[arg])\n+\n+    def specialize_here(self, pos, env, template_values=None):\n+        # For types_supporting_subscripting is the list of types supporting subscripting in Cython.\n+        # The other types will just ignore the subscription types.\n+        if self.name not in self.types_supporting_subscripting:\n+            return self\n+        if template_values and None not in template_values and len(template_values) <= 2:\n+            template_values = tuple(template_values)\n+            if template_values in self.specializations:\n+                return self.specializations[template_values]\n+            subscripted_types = ','.join([str(tv) for tv in template_values])\n+            name = f'{self.get_container_type().name}[{subscripted_types}]'\n+\n+            typ = BuiltinTypeConstructorObjectType(\n+                name=name, cname=self.cname, objstruct_cname=self.objstruct_cname,\n+                base_type=self, subscripted_types=tuple(template_values), scope=self.scope)\n+            env.global_scope().declare_type(name, typ, pos, cname=typ.cname)\n+            self.specializations[template_values] = typ\n+            return typ\n+        return self\n+\n+    def assignable_from(self, src_type):\n+        if self == src_type:\n+            if not self.subscripted_types and not src_type.subscripted_types:\n+                return True\n+            if not self.subscripted_types and src_type.subscripted_types:\n+                return True\n+            if self.subscripted_types and not src_type.subscripted_types:\n+                return True\n+            if (\n+                len(self.subscripted_types) == len(src_type.subscripted_types) and\n+                all(dst_sc.assignable_from(src_sc)\n+                    for dst_sc, src_sc in zip(self.subscripted_types, src_type.subscripted_types))\n+            ):\n+                return True",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3076919776",
             "id": 3076919776,
-            "line": 5015,
+            "line": 5019,
             "node_id": "PRRC_kwDOABDGAc63ZhHg",
             "original_commit_id": "83a08e3b2c98226ba004971393007eadc4aaf745",
             "original_line": 5017,
             "original_position": 131,
             "original_start_line": 5012,
             "path": "Cython/Compiler/PyrexTypes.py",
-            "position": 160,
+            "position": 177,
             "pull_request_review_id": 4103041815,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
             "reactions": {
@@ -5567,7 +5567,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/3076919776/reactions"
             },
             "side": "RIGHT",
-            "start_line": 5010,
+            "start_line": 5014,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2026-04-14T03:32:59Z",
@@ -7490,20 +7490,20 @@
             },
             "author_association": "MEMBER",
             "body": "> Do we need to handle the case that the RHS has more or less declared subscript types than the LHS?\r\n\r\nI think this needs to be managed only for tuples. Current PR supports *only* `list`, `dict`, `set` and `frozenset`. All of them has constant number of subscripts.\r\n\r\nYour comment should be thought/implemented with tuples, in next PR...",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
             "created_at": "2026-04-23T21:23:12Z",
             "diff_hunk": "@@ -4952,10 +4970,82 @@ class BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorM\n     \"\"\"\n     builtin types like list, dict etc which can be subscripted in annotations\n     \"\"\"\n-    def __init__(self, name, cname, objstruct_cname=None):\n+\n+    types_supporting_subscripting = {'dict', 'list', 'set', 'frozenset'}\n+\n+    def __init__(self, name, cname, objstruct_cname=None, **kwargs):\n         super().__init__(\n             name, cname, objstruct_cname=objstruct_cname)\n-        self.set_python_type_constructor_name(name)\n+        self.set_python_type_constructor_name(self.get_container_type().name)\n+        self.specializations = {}\n+        for arg in kwargs:\n+            setattr(self, arg, kwargs[arg])\n+\n+    def specialize_here(self, pos, env, template_values=None):\n+        # For types_supporting_subscripting is the list of types supporting subscripting in Cython.\n+        # The other types will just ignore the subscription types.\n+        if self.name not in self.types_supporting_subscripting:\n+            return self\n+        if template_values and None not in template_values and len(template_values) <= 2:\n+            template_values = tuple(template_values)\n+            if template_values in self.specializations:\n+                return self.specializations[template_values]\n+            subscripted_types = ','.join([str(tv) for tv in template_values])\n+            name = f'{self.get_container_type().name}[{subscripted_types}]'\n+\n+            typ = BuiltinTypeConstructorObjectType(\n+                name=name, cname=self.cname, objstruct_cname=self.objstruct_cname,\n+                base_type=self, subscripted_types=tuple(template_values), scope=self.scope)\n+            env.global_scope().declare_type(name, typ, pos, cname=typ.cname)\n+            self.specializations[template_values] = typ\n+            return typ\n+        return self\n+\n+    def assignable_from(self, src_type):\n+        if self == src_type:\n+            if not self.subscripted_types and not src_type.subscripted_types:\n+                return True\n+            if not self.subscripted_types and src_type.subscripted_types:\n+                return True\n+            if self.subscripted_types and not src_type.subscripted_types:\n+                return True\n+            if (\n+                len(self.subscripted_types) == len(src_type.subscripted_types) and\n+                all(dst_sc.assignable_from(src_sc)\n+                    for dst_sc, src_sc in zip(self.subscripted_types, src_type.subscripted_types))\n+            ):\n+                return True",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3133938473",
             "id": 3133938473,
             "in_reply_to_id": 3076919776,
-            "line": 5015,
+            "line": 5019,
             "node_id": "PRRC_kwDOABDGAc66zBsp",
             "original_commit_id": "83a08e3b2c98226ba004971393007eadc4aaf745",
             "original_line": 5017,
             "original_position": 131,
             "original_start_line": 5012,
             "path": "Cython/Compiler/PyrexTypes.py",
-            "position": 160,
+            "position": 177,
             "pull_request_review_id": 4166106801,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
             "reactions": {
@@ -7519,7 +7519,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/3133938473/reactions"
             },
             "side": "RIGHT",
-            "start_line": 5010,
+            "start_line": 5014,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2026-04-23T21:23:13Z",
@@ -7560,7 +7560,7 @@
             },
             "author_association": "MEMBER",
             "body": "Does this method also return the builtin type for plain (non-subscripted) builtin container types? It probably should, no?",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
             "created_at": "2026-04-24T14:21:58Z",
             "diff_hunk": "@@ -153,6 +153,14 @@ def check_for_null_code(self, cname):\n         \"\"\"\n         return None\n \n+    def get_container_type(self):",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3138315721",
@@ -7698,7 +7698,7 @@
             },
             "author_association": "MEMBER",
             "body": "It returns for all instances of class\r\n\r\n```python\r\nclass BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorMixin):\r\n    \"\"\"\r\n    builtin types like list, dict etc which can be subscripted in annotations\r\n    \"\"\"\r\n```\r\n\r\nI added debug message in the constructor:\r\n\r\n```python\r\nclass BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorMixin):\r\n    \"\"\"\r\n    builtin types like list, dict etc which can be subscripted in annotations\r\n    \"\"\"\r\n\r\n    def __init__(self, name, cname, objstruct_cname=None, **kwargs):\r\n        super().__init__(\r\n            name, cname, objstruct_cname=objstruct_cname)\r\n        self.set_python_type_constructor_name(self.get_container_type().name)\r\n        for attr_name, value in kwargs.items():\r\n            setattr(self, attr_name, value)\r\n        print(str(self), self.get_container_type())\r\n```\r\n\r\nand for following code:\r\n\r\n```cython\r\ncdef list[int] a = [1]\r\nprint(a)\r\n```\r\n\r\nI got following output:\r\n\r\n```\r\n$ cython a.pyx\r\ntuple object tuple object\r\nlist object list object\r\ndict object dict object\r\nset object set object\r\nfrozenset object frozenset object\r\nlist[int] object list object\r\n```\r\n\r\nbtw. equivalent std. library function is returning for non-subscripted types `None` (but since our function is just internal one, I am 100% OK that we do not follow std lib to the point):\r\n\r\n```python\r\n>>> from typing import *\r\n>>> get_origin(list[int])\r\n<class 'list'>\r\n>>> get_origin(list)\r\n>>>\r\n```\r\n\r\nQuestion: Do you want to implement unit test for method `get_container_type()`?",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
             "created_at": "2026-04-25T14:15:14Z",
             "diff_hunk": "@@ -153,6 +153,14 @@ def check_for_null_code(self, cname):\n         \"\"\"\n         return None\n \n+    def get_container_type(self):",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3142055253",
@@ -7908,7 +7908,7 @@
             },
             "author_association": "MEMBER",
             "body": "Ah, ok. I wasn't sure if that type class only represents the subscripted types or also the types that can be subscripted (but are not), i.e. the normal builtin types themselves. That answers my question.",
-            "commit_id": "de56500acdb1032cd58731f7276b6af63665cde4",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
             "created_at": "2026-04-26T09:37:40Z",
             "diff_hunk": "@@ -153,6 +153,14 @@ def check_for_null_code(self, cname):\n         \"\"\"\n         return None\n \n+    def get_container_type(self):",
             "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3143285133",
@@ -8292,6 +8292,1186 @@
             "subject_type": "line",
             "updated_at": "2026-04-28T20:45:47Z",
             "url": "https://api.github.com/repos/cython/cython/pulls/comments/3156915401",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172661520"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172661520"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\n            if not self.subscripted_types:\n                # Assignment to unqualified type is always fine, e.g. list[int] -> list\n                return True\n```",
+            "commit_id": "85466a18bbeefbf71df4a6a6c4cd64fc396c58d9",
+            "created_at": "2026-05-01T08:54:36Z",
+            "diff_hunk": "@@ -4942,10 +4964,81 @@ class BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorM\n     \"\"\"\n     builtin types like list, dict etc which can be subscripted in annotations\n     \"\"\"\n-    def __init__(self, name, cname, objstruct_cname=None):\n+\n+    def __init__(self, name, cname, objstruct_cname=None, **kwargs):\n         super().__init__(\n             name, cname, objstruct_cname=objstruct_cname)\n-        self.set_python_type_constructor_name(name)\n+        self.set_python_type_constructor_name(self.get_container_type().name)\n+        for attr_name, value in kwargs.items():\n+            setattr(self, attr_name, value)\n+\n+    def specialize_here(self, pos, env, template_values=None):\n+        if not self.supports_container_type:\n+            return self\n+        if template_values and None not in template_values and len(template_values) <= 2:\n+            typ = BuiltinTypeConstructorObjectType(\n+                name=self.name, cname=self.cname, objstruct_cname=self.objstruct_cname,\n+                base_type=self, subscripted_types=tuple(template_values), scope=self.scope)\n+            typ.entry = self.entry\n+            return typ\n+        return self\n+\n+    @staticmethod\n+    def _full_type_name(name: str, subscripted_types) -> str:\n+        subscripted_types = ','.join([str(tv) for tv in subscripted_types])\n+        return f\"{name}[{subscripted_types}]\" if subscripted_types else name\n+\n+    def __eq__(self, value):\n+        return (\n+            isinstance(value, BuiltinTypeConstructorObjectType) and\n+            self._full_type_name(self.name, self.subscripted_types) == self._full_type_name(value.name, value.subscripted_types)\n+        )\n+\n+    def __hash__(self):\n+        return hash(self._full_type_name(self.name, self.subscripted_types))\n+\n+    def __str__(self):\n+        if self.subscripted_types:\n+            return f\"{self._full_type_name(self.name, self.subscripted_types)} object\"\n+        else:\n+            return super().__str__()\n+\n+    def assignable_from(self, src_type):\n+        if self.get_container_type() is src_type.get_container_type():\n+            if not self.subscripted_types and not src_type.subscripted_types:\n+                return True\n+            if not self.subscripted_types and src_type.subscripted_types:\n+                return True",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172661520",
+            "id": 3172661520,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69GvkQ",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 5011,
+            "original_position": 169,
+            "original_start_line": 5008,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 1,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172661520/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:34:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172661520",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172663399"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172663399"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\n        container_type = self.get_container_type()\n        if container_type.is_pydict_type or container_type.is_pyfrozendict_type:\n```",
+            "commit_id": "9e5184c3f1d6e9f2cdaa546cc55b17516d728e83",
+            "created_at": "2026-05-01T08:55:25Z",
+            "diff_hunk": "@@ -4942,10 +4964,81 @@ class BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorM\n     \"\"\"\n     builtin types like list, dict etc which can be subscripted in annotations\n     \"\"\"\n-    def __init__(self, name, cname, objstruct_cname=None):\n+\n+    def __init__(self, name, cname, objstruct_cname=None, **kwargs):\n         super().__init__(\n             name, cname, objstruct_cname=objstruct_cname)\n-        self.set_python_type_constructor_name(name)\n+        self.set_python_type_constructor_name(self.get_container_type().name)\n+        for attr_name, value in kwargs.items():\n+            setattr(self, attr_name, value)\n+\n+    def specialize_here(self, pos, env, template_values=None):\n+        if not self.supports_container_type:\n+            return self\n+        if template_values and None not in template_values and len(template_values) <= 2:\n+            typ = BuiltinTypeConstructorObjectType(\n+                name=self.name, cname=self.cname, objstruct_cname=self.objstruct_cname,\n+                base_type=self, subscripted_types=tuple(template_values), scope=self.scope)\n+            typ.entry = self.entry\n+            return typ\n+        return self\n+\n+    @staticmethod\n+    def _full_type_name(name: str, subscripted_types) -> str:\n+        subscripted_types = ','.join([str(tv) for tv in subscripted_types])\n+        return f\"{name}[{subscripted_types}]\" if subscripted_types else name\n+\n+    def __eq__(self, value):\n+        return (\n+            isinstance(value, BuiltinTypeConstructorObjectType) and\n+            self._full_type_name(self.name, self.subscripted_types) == self._full_type_name(value.name, value.subscripted_types)\n+        )\n+\n+    def __hash__(self):\n+        return hash(self._full_type_name(self.name, self.subscripted_types))\n+\n+    def __str__(self):\n+        if self.subscripted_types:\n+            return f\"{self._full_type_name(self.name, self.subscripted_types)} object\"\n+        else:\n+            return super().__str__()\n+\n+    def assignable_from(self, src_type):\n+        if self.get_container_type() is src_type.get_container_type():\n+            if not self.subscripted_types and not src_type.subscripted_types:\n+                return True\n+            if not self.subscripted_types and src_type.subscripted_types:\n+                return True\n+            if self.subscripted_types and not src_type.subscripted_types:\n+                return True\n+            if (\n+                len(self.subscripted_types) == len(src_type.subscripted_types) and\n+                all(dst_sc.assignable_from(src_sc)\n+                    for dst_sc, src_sc in zip(self.subscripted_types, src_type.subscripted_types))\n+            ):\n+                return True\n+            return False\n+        return super().assignable_from(src_type)\n+\n+    def infer_indexed_type(self):\n+        if self.get_container_type().is_pydict_type or self.get_container_type().is_pyfrozendict_type:",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172663399",
+            "id": 3172663399,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69GwBn",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 5024,
+            "original_position": 182,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 1,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172663399/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:34:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172663399",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172677996"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172677996"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I'm not sure I understand this part. Why is compilation a special case here, and did you really intend to call the `dict` test function?",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
+            "created_at": "2026-05-01T09:00:50Z",
+            "diff_hunk": "@@ -391,6 +391,33 @@ def test_assignment_dict_with_subscription():\n     5 5 5.0\n     \"\"\"\n \n+if sys.version_info >= (3, 15) or cython.compiled:\n+\n+    def test_assignment_frozendict_with_subscription():\n+        \"\"\"\n+        >>> test_assignment_frozendict_with_subscription()\n+        int\n+        int\n+        int\n+        5 5 5\n+        \"\"\"\n+        a: frozendict[str, cython.int] = frozendict({'a': 5})\n+        b: frozendict = a\n+        c: frozendict[str, cython.float] = b\n+        print(cython.typeof(a['a']))\n+        print(cython.typeof(b['a']))\n+        print(cython.typeof(c['a']))\n+        print(a['a'], b['a'], c['a'])\n+\n+    if cython.compiled:\n+        test_assignment_frozendict_with_subscription.__doc__ = \"\"\"\n+        >>> test_assignment_dict_with_subscription()\n+        int\n+        Python object\n+        float\n+        5 5 5.0\n+        \"\"\"",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172677996",
+            "id": 3172677996,
+            "line": 419,
+            "node_id": "PRRC_kwDOABDGAc69Gzls",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 419,
+            "original_position": 29,
+            "original_start_line": 412,
+            "path": "tests/run/pep526_variable_annotations.py",
+            "position": 238,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172677996/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 412,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:34:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172677996",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172685478"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172685478"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "You probably meant `_with_subscript()` here, although `_with_item_types` would seem a bit clearer to me.",
+            "commit_id": "78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7",
+            "created_at": "2026-05-01T09:04:06Z",
+            "diff_hunk": "@@ -455,21 +482,36 @@ def test_iteration_over_frozenset_with_subscription():\n         print(b + c)\n \n @cython.infer_types(True)\n-def test_iteration_over_set_with_subscription():\n+def test_iteration_over_dict_with_subscription():\n     \"\"\"\n-    >>> test_iteration_over_set_with_subscription()\n+    >>> test_iteration_over_dict_with_subscription()\n     int\n     int\n     3\n     \"\"\"\n     b: cython.int = 1\n-    a: dict[cython.int, cython.int] = {2: 3}\n+    a: dict[cython.int, cython.str] = {2: 'a'}\n     for c in a:\n         print(cython.typeof(c))\n         print(cython.typeof(b + c))\n         print(b + c)\n \n+if sys.version_info >= (3, 15) or cython.compiled:\n \n+    @cython.infer_types(True)\n+    def test_iteration_over_frozendict_with_subscription():",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172685478",
+            "id": 3172685478,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69G1am",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 502,
+            "original_position": 58,
+            "original_start_line": null,
+            "path": "tests/run/pep526_variable_annotations.py",
+            "position": 1,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172685478/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:34:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172685478",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172694743"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172694743"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I find this clearer without the walrus operator.\n```suggestion\n        container_type = resolved_type1.get_container_type()\n        if container_type is not None and container_type == resolved_type2.get_container_type():\n            # list[float] + list[int] => list\n            return container_type\n```\n",
+            "commit_id": "fd6e848e059fb9cf2e8f50d791dd801728df5ebe",
+            "created_at": "2026-05-01T09:08:29Z",
+            "diff_hunk": "@@ -5647,6 +5740,13 @@ def independent_spanning_type(type1, type2):\n         # e.g. PyInt + double => object\n         return py_object_type\n     elif resolved_type1.is_builtin_type and resolved_type2.is_builtin_type:\n+        if (\n+            (container_type1 := resolved_type1.get_container_type()) and\n+            (container_type2 := resolved_type2.get_container_type()) and\n+            container_type1 == container_type2\n+        ):\n+            # list[float] + list[int] => list\n+            return container_type1",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172694743",
+            "id": 3172694743,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69G3rX",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 5749,
+            "original_position": 213,
+            "original_start_line": 5743,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 1,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172694743/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:34:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172694743",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172696729"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172696729"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "`s/subscribed/subscripted/g`\n(for the other occurrences further down in this file)",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
+            "created_at": "2026-05-01T09:09:23Z",
+            "diff_hunk": "@@ -33,6 +33,60 @@ def union_pytypes(Union[int, None] i, Union[None, float] f, Union[complex, None]\n def bitwise_or_ctypes(i: cython.int | None, f: None | cython.float , c: cython.complex | None, l: cython.long | None):\n     pass\n \n+def subscripted_types_assignments():",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172696729",
+            "id": 3172696729,
+            "line": 36,
+            "node_id": "PRRC_kwDOABDGAc69G4KZ",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 36,
+            "original_position": 4,
+            "original_start_line": null,
+            "path": "tests/errors/e_typing_errors.pyx",
+            "position": 4,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172696729/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:37:15Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172696729",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172699733"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172699733"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "`s/subscription/subscript/g`",
+            "commit_id": "78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7",
+            "created_at": "2026-05-01T09:10:44Z",
+            "diff_hunk": "@@ -243,6 +290,228 @@ def name_of(special_decl):\n     print(name_of(q1), str(q2) in [\"typing.Union[typing.FrozenSet, NoneType]\", \"typing.FrozenSet | None\"] or str(q2))\n     print(name_of(w1), str(w2) in [\"typing.Union[typing.Dict, NoneType]\", \"typing.Dict | None\"] or str(w2))\n \n+def test_list_with_str_subscript():\n+    \"\"\"\n+    >>> test_list_with_str_subscript()\n+    str object\n+    str object\n+    str object\n+    FooBar\n+    \"\"\"\n+    a: list[str] = [\"Foo\"]\n+    b: List[str] = [\"Bar\"]\n+    print(cython.typeof(a[0]) + (\" object\" if not cython.compiled else \"\"))\n+    print(cython.typeof(b[0]) + (\" object\" if not cython.compiled else \"\"))\n+    print(cython.typeof(a[0] + b[0]) + (\" object\" if not cython.compiled else \"\"))\n+    print(a[0] + b[0])\n+\n+def test_list_with_int_subscription():",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172699733",
+            "id": 3172699733,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69G45V",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 308,
+            "original_position": 127,
+            "original_start_line": null,
+            "path": "tests/run/pep526_variable_annotations.py",
+            "position": 1,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172699733/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:34:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172699733",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172703801"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172703801"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I'd use the term \"nested\" rather than \"recursive\" for these, although the latter seems ok, too. Reject this comment if you want.",
+            "commit_id": "2fcc355c3f80c43ae27f9e8578a66a6f537c2489",
+            "created_at": "2026-05-01T09:12:34Z",
+            "diff_hunk": "@@ -56,3 +100,112 @@ def test_tuple(typing.Tuple[int, float] a,  typing.Tuple[int, ...] b,\n     print(cython.typeof(x[0]))\n     print(cython.typeof(y))\n     print(cython.typeof(c))\n+\n+def test_tuple_assignment(i, list[int] la, set[int] sa, dict[int, int] da, frozenset[int] fa):\n+    \"\"\"\n+    >>> test_tuple_assignment(0, [], set(), {}, frozenset({}))  # doctest: +IGNORE_EXCEPTION_DETAIL\n+    Traceback (most recent call last):\n+        ...\n+    TypeError:\n+    >>> test_tuple_assignment(1, [], set(), {}, frozenset({}))  # doctest: +IGNORE_EXCEPTION_DETAIL\n+    Traceback (most recent call last):\n+        ...\n+    TypeError:\n+    >>> test_tuple_assignment(2, [], set(), {}, frozenset({}))  # doctest: +IGNORE_EXCEPTION_DETAIL\n+    Traceback (most recent call last):\n+        ...\n+    TypeError:\n+    >>> test_tuple_assignment(3, [], set(), {}, frozenset({}))  # doctest: +IGNORE_EXCEPTION_DETAIL\n+    Traceback (most recent call last):\n+        ...\n+    TypeError:\n+    \"\"\"\n+    cdef tuple[int] ta = (1,)\n+    if i == 0:\n+        la = ta\n+    elif i == 1:\n+        sa = ta\n+    elif i == 2:\n+        da = ta\n+    elif i == 3:\n+        fa = ta\n+\n+\n+def test_recursive_list():",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172703801",
+            "id": 3172703801,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69G545",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 134,
+            "original_position": 99,
+            "original_start_line": null,
+            "path": "tests/run/pep526_variable_annotations_cy.pyx",
+            "position": 1,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172703801/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:34:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172703801",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172715532"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172715532"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Isn't this just\n\n```suggestion\n            self.name == value.name and\n            self.subscripted_types == value.subscripted_types\n```",
+            "commit_id": "56a51a004c8ff7eb3eb1bc2cd2890076762113ec",
+            "created_at": "2026-05-01T09:17:28Z",
+            "diff_hunk": "@@ -4942,10 +4964,81 @@ class BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorM\n     \"\"\"\n     builtin types like list, dict etc which can be subscripted in annotations\n     \"\"\"\n-    def __init__(self, name, cname, objstruct_cname=None):\n+\n+    def __init__(self, name, cname, objstruct_cname=None, **kwargs):\n         super().__init__(\n             name, cname, objstruct_cname=objstruct_cname)\n-        self.set_python_type_constructor_name(name)\n+        self.set_python_type_constructor_name(self.get_container_type().name)\n+        for attr_name, value in kwargs.items():\n+            setattr(self, attr_name, value)\n+\n+    def specialize_here(self, pos, env, template_values=None):\n+        if not self.supports_container_type:\n+            return self\n+        if template_values and None not in template_values and len(template_values) <= 2:\n+            typ = BuiltinTypeConstructorObjectType(\n+                name=self.name, cname=self.cname, objstruct_cname=self.objstruct_cname,\n+                base_type=self, subscripted_types=tuple(template_values), scope=self.scope)\n+            typ.entry = self.entry\n+            return typ\n+        return self\n+\n+    @staticmethod\n+    def _full_type_name(name: str, subscripted_types) -> str:\n+        subscripted_types = ','.join([str(tv) for tv in subscripted_types])\n+        return f\"{name}[{subscripted_types}]\" if subscripted_types else name\n+\n+    def __eq__(self, value):\n+        return (\n+            isinstance(value, BuiltinTypeConstructorObjectType) and\n+            self._full_type_name(self.name, self.subscripted_types) == self._full_type_name(value.name, value.subscripted_types)",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172715532",
+            "id": 3172715532,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69G8wM",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 4994,
+            "original_position": 152,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 1,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172715532/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:34:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172715532",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172719053"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172719053"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\n        return hash((self.name, self.subscripted_types))\n```\n",
+            "commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "created_at": "2026-05-01T09:19:02Z",
+            "diff_hunk": "@@ -4942,10 +4964,81 @@ class BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorM\n     \"\"\"\n     builtin types like list, dict etc which can be subscripted in annotations\n     \"\"\"\n-    def __init__(self, name, cname, objstruct_cname=None):\n+\n+    def __init__(self, name, cname, objstruct_cname=None, **kwargs):\n         super().__init__(\n             name, cname, objstruct_cname=objstruct_cname)\n-        self.set_python_type_constructor_name(name)\n+        self.set_python_type_constructor_name(self.get_container_type().name)\n+        for attr_name, value in kwargs.items():\n+            setattr(self, attr_name, value)\n+\n+    def specialize_here(self, pos, env, template_values=None):\n+        if not self.supports_container_type:\n+            return self\n+        if template_values and None not in template_values and len(template_values) <= 2:\n+            typ = BuiltinTypeConstructorObjectType(\n+                name=self.name, cname=self.cname, objstruct_cname=self.objstruct_cname,\n+                base_type=self, subscripted_types=tuple(template_values), scope=self.scope)\n+            typ.entry = self.entry\n+            return typ\n+        return self\n+\n+    @staticmethod\n+    def _full_type_name(name: str, subscripted_types) -> str:\n+        subscripted_types = ','.join([str(tv) for tv in subscripted_types])\n+        return f\"{name}[{subscripted_types}]\" if subscripted_types else name\n+\n+    def __eq__(self, value):\n+        return (\n+            isinstance(value, BuiltinTypeConstructorObjectType) and\n+            self._full_type_name(self.name, self.subscripted_types) == self._full_type_name(value.name, value.subscripted_types)\n+        )\n+\n+    def __hash__(self):\n+        return hash(self._full_type_name(self.name, self.subscripted_types))",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172719053",
+            "id": 3172719053,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69G9nN",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 4998,
+            "original_position": 156,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 1,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172719053/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:34:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172719053",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172740761"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172740761"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "or even\n```suggestion\n        return hash(self.name) ^ hash(self.subscripted_types)\n```",
+            "commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "created_at": "2026-05-01T09:28:24Z",
+            "diff_hunk": "@@ -4942,10 +4964,81 @@ class BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorM\n     \"\"\"\n     builtin types like list, dict etc which can be subscripted in annotations\n     \"\"\"\n-    def __init__(self, name, cname, objstruct_cname=None):\n+\n+    def __init__(self, name, cname, objstruct_cname=None, **kwargs):\n         super().__init__(\n             name, cname, objstruct_cname=objstruct_cname)\n-        self.set_python_type_constructor_name(name)\n+        self.set_python_type_constructor_name(self.get_container_type().name)\n+        for attr_name, value in kwargs.items():\n+            setattr(self, attr_name, value)\n+\n+    def specialize_here(self, pos, env, template_values=None):\n+        if not self.supports_container_type:\n+            return self\n+        if template_values and None not in template_values and len(template_values) <= 2:\n+            typ = BuiltinTypeConstructorObjectType(\n+                name=self.name, cname=self.cname, objstruct_cname=self.objstruct_cname,\n+                base_type=self, subscripted_types=tuple(template_values), scope=self.scope)\n+            typ.entry = self.entry\n+            return typ\n+        return self\n+\n+    @staticmethod\n+    def _full_type_name(name: str, subscripted_types) -> str:\n+        subscripted_types = ','.join([str(tv) for tv in subscripted_types])\n+        return f\"{name}[{subscripted_types}]\" if subscripted_types else name\n+\n+    def __eq__(self, value):\n+        return (\n+            isinstance(value, BuiltinTypeConstructorObjectType) and\n+            self._full_type_name(self.name, self.subscripted_types) == self._full_type_name(value.name, value.subscripted_types)\n+        )\n+\n+    def __hash__(self):\n+        return hash(self._full_type_name(self.name, self.subscripted_types))",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172740761",
+            "id": 3172740761,
+            "in_reply_to_id": 3172719053,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69HC6Z",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 4998,
+            "original_position": 156,
+            "original_start_line": null,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 1,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172740761/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:34:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172740761",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3172746278"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3172746278"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Right, it's definitely not the same thing for tuples. Then it's fine as it is.",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
+            "created_at": "2026-05-01T09:30:56Z",
+            "diff_hunk": "@@ -4952,10 +4970,82 @@ class BuiltinTypeConstructorObjectType(BuiltinObjectType, PythonTypeConstructorM\n     \"\"\"\n     builtin types like list, dict etc which can be subscripted in annotations\n     \"\"\"\n-    def __init__(self, name, cname, objstruct_cname=None):\n+\n+    types_supporting_subscripting = {'dict', 'list', 'set', 'frozenset'}\n+\n+    def __init__(self, name, cname, objstruct_cname=None, **kwargs):\n         super().__init__(\n             name, cname, objstruct_cname=objstruct_cname)\n-        self.set_python_type_constructor_name(name)\n+        self.set_python_type_constructor_name(self.get_container_type().name)\n+        self.specializations = {}\n+        for arg in kwargs:\n+            setattr(self, arg, kwargs[arg])\n+\n+    def specialize_here(self, pos, env, template_values=None):\n+        # For types_supporting_subscripting is the list of types supporting subscripting in Cython.\n+        # The other types will just ignore the subscription types.\n+        if self.name not in self.types_supporting_subscripting:\n+            return self\n+        if template_values and None not in template_values and len(template_values) <= 2:\n+            template_values = tuple(template_values)\n+            if template_values in self.specializations:\n+                return self.specializations[template_values]\n+            subscripted_types = ','.join([str(tv) for tv in template_values])\n+            name = f'{self.get_container_type().name}[{subscripted_types}]'\n+\n+            typ = BuiltinTypeConstructorObjectType(\n+                name=name, cname=self.cname, objstruct_cname=self.objstruct_cname,\n+                base_type=self, subscripted_types=tuple(template_values), scope=self.scope)\n+            env.global_scope().declare_type(name, typ, pos, cname=typ.cname)\n+            self.specializations[template_values] = typ\n+            return typ\n+        return self\n+\n+    def assignable_from(self, src_type):\n+        if self == src_type:\n+            if not self.subscripted_types and not src_type.subscripted_types:\n+                return True\n+            if not self.subscripted_types and src_type.subscripted_types:\n+                return True\n+            if self.subscripted_types and not src_type.subscripted_types:\n+                return True\n+            if (\n+                len(self.subscripted_types) == len(src_type.subscripted_types) and\n+                all(dst_sc.assignable_from(src_sc)\n+                    for dst_sc, src_sc in zip(self.subscripted_types, src_type.subscripted_types))\n+            ):\n+                return True",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3172746278",
+            "id": 3172746278,
+            "in_reply_to_id": 3076919776,
+            "line": 5019,
+            "node_id": "PRRC_kwDOABDGAc69HEQm",
+            "original_commit_id": "83a08e3b2c98226ba004971393007eadc4aaf745",
+            "original_line": 5017,
+            "original_position": 131,
+            "original_start_line": 5012,
+            "path": "Cython/Compiler/PyrexTypes.py",
+            "position": 177,
+            "pull_request_review_id": 4210620258,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172746278/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 5014,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-05-01T09:34:58Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3172746278",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3173171297"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3173171297"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Makes sense. I fixed that.",
+            "commit_id": "2fcc355c3f80c43ae27f9e8578a66a6f537c2489",
+            "created_at": "2026-05-01T12:34:25Z",
+            "diff_hunk": "@@ -56,3 +100,112 @@ def test_tuple(typing.Tuple[int, float] a,  typing.Tuple[int, ...] b,\n     print(cython.typeof(x[0]))\n     print(cython.typeof(y))\n     print(cython.typeof(c))\n+\n+def test_tuple_assignment(i, list[int] la, set[int] sa, dict[int, int] da, frozenset[int] fa):\n+    \"\"\"\n+    >>> test_tuple_assignment(0, [], set(), {}, frozenset({}))  # doctest: +IGNORE_EXCEPTION_DETAIL\n+    Traceback (most recent call last):\n+        ...\n+    TypeError:\n+    >>> test_tuple_assignment(1, [], set(), {}, frozenset({}))  # doctest: +IGNORE_EXCEPTION_DETAIL\n+    Traceback (most recent call last):\n+        ...\n+    TypeError:\n+    >>> test_tuple_assignment(2, [], set(), {}, frozenset({}))  # doctest: +IGNORE_EXCEPTION_DETAIL\n+    Traceback (most recent call last):\n+        ...\n+    TypeError:\n+    >>> test_tuple_assignment(3, [], set(), {}, frozenset({}))  # doctest: +IGNORE_EXCEPTION_DETAIL\n+    Traceback (most recent call last):\n+        ...\n+    TypeError:\n+    \"\"\"\n+    cdef tuple[int] ta = (1,)\n+    if i == 0:\n+        la = ta\n+    elif i == 1:\n+        sa = ta\n+    elif i == 2:\n+        da = ta\n+    elif i == 3:\n+        fa = ta\n+\n+\n+def test_recursive_list():",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3173171297",
+            "id": 3173171297,
+            "in_reply_to_id": 3172703801,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69IsBh",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 134,
+            "original_position": 99,
+            "original_start_line": null,
+            "path": "tests/run/pep526_variable_annotations_cy.pyx",
+            "position": 1,
+            "pull_request_review_id": 4211126797,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3173171297/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T12:34:25Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3173171297",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3173607908"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3173607908"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": ">  Why is compilation a special case here\r\nThe same reason as for dict test above. You have different results for pure version and compiled version\r\n\r\n>  did you really intend to call the dict test function\r\n\r\nNo, it was a mistake :-/",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
+            "created_at": "2026-05-01T14:43:10Z",
+            "diff_hunk": "@@ -391,6 +391,33 @@ def test_assignment_dict_with_subscription():\n     5 5 5.0\n     \"\"\"\n \n+if sys.version_info >= (3, 15) or cython.compiled:\n+\n+    def test_assignment_frozendict_with_subscription():\n+        \"\"\"\n+        >>> test_assignment_frozendict_with_subscription()\n+        int\n+        int\n+        int\n+        5 5 5\n+        \"\"\"\n+        a: frozendict[str, cython.int] = frozendict({'a': 5})\n+        b: frozendict = a\n+        c: frozendict[str, cython.float] = b\n+        print(cython.typeof(a['a']))\n+        print(cython.typeof(b['a']))\n+        print(cython.typeof(c['a']))\n+        print(a['a'], b['a'], c['a'])\n+\n+    if cython.compiled:\n+        test_assignment_frozendict_with_subscription.__doc__ = \"\"\"\n+        >>> test_assignment_dict_with_subscription()\n+        int\n+        Python object\n+        float\n+        5 5 5.0\n+        \"\"\"",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3173607908",
+            "id": 3173607908,
+            "in_reply_to_id": 3172677996,
+            "line": 419,
+            "node_id": "PRRC_kwDOABDGAc69KWnk",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 419,
+            "original_position": 29,
+            "original_start_line": 412,
+            "path": "tests/run/pep526_variable_annotations.py",
+            "position": 238,
+            "pull_request_review_id": 4211597885,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3173607908/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 412,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-05-01T14:43:11Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3173607908",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3174308887"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3174308887"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I fixed all to subscript as commented below.",
+            "commit_id": "78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7",
+            "created_at": "2026-05-01T17:23:39Z",
+            "diff_hunk": "@@ -455,21 +482,36 @@ def test_iteration_over_frozenset_with_subscription():\n         print(b + c)\n \n @cython.infer_types(True)\n-def test_iteration_over_set_with_subscription():\n+def test_iteration_over_dict_with_subscription():\n     \"\"\"\n-    >>> test_iteration_over_set_with_subscription()\n+    >>> test_iteration_over_dict_with_subscription()\n     int\n     int\n     3\n     \"\"\"\n     b: cython.int = 1\n-    a: dict[cython.int, cython.int] = {2: 3}\n+    a: dict[cython.int, cython.str] = {2: 'a'}\n     for c in a:\n         print(cython.typeof(c))\n         print(cython.typeof(b + c))\n         print(b + c)\n \n+if sys.version_info >= (3, 15) or cython.compiled:\n \n+    @cython.infer_types(True)\n+    def test_iteration_over_frozendict_with_subscription():",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3174308887",
+            "id": 3174308887,
+            "in_reply_to_id": 3172685478,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69NBwX",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 502,
+            "original_position": 58,
+            "original_start_line": null,
+            "path": "tests/run/pep526_variable_annotations.py",
+            "position": 1,
+            "pull_request_review_id": 4212378171,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3174308887/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T17:23:40Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3174308887",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3174309500"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3174309500"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "fixed.",
+            "commit_id": "78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7",
+            "created_at": "2026-05-01T17:23:51Z",
+            "diff_hunk": "@@ -243,6 +290,228 @@ def name_of(special_decl):\n     print(name_of(q1), str(q2) in [\"typing.Union[typing.FrozenSet, NoneType]\", \"typing.FrozenSet | None\"] or str(q2))\n     print(name_of(w1), str(w2) in [\"typing.Union[typing.Dict, NoneType]\", \"typing.Dict | None\"] or str(w2))\n \n+def test_list_with_str_subscript():\n+    \"\"\"\n+    >>> test_list_with_str_subscript()\n+    str object\n+    str object\n+    str object\n+    FooBar\n+    \"\"\"\n+    a: list[str] = [\"Foo\"]\n+    b: List[str] = [\"Bar\"]\n+    print(cython.typeof(a[0]) + (\" object\" if not cython.compiled else \"\"))\n+    print(cython.typeof(b[0]) + (\" object\" if not cython.compiled else \"\"))\n+    print(cython.typeof(a[0] + b[0]) + (\" object\" if not cython.compiled else \"\"))\n+    print(a[0] + b[0])\n+\n+def test_list_with_int_subscription():",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3174309500",
+            "id": 3174309500,
+            "in_reply_to_id": 3172699733,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc69NB58",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 308,
+            "original_position": 127,
+            "original_start_line": null,
+            "path": "tests/run/pep526_variable_annotations.py",
+            "position": 1,
+            "pull_request_review_id": 4212378874,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3174309500/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T17:23:51Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3174309500",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7288#discussion_r3174343981"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7288"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3174343981"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "fixed.",
+            "commit_id": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
+            "created_at": "2026-05-01T17:31:17Z",
+            "diff_hunk": "@@ -33,6 +33,60 @@ def union_pytypes(Union[int, None] i, Union[None, float] f, Union[complex, None]\n def bitwise_or_ctypes(i: cython.int | None, f: None | cython.float , c: cython.complex | None, l: cython.long | None):\n     pass\n \n+def subscripted_types_assignments():",
+            "html_url": "https://github.com/cython/cython/pull/7288#discussion_r3174343981",
+            "id": 3174343981,
+            "in_reply_to_id": 3172696729,
+            "line": 36,
+            "node_id": "PRRC_kwDOABDGAc69NKUt",
+            "original_commit_id": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "original_line": 36,
+            "original_position": 4,
+            "original_start_line": null,
+            "path": "tests/errors/e_typing_errors.pyx",
+            "position": 4,
+            "pull_request_review_id": 4212421023,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7288",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3174343981/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-05-01T17:31:17Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3174343981",
             "user": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
                 "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
@@ -16718,6 +17898,1082 @@
             ],
             "sha": "de56500acdb1032cd58731f7276b6af63665cde4",
             "url": "https://api.github.com/repos/cython/cython/commits/de56500acdb1032cd58731f7276b6af63665cde4"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/659dd53f3ea01a3567c134e9af4a7ddc26e445b2/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-04-30T16:53:54Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-04-30T16:53:54Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Merge remote-tracking branch 'upstream/master' into experiment/list_subtypes",
+                "tree": {
+                    "sha": "47c6895e1367e99598822f73cacfbe0e046d28cc",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/47c6895e1367e99598822f73cacfbe0e046d28cc"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/659dd53f3ea01a3567c134e9af4a7ddc26e445b2",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/659dd53f3ea01a3567c134e9af4a7ddc26e445b2",
+            "node_id": "C_kwDOFL4z49oAKDY1OWRkNTNmM2VhMDFhMzU2N2MxMzRlOWFmNGE3ZGRjMjZlNDQ1YjI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/de56500acdb1032cd58731f7276b6af63665cde4",
+                    "sha": "de56500acdb1032cd58731f7276b6af63665cde4",
+                    "url": "https://api.github.com/repos/cython/cython/commits/de56500acdb1032cd58731f7276b6af63665cde4"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/20f1138d00a3046c0e7bc8febbe200744b2de6dd",
+                    "sha": "20f1138d00a3046c0e7bc8febbe200744b2de6dd",
+                    "url": "https://api.github.com/repos/cython/cython/commits/20f1138d00a3046c0e7bc8febbe200744b2de6dd"
+                }
+            ],
+            "sha": "659dd53f3ea01a3567c134e9af4a7ddc26e445b2",
+            "url": "https://api.github.com/repos/cython/cython/commits/659dd53f3ea01a3567c134e9af4a7ddc26e445b2"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/0a53dd92c3c51eab27fde0dae53b8275d9660f04/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-04-30T21:19:55Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-04-30T22:37:43Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Add support of frozendict",
+                "tree": {
+                    "sha": "21b99af0c7891d15c7b9a59ef2569b9e6f424294",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/21b99af0c7891d15c7b9a59ef2569b9e6f424294"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "node_id": "C_kwDOFL4z49oAKDBhNTNkZDkyYzNjNTFlYWIyN2ZkZTBkYWU1M2I4Mjc1ZDk2NjBmMDQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/659dd53f3ea01a3567c134e9af4a7ddc26e445b2",
+                    "sha": "659dd53f3ea01a3567c134e9af4a7ddc26e445b2",
+                    "url": "https://api.github.com/repos/cython/cython/commits/659dd53f3ea01a3567c134e9af4a7ddc26e445b2"
+                }
+            ],
+            "sha": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+            "url": "https://api.github.com/repos/cython/cython/commits/0a53dd92c3c51eab27fde0dae53b8275d9660f04"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/335fe54b0dcd1e6b5d0a0e36e7921c2dc677689f/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-01T12:24:44Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "mv-python"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-01T12:24:44Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Update Cython/Compiler/PyrexTypes.py\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "6ba57a0fb960c1ed75f1fc1656ae373848df44f7",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6ba57a0fb960c1ed75f1fc1656ae373848df44f7"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/335fe54b0dcd1e6b5d0a0e36e7921c2dc677689f",
+                "verification": {
+                    "payload": "tree 6ba57a0fb960c1ed75f1fc1656ae373848df44f7\nparent 0a53dd92c3c51eab27fde0dae53b8275d9660f04\nauthor mv-python <matusvalo@users.noreply.github.com> 1777638284 +0200\ncommitter GitHub <noreply@github.com> 1777638284 +0200\n\nUpdate Cython/Compiler/PyrexTypes.py\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp9JuMCRC1aQ7uu5UhlAAAmzMQAGLcy3TayvjvmpbPW6UCUY1z\n6aeaBQA77KwbVNibWzPPX0zW+ZhmhrDA2z4YqXndl1v8dO6XBkjXDtqRL+qTdpEE\nYvEGpcNQALIJOEKxuSWoze4FaiTbnmcD3aBNtEWIEKbdEE/VnWexl9xb1urLbcpR\nXysJs4lYx6+yHBsbwg3EGfOPen3+Yont3FVvieCXY4HjVgGSoDyFZT65DotGm6/9\nYGzEnNZZXkyewm3lx0aq9uMlkiOsDrYFTYncA2G8/97FbKGJNBWbFHmh+mzkUPsI\n11B7ZdSqIdB7iGJ6ySRgiiiMw3TVBk8Y0zQFqAriKf8QAAHZPtR8jbHo2hfxvUB1\nY2TzhjtNYAoFE33QRobV4oI9T5/7pqj85kbSdA4SZEtXbx5+D60jOiw443hlXnrB\na/i53dSeHx06vv3G2j/fhZAmGVVleh/i7nx+W8Qc1g6lvMoY5bT5AWrJamheYgCG\nHwG3Nsy8g+f6zeRz+Ng0+kzMtiwjMVhAqpKj+FehxUWaJ1hf1Vg89VFo7XVNZus7\nyjbSOmz4NhAv7LvsvGJfB96fr8sV88islOlHxdujl667RfQNZT6+g5iiNRKHUlp+\ndIrxlR4H84B+AKQy4DjN9h3db7P4qTplKAMgRqRxU6Rp8Lj0e9b1SOWV3P1oTVDY\n8rV7jBJpDkdZisE5jafW\n=95NF\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2026-05-01T12:24:45Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/335fe54b0dcd1e6b5d0a0e36e7921c2dc677689f",
+            "node_id": "C_kwDOFL4z49oAKDMzNWZlNTRiMGRjZDFlNmI1ZDBhMGUzNmU3OTIxYzJkYzY3NzY4OWY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+                    "sha": "0a53dd92c3c51eab27fde0dae53b8275d9660f04",
+                    "url": "https://api.github.com/repos/cython/cython/commits/0a53dd92c3c51eab27fde0dae53b8275d9660f04"
+                }
+            ],
+            "sha": "335fe54b0dcd1e6b5d0a0e36e7921c2dc677689f",
+            "url": "https://api.github.com/repos/cython/cython/commits/335fe54b0dcd1e6b5d0a0e36e7921c2dc677689f"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/2fcc355c3f80c43ae27f9e8578a66a6f537c2489/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-01T12:29:18Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-01T12:29:18Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Enforce tuple in hash",
+                "tree": {
+                    "sha": "7449026c805e81da08d3d11134aa1c189a95bf2a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/7449026c805e81da08d3d11134aa1c189a95bf2a"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/2fcc355c3f80c43ae27f9e8578a66a6f537c2489",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/2fcc355c3f80c43ae27f9e8578a66a6f537c2489",
+            "node_id": "C_kwDOFL4z49oAKDJmY2MzNTVjM2Y4MGM0M2FlMjdmOWU4NTc4YTY2YTZmNTM3YzI0ODk",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/335fe54b0dcd1e6b5d0a0e36e7921c2dc677689f",
+                    "sha": "335fe54b0dcd1e6b5d0a0e36e7921c2dc677689f",
+                    "url": "https://api.github.com/repos/cython/cython/commits/335fe54b0dcd1e6b5d0a0e36e7921c2dc677689f"
+                }
+            ],
+            "sha": "2fcc355c3f80c43ae27f9e8578a66a6f537c2489",
+            "url": "https://api.github.com/repos/cython/cython/commits/2fcc355c3f80c43ae27f9e8578a66a6f537c2489"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/9e5184c3f1d6e9f2cdaa546cc55b17516d728e83/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-01T12:34:08Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-01T12:34:08Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Naming improvements",
+                "tree": {
+                    "sha": "63d471c8f968587b69ae34743ced2f57938483b1",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/63d471c8f968587b69ae34743ced2f57938483b1"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/9e5184c3f1d6e9f2cdaa546cc55b17516d728e83",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/9e5184c3f1d6e9f2cdaa546cc55b17516d728e83",
+            "node_id": "C_kwDOFL4z49oAKDllNTE4NGMzZjFkNmU5ZjJjZGFhNTQ2Y2M1NWIxNzUxNmQ3MjhlODM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/2fcc355c3f80c43ae27f9e8578a66a6f537c2489",
+                    "sha": "2fcc355c3f80c43ae27f9e8578a66a6f537c2489",
+                    "url": "https://api.github.com/repos/cython/cython/commits/2fcc355c3f80c43ae27f9e8578a66a6f537c2489"
+                }
+            ],
+            "sha": "9e5184c3f1d6e9f2cdaa546cc55b17516d728e83",
+            "url": "https://api.github.com/repos/cython/cython/commits/9e5184c3f1d6e9f2cdaa546cc55b17516d728e83"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/73cd3483689a96a31504debe76cfbb57eded5cd8/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-01T12:35:54Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "mv-python"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-01T12:35:54Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "cosmetics\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "d69ab0b93f680ee91df831277108ea2c1913529e",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/d69ab0b93f680ee91df831277108ea2c1913529e"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/73cd3483689a96a31504debe76cfbb57eded5cd8",
+                "verification": {
+                    "payload": "tree d69ab0b93f680ee91df831277108ea2c1913529e\nparent 9e5184c3f1d6e9f2cdaa546cc55b17516d728e83\nauthor mv-python <matusvalo@users.noreply.github.com> 1777638954 +0200\ncommitter GitHub <noreply@github.com> 1777638954 +0200\n\ncosmetics\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp9J4qCRC1aQ7uu5UhlAAABfsQACTdZ83k5S4R1XZJHjPCHKCw\n0KeDdvOmHlOJ56el5Kn6D9XptCWQt87z1KM6x9fQXeotd3xfdIHZrnKQvGViTa5H\nAFqiX6LiKomihAw0yax/DPQkkNo2JuOD6WsML6BXHccmtWFC6e80q564ZngviuzJ\n6i+1bhtMuq1KJ9+bk6pQ1/uaGeNHvBPRWVb+ENyMt+duAnQcxSpz3LCAAUmIr7Xl\nOIIz2pCERzwDuLsx3jkWVtVJ3KwGqluNnTSI2RRrUXfhVoCY3nU4EOYKuKCYROZe\n6rbSDjGnFZxUKAofo5xR0TLerkDugksHY2OHr3F4XZgWOv4UtKygR1UgLqgAZ2i2\nKYcnWtCb9D9RsmXj8UsIGjaDOqMh5ptwItu/civgA6XeEbcvlUs5zlfF8ui28+oo\nPzAv2BM+wtWQ1K3EGZMUyycHzN8Z9yI08FN/n98ZSSqeutAexZ5tsGgXhMp+hx0m\nNRhmPOHJKTaxMi1Dbgk1L1MQivafCRuPF5aEPNcJLTe4JxMf5iXkylrLoGWzODGB\na4YXtMQHT4fS97kMV/x4dfxwOu3tKUO44Ic6SBIDkfG5yU24DxRROIr0gW9X39nf\n+37d2+Oko5GJvepwZkrXe2DM+GYCOzomT/bU2P3oUsXb7/iGzkpjczmQdy2jYlE7\nBYIipmyLvz0zo4055gV1\n=+8Sw\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2026-05-01T12:35:55Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/73cd3483689a96a31504debe76cfbb57eded5cd8",
+            "node_id": "C_kwDOFL4z49oAKDczY2QzNDgzNjg5YTk2YTMxNTA0ZGViZTc2Y2ZiYjU3ZWRlZDVjZDg",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/9e5184c3f1d6e9f2cdaa546cc55b17516d728e83",
+                    "sha": "9e5184c3f1d6e9f2cdaa546cc55b17516d728e83",
+                    "url": "https://api.github.com/repos/cython/cython/commits/9e5184c3f1d6e9f2cdaa546cc55b17516d728e83"
+                }
+            ],
+            "sha": "73cd3483689a96a31504debe76cfbb57eded5cd8",
+            "url": "https://api.github.com/repos/cython/cython/commits/73cd3483689a96a31504debe76cfbb57eded5cd8"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-01T14:41:03Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-01T14:41:36Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "message": "Fix test",
+                "tree": {
+                    "sha": "3c11a7165f06c6547ce45edf36df96ac3ca55c5f",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/3c11a7165f06c6547ce45edf36df96ac3ca55c5f"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7",
+            "node_id": "C_kwDOFL4z49oAKDc4ZWMwZjRmMGMzNWI3OTY1MWFmZWU1ZmE4ZTFjODJiNmNkOWVjYTc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/73cd3483689a96a31504debe76cfbb57eded5cd8",
+                    "sha": "73cd3483689a96a31504debe76cfbb57eded5cd8",
+                    "url": "https://api.github.com/repos/cython/cython/commits/73cd3483689a96a31504debe76cfbb57eded5cd8"
+                }
+            ],
+            "sha": "78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7",
+            "url": "https://api.github.com/repos/cython/cython/commits/78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/85466a18bbeefbf71df4a6a6c4cd64fc396c58d9/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-01T17:23:01Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-01T17:23:01Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "message": "subscription -> subscript",
+                "tree": {
+                    "sha": "fbb1dd4309812f0db3ee17f56ff48bc279ed4485",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/fbb1dd4309812f0db3ee17f56ff48bc279ed4485"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/85466a18bbeefbf71df4a6a6c4cd64fc396c58d9",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/85466a18bbeefbf71df4a6a6c4cd64fc396c58d9",
+            "node_id": "C_kwDOFL4z49oAKDg1NDY2YTE4YmJlZWZiZjcxZGY0YTZhNmM0Y2Q2NGZjMzk2YzU4ZDk",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7",
+                    "sha": "78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7",
+                    "url": "https://api.github.com/repos/cython/cython/commits/78ec0f4f0c35b79651afee5fa8e1c82b6cd9eca7"
+                }
+            ],
+            "sha": "85466a18bbeefbf71df4a6a6c4cd64fc396c58d9",
+            "url": "https://api.github.com/repos/cython/cython/commits/85466a18bbeefbf71df4a6a6c4cd64fc396c58d9"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/fd6e848e059fb9cf2e8f50d791dd801728df5ebe/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-01T17:26:54Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "mv-python"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-01T17:26:54Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Simplify code.\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "14723d3f76ad943ed9f2503c966f13953145b10c",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/14723d3f76ad943ed9f2503c966f13953145b10c"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/fd6e848e059fb9cf2e8f50d791dd801728df5ebe",
+                "verification": {
+                    "payload": "tree 14723d3f76ad943ed9f2503c966f13953145b10c\nparent 85466a18bbeefbf71df4a6a6c4cd64fc396c58d9\nauthor mv-python <matusvalo@users.noreply.github.com> 1777656414 +0200\ncommitter GitHub <noreply@github.com> 1777656414 +0200\n\nSimplify code.\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp9OJeCRC1aQ7uu5UhlAAAwZkQAG5fiYw0tLmaoPHzyGQGvDr3\nQUyIKBionqXoseWnHEhKnT8bM1NqhZJ61SH3iCj/agW3po/9finoFZ+dOdJZmZ7e\njZftBpxh6x5d8nTvSpPb1cxwSyqqJe9pCRFzJLnA1b6H0Cw2M33xxezCZwRo2Yka\nwWPv3Zjw3T80VuH/hZSZpA/qOHoxUy7Z1PBLB3GuTTShq9IH2BbIgXbeaIrJkW5F\n7j1YH67yCst4O1W3R7LBRCgn2ZeoqPfVqdlS1E3RbpWMa4gpR+iVKh67crFiSbAe\n+OnWN+GwxEd8KvQbdOQjjQSofittVpUvWLQGF/q9dRoJ/1JfiiZutxrvJMm21bNV\nWm9yHmqCSPfoyryRDFfwBdU/p9xWgcW4x6ntXZRLPaC6jNWxBGERRJ+s/XzMaW/E\nKGBvDsyokquqHbn2cuNVOfZidjH5DvMHPkaQVE+LfbKqf+/7RsAxXO9MrPNbO5+s\n++A8D2Bm201Px1mekWx2Grff9aqaI/8dmExLBjGy+CKZPan7FxjLP2IksyLPB9ir\no01dshw4312FfnbNDNXRB67FnUFVw7aCbd4VmtjkwM7pI/32lkXA2fLxHSpmZxvs\nSJBJg0G+0cwVHD1E7mp52yfbYW8ASjKVpGTzm8HjJJ36N7yx1lRbWKbBMDP0/p3x\nbWd7oLbS9j4TrDt9F7yH\n=CVfB\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2026-05-01T17:26:55Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/fd6e848e059fb9cf2e8f50d791dd801728df5ebe",
+            "node_id": "C_kwDOFL4z49oAKGZkNmU4NDhlMDU5ZmI5Y2YyZThmNTBkNzkxZGQ4MDE3MjhkZjVlYmU",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/85466a18bbeefbf71df4a6a6c4cd64fc396c58d9",
+                    "sha": "85466a18bbeefbf71df4a6a6c4cd64fc396c58d9",
+                    "url": "https://api.github.com/repos/cython/cython/commits/85466a18bbeefbf71df4a6a6c4cd64fc396c58d9"
+                }
+            ],
+            "sha": "fd6e848e059fb9cf2e8f50d791dd801728df5ebe",
+            "url": "https://api.github.com/repos/cython/cython/commits/fd6e848e059fb9cf2e8f50d791dd801728df5ebe"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/56a51a004c8ff7eb3eb1bc2cd2890076762113ec/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-01T17:28:52Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "mv-python"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-01T17:28:52Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Avoid walrus operator.\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "5f7eeac3d97ba8dfdb9571ef80c5fb0aed93d648",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/5f7eeac3d97ba8dfdb9571ef80c5fb0aed93d648"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/56a51a004c8ff7eb3eb1bc2cd2890076762113ec",
+                "verification": {
+                    "payload": "tree 5f7eeac3d97ba8dfdb9571ef80c5fb0aed93d648\nparent fd6e848e059fb9cf2e8f50d791dd801728df5ebe\nauthor mv-python <matusvalo@users.noreply.github.com> 1777656532 +0200\ncommitter GitHub <noreply@github.com> 1777656532 +0200\n\nAvoid walrus operator.\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp9OLUCRC1aQ7uu5UhlAAA3+wQACYTBeAKu/U9UAWCEFc9PlG2\ncZ3XKtG0ppBt1AXJa80Dkjh1d4A1M7xWwh/fKUtApWMBMs3bNXo98J8rPtPVrYfY\nnZBnTwOqRxn0YBlbiN/Q2TLXkK2NqD3TvZsk4SbRAyCSGgbvFGg9VbqWokMNmCT8\nyqCnTnpDNexGE002rAOlJG3LK7ovAnFe/jLW62LKk0/8TQDuvEwSO89UV9lxGj6h\nyZKOiXT/q/ZVnfGNbOgQqmGu4+4ypDcgP1Axej6h+ziuNN/ZCudw60QjWtuSmJmU\nVv78uFsGxDxLZhbiH2GQEVGkmFDYh/+7F2QeiW2/NLnFSguIn4gPmTeUVWuzPR02\nOR5ccQPfi25B6qUjlSoC4U2Y9zVSfnwEJM8u0sXrpLak0pt07ucR93y2mBVZygs7\ni/kXiiW0y3IkMqXjYRpT9woT61SoOzmMApQBC/7UcioOK36GsbCIHdi/TUrLYMzd\nv7d0Gpo1UJ3slZPhs0hlUuDnHdU87Zjd7L/yZL0B1gLJxwyRoqI/pBPiFi5gXg+c\nixljeAtcPg6uU6o8Yy8j2Pp/R11qiyYSMj0lXu5Fv7ZIxdx4BOfb6d5v9vbfqlky\nFu2Cy0J2AN9UILzHaYbutJLpF/w3rGqgxKlYDvF7P26MF8xGbB6tmjtlPr4q7+Ne\nNraPOh1N4J/AlK5PGOfO\n=amr0\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2026-05-01T17:28:52Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/56a51a004c8ff7eb3eb1bc2cd2890076762113ec",
+            "node_id": "C_kwDOFL4z49oAKDU2YTUxYTAwNGM4ZmY3ZWIzZWIxYmMyY2QyODkwMDc2NzYyMTEzZWM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/fd6e848e059fb9cf2e8f50d791dd801728df5ebe",
+                    "sha": "fd6e848e059fb9cf2e8f50d791dd801728df5ebe",
+                    "url": "https://api.github.com/repos/cython/cython/commits/fd6e848e059fb9cf2e8f50d791dd801728df5ebe"
+                }
+            ],
+            "sha": "56a51a004c8ff7eb3eb1bc2cd2890076762113ec",
+            "url": "https://api.github.com/repos/cython/cython/commits/56a51a004c8ff7eb3eb1bc2cd2890076762113ec"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/01fd0138f98961090d7d7a9df229a4bf220c0654/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-01T20:10:02Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "mv-python"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-01T20:10:02Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Improve __eq__() method\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "5aac192395eb18eb501542d605e271a18ace66a0",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/5aac192395eb18eb501542d605e271a18ace66a0"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/01fd0138f98961090d7d7a9df229a4bf220c0654",
+                "verification": {
+                    "payload": "tree 5aac192395eb18eb501542d605e271a18ace66a0\nparent 56a51a004c8ff7eb3eb1bc2cd2890076762113ec\nauthor mv-python <matusvalo@users.noreply.github.com> 1777666202 +0200\ncommitter GitHub <noreply@github.com> 1777666202 +0200\n\nImprove __eq__() method\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp9QiaCRC1aQ7uu5UhlAAA3mcQAGBxK/L6ob6OOnSZreyo8VB9\nXOTreKuFchpyrm0df/BRBe+A4E9Tq9OqcI7wfL2MSGgONKFzlqErm7iX6IKUDflu\nnU7+F576TfJADg3RGY9tGcKCLJxtk9sWyxUvU3fvWfDfvoksxv9H2o0Qrk8DhMkl\nPhH4IZleDK7ALv8PtFkozkemyv5MWk3l1xkkfE/59acqbfp17Q6BnfM0PTMj6MON\nWExxYxficvcCim552VxYD5vUppjmB3uA0+MkYvOPr7cg89+AnhcbpVy4OmGraqvl\nJyNltGRIF2OChWE8+5PgSsqieg0IKLxtr3GZUVFBDo/jHiotdc9o1hlDuqsAQuM+\nphs5qFKCIZTxHpVhoCfN76GZNBPHaW/mSjBnCR5yFhy8QH3+3xS7LRRbp1Zfd2Ze\nKNGkr4prf/J9oYPnMuLRReFBk92rY457FzCXK7r2f52A2KantvTcPa5wG8Dac4Vn\n6tD//EBRyFMQwLl57WBdSBCDIyGrzVvw4SoPEFP11SgxQ8mIXS7IZ7eMRdN3JLn2\nOwcmpZH2Y35SUbFCQcS4yBfs+MN8tjDEASETs95QaBpShO3W+zc6/xGxpqcgZ8bx\ntju+TMUvafV7gTFnQPYeZF+IKTGjJq31td7YzkMJ6IWS6omtMAwly5jGl1i1mPXm\n5w8V9zLsryRq86jJanjd\n=h4cj\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2026-05-01T20:10:03Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/01fd0138f98961090d7d7a9df229a4bf220c0654",
+            "node_id": "C_kwDOFL4z49oAKDAxZmQwMTM4Zjk4OTYxMDkwZDdkN2E5ZGYyMjlhNGJmMjIwYzA2NTQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/56a51a004c8ff7eb3eb1bc2cd2890076762113ec",
+                    "sha": "56a51a004c8ff7eb3eb1bc2cd2890076762113ec",
+                    "url": "https://api.github.com/repos/cython/cython/commits/56a51a004c8ff7eb3eb1bc2cd2890076762113ec"
+                }
+            ],
+            "sha": "01fd0138f98961090d7d7a9df229a4bf220c0654",
+            "url": "https://api.github.com/repos/cython/cython/commits/01fd0138f98961090d7d7a9df229a4bf220c0654"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/4fddfd92e1747d132e672a5cdb9286839a5ca686/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-01T17:31:06Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-01T20:10:41Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "Matus Valo"
+                },
+                "message": "s/subscribed/subscripted/g",
+                "tree": {
+                    "sha": "6c09830c16b775d76e7a24119efed71542ffa4b6",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6c09830c16b775d76e7a24119efed71542ffa4b6"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/4fddfd92e1747d132e672a5cdb9286839a5ca686",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/4fddfd92e1747d132e672a5cdb9286839a5ca686",
+            "node_id": "C_kwDOFL4z49oAKDRmZGRmZDkyZTE3NDdkMTMyZTY3MmE1Y2RiOTI4NjgzOWE1Y2E2ODY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/01fd0138f98961090d7d7a9df229a4bf220c0654",
+                    "sha": "01fd0138f98961090d7d7a9df229a4bf220c0654",
+                    "url": "https://api.github.com/repos/cython/cython/commits/01fd0138f98961090d7d7a9df229a4bf220c0654"
+                }
+            ],
+            "sha": "4fddfd92e1747d132e672a5cdb9286839a5ca686",
+            "url": "https://api.github.com/repos/cython/cython/commits/4fddfd92e1747d132e672a5cdb9286839a5ca686"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
+                "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
+                "followers_url": "https://api.github.com/users/matusvalo/followers",
+                "following_url": "https://api.github.com/users/matusvalo/following{/other_user}",
+                "gists_url": "https://api.github.com/users/matusvalo/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/matusvalo",
+                "id": 827060,
+                "login": "matusvalo",
+                "node_id": "MDQ6VXNlcjgyNzA2MA==",
+                "organizations_url": "https://api.github.com/users/matusvalo/orgs",
+                "received_events_url": "https://api.github.com/users/matusvalo/received_events",
+                "repos_url": "https://api.github.com/users/matusvalo/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/matusvalo/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/matusvalo/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/matusvalo",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/f2de83d81b601fdfa939ab5d7e1c78d357462dcd/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-01T20:13:29Z",
+                    "email": "matusvalo@users.noreply.github.com",
+                    "name": "mv-python"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-01T20:13:29Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Merge branch 'master' into experiment/list_subtypes",
+                "tree": {
+                    "sha": "dc357517614537004d482abb38ba8dbe9b004229",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/dc357517614537004d482abb38ba8dbe9b004229"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
+                "verification": {
+                    "payload": "tree dc357517614537004d482abb38ba8dbe9b004229\nparent 4fddfd92e1747d132e672a5cdb9286839a5ca686\nparent c52acc09740e4729dafcd804e6820a9ab00b8f81\nauthor mv-python <matusvalo@users.noreply.github.com> 1777666409 +0200\ncommitter GitHub <noreply@github.com> 1777666409 +0200\n\nMerge branch 'master' into experiment/list_subtypes",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp9QlpCRC1aQ7uu5UhlAAAZ4sQAIWDRULY3Jg8GVSjXYrB5eey\nkpKjLTxXO7IHW+FCp99f+WeoXJlBhw8LxoZDajtslTkTAPxMzZUdjxF9Jsl98A44\nxAfzOJzCOz2yF4ZFbIOoGYxz7K2IZYigDjM+6VaaI/KvwVbhqTURSpIn1m7Fgrqu\nqWSMteEgQ+LIbwTx4HyqnR6WAX3s4LFRe55ktiWEYvK5mLdjK2Tf4/yfHroLALZr\nc8ouLDTE4qN92CGvKgViITkZ95U/fao8TdyeZvEZuGY4zlg1euiFdGvtkJ87pamk\n8X3v65CDJ/3awN17RVKz+YCI/whwVZB4YVAofNJtQEW7YRsh+l4eWLpLh2MCEMRz\nPkvA1rrxTSDzkKMCG9A/MJKus/Cs6bDIIwm6b5ClbDLbw+jG8RI9ca5LoClz4j8Q\nkvrOGqR/H+4XkvnI7rfD3IierWU96YeJSs5dijI8a4c7JXMc5AofTMeCzpwDvmK9\nYf4hbiYbHEFGUk9wSgVXK/6ZzI4grF+1l9FMd3jDaKlPoXp4gMCoi9jy7nggqPKH\nUJ0u2Ecq64hdQDu72wrkHIm/+HnJz6yOcYKj0cLuRJiGff5Flgwl/H8t+QZYzCv9\nbvd/NmwzbtrZIqQ7CChVssmtt4t08dkWTwlSey7gAhVVjnBAL/7o/XHTVKbV/L2G\nNDCAS7C2c4C14ku+Hs8u\n=301A\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2026-05-01T20:13:29Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
+            "node_id": "C_kwDOFL4z49oAKGYyZGU4M2Q4MWI2MDFmZGZhOTM5YWI1ZDdlMWM3OGQzNTc0NjJkY2Q",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/4fddfd92e1747d132e672a5cdb9286839a5ca686",
+                    "sha": "4fddfd92e1747d132e672a5cdb9286839a5ca686",
+                    "url": "https://api.github.com/repos/cython/cython/commits/4fddfd92e1747d132e672a5cdb9286839a5ca686"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/c52acc09740e4729dafcd804e6820a9ab00b8f81",
+                    "sha": "c52acc09740e4729dafcd804e6820a9ab00b8f81",
+                    "url": "https://api.github.com/repos/cython/cython/commits/c52acc09740e4729dafcd804e6820a9ab00b8f81"
+                }
+            ],
+            "sha": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
+            "url": "https://api.github.com/repos/cython/cython/commits/f2de83d81b601fdfa939ab5d7e1c78d357462dcd"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/7288/commits",
@@ -16815,9 +19071,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/matusvalo/cython/pulls{/number}",
-            "pushed_at": "2026-04-28T20:53:39Z",
+            "pushed_at": "2026-05-03T07:03:48Z",
             "releases_url": "https://api.github.com/repos/matusvalo/cython/releases{/id}",
-            "size": 80166,
+            "size": 79832,
             "ssh_url": "git@github.com:matusvalo/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/matusvalo/cython/stargazers",
@@ -16836,7 +19092,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "de56500acdb1032cd58731f7276b6af63665cde4",
+        "sha": "f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",
             "events_url": "https://api.github.com/users/matusvalo/events{/privacy}",
@@ -16883,11 +19139,11 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "7e1ee142225a454f09368b09c3aa634c5be8fb30",
-    "merged_at": null,
+    "merge_commit_sha": "87f82b7d7c84886396e15f0c09910011188047af",
+    "merged_at": "2026-05-02T16:05:30Z",
     "milestone": {
         "closed_at": null,
-        "closed_issues": 151,
+        "closed_issues": 153,
         "created_at": "2025-09-16T21:22:28Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -16917,10 +19173,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/118/labels",
         "node_id": "MI_kwDOABDGAc4A0Slr",
         "number": 118,
-        "open_issues": 17,
+        "open_issues": 19,
         "state": "open",
         "title": "3.3",
-        "updated_at": "2026-04-28T20:13:08Z",
+        "updated_at": "2026-05-02T20:01:28Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/118"
     },
     "node_id": "PR_kwDOABDGAc6xuzBu",
@@ -16930,10 +19186,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7288/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/de56500acdb1032cd58731f7276b6af63665cde4",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/f2de83d81b601fdfa939ab5d7e1c78d357462dcd",
     "title": "Allow Cython to understand subscripted types",
-    "updated_at": "2026-04-28T20:44:15Z",
+    "updated_at": "2026-05-03T05:33:42Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/7288",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/827060?v=4",

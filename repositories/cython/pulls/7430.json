@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/7430"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/fd008b1697d098503a024fc1347a1bd4fa44cd07"
+            "href": "https://api.github.com/repos/cython/cython/statuses/f0065cf43b9a6473fe11ae445e3cfafd23cf7322"
         }
     },
     "active_lock_reason": null,
@@ -95,8 +95,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1502,
-            "open_issues_count": 1502,
+            "open_issues": 1514,
+            "open_issues_count": 1514,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -121,11 +121,11 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-03-22T13:10:13Z",
+            "pushed_at": "2026-05-02T16:05:30Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 79639,
+            "size": 79956,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10660,
+            "stargazers_count": 10715,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -144,14 +144,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-03-22T14:04:51Z",
+            "updated_at": "2026-05-03T06:03:48Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10660,
-            "watchers_count": 10660,
+            "watchers": 10715,
+            "watchers_count": 10715,
             "web_commit_signoff_required": false
         },
-        "sha": "5cb82b0f3f358664c8c12b1d045d73722cb404b0",
+        "sha": "a2e0068645c68e355ce80746a895cb65deabeda2",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -1019,7 +1019,7 @@
             },
             "author_association": "MEMBER",
             "body": "This `None` seems a bit dubious to me. It works and is designed to work, but I wonder if there's a better way.",
-            "commit_id": "fd008b1697d098503a024fc1347a1bd4fa44cd07",
+            "commit_id": "f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
             "created_at": "2025-12-24T11:50:27Z",
             "diff_hunk": "@@ -51,15 +54,16 @@ def refactor_cases(self):\n             if c is not None and c.is_simple_value_comparison():\n                 body = SubstitutedIfStatListNode(\n                     c.body.pos,\n-                    stats = c.body.stats,\n-                    match_node = self\n+                    stats=c.body.stats,\n+                    match_node=self\n                 )\n                 if_clause = Nodes.IfClauseNode(\n                     c.pos,\n                     condition=c.pattern.get_simple_comparison_node(subject),\n                     body=body,\n                 )\n-                assignments = c.pattern.generate_target_assignments(subject)\n+                # Passing None for env is safe only because we know it's a simple value comparison.\n+                assignments = c.pattern.generate_target_assignments(subject, None)",
             "html_url": "https://github.com/cython/cython/pull/7430#discussion_r2645521916",
@@ -1434,7 +1434,7 @@
             },
             "author_association": "MEMBER",
             "body": "Since the feature check is supposedly quite quick, we could still check for it in older Python versions and if it's set, return immediately. We allow setting it from Cython now, so it's at least not impossible that it's used.\n\nAlso, shouldn't we always be doing the check in the Limited API? We won't know the Python version upfront there.",
-            "commit_id": "fd008b1697d098503a024fc1347a1bd4fa44cd07",
+            "commit_id": "f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
             "created_at": "2026-03-07T06:10:29Z",
             "diff_hunk": "@@ -0,0 +1,386 @@\n+///////////////////////////// ABCCheck //////////////////////////////\n+\n+#if PY_VERSION_HEX < 0x030A0000 || CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+static CYTHON_INLINE int __Pyx_MatchCase_IsExactSequence(PyObject *o) {\n+    // is one of the small list of builtin types known to be a sequence\n+    if (PyList_CheckExact(o) || PyTuple_CheckExact(o) ||\n+            Py_IS_TYPE(o, &PyRange_Type) || Py_IS_TYPE(o, &PyMemoryView_Type)) {\n+        // Use exact type match for these checks. In in the event of inheritance we need to make sure\n+        // that it isn't a mapping too\n+        return 1;\n+    }\n+    return 0;\n+}\n+\n+static CYTHON_INLINE int __Pyx_MatchCase_IsExactMapping(PyObject *o) {\n+    // Py_Dict is the only regularly used mapping type\n+    // \"types.MappingProxyType\" also exists but is correctly covered by\n+    // the isinstance(o, Mapping) check\n+    return PyDict_CheckExact(o);\n+}\n+\n+static int __Pyx_MatchCase_IsExactNeitherSequenceNorMapping(PyObject *o) {\n+    if (PyByteArray_Check(o) || PyBytes_Check(o) || PyUnicode_Check(o)) {\n+        return 1;  // these types are deliberately excluded from the sequence test\n+            // even though they look like sequences for most other purposes.\n+            // Leave them as inexact checks since they do pass\n+            // \"isinstance(o, collections.abc.Sequence)\" so it's very hard to\n+            // reason about their subclasses\n+    }\n+    if (o == Py_None || PyLong_CheckExact(o) || PyFloat_CheckExact(o)) {\n+        return 1;\n+    }\n+\n+    return 0;\n+}\n+\n+// sequence_mapping_temp: For Python 3.10 testing sequences and mappings are\n+// really quick and this is ignored. For lower versions of Python they're\n+// slow, especially in the \"fail\" case.\n+// Therefore, we store an int temp to avoid duplicating tests.\n+// The bits of it in order are:\n+//  0. definitely a sequence\n+//  1. definitely a mapping\n+//     - note that both of the above and be true when\n+//        the type is registered with both abc types (not via inheritance)\n+//       and in this case we return true for both IsSequence or IsMapping\n+//       (which seems like the best handling of an ambiguous situation)\n+//  2. definitely not a sequence\n+//  3. definitely not a mapping\n+\n+#define __PYX_DEFINITELY_SEQUENCE_FLAG 1U\n+#define __PYX_DEFINITELY_MAPPING_FLAG (1U<<1)\n+#define __PYX_DEFINITELY_NOT_SEQUENCE_FLAG (1U<<2)\n+#define __PYX_DEFINITELY_NOT_MAPPING_FLAG (1U<<3)\n+#define __PYX_SEQUENCE_MAPPING_ERROR (1U<<4)  // only used by the ABCCheck function\n+\n+static int __Pyx_MatchCase_InitAbcType(PyObject *abc_module, PyObject **abc_type, PyObject *name) {\n+    if (*abc_type) return 0;\n+    *abc_type = PyObject_GetAttr(abc_module, name);\n+    return *abc_type ? 0 : -1;\n+}\n+\n+// the result is defined using the specification for sequence_mapping_temp\n+// (detailed in \"is_sequence\")\n+static unsigned int __Pyx_MatchCase_ABCCheck(PyObject *o, int sequence_first, int definitely_not_sequence, int definitely_not_mapping) {\n+    // in Python 3.10 objects can have their sequence bit set or their mapping bit set\n+    // but not both. Practically this translates to \"which type is registered first\".\n+    // In Python < 3.10 we can only determine this if they're direct bases (by looking\n+    // at the MRO order). If they're registered manually then we can't tell\n+\n+    PyObject *abc_module=NULL, *sequence_type=NULL, *mapping_type=NULL;\n+    PyObject *mro;\n+    int sequence_result=0, mapping_result=0;\n+    unsigned int result = 0;\n+\n+    abc_module = PyImport_ImportModule(\"collections.abc\");\n+    if (!abc_module) {\n+        return __PYX_SEQUENCE_MAPPING_ERROR;\n+    }\n+    if (sequence_first) {\n+        if (definitely_not_sequence) {\n+            result = __PYX_DEFINITELY_NOT_SEQUENCE_FLAG;\n+            goto end;\n+        }\n+        if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &sequence_type, PYIDENT(\"Sequence\")) == -1)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        }\n+        sequence_result = PyObject_IsInstance(o, sequence_type);\n+        if (unlikely(sequence_result < 0)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (sequence_result == 0) {\n+            result = __PYX_DEFINITELY_NOT_SEQUENCE_FLAG;\n+            goto end;\n+        }\n+        // else wait to see what mapping is\n+    }\n+    if (!definitely_not_mapping) {\n+        if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &mapping_type, PYIDENT(\"Mapping\")) == -1)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        }\n+        mapping_result = PyObject_IsInstance(o, mapping_type);\n+        if (mapping_result < 0) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (mapping_result == 0) {\n+            result |= __PYX_DEFINITELY_NOT_MAPPING_FLAG;\n+            if (sequence_first) {\n+                assert(sequence_result);\n+                result |= __PYX_DEFINITELY_SEQUENCE_FLAG;\n+            }\n+            goto end;\n+        } else /* mapping_result == 1 */ {\n+            if (sequence_first && !sequence_result) {\n+                result |= __PYX_DEFINITELY_MAPPING_FLAG;\n+                goto end;\n+            }\n+        }\n+    }\n+    if (!sequence_first) {\n+        // here we know mapping_result is true because we'd have returned otherwise\n+        assert(mapping_result);\n+        if (!definitely_not_sequence) {\n+            if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &sequence_type, PYIDENT(\"Sequence\")) == -1)) {\n+                result = __PYX_SEQUENCE_MAPPING_ERROR;\n+                goto end;\n+            }\n+            sequence_result = PyObject_IsInstance(o, sequence_type);\n+        }\n+        if (unlikely(sequence_result < 0)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (sequence_result == 0) {\n+            result |= (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG);\n+            goto end;\n+        } /* else sequence_result == 1, continue to check both */\n+    }\n+\n+    // It's an instance of both types. Look up the MRO order.\n+    // In event of failure treat it as \"could be either\"\n+    result = __PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG;\n+    mro = PyObject_GetAttrString((PyObject*)Py_TYPE(o), \"__mro__\");\n+    Py_ssize_t i, mro_size;\n+    if (!mro) {\n+        PyErr_Clear();\n+        goto end;\n+    }\n+    if (!PyTuple_Check(mro)) {\n+        Py_DECREF(mro);\n+        goto end;\n+    }\n+    mro_size = __Pyx_PyTuple_GET_SIZE(mro);\n+#if !CYTHON_ASSUME_SAFE_SIZE\n+    if (unlikely(mro_size == -1)) {\n+        goto loop_error;\n+    }\n+#endif\n+    for (i=1; i < mro_size; ++i) {\n+        int is_subclass_sequence, is_subclass_mapping;\n+        PyObject *mro_item = __Pyx_PyTuple_GET_ITEM(mro, i);\n+#if !CYTHON_ASSUME_SAFE_MACROS\n+        if (unlikely(!mro_item)) goto loop_error;\n+#endif\n+        is_subclass_sequence = PyObject_IsSubclass(mro_item, sequence_type);\n+        if (is_subclass_sequence < 0) goto loop_error;\n+        is_subclass_mapping = PyObject_IsSubclass(mro_item, mapping_type);\n+        if (is_subclass_mapping < 0) goto loop_error;\n+        if (is_subclass_sequence && !is_subclass_mapping) {\n+            result = (__PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_NOT_MAPPING_FLAG);\n+            break;\n+        } else if (is_subclass_mapping && !is_subclass_sequence) {\n+            result = (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG);\n+            break;\n+        }\n+    }\n+    // If we get to the end of the loop without breaking then neither type is in\n+    // the MRO, so they've both been registered manually. We don't know which was\n+    // registered first so accept the object as either as a compromise\n+    if (0) {\n+        loop_error:\n+        PyErr_Clear();\n+    }\n+    Py_DECREF(mro);\n+\n+    end:\n+    Py_XDECREF(abc_module);\n+    Py_XDECREF(sequence_type);\n+    Py_XDECREF(mapping_type);\n+    return result;\n+}\n+#endif\n+\n+///////////////////////////// IsSequence.proto //////////////////////\n+\n+static int __Pyx_MatchCase_IsSequence(PyObject *o, unsigned int *sequence_mapping_temp); /* proto */\n+\n+//////////////////////////// IsSequence /////////////////////////\n+//@requires: ABCCheck\n+\n+static int __Pyx_MatchCase_IsSequence(PyObject *o, unsigned int *sequence_mapping_temp) {\n+#if PY_VERSION_HEX >= 0x030A0000 && !(CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY)\n+    return __Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_SEQUENCE);\n+#else\n+    // Py_TPFLAGS_SEQUENCE doesn't exit.",
             "html_url": "https://github.com/cython/cython/pull/7430#discussion_r2899084123",
@@ -2401,7 +2401,7 @@
             },
             "author_association": "MEMBER",
             "body": "`Py_TPFLAGS_SEQUENCE` was deliberately not added to the Limited API so the check isn't supposed to be possible there.\n\nHowever, there is a runtime source of the flag available. I think that might be worthwhile so I'll add that in.",
-            "commit_id": "fd008b1697d098503a024fc1347a1bd4fa44cd07",
+            "commit_id": "f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
             "created_at": "2026-03-07T09:26:18Z",
             "diff_hunk": "@@ -0,0 +1,386 @@\n+///////////////////////////// ABCCheck //////////////////////////////\n+\n+#if PY_VERSION_HEX < 0x030A0000 || CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+static CYTHON_INLINE int __Pyx_MatchCase_IsExactSequence(PyObject *o) {\n+    // is one of the small list of builtin types known to be a sequence\n+    if (PyList_CheckExact(o) || PyTuple_CheckExact(o) ||\n+            Py_IS_TYPE(o, &PyRange_Type) || Py_IS_TYPE(o, &PyMemoryView_Type)) {\n+        // Use exact type match for these checks. In in the event of inheritance we need to make sure\n+        // that it isn't a mapping too\n+        return 1;\n+    }\n+    return 0;\n+}\n+\n+static CYTHON_INLINE int __Pyx_MatchCase_IsExactMapping(PyObject *o) {\n+    // Py_Dict is the only regularly used mapping type\n+    // \"types.MappingProxyType\" also exists but is correctly covered by\n+    // the isinstance(o, Mapping) check\n+    return PyDict_CheckExact(o);\n+}\n+\n+static int __Pyx_MatchCase_IsExactNeitherSequenceNorMapping(PyObject *o) {\n+    if (PyByteArray_Check(o) || PyBytes_Check(o) || PyUnicode_Check(o)) {\n+        return 1;  // these types are deliberately excluded from the sequence test\n+            // even though they look like sequences for most other purposes.\n+            // Leave them as inexact checks since they do pass\n+            // \"isinstance(o, collections.abc.Sequence)\" so it's very hard to\n+            // reason about their subclasses\n+    }\n+    if (o == Py_None || PyLong_CheckExact(o) || PyFloat_CheckExact(o)) {\n+        return 1;\n+    }\n+\n+    return 0;\n+}\n+\n+// sequence_mapping_temp: For Python 3.10 testing sequences and mappings are\n+// really quick and this is ignored. For lower versions of Python they're\n+// slow, especially in the \"fail\" case.\n+// Therefore, we store an int temp to avoid duplicating tests.\n+// The bits of it in order are:\n+//  0. definitely a sequence\n+//  1. definitely a mapping\n+//     - note that both of the above and be true when\n+//        the type is registered with both abc types (not via inheritance)\n+//       and in this case we return true for both IsSequence or IsMapping\n+//       (which seems like the best handling of an ambiguous situation)\n+//  2. definitely not a sequence\n+//  3. definitely not a mapping\n+\n+#define __PYX_DEFINITELY_SEQUENCE_FLAG 1U\n+#define __PYX_DEFINITELY_MAPPING_FLAG (1U<<1)\n+#define __PYX_DEFINITELY_NOT_SEQUENCE_FLAG (1U<<2)\n+#define __PYX_DEFINITELY_NOT_MAPPING_FLAG (1U<<3)\n+#define __PYX_SEQUENCE_MAPPING_ERROR (1U<<4)  // only used by the ABCCheck function\n+\n+static int __Pyx_MatchCase_InitAbcType(PyObject *abc_module, PyObject **abc_type, PyObject *name) {\n+    if (*abc_type) return 0;\n+    *abc_type = PyObject_GetAttr(abc_module, name);\n+    return *abc_type ? 0 : -1;\n+}\n+\n+// the result is defined using the specification for sequence_mapping_temp\n+// (detailed in \"is_sequence\")\n+static unsigned int __Pyx_MatchCase_ABCCheck(PyObject *o, int sequence_first, int definitely_not_sequence, int definitely_not_mapping) {\n+    // in Python 3.10 objects can have their sequence bit set or their mapping bit set\n+    // but not both. Practically this translates to \"which type is registered first\".\n+    // In Python < 3.10 we can only determine this if they're direct bases (by looking\n+    // at the MRO order). If they're registered manually then we can't tell\n+\n+    PyObject *abc_module=NULL, *sequence_type=NULL, *mapping_type=NULL;\n+    PyObject *mro;\n+    int sequence_result=0, mapping_result=0;\n+    unsigned int result = 0;\n+\n+    abc_module = PyImport_ImportModule(\"collections.abc\");\n+    if (!abc_module) {\n+        return __PYX_SEQUENCE_MAPPING_ERROR;\n+    }\n+    if (sequence_first) {\n+        if (definitely_not_sequence) {\n+            result = __PYX_DEFINITELY_NOT_SEQUENCE_FLAG;\n+            goto end;\n+        }\n+        if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &sequence_type, PYIDENT(\"Sequence\")) == -1)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        }\n+        sequence_result = PyObject_IsInstance(o, sequence_type);\n+        if (unlikely(sequence_result < 0)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (sequence_result == 0) {\n+            result = __PYX_DEFINITELY_NOT_SEQUENCE_FLAG;\n+            goto end;\n+        }\n+        // else wait to see what mapping is\n+    }\n+    if (!definitely_not_mapping) {\n+        if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &mapping_type, PYIDENT(\"Mapping\")) == -1)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        }\n+        mapping_result = PyObject_IsInstance(o, mapping_type);\n+        if (mapping_result < 0) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (mapping_result == 0) {\n+            result |= __PYX_DEFINITELY_NOT_MAPPING_FLAG;\n+            if (sequence_first) {\n+                assert(sequence_result);\n+                result |= __PYX_DEFINITELY_SEQUENCE_FLAG;\n+            }\n+            goto end;\n+        } else /* mapping_result == 1 */ {\n+            if (sequence_first && !sequence_result) {\n+                result |= __PYX_DEFINITELY_MAPPING_FLAG;\n+                goto end;\n+            }\n+        }\n+    }\n+    if (!sequence_first) {\n+        // here we know mapping_result is true because we'd have returned otherwise\n+        assert(mapping_result);\n+        if (!definitely_not_sequence) {\n+            if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &sequence_type, PYIDENT(\"Sequence\")) == -1)) {\n+                result = __PYX_SEQUENCE_MAPPING_ERROR;\n+                goto end;\n+            }\n+            sequence_result = PyObject_IsInstance(o, sequence_type);\n+        }\n+        if (unlikely(sequence_result < 0)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (sequence_result == 0) {\n+            result |= (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG);\n+            goto end;\n+        } /* else sequence_result == 1, continue to check both */\n+    }\n+\n+    // It's an instance of both types. Look up the MRO order.\n+    // In event of failure treat it as \"could be either\"\n+    result = __PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG;\n+    mro = PyObject_GetAttrString((PyObject*)Py_TYPE(o), \"__mro__\");\n+    Py_ssize_t i, mro_size;\n+    if (!mro) {\n+        PyErr_Clear();\n+        goto end;\n+    }\n+    if (!PyTuple_Check(mro)) {\n+        Py_DECREF(mro);\n+        goto end;\n+    }\n+    mro_size = __Pyx_PyTuple_GET_SIZE(mro);\n+#if !CYTHON_ASSUME_SAFE_SIZE\n+    if (unlikely(mro_size == -1)) {\n+        goto loop_error;\n+    }\n+#endif\n+    for (i=1; i < mro_size; ++i) {\n+        int is_subclass_sequence, is_subclass_mapping;\n+        PyObject *mro_item = __Pyx_PyTuple_GET_ITEM(mro, i);\n+#if !CYTHON_ASSUME_SAFE_MACROS\n+        if (unlikely(!mro_item)) goto loop_error;\n+#endif\n+        is_subclass_sequence = PyObject_IsSubclass(mro_item, sequence_type);\n+        if (is_subclass_sequence < 0) goto loop_error;\n+        is_subclass_mapping = PyObject_IsSubclass(mro_item, mapping_type);\n+        if (is_subclass_mapping < 0) goto loop_error;\n+        if (is_subclass_sequence && !is_subclass_mapping) {\n+            result = (__PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_NOT_MAPPING_FLAG);\n+            break;\n+        } else if (is_subclass_mapping && !is_subclass_sequence) {\n+            result = (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG);\n+            break;\n+        }\n+    }\n+    // If we get to the end of the loop without breaking then neither type is in\n+    // the MRO, so they've both been registered manually. We don't know which was\n+    // registered first so accept the object as either as a compromise\n+    if (0) {\n+        loop_error:\n+        PyErr_Clear();\n+    }\n+    Py_DECREF(mro);\n+\n+    end:\n+    Py_XDECREF(abc_module);\n+    Py_XDECREF(sequence_type);\n+    Py_XDECREF(mapping_type);\n+    return result;\n+}\n+#endif\n+\n+///////////////////////////// IsSequence.proto //////////////////////\n+\n+static int __Pyx_MatchCase_IsSequence(PyObject *o, unsigned int *sequence_mapping_temp); /* proto */\n+\n+//////////////////////////// IsSequence /////////////////////////\n+//@requires: ABCCheck\n+\n+static int __Pyx_MatchCase_IsSequence(PyObject *o, unsigned int *sequence_mapping_temp) {\n+#if PY_VERSION_HEX >= 0x030A0000 && !(CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY)\n+    return __Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_SEQUENCE);\n+#else\n+    // Py_TPFLAGS_SEQUENCE doesn't exit.",
             "html_url": "https://github.com/cython/cython/pull/7430#discussion_r2899393380",
@@ -2471,12 +2471,12 @@
             },
             "author_association": "MEMBER",
             "body": "This (and the other changes in ModuleSetupCode.c) are new and should let us do fairly quick checks at runtime on recent versions of Python.\n\nI decided it wasn't ultra-simple to apply them to the indexing code so I haven't done that here. It might be worth a look at some point though.\n\nOr it might be worth moving this to a separate block of utility code and including this only on demand instead of universally.",
-            "commit_id": "fd008b1697d098503a024fc1347a1bd4fa44cd07",
+            "commit_id": "f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
             "created_at": "2026-03-07T11:13:48Z",
             "diff_hunk": "@@ -760,6 +760,19 @@ static int __Pyx_init_co_variables(void); /* proto */\n   #define __Pyx_PyObject_GC_IsFinalized(o) PyObject_GC_IsFinalized(o)\n #endif\n \n+#if CYTHON_COMPILING_IN_LIMITED_API",
             "html_url": "https://github.com/cython/cython/pull/7430#discussion_r2899530402",
             "id": 2899530402,
-            "line": 763,
+            "line": 734,
             "node_id": "PRRC_kwDOABDGAc6s01Ki",
             "original_commit_id": "f1e4ce774527855c92fd72de7b12544b70232c01",
             "original_line": 763,
@@ -2540,7 +2540,7 @@
             },
             "author_association": "MEMBER",
             "body": "I was going to write that we know the macro value and can probably still read the feature flag through the Limited API function, but that might not apply to other implementations of the Limited API. Still a hypothetical issue at this time, though, since there's only CPython that has an implementation.\r\n\r\nDid you try asking the `HasFeature` function in the Limited API for the feature? I wouldn't mind taking that route, maybe restricted to CPython's Limited API implementation (if we can detect that).",
-            "commit_id": "fd008b1697d098503a024fc1347a1bd4fa44cd07",
+            "commit_id": "f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
             "created_at": "2026-03-07T20:08:28Z",
             "diff_hunk": "@@ -0,0 +1,386 @@\n+///////////////////////////// ABCCheck //////////////////////////////\n+\n+#if PY_VERSION_HEX < 0x030A0000 || CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+static CYTHON_INLINE int __Pyx_MatchCase_IsExactSequence(PyObject *o) {\n+    // is one of the small list of builtin types known to be a sequence\n+    if (PyList_CheckExact(o) || PyTuple_CheckExact(o) ||\n+            Py_IS_TYPE(o, &PyRange_Type) || Py_IS_TYPE(o, &PyMemoryView_Type)) {\n+        // Use exact type match for these checks. In in the event of inheritance we need to make sure\n+        // that it isn't a mapping too\n+        return 1;\n+    }\n+    return 0;\n+}\n+\n+static CYTHON_INLINE int __Pyx_MatchCase_IsExactMapping(PyObject *o) {\n+    // Py_Dict is the only regularly used mapping type\n+    // \"types.MappingProxyType\" also exists but is correctly covered by\n+    // the isinstance(o, Mapping) check\n+    return PyDict_CheckExact(o);\n+}\n+\n+static int __Pyx_MatchCase_IsExactNeitherSequenceNorMapping(PyObject *o) {\n+    if (PyByteArray_Check(o) || PyBytes_Check(o) || PyUnicode_Check(o)) {\n+        return 1;  // these types are deliberately excluded from the sequence test\n+            // even though they look like sequences for most other purposes.\n+            // Leave them as inexact checks since they do pass\n+            // \"isinstance(o, collections.abc.Sequence)\" so it's very hard to\n+            // reason about their subclasses\n+    }\n+    if (o == Py_None || PyLong_CheckExact(o) || PyFloat_CheckExact(o)) {\n+        return 1;\n+    }\n+\n+    return 0;\n+}\n+\n+// sequence_mapping_temp: For Python 3.10 testing sequences and mappings are\n+// really quick and this is ignored. For lower versions of Python they're\n+// slow, especially in the \"fail\" case.\n+// Therefore, we store an int temp to avoid duplicating tests.\n+// The bits of it in order are:\n+//  0. definitely a sequence\n+//  1. definitely a mapping\n+//     - note that both of the above and be true when\n+//        the type is registered with both abc types (not via inheritance)\n+//       and in this case we return true for both IsSequence or IsMapping\n+//       (which seems like the best handling of an ambiguous situation)\n+//  2. definitely not a sequence\n+//  3. definitely not a mapping\n+\n+#define __PYX_DEFINITELY_SEQUENCE_FLAG 1U\n+#define __PYX_DEFINITELY_MAPPING_FLAG (1U<<1)\n+#define __PYX_DEFINITELY_NOT_SEQUENCE_FLAG (1U<<2)\n+#define __PYX_DEFINITELY_NOT_MAPPING_FLAG (1U<<3)\n+#define __PYX_SEQUENCE_MAPPING_ERROR (1U<<4)  // only used by the ABCCheck function\n+\n+static int __Pyx_MatchCase_InitAbcType(PyObject *abc_module, PyObject **abc_type, PyObject *name) {\n+    if (*abc_type) return 0;\n+    *abc_type = PyObject_GetAttr(abc_module, name);\n+    return *abc_type ? 0 : -1;\n+}\n+\n+// the result is defined using the specification for sequence_mapping_temp\n+// (detailed in \"is_sequence\")\n+static unsigned int __Pyx_MatchCase_ABCCheck(PyObject *o, int sequence_first, int definitely_not_sequence, int definitely_not_mapping) {\n+    // in Python 3.10 objects can have their sequence bit set or their mapping bit set\n+    // but not both. Practically this translates to \"which type is registered first\".\n+    // In Python < 3.10 we can only determine this if they're direct bases (by looking\n+    // at the MRO order). If they're registered manually then we can't tell\n+\n+    PyObject *abc_module=NULL, *sequence_type=NULL, *mapping_type=NULL;\n+    PyObject *mro;\n+    int sequence_result=0, mapping_result=0;\n+    unsigned int result = 0;\n+\n+    abc_module = PyImport_ImportModule(\"collections.abc\");\n+    if (!abc_module) {\n+        return __PYX_SEQUENCE_MAPPING_ERROR;\n+    }\n+    if (sequence_first) {\n+        if (definitely_not_sequence) {\n+            result = __PYX_DEFINITELY_NOT_SEQUENCE_FLAG;\n+            goto end;\n+        }\n+        if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &sequence_type, PYIDENT(\"Sequence\")) == -1)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        }\n+        sequence_result = PyObject_IsInstance(o, sequence_type);\n+        if (unlikely(sequence_result < 0)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (sequence_result == 0) {\n+            result = __PYX_DEFINITELY_NOT_SEQUENCE_FLAG;\n+            goto end;\n+        }\n+        // else wait to see what mapping is\n+    }\n+    if (!definitely_not_mapping) {\n+        if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &mapping_type, PYIDENT(\"Mapping\")) == -1)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        }\n+        mapping_result = PyObject_IsInstance(o, mapping_type);\n+        if (mapping_result < 0) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (mapping_result == 0) {\n+            result |= __PYX_DEFINITELY_NOT_MAPPING_FLAG;\n+            if (sequence_first) {\n+                assert(sequence_result);\n+                result |= __PYX_DEFINITELY_SEQUENCE_FLAG;\n+            }\n+            goto end;\n+        } else /* mapping_result == 1 */ {\n+            if (sequence_first && !sequence_result) {\n+                result |= __PYX_DEFINITELY_MAPPING_FLAG;\n+                goto end;\n+            }\n+        }\n+    }\n+    if (!sequence_first) {\n+        // here we know mapping_result is true because we'd have returned otherwise\n+        assert(mapping_result);\n+        if (!definitely_not_sequence) {\n+            if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &sequence_type, PYIDENT(\"Sequence\")) == -1)) {\n+                result = __PYX_SEQUENCE_MAPPING_ERROR;\n+                goto end;\n+            }\n+            sequence_result = PyObject_IsInstance(o, sequence_type);\n+        }\n+        if (unlikely(sequence_result < 0)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (sequence_result == 0) {\n+            result |= (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG);\n+            goto end;\n+        } /* else sequence_result == 1, continue to check both */\n+    }\n+\n+    // It's an instance of both types. Look up the MRO order.\n+    // In event of failure treat it as \"could be either\"\n+    result = __PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG;\n+    mro = PyObject_GetAttrString((PyObject*)Py_TYPE(o), \"__mro__\");\n+    Py_ssize_t i, mro_size;\n+    if (!mro) {\n+        PyErr_Clear();\n+        goto end;\n+    }\n+    if (!PyTuple_Check(mro)) {\n+        Py_DECREF(mro);\n+        goto end;\n+    }\n+    mro_size = __Pyx_PyTuple_GET_SIZE(mro);\n+#if !CYTHON_ASSUME_SAFE_SIZE\n+    if (unlikely(mro_size == -1)) {\n+        goto loop_error;\n+    }\n+#endif\n+    for (i=1; i < mro_size; ++i) {\n+        int is_subclass_sequence, is_subclass_mapping;\n+        PyObject *mro_item = __Pyx_PyTuple_GET_ITEM(mro, i);\n+#if !CYTHON_ASSUME_SAFE_MACROS\n+        if (unlikely(!mro_item)) goto loop_error;\n+#endif\n+        is_subclass_sequence = PyObject_IsSubclass(mro_item, sequence_type);\n+        if (is_subclass_sequence < 0) goto loop_error;\n+        is_subclass_mapping = PyObject_IsSubclass(mro_item, mapping_type);\n+        if (is_subclass_mapping < 0) goto loop_error;\n+        if (is_subclass_sequence && !is_subclass_mapping) {\n+            result = (__PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_NOT_MAPPING_FLAG);\n+            break;\n+        } else if (is_subclass_mapping && !is_subclass_sequence) {\n+            result = (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG);\n+            break;\n+        }\n+    }\n+    // If we get to the end of the loop without breaking then neither type is in\n+    // the MRO, so they've both been registered manually. We don't know which was\n+    // registered first so accept the object as either as a compromise\n+    if (0) {\n+        loop_error:\n+        PyErr_Clear();\n+    }\n+    Py_DECREF(mro);\n+\n+    end:\n+    Py_XDECREF(abc_module);\n+    Py_XDECREF(sequence_type);\n+    Py_XDECREF(mapping_type);\n+    return result;\n+}\n+#endif\n+\n+///////////////////////////// IsSequence.proto //////////////////////\n+\n+static int __Pyx_MatchCase_IsSequence(PyObject *o, unsigned int *sequence_mapping_temp); /* proto */\n+\n+//////////////////////////// IsSequence /////////////////////////\n+//@requires: ABCCheck\n+\n+static int __Pyx_MatchCase_IsSequence(PyObject *o, unsigned int *sequence_mapping_temp) {\n+#if PY_VERSION_HEX >= 0x030A0000 && !(CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY)\n+    return __Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_SEQUENCE);\n+#else\n+    // Py_TPFLAGS_SEQUENCE doesn't exit.",
             "html_url": "https://github.com/cython/cython/pull/7430#discussion_r2900429705",
@@ -2749,7 +2749,7 @@
             },
             "author_association": "MEMBER",
             "body": "> Still a hypothetical issue at this time, though, since there's only CPython that has an implementation.\r\n\r\nI think GraalPy has an ambition to implement it. But hasn't done so yet.\r\n\r\n> I was going to write that we know the macro value and can probably still read the feature flag through the Limited API function, but that might not apply to other implementations of the Limited API.\r\n\r\nI think in principle CPython could argue that they could change the flag to be a different number in a future Python version. We all know they probably won't. But I'm trying to be nice and respect the flexibility that they're trying to give themselves.",
-            "commit_id": "fd008b1697d098503a024fc1347a1bd4fa44cd07",
+            "commit_id": "f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
             "created_at": "2026-03-07T20:17:24Z",
             "diff_hunk": "@@ -0,0 +1,386 @@\n+///////////////////////////// ABCCheck //////////////////////////////\n+\n+#if PY_VERSION_HEX < 0x030A0000 || CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+static CYTHON_INLINE int __Pyx_MatchCase_IsExactSequence(PyObject *o) {\n+    // is one of the small list of builtin types known to be a sequence\n+    if (PyList_CheckExact(o) || PyTuple_CheckExact(o) ||\n+            Py_IS_TYPE(o, &PyRange_Type) || Py_IS_TYPE(o, &PyMemoryView_Type)) {\n+        // Use exact type match for these checks. In in the event of inheritance we need to make sure\n+        // that it isn't a mapping too\n+        return 1;\n+    }\n+    return 0;\n+}\n+\n+static CYTHON_INLINE int __Pyx_MatchCase_IsExactMapping(PyObject *o) {\n+    // Py_Dict is the only regularly used mapping type\n+    // \"types.MappingProxyType\" also exists but is correctly covered by\n+    // the isinstance(o, Mapping) check\n+    return PyDict_CheckExact(o);\n+}\n+\n+static int __Pyx_MatchCase_IsExactNeitherSequenceNorMapping(PyObject *o) {\n+    if (PyByteArray_Check(o) || PyBytes_Check(o) || PyUnicode_Check(o)) {\n+        return 1;  // these types are deliberately excluded from the sequence test\n+            // even though they look like sequences for most other purposes.\n+            // Leave them as inexact checks since they do pass\n+            // \"isinstance(o, collections.abc.Sequence)\" so it's very hard to\n+            // reason about their subclasses\n+    }\n+    if (o == Py_None || PyLong_CheckExact(o) || PyFloat_CheckExact(o)) {\n+        return 1;\n+    }\n+\n+    return 0;\n+}\n+\n+// sequence_mapping_temp: For Python 3.10 testing sequences and mappings are\n+// really quick and this is ignored. For lower versions of Python they're\n+// slow, especially in the \"fail\" case.\n+// Therefore, we store an int temp to avoid duplicating tests.\n+// The bits of it in order are:\n+//  0. definitely a sequence\n+//  1. definitely a mapping\n+//     - note that both of the above and be true when\n+//        the type is registered with both abc types (not via inheritance)\n+//       and in this case we return true for both IsSequence or IsMapping\n+//       (which seems like the best handling of an ambiguous situation)\n+//  2. definitely not a sequence\n+//  3. definitely not a mapping\n+\n+#define __PYX_DEFINITELY_SEQUENCE_FLAG 1U\n+#define __PYX_DEFINITELY_MAPPING_FLAG (1U<<1)\n+#define __PYX_DEFINITELY_NOT_SEQUENCE_FLAG (1U<<2)\n+#define __PYX_DEFINITELY_NOT_MAPPING_FLAG (1U<<3)\n+#define __PYX_SEQUENCE_MAPPING_ERROR (1U<<4)  // only used by the ABCCheck function\n+\n+static int __Pyx_MatchCase_InitAbcType(PyObject *abc_module, PyObject **abc_type, PyObject *name) {\n+    if (*abc_type) return 0;\n+    *abc_type = PyObject_GetAttr(abc_module, name);\n+    return *abc_type ? 0 : -1;\n+}\n+\n+// the result is defined using the specification for sequence_mapping_temp\n+// (detailed in \"is_sequence\")\n+static unsigned int __Pyx_MatchCase_ABCCheck(PyObject *o, int sequence_first, int definitely_not_sequence, int definitely_not_mapping) {\n+    // in Python 3.10 objects can have their sequence bit set or their mapping bit set\n+    // but not both. Practically this translates to \"which type is registered first\".\n+    // In Python < 3.10 we can only determine this if they're direct bases (by looking\n+    // at the MRO order). If they're registered manually then we can't tell\n+\n+    PyObject *abc_module=NULL, *sequence_type=NULL, *mapping_type=NULL;\n+    PyObject *mro;\n+    int sequence_result=0, mapping_result=0;\n+    unsigned int result = 0;\n+\n+    abc_module = PyImport_ImportModule(\"collections.abc\");\n+    if (!abc_module) {\n+        return __PYX_SEQUENCE_MAPPING_ERROR;\n+    }\n+    if (sequence_first) {\n+        if (definitely_not_sequence) {\n+            result = __PYX_DEFINITELY_NOT_SEQUENCE_FLAG;\n+            goto end;\n+        }\n+        if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &sequence_type, PYIDENT(\"Sequence\")) == -1)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        }\n+        sequence_result = PyObject_IsInstance(o, sequence_type);\n+        if (unlikely(sequence_result < 0)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (sequence_result == 0) {\n+            result = __PYX_DEFINITELY_NOT_SEQUENCE_FLAG;\n+            goto end;\n+        }\n+        // else wait to see what mapping is\n+    }\n+    if (!definitely_not_mapping) {\n+        if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &mapping_type, PYIDENT(\"Mapping\")) == -1)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        }\n+        mapping_result = PyObject_IsInstance(o, mapping_type);\n+        if (mapping_result < 0) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (mapping_result == 0) {\n+            result |= __PYX_DEFINITELY_NOT_MAPPING_FLAG;\n+            if (sequence_first) {\n+                assert(sequence_result);\n+                result |= __PYX_DEFINITELY_SEQUENCE_FLAG;\n+            }\n+            goto end;\n+        } else /* mapping_result == 1 */ {\n+            if (sequence_first && !sequence_result) {\n+                result |= __PYX_DEFINITELY_MAPPING_FLAG;\n+                goto end;\n+            }\n+        }\n+    }\n+    if (!sequence_first) {\n+        // here we know mapping_result is true because we'd have returned otherwise\n+        assert(mapping_result);\n+        if (!definitely_not_sequence) {\n+            if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &sequence_type, PYIDENT(\"Sequence\")) == -1)) {\n+                result = __PYX_SEQUENCE_MAPPING_ERROR;\n+                goto end;\n+            }\n+            sequence_result = PyObject_IsInstance(o, sequence_type);\n+        }\n+        if (unlikely(sequence_result < 0)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (sequence_result == 0) {\n+            result |= (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG);\n+            goto end;\n+        } /* else sequence_result == 1, continue to check both */\n+    }\n+\n+    // It's an instance of both types. Look up the MRO order.\n+    // In event of failure treat it as \"could be either\"\n+    result = __PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG;\n+    mro = PyObject_GetAttrString((PyObject*)Py_TYPE(o), \"__mro__\");\n+    Py_ssize_t i, mro_size;\n+    if (!mro) {\n+        PyErr_Clear();\n+        goto end;\n+    }\n+    if (!PyTuple_Check(mro)) {\n+        Py_DECREF(mro);\n+        goto end;\n+    }\n+    mro_size = __Pyx_PyTuple_GET_SIZE(mro);\n+#if !CYTHON_ASSUME_SAFE_SIZE\n+    if (unlikely(mro_size == -1)) {\n+        goto loop_error;\n+    }\n+#endif\n+    for (i=1; i < mro_size; ++i) {\n+        int is_subclass_sequence, is_subclass_mapping;\n+        PyObject *mro_item = __Pyx_PyTuple_GET_ITEM(mro, i);\n+#if !CYTHON_ASSUME_SAFE_MACROS\n+        if (unlikely(!mro_item)) goto loop_error;\n+#endif\n+        is_subclass_sequence = PyObject_IsSubclass(mro_item, sequence_type);\n+        if (is_subclass_sequence < 0) goto loop_error;\n+        is_subclass_mapping = PyObject_IsSubclass(mro_item, mapping_type);\n+        if (is_subclass_mapping < 0) goto loop_error;\n+        if (is_subclass_sequence && !is_subclass_mapping) {\n+            result = (__PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_NOT_MAPPING_FLAG);\n+            break;\n+        } else if (is_subclass_mapping && !is_subclass_sequence) {\n+            result = (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG);\n+            break;\n+        }\n+    }\n+    // If we get to the end of the loop without breaking then neither type is in\n+    // the MRO, so they've both been registered manually. We don't know which was\n+    // registered first so accept the object as either as a compromise\n+    if (0) {\n+        loop_error:\n+        PyErr_Clear();\n+    }\n+    Py_DECREF(mro);\n+\n+    end:\n+    Py_XDECREF(abc_module);\n+    Py_XDECREF(sequence_type);\n+    Py_XDECREF(mapping_type);\n+    return result;\n+}\n+#endif\n+\n+///////////////////////////// IsSequence.proto //////////////////////\n+\n+static int __Pyx_MatchCase_IsSequence(PyObject *o, unsigned int *sequence_mapping_temp); /* proto */\n+\n+//////////////////////////// IsSequence /////////////////////////\n+//@requires: ABCCheck\n+\n+static int __Pyx_MatchCase_IsSequence(PyObject *o, unsigned int *sequence_mapping_temp) {\n+#if PY_VERSION_HEX >= 0x030A0000 && !(CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY)\n+    return __Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_SEQUENCE);\n+#else\n+    // Py_TPFLAGS_SEQUENCE doesn't exit.",
             "html_url": "https://github.com/cython/cython/pull/7430#discussion_r2900443468",
@@ -2819,7 +2819,7 @@
             },
             "author_association": "MEMBER",
             "body": "But I have added the check to the Limited API - just with a value that I've extracted at module import (so it should be robust to any future changes)",
-            "commit_id": "fd008b1697d098503a024fc1347a1bd4fa44cd07",
+            "commit_id": "f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
             "created_at": "2026-03-07T20:18:02Z",
             "diff_hunk": "@@ -0,0 +1,386 @@\n+///////////////////////////// ABCCheck //////////////////////////////\n+\n+#if PY_VERSION_HEX < 0x030A0000 || CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+static CYTHON_INLINE int __Pyx_MatchCase_IsExactSequence(PyObject *o) {\n+    // is one of the small list of builtin types known to be a sequence\n+    if (PyList_CheckExact(o) || PyTuple_CheckExact(o) ||\n+            Py_IS_TYPE(o, &PyRange_Type) || Py_IS_TYPE(o, &PyMemoryView_Type)) {\n+        // Use exact type match for these checks. In in the event of inheritance we need to make sure\n+        // that it isn't a mapping too\n+        return 1;\n+    }\n+    return 0;\n+}\n+\n+static CYTHON_INLINE int __Pyx_MatchCase_IsExactMapping(PyObject *o) {\n+    // Py_Dict is the only regularly used mapping type\n+    // \"types.MappingProxyType\" also exists but is correctly covered by\n+    // the isinstance(o, Mapping) check\n+    return PyDict_CheckExact(o);\n+}\n+\n+static int __Pyx_MatchCase_IsExactNeitherSequenceNorMapping(PyObject *o) {\n+    if (PyByteArray_Check(o) || PyBytes_Check(o) || PyUnicode_Check(o)) {\n+        return 1;  // these types are deliberately excluded from the sequence test\n+            // even though they look like sequences for most other purposes.\n+            // Leave them as inexact checks since they do pass\n+            // \"isinstance(o, collections.abc.Sequence)\" so it's very hard to\n+            // reason about their subclasses\n+    }\n+    if (o == Py_None || PyLong_CheckExact(o) || PyFloat_CheckExact(o)) {\n+        return 1;\n+    }\n+\n+    return 0;\n+}\n+\n+// sequence_mapping_temp: For Python 3.10 testing sequences and mappings are\n+// really quick and this is ignored. For lower versions of Python they're\n+// slow, especially in the \"fail\" case.\n+// Therefore, we store an int temp to avoid duplicating tests.\n+// The bits of it in order are:\n+//  0. definitely a sequence\n+//  1. definitely a mapping\n+//     - note that both of the above and be true when\n+//        the type is registered with both abc types (not via inheritance)\n+//       and in this case we return true for both IsSequence or IsMapping\n+//       (which seems like the best handling of an ambiguous situation)\n+//  2. definitely not a sequence\n+//  3. definitely not a mapping\n+\n+#define __PYX_DEFINITELY_SEQUENCE_FLAG 1U\n+#define __PYX_DEFINITELY_MAPPING_FLAG (1U<<1)\n+#define __PYX_DEFINITELY_NOT_SEQUENCE_FLAG (1U<<2)\n+#define __PYX_DEFINITELY_NOT_MAPPING_FLAG (1U<<3)\n+#define __PYX_SEQUENCE_MAPPING_ERROR (1U<<4)  // only used by the ABCCheck function\n+\n+static int __Pyx_MatchCase_InitAbcType(PyObject *abc_module, PyObject **abc_type, PyObject *name) {\n+    if (*abc_type) return 0;\n+    *abc_type = PyObject_GetAttr(abc_module, name);\n+    return *abc_type ? 0 : -1;\n+}\n+\n+// the result is defined using the specification for sequence_mapping_temp\n+// (detailed in \"is_sequence\")\n+static unsigned int __Pyx_MatchCase_ABCCheck(PyObject *o, int sequence_first, int definitely_not_sequence, int definitely_not_mapping) {\n+    // in Python 3.10 objects can have their sequence bit set or their mapping bit set\n+    // but not both. Practically this translates to \"which type is registered first\".\n+    // In Python < 3.10 we can only determine this if they're direct bases (by looking\n+    // at the MRO order). If they're registered manually then we can't tell\n+\n+    PyObject *abc_module=NULL, *sequence_type=NULL, *mapping_type=NULL;\n+    PyObject *mro;\n+    int sequence_result=0, mapping_result=0;\n+    unsigned int result = 0;\n+\n+    abc_module = PyImport_ImportModule(\"collections.abc\");\n+    if (!abc_module) {\n+        return __PYX_SEQUENCE_MAPPING_ERROR;\n+    }\n+    if (sequence_first) {\n+        if (definitely_not_sequence) {\n+            result = __PYX_DEFINITELY_NOT_SEQUENCE_FLAG;\n+            goto end;\n+        }\n+        if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &sequence_type, PYIDENT(\"Sequence\")) == -1)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        }\n+        sequence_result = PyObject_IsInstance(o, sequence_type);\n+        if (unlikely(sequence_result < 0)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (sequence_result == 0) {\n+            result = __PYX_DEFINITELY_NOT_SEQUENCE_FLAG;\n+            goto end;\n+        }\n+        // else wait to see what mapping is\n+    }\n+    if (!definitely_not_mapping) {\n+        if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &mapping_type, PYIDENT(\"Mapping\")) == -1)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        }\n+        mapping_result = PyObject_IsInstance(o, mapping_type);\n+        if (mapping_result < 0) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (mapping_result == 0) {\n+            result |= __PYX_DEFINITELY_NOT_MAPPING_FLAG;\n+            if (sequence_first) {\n+                assert(sequence_result);\n+                result |= __PYX_DEFINITELY_SEQUENCE_FLAG;\n+            }\n+            goto end;\n+        } else /* mapping_result == 1 */ {\n+            if (sequence_first && !sequence_result) {\n+                result |= __PYX_DEFINITELY_MAPPING_FLAG;\n+                goto end;\n+            }\n+        }\n+    }\n+    if (!sequence_first) {\n+        // here we know mapping_result is true because we'd have returned otherwise\n+        assert(mapping_result);\n+        if (!definitely_not_sequence) {\n+            if (unlikely(__Pyx_MatchCase_InitAbcType(abc_module, &sequence_type, PYIDENT(\"Sequence\")) == -1)) {\n+                result = __PYX_SEQUENCE_MAPPING_ERROR;\n+                goto end;\n+            }\n+            sequence_result = PyObject_IsInstance(o, sequence_type);\n+        }\n+        if (unlikely(sequence_result < 0)) {\n+            result = __PYX_SEQUENCE_MAPPING_ERROR;\n+            goto end;\n+        } else if (sequence_result == 0) {\n+            result |= (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG);\n+            goto end;\n+        } /* else sequence_result == 1, continue to check both */\n+    }\n+\n+    // It's an instance of both types. Look up the MRO order.\n+    // In event of failure treat it as \"could be either\"\n+    result = __PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG;\n+    mro = PyObject_GetAttrString((PyObject*)Py_TYPE(o), \"__mro__\");\n+    Py_ssize_t i, mro_size;\n+    if (!mro) {\n+        PyErr_Clear();\n+        goto end;\n+    }\n+    if (!PyTuple_Check(mro)) {\n+        Py_DECREF(mro);\n+        goto end;\n+    }\n+    mro_size = __Pyx_PyTuple_GET_SIZE(mro);\n+#if !CYTHON_ASSUME_SAFE_SIZE\n+    if (unlikely(mro_size == -1)) {\n+        goto loop_error;\n+    }\n+#endif\n+    for (i=1; i < mro_size; ++i) {\n+        int is_subclass_sequence, is_subclass_mapping;\n+        PyObject *mro_item = __Pyx_PyTuple_GET_ITEM(mro, i);\n+#if !CYTHON_ASSUME_SAFE_MACROS\n+        if (unlikely(!mro_item)) goto loop_error;\n+#endif\n+        is_subclass_sequence = PyObject_IsSubclass(mro_item, sequence_type);\n+        if (is_subclass_sequence < 0) goto loop_error;\n+        is_subclass_mapping = PyObject_IsSubclass(mro_item, mapping_type);\n+        if (is_subclass_mapping < 0) goto loop_error;\n+        if (is_subclass_sequence && !is_subclass_mapping) {\n+            result = (__PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_NOT_MAPPING_FLAG);\n+            break;\n+        } else if (is_subclass_mapping && !is_subclass_sequence) {\n+            result = (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_MAPPING_FLAG);\n+            break;\n+        }\n+    }\n+    // If we get to the end of the loop without breaking then neither type is in\n+    // the MRO, so they've both been registered manually. We don't know which was\n+    // registered first so accept the object as either as a compromise\n+    if (0) {\n+        loop_error:\n+        PyErr_Clear();\n+    }\n+    Py_DECREF(mro);\n+\n+    end:\n+    Py_XDECREF(abc_module);\n+    Py_XDECREF(sequence_type);\n+    Py_XDECREF(mapping_type);\n+    return result;\n+}\n+#endif\n+\n+///////////////////////////// IsSequence.proto //////////////////////\n+\n+static int __Pyx_MatchCase_IsSequence(PyObject *o, unsigned int *sequence_mapping_temp); /* proto */\n+\n+//////////////////////////// IsSequence /////////////////////////\n+//@requires: ABCCheck\n+\n+static int __Pyx_MatchCase_IsSequence(PyObject *o, unsigned int *sequence_mapping_temp) {\n+#if PY_VERSION_HEX >= 0x030A0000 && !(CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY)\n+    return __Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_SEQUENCE);\n+#else\n+    // Py_TPFLAGS_SEQUENCE doesn't exit.",
             "html_url": "https://github.com/cython/cython/pull/7430#discussion_r2900444138",
@@ -18816,6 +18816,175 @@
             ],
             "sha": "fd008b1697d098503a024fc1347a1bd4fa44cd07",
             "url": "https://api.github.com/repos/cython/cython/commits/fd008b1697d098503a024fc1347a1bd4fa44cd07"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/2c186ca210f9ff7cc55db438819e8f24be9a34c3/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-02T08:18:28Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-02T08:18:28Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Merge remote-tracking branch 'real_origin/master' into match-sequence",
+                "tree": {
+                    "sha": "78a8b776e26bec150f5ab95007f0ef1bf3524d63",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/78a8b776e26bec150f5ab95007f0ef1bf3524d63"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/2c186ca210f9ff7cc55db438819e8f24be9a34c3",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/2c186ca210f9ff7cc55db438819e8f24be9a34c3",
+            "node_id": "C_kwDOAhr4b9oAKDJjMTg2Y2EyMTBmOWZmN2NjNTVkYjQzODgxOWU4ZjI0YmU5YTM0YzM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/fd008b1697d098503a024fc1347a1bd4fa44cd07",
+                    "sha": "fd008b1697d098503a024fc1347a1bd4fa44cd07",
+                    "url": "https://api.github.com/repos/cython/cython/commits/fd008b1697d098503a024fc1347a1bd4fa44cd07"
+                },
+                {
+                    "html_url": "https://github.com/cython/cython/commit/a2e0068645c68e355ce80746a895cb65deabeda2",
+                    "sha": "a2e0068645c68e355ce80746a895cb65deabeda2",
+                    "url": "https://api.github.com/repos/cython/cython/commits/a2e0068645c68e355ce80746a895cb65deabeda2"
+                }
+            ],
+            "sha": "2c186ca210f9ff7cc55db438819e8f24be9a34c3",
+            "url": "https://api.github.com/repos/cython/cython/commits/2c186ca210f9ff7cc55db438819e8f24be9a34c3"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/f0065cf43b9a6473fe11ae445e3cfafd23cf7322/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-02T08:30:57Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-02T08:30:57Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Adapt to typecheck changes and moved utility code",
+                "tree": {
+                    "sha": "defdd987f30f143f6d6162e3e39ac61f69cdb6b8",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/defdd987f30f143f6d6162e3e39ac61f69cdb6b8"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
+            "node_id": "C_kwDOAhr4b9oAKGYwMDY1Y2Y0M2I5YTY0NzNmZTExYWU0NDVlM2NmYWZkMjNjZjczMjI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/2c186ca210f9ff7cc55db438819e8f24be9a34c3",
+                    "sha": "2c186ca210f9ff7cc55db438819e8f24be9a34c3",
+                    "url": "https://api.github.com/repos/cython/cython/commits/2c186ca210f9ff7cc55db438819e8f24be9a34c3"
+                }
+            ],
+            "sha": "f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
+            "url": "https://api.github.com/repos/cython/cython/commits/f0065cf43b9a6473fe11ae445e3cfafd23cf7322"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/7430/commits",
@@ -18847,8 +19016,8 @@
             "downloads_url": "https://api.github.com/repos/da-woods/cython/downloads",
             "events_url": "https://api.github.com/repos/da-woods/cython/events",
             "fork": true,
-            "forks": 0,
-            "forks_count": 0,
+            "forks": 1,
+            "forks_count": 1,
             "forks_url": "https://api.github.com/repos/da-woods/cython/forks",
             "full_name": "da-woods/cython",
             "git_commits_url": "https://api.github.com/repos/da-woods/cython/git/commits{/sha}",
@@ -18913,9 +19082,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2026-03-21T18:19:25Z",
+            "pushed_at": "2026-05-03T11:21:02Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 83345,
+            "size": 83613,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -18927,14 +19096,14 @@
             "teams_url": "https://api.github.com/repos/da-woods/cython/teams",
             "topics": [],
             "trees_url": "https://api.github.com/repos/da-woods/cython/git/trees{/sha}",
-            "updated_at": "2026-02-28T09:15:34Z",
+            "updated_at": "2026-05-01T18:32:00Z",
             "url": "https://api.github.com/repos/da-woods/cython",
             "visibility": "public",
             "watchers": 2,
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "fd008b1697d098503a024fc1347a1bd4fa44cd07",
+        "sha": "f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -18962,7 +19131,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/7430",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "10d3aec6b4cf84e166f715065f889fe2b85e82d6",
+    "merge_commit_sha": "7038962213be8af0afd33cb0d4e24c3cae981d12",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc66ZFDN",
@@ -18973,9 +19142,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7430/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/fd008b1697d098503a024fc1347a1bd4fa44cd07",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/f0065cf43b9a6473fe11ae445e3cfafd23cf7322",
     "title": "Pattern matching for sequences",
-    "updated_at": "2026-03-21T18:19:26Z",
+    "updated_at": "2026-05-02T08:31:22Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/7430",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
