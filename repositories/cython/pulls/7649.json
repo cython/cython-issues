@@ -22,14 +22,39 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/7649"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/8e4655f658906465975d8cc1d13d1d319d2b1f2c"
+            "href": "https://api.github.com/repos/cython/cython/statuses/c2cc0926e76f87720b954bc1c617acbba7c0b7ae"
         }
     },
     "active_lock_reason": null,
     "assignee": null,
     "assignees": [],
-    "author_association": "FIRST_TIME_CONTRIBUTOR",
-    "auto_merge": null,
+    "author_association": "CONTRIBUTOR",
+    "auto_merge": {
+        "commit_message": "Added tests and extended several type checks to include both dict and frozendict.\n\nSee https://github.com/cython/cython/issues/7647\n",
+        "commit_title": "Extend `dict` optimisations to `frozendict` (GH-7649)",
+        "enabled_by": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+            "followers_url": "https://api.github.com/users/scoder/followers",
+            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/scoder",
+            "id": 491659,
+            "login": "scoder",
+            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+            "organizations_url": "https://api.github.com/users/scoder/orgs",
+            "received_events_url": "https://api.github.com/users/scoder/received_events",
+            "repos_url": "https://api.github.com/users/scoder/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/scoder",
+            "user_view_type": "public"
+        },
+        "merge_method": "squash"
+    },
     "base": {
         "label": "cython:master",
         "ref": "master",
@@ -95,8 +120,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1522,
-            "open_issues_count": 1522,
+            "open_issues": 1520,
+            "open_issues_count": 1520,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -121,11 +146,11 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-05-06T08:45:22Z",
+            "pushed_at": "2026-05-08T09:28:33Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 79972,
+            "size": 80150,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10716,
+            "stargazers_count": 10715,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -144,14 +169,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-05-06T08:45:32Z",
+            "updated_at": "2026-05-08T09:28:42Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10716,
-            "watchers_count": 10716,
+            "watchers": 10715,
+            "watchers_count": 10715,
             "web_commit_signoff_required": false
         },
-        "sha": "87f82b7d7c84886396e15f0c09910011188047af",
+        "sha": "4ca1fa6d46168894eedfb0450e4072ef8455043d",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -175,7 +200,7 @@
         }
     },
     "body": "Related Issue - #7647\r\n@scoder \r\n\r\nAs given in the issue, I started with the simple approach 2 - I ran three commands which gave me `dict`-related test files - \r\n```bash                                             \r\nls tests/run/dict*.pyx tests/run/*dict*.pyx                                                                                                                 \r\ngrep -l '^# tag:.*\\bdict\\b' tests/run/*.pyx tests/run/*.py                                                                                                  \r\ngrep -lE 'def [a-zA-Z_]+\\(dict |PyDict_|cdef dict ' tests/run/*.pyx                                                                                         \r\n```  \r\nThis gave me 45 unique files. Out of these some were unrelated or already covered in `frozendict.pyx`. So I chose 12 test files in the end . I duplicated the `dict` tests in these files and replaced them with `frozendict`.   \r\nSo Running these tests against the unmodified compiler reported `Ran 318 tests, FAILED (failures=4, errors=8)`. The 8 ERRORs are compile-time path-assertion violations; the 4 FAILs are doctest-output mismatches.\r\n\r\n| # | Module | Backend | Type  | Where | What didn’t happen | Fix |\r\n|---|--------|---------|-------|--------|--------------------|-----|\r\n| 1 | assigned_builtin_methods | c | ERROR | line 49: `bound_frozendict_get` | `//ReturnStatNode//PythonCapiCallNode` was expected (bound-method optimisation lowering `fd.get` to a C API call). Compiler still treats `frozendict` as generic Python object, so `fd.get(1)` remains attribute access | In `Cython/Compiler/ExprNodes.py` (AttributeNode analysis), replace `is_pydict_type` with `is_pyanydict_type` |\r\n| 2 | builtin_len | c | ERROR | line 108: `len_frozendict` | `//PythonCapiCallNode` expected (`len(fd)` → `PyDict_Size`). `_map_to_capi_len_function` only knows `Builtin.dict_type` | Add mapping: `Builtin.frozendict_type → \"PyDict_Size\"` in `Cython/Compiler/Optimize.py` |\r\n| 3 | dict_get | c | ERROR | lines 98, 125: `get_frozendict`, `get_default_frozendict` | `//PythonCapiCallNode` expected (`fd.get(...)` lowering). `MethodDispatcherTransform` lacks handler for frozendict | Alias `_handle_simple_method_frozendict_get = _handle_simple_method_dict_get` in `Cython/Compiler/Optimize.py` |\r\n| 4 | iterdict | c | ERROR | lines 566, 583: `iterfrozendict`, `iterfrozendict_listcomp` | `//WhileStatNode//DictIterationNextNode` expected (dict iteration optimisation). Checks only apply to `is_pydict_type` | Replace those checks with `is_pyanydict_type` in `Optimize.py` |\r\n| 5 | inop | c | FAIL | `q_frozendict` doctest | Error message mismatch: `TypeError: argument of type 'NoneType' is not iterable` vs expected dict-style wording | Relax doctest using `# doctest: +ELLIPSIS` and match `TypeError: ...NoneType...` |\r\n| 6 | notinop | c | FAIL | `q_frozendict` doctest | Same mismatch as `inop` but for `not in` | Same fix as above |\r\n\r\nThe other 6 were the same issues, but on the cpp backend.   \r\n\r\nSo to fix these tests, \r\n1. ``Cython/Compiler/PyrexTypes.py`` - I added `is_pyfrozendict_type` (per-type flag) and `is_pyanydict_type` (composite \"dict or frozendict\") to the `PyrexType` defaults\r\n2. `Cython/Compiler/Tests/TestTypes.py` - I also updated the `BuiltinObjectType._builtin_type_flag_mapping` to reflect this. \r\n3. The remaining two files - `Cython/Compiler/ExprNodes.py` and `Cython/Compiler/Optimize.py` - I updated the `if` conditions",
-    "closed_at": null,
+    "closed_at": "2026-05-07T20:34:25Z",
     "comment_data": [
         {
             "_links": {
@@ -191,7 +216,7 @@
             },
             "author_association": "MEMBER",
             "body": "This will conflict a tiny bit with the upcoming https://github.com/cython/cython/pull/7288 but it's totally the right way to do it.",
-            "commit_id": "8e4655f658906465975d8cc1d13d1d319d2b1f2c",
+            "commit_id": "c2cc0926e76f87720b954bc1c617acbba7c0b7ae",
             "created_at": "2026-05-02T05:38:06Z",
             "diff_hunk": "@@ -27,6 +27,8 @@ class TestBuiltinTypes(TimedTest):\n         'is_pycomplex_type': ['complex'],\n         'is_pylist_type': ['list'],\n         'is_pydict_type': ['dict'],\n+        'is_pyfrozendict_type': ['frozendict'],\n+        'is_pyanydict_type': ['dict', 'frozendict'],",
             "html_url": "https://github.com/cython/cython/pull/7649#discussion_r3176204055",
@@ -260,7 +285,7 @@
             },
             "author_association": "MEMBER",
             "body": "For this, I think we have to adapt the `__Pyx_PyObject_Dict_GetItem()` macro in `ObjectHandling.c` to allow `frozendict`. There's a runtime decision that we cannot really test for.",
-            "commit_id": "8e4655f658906465975d8cc1d13d1d319d2b1f2c",
+            "commit_id": "c2cc0926e76f87720b954bc1c617acbba7c0b7ae",
             "created_at": "2026-05-02T05:41:27Z",
             "diff_hunk": "@@ -4809,7 +4809,7 @@ def generate_result_code(self, code):\n                     function = \"__Pyx_GetItemInt\"\n                 utility_code = TempitaUtilityCode.load_cached(\"GetItemInt\", \"ObjectHandling.c\")\n             else:\n-                if base_type.is_pydict_type:\n+                if base_type.is_pyanydict_type:\n                     function = \"__Pyx_PyDict_GetItem\"\n                     utility_code = UtilityCode.load_cached(\"DictGetItem\", \"ObjectHandling.c\")",
             "html_url": "https://github.com/cython/cython/pull/7649#discussion_r3176207418",
@@ -812,7 +837,7 @@
             },
             "author_association": "MEMBER",
             "body": "PR is merged to master.",
-            "commit_id": "8e4655f658906465975d8cc1d13d1d319d2b1f2c",
+            "commit_id": "c2cc0926e76f87720b954bc1c617acbba7c0b7ae",
             "created_at": "2026-05-02T16:32:26Z",
             "diff_hunk": "@@ -27,6 +27,8 @@ class TestBuiltinTypes(TimedTest):\n         'is_pycomplex_type': ['complex'],\n         'is_pylist_type': ['list'],\n         'is_pydict_type': ['dict'],\n+        'is_pyfrozendict_type': ['frozendict'],\n+        'is_pyanydict_type': ['dict', 'frozendict'],",
             "html_url": "https://github.com/cython/cython/pull/7649#discussion_r3176907131",
@@ -880,9 +905,9 @@
                     "href": "https://api.github.com/repos/cython/cython/pulls/comments/3177017289"
                 }
             },
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "Resolved this conflict.... kept `is_pyanydict_type`.. thanks!",
-            "commit_id": "8e4655f658906465975d8cc1d13d1d319d2b1f2c",
+            "commit_id": "c2cc0926e76f87720b954bc1c617acbba7c0b7ae",
             "created_at": "2026-05-02T18:03:43Z",
             "diff_hunk": "@@ -27,6 +27,8 @@ class TestBuiltinTypes(TimedTest):\n         'is_pycomplex_type': ['complex'],\n         'is_pylist_type': ['list'],\n         'is_pydict_type': ['dict'],\n+        'is_pyfrozendict_type': ['frozendict'],\n+        'is_pyanydict_type': ['dict', 'frozendict'],",
             "html_url": "https://github.com/cython/cython/pull/7649#discussion_r3177017289",
@@ -950,7 +975,7 @@
                     "href": "https://api.github.com/repos/cython/cython/pulls/comments/3177029511"
                 }
             },
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "got it , changed this and others as well",
             "commit_id": "487bb6e06ec933fcd2d2c33d28f92018a183f25a",
             "created_at": "2026-05-02T18:14:56Z",
@@ -1020,9 +1045,9 @@
                     "href": "https://api.github.com/repos/cython/cython/pulls/comments/3177295829"
                 }
             },
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "@scoder https://github.com/cython/cython/commit/20f1138d00a3046c0e7bc8febbe200744b2de6dd -  implements what you refer to - `__Pyx_PyAnyDict_CheckExact`\r\n\r\nI replaced three instances of `PyDict_CheckExact` with `__Pyx_PyAnyDict_CheckExact` - 1 in `Optimize.C` and 2 in `ObjectHandling.c`",
-            "commit_id": "8e4655f658906465975d8cc1d13d1d319d2b1f2c",
+            "commit_id": "c2cc0926e76f87720b954bc1c617acbba7c0b7ae",
             "created_at": "2026-05-02T22:12:13Z",
             "diff_hunk": "@@ -4809,7 +4809,7 @@ def generate_result_code(self, code):\n                     function = \"__Pyx_GetItemInt\"\n                 utility_code = TempitaUtilityCode.load_cached(\"GetItemInt\", \"ObjectHandling.c\")\n             else:\n-                if base_type.is_pydict_type:\n+                if base_type.is_pyanydict_type:\n                     function = \"__Pyx_PyDict_GetItem\"\n                     utility_code = UtilityCode.load_cached(\"DictGetItem\", \"ObjectHandling.c\")",
             "html_url": "https://github.com/cython/cython/pull/7649#discussion_r3177295829",
@@ -1090,9 +1115,9 @@
                     "href": "https://api.github.com/repos/cython/cython/pulls/comments/3177295926"
                 }
             },
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "is this correct?",
-            "commit_id": "8e4655f658906465975d8cc1d13d1d319d2b1f2c",
+            "commit_id": "c2cc0926e76f87720b954bc1c617acbba7c0b7ae",
             "created_at": "2026-05-02T22:12:21Z",
             "diff_hunk": "@@ -4809,7 +4809,7 @@ def generate_result_code(self, code):\n                     function = \"__Pyx_GetItemInt\"\n                 utility_code = TempitaUtilityCode.load_cached(\"GetItemInt\", \"ObjectHandling.c\")\n             else:\n-                if base_type.is_pydict_type:\n+                if base_type.is_pyanydict_type:\n                     function = \"__Pyx_PyDict_GetItem\"\n                     utility_code = UtilityCode.load_cached(\"DictGetItem\", \"ObjectHandling.c\")",
             "html_url": "https://github.com/cython/cython/pull/7649#discussion_r3177295926",
@@ -1298,7 +1323,7 @@
                     "href": "https://api.github.com/repos/cython/cython/pulls/comments/3177885536"
                 }
             },
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "understood",
             "commit_id": "e7b6a4d46e15f576d37fb8a67d68f66664b624ef",
             "created_at": "2026-05-03T09:05:20Z",
@@ -1381,7 +1406,7 @@
                 "url": "https://api.github.com/users/omkar-334",
                 "user_view_type": "public"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/35ee0ffa3a062e4c6bc70ec1d7e1839a1b97606f/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/543a74715a3ff25c03df4a0a707a891553f6ac7a/comments",
             "commit": {
                 "author": {
                     "date": "2026-05-01T22:40:11Z",
@@ -1390,16 +1415,16 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2026-05-01T22:40:11Z",
+                    "date": "2026-05-07T14:19:59Z",
                     "email": "omkarkabde@gmail.com",
                     "name": "Omkar Kabde"
                 },
                 "message": "add tests for `frozendict`",
                 "tree": {
-                    "sha": "20ccc7fab9f308d363e7ff1ee19fe5cb4b7eda14",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/20ccc7fab9f308d363e7ff1ee19fe5cb4b7eda14"
+                    "sha": "c925bb9f0d6b55bff0a6bcec013626b0d9f8504b",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/c925bb9f0d6b55bff0a6bcec013626b0d9f8504b"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/35ee0ffa3a062e4c6bc70ec1d7e1839a1b97606f",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/543a74715a3ff25c03df4a0a707a891553f6ac7a",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -1429,17 +1454,17 @@
                 "url": "https://api.github.com/users/omkar-334",
                 "user_view_type": "public"
             },
-            "html_url": "https://github.com/cython/cython/commit/35ee0ffa3a062e4c6bc70ec1d7e1839a1b97606f",
-            "node_id": "C_kwDOSQsl1toAKDM1ZWUwZmZhM2EwNjJlNGM2YmM3MGVjMWQ3ZTE4MzlhMWI5NzYwNmY",
+            "html_url": "https://github.com/cython/cython/commit/543a74715a3ff25c03df4a0a707a891553f6ac7a",
+            "node_id": "C_kwDOSQsl1toAKDU0M2E3NDcxNWEzZmYyNWMwM2RmNGEwYTcwN2E4OTE1NTNmNmFjN2E",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/20f1138d00a3046c0e7bc8febbe200744b2de6dd",
-                    "sha": "20f1138d00a3046c0e7bc8febbe200744b2de6dd",
-                    "url": "https://api.github.com/repos/cython/cython/commits/20f1138d00a3046c0e7bc8febbe200744b2de6dd"
+                    "html_url": "https://github.com/cython/cython/commit/4ca1fa6d46168894eedfb0450e4072ef8455043d",
+                    "sha": "4ca1fa6d46168894eedfb0450e4072ef8455043d",
+                    "url": "https://api.github.com/repos/cython/cython/commits/4ca1fa6d46168894eedfb0450e4072ef8455043d"
                 }
             ],
-            "sha": "35ee0ffa3a062e4c6bc70ec1d7e1839a1b97606f",
-            "url": "https://api.github.com/repos/cython/cython/commits/35ee0ffa3a062e4c6bc70ec1d7e1839a1b97606f"
+            "sha": "543a74715a3ff25c03df4a0a707a891553f6ac7a",
+            "url": "https://api.github.com/repos/cython/cython/commits/543a74715a3ff25c03df4a0a707a891553f6ac7a"
         },
         {
             "author": {
@@ -1463,7 +1488,7 @@
                 "url": "https://api.github.com/users/omkar-334",
                 "user_view_type": "public"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/a8f1a9b56c754e946409925f1a0db40c099117f7/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/fa3c8e9d3eccd2a646e0996df8de51edce281a34/comments",
             "commit": {
                 "author": {
                     "date": "2026-05-01T22:40:22Z",
@@ -1472,16 +1497,16 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2026-05-01T22:40:22Z",
+                    "date": "2026-05-07T14:19:59Z",
                     "email": "omkarkabde@gmail.com",
                     "name": "Omkar Kabde"
                 },
                 "message": "add tests",
                 "tree": {
-                    "sha": "2b14960d9a232a9b65fcd7238304ed8c5bcdc5d8",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/2b14960d9a232a9b65fcd7238304ed8c5bcdc5d8"
+                    "sha": "ac8fb40dddada0664be23837df9c5d7a9461d83f",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/ac8fb40dddada0664be23837df9c5d7a9461d83f"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/a8f1a9b56c754e946409925f1a0db40c099117f7",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/fa3c8e9d3eccd2a646e0996df8de51edce281a34",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -1511,17 +1536,17 @@
                 "url": "https://api.github.com/users/omkar-334",
                 "user_view_type": "public"
             },
-            "html_url": "https://github.com/cython/cython/commit/a8f1a9b56c754e946409925f1a0db40c099117f7",
-            "node_id": "C_kwDOSQsl1toAKGE4ZjFhOWI1NmM3NTRlOTQ2NDA5OTI1ZjFhMGRiNDBjMDk5MTE3Zjc",
+            "html_url": "https://github.com/cython/cython/commit/fa3c8e9d3eccd2a646e0996df8de51edce281a34",
+            "node_id": "C_kwDOSQsl1toAKGZhM2M4ZTlkM2VjY2QyYTY0NmUwOTk2ZGY4ZGU1MWVkY2UyODFhMzQ",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/35ee0ffa3a062e4c6bc70ec1d7e1839a1b97606f",
-                    "sha": "35ee0ffa3a062e4c6bc70ec1d7e1839a1b97606f",
-                    "url": "https://api.github.com/repos/cython/cython/commits/35ee0ffa3a062e4c6bc70ec1d7e1839a1b97606f"
+                    "html_url": "https://github.com/cython/cython/commit/543a74715a3ff25c03df4a0a707a891553f6ac7a",
+                    "sha": "543a74715a3ff25c03df4a0a707a891553f6ac7a",
+                    "url": "https://api.github.com/repos/cython/cython/commits/543a74715a3ff25c03df4a0a707a891553f6ac7a"
                 }
             ],
-            "sha": "a8f1a9b56c754e946409925f1a0db40c099117f7",
-            "url": "https://api.github.com/repos/cython/cython/commits/a8f1a9b56c754e946409925f1a0db40c099117f7"
+            "sha": "fa3c8e9d3eccd2a646e0996df8de51edce281a34",
+            "url": "https://api.github.com/repos/cython/cython/commits/fa3c8e9d3eccd2a646e0996df8de51edce281a34"
         },
         {
             "author": {
@@ -1545,7 +1570,7 @@
                 "url": "https://api.github.com/users/omkar-334",
                 "user_view_type": "public"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/115a16819db3979413788cf4ef92ce55b8d7da3a/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/254171d4a11ebe65ca7abcccad82bd2c03d75841/comments",
             "commit": {
                 "author": {
                     "date": "2026-05-01T22:45:55Z",
@@ -1554,16 +1579,16 @@
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2026-05-01T22:45:55Z",
+                    "date": "2026-05-07T14:21:23Z",
                     "email": "omkarkabde@gmail.com",
                     "name": "Omkar Kabde"
                 },
                 "message": "add `is_pyfrozendict_type` and `is_pyanydict_type`",
                 "tree": {
-                    "sha": "f454aeb5f0b39193c510c55286db813a4933c304",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/f454aeb5f0b39193c510c55286db813a4933c304"
+                    "sha": "1affc5207a4b94d5747100facda352f0e6f413fe",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/1affc5207a4b94d5747100facda352f0e6f413fe"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/115a16819db3979413788cf4ef92ce55b8d7da3a",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/254171d4a11ebe65ca7abcccad82bd2c03d75841",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -1593,17 +1618,17 @@
                 "url": "https://api.github.com/users/omkar-334",
                 "user_view_type": "public"
             },
-            "html_url": "https://github.com/cython/cython/commit/115a16819db3979413788cf4ef92ce55b8d7da3a",
-            "node_id": "C_kwDOSQsl1toAKDExNWExNjgxOWRiMzk3OTQxMzc4OGNmNGVmOTJjZTU1YjhkN2RhM2E",
+            "html_url": "https://github.com/cython/cython/commit/254171d4a11ebe65ca7abcccad82bd2c03d75841",
+            "node_id": "C_kwDOSQsl1toAKDI1NDE3MWQ0YTExZWJlNjVjYTdhYmNjY2FkODJiZDJjMDNkNzU4NDE",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/a8f1a9b56c754e946409925f1a0db40c099117f7",
-                    "sha": "a8f1a9b56c754e946409925f1a0db40c099117f7",
-                    "url": "https://api.github.com/repos/cython/cython/commits/a8f1a9b56c754e946409925f1a0db40c099117f7"
+                    "html_url": "https://github.com/cython/cython/commit/fa3c8e9d3eccd2a646e0996df8de51edce281a34",
+                    "sha": "fa3c8e9d3eccd2a646e0996df8de51edce281a34",
+                    "url": "https://api.github.com/repos/cython/cython/commits/fa3c8e9d3eccd2a646e0996df8de51edce281a34"
                 }
             ],
-            "sha": "115a16819db3979413788cf4ef92ce55b8d7da3a",
-            "url": "https://api.github.com/repos/cython/cython/commits/115a16819db3979413788cf4ef92ce55b8d7da3a"
+            "sha": "254171d4a11ebe65ca7abcccad82bd2c03d75841",
+            "url": "https://api.github.com/repos/cython/cython/commits/254171d4a11ebe65ca7abcccad82bd2c03d75841"
         },
         {
             "author": {
@@ -1627,31 +1652,851 @@
                 "url": "https://api.github.com/users/omkar-334",
                 "user_view_type": "public"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/87909d2f9556429c0985c65604b4e318b05856a1/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/150e6443a8b00cc03201f571548726f7321f93d9/comments",
             "commit": {
                 "author": {
-                    "date": "2026-05-01T22:56:24Z",
+                    "date": "2026-05-01T23:38:58Z",
                     "email": "omkarkabde@gmail.com",
                     "name": "Omkar Kabde"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2026-05-01T22:56:24Z",
+                    "date": "2026-05-07T14:21:23Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "message": "extend `list[fd]` and `fd[k]`",
+                "tree": {
+                    "sha": "12f32d32da9ae0f85994dfd4308db87b699eb812",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/12f32d32da9ae0f85994dfd4308db87b699eb812"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/150e6443a8b00cc03201f571548726f7321f93d9",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/150e6443a8b00cc03201f571548726f7321f93d9",
+            "node_id": "C_kwDOSQsl1toAKDE1MGU2NDQzYThiMDBjYzAzMjAxZjU3MTU0ODcyNmY3MzIxZjkzZDk",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/254171d4a11ebe65ca7abcccad82bd2c03d75841",
+                    "sha": "254171d4a11ebe65ca7abcccad82bd2c03d75841",
+                    "url": "https://api.github.com/repos/cython/cython/commits/254171d4a11ebe65ca7abcccad82bd2c03d75841"
+                }
+            ],
+            "sha": "150e6443a8b00cc03201f571548726f7321f93d9",
+            "url": "https://api.github.com/repos/cython/cython/commits/150e6443a8b00cc03201f571548726f7321f93d9"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/0572baa4cb35778b02ba3d8384ad5d38c8abadeb/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-02T17:01:38Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-07T14:21:23Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "message": "remove helper function",
+                "tree": {
+                    "sha": "109dbdac3880573bb8933e74d38f7c12d533a1d9",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/109dbdac3880573bb8933e74d38f7c12d533a1d9"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/0572baa4cb35778b02ba3d8384ad5d38c8abadeb",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/0572baa4cb35778b02ba3d8384ad5d38c8abadeb",
+            "node_id": "C_kwDOSQsl1toAKDA1NzJiYWE0Y2IzNTc3OGIwMmJhM2Q4Mzg0YWQ1ZDM4YzhhYmFkZWI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/150e6443a8b00cc03201f571548726f7321f93d9",
+                    "sha": "150e6443a8b00cc03201f571548726f7321f93d9",
+                    "url": "https://api.github.com/repos/cython/cython/commits/150e6443a8b00cc03201f571548726f7321f93d9"
+                }
+            ],
+            "sha": "0572baa4cb35778b02ba3d8384ad5d38c8abadeb",
+            "url": "https://api.github.com/repos/cython/cython/commits/0572baa4cb35778b02ba3d8384ad5d38c8abadeb"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/0ec9bad80faa97c2cc9b99b81eac9dc0c991fac0/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-02T17:24:04Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-07T14:21:23Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "message": "move `from_keys_bound_frozendict` to `frozendict.pyx`",
+                "tree": {
+                    "sha": "38cd76168aae96d81e5018e50e82196f11a96c77",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/38cd76168aae96d81e5018e50e82196f11a96c77"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/0ec9bad80faa97c2cc9b99b81eac9dc0c991fac0",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/0ec9bad80faa97c2cc9b99b81eac9dc0c991fac0",
+            "node_id": "C_kwDOSQsl1toAKDBlYzliYWQ4MGZhYTk3YzJjYzliOTliODFlYWM5ZGMwYzk5MWZhYzA",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/0572baa4cb35778b02ba3d8384ad5d38c8abadeb",
+                    "sha": "0572baa4cb35778b02ba3d8384ad5d38c8abadeb",
+                    "url": "https://api.github.com/repos/cython/cython/commits/0572baa4cb35778b02ba3d8384ad5d38c8abadeb"
+                }
+            ],
+            "sha": "0ec9bad80faa97c2cc9b99b81eac9dc0c991fac0",
+            "url": "https://api.github.com/repos/cython/cython/commits/0ec9bad80faa97c2cc9b99b81eac9dc0c991fac0"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/2a0aea34ae15d5c85c1c20deee392f37dc01c057/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-02T22:07:44Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-07T14:21:23Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "message": "Recognize `frozendict` in `__Pyx_dict_iterator` runtime fast path",
+                "tree": {
+                    "sha": "a8e3fdedb5ab55eb6c924bc6499855372a384188",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a8e3fdedb5ab55eb6c924bc6499855372a384188"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/2a0aea34ae15d5c85c1c20deee392f37dc01c057",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/2a0aea34ae15d5c85c1c20deee392f37dc01c057",
+            "node_id": "C_kwDOSQsl1toAKDJhMGFlYTM0YWUxNWQ1Yzg1YzFjMjBkZWVlMzkyZjM3ZGMwMWMwNTc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/0ec9bad80faa97c2cc9b99b81eac9dc0c991fac0",
+                    "sha": "0ec9bad80faa97c2cc9b99b81eac9dc0c991fac0",
+                    "url": "https://api.github.com/repos/cython/cython/commits/0ec9bad80faa97c2cc9b99b81eac9dc0c991fac0"
+                }
+            ],
+            "sha": "2a0aea34ae15d5c85c1c20deee392f37dc01c057",
+            "url": "https://api.github.com/repos/cython/cython/commits/2a0aea34ae15d5c85c1c20deee392f37dc01c057"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/e644e026672923a00f1f8a2c92cbe63f2101d231/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-02T22:08:16Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-07T14:21:23Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "message": "Recognize `frozendict` in `__Pyx_PyObject_Dict_GetItem` and `__Pyx_GetItemInt_Fast`",
+                "tree": {
+                    "sha": "750dd0c7540a176440f2fa13f1cbe53064e3e801",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/750dd0c7540a176440f2fa13f1cbe53064e3e801"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/e644e026672923a00f1f8a2c92cbe63f2101d231",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/e644e026672923a00f1f8a2c92cbe63f2101d231",
+            "node_id": "C_kwDOSQsl1toAKGU2NDRlMDI2NjcyOTIzYTAwZjFmOGEyYzkyY2JlNjNmMjEwMWQyMzE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/2a0aea34ae15d5c85c1c20deee392f37dc01c057",
+                    "sha": "2a0aea34ae15d5c85c1c20deee392f37dc01c057",
+                    "url": "https://api.github.com/repos/cython/cython/commits/2a0aea34ae15d5c85c1c20deee392f37dc01c057"
+                }
+            ],
+            "sha": "e644e026672923a00f1f8a2c92cbe63f2101d231",
+            "url": "https://api.github.com/repos/cython/cython/commits/e644e026672923a00f1f8a2c92cbe63f2101d231"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/f826d306df8a10ee5d599ad8b88a434fa48876b5/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-03T09:04:58Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-07T14:21:23Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "message": "remove comments",
+                "tree": {
+                    "sha": "94b2d9b22aaecacc7190de97f0e553a123a6aa5d",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/94b2d9b22aaecacc7190de97f0e553a123a6aa5d"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/f826d306df8a10ee5d599ad8b88a434fa48876b5",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/f826d306df8a10ee5d599ad8b88a434fa48876b5",
+            "node_id": "C_kwDOSQsl1toAKGY4MjZkMzA2ZGY4YTEwZWU1ZDU5OWFkOGI4OGE0MzRmYTQ4ODc2YjU",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/e644e026672923a00f1f8a2c92cbe63f2101d231",
+                    "sha": "e644e026672923a00f1f8a2c92cbe63f2101d231",
+                    "url": "https://api.github.com/repos/cython/cython/commits/e644e026672923a00f1f8a2c92cbe63f2101d231"
+                }
+            ],
+            "sha": "f826d306df8a10ee5d599ad8b88a434fa48876b5",
+            "url": "https://api.github.com/repos/cython/cython/commits/f826d306df8a10ee5d599ad8b88a434fa48876b5"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/ff6ebb626ea318e600556d77ea9005229d2aca9d/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-04T18:39:05Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-07T14:21:23Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "message": "Recognize `frozendict` in `__Pyx_MergeKeywords` fast path",
+                "tree": {
+                    "sha": "6372b4236a818c037c1fb024372bd5a85f8d7598",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6372b4236a818c037c1fb024372bd5a85f8d7598"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/ff6ebb626ea318e600556d77ea9005229d2aca9d",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/ff6ebb626ea318e600556d77ea9005229d2aca9d",
+            "node_id": "C_kwDOSQsl1toAKGZmNmViYjYyNmVhMzE4ZTYwMDU1NmQ3N2VhOTAwNTIyOWQyYWNhOWQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/f826d306df8a10ee5d599ad8b88a434fa48876b5",
+                    "sha": "f826d306df8a10ee5d599ad8b88a434fa48876b5",
+                    "url": "https://api.github.com/repos/cython/cython/commits/f826d306df8a10ee5d599ad8b88a434fa48876b5"
+                }
+            ],
+            "sha": "ff6ebb626ea318e600556d77ea9005229d2aca9d",
+            "url": "https://api.github.com/repos/cython/cython/commits/ff6ebb626ea318e600556d77ea9005229d2aca9d"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/6caafdbe308cf5283f46d8422746e30412446e27/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-07T15:00:35Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-07T15:00:35Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "message": "add `frozendict` test for `MergeKeywords`",
+                "tree": {
+                    "sha": "6e03c3efd71557340d05b74bb086e0f139015798",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6e03c3efd71557340d05b74bb086e0f139015798"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/6caafdbe308cf5283f46d8422746e30412446e27",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/6caafdbe308cf5283f46d8422746e30412446e27",
+            "node_id": "C_kwDOSQsl1toAKDZjYWFmZGJlMzA4Y2Y1MjgzZjQ2ZDg0MjI3NDZlMzA0MTI0NDZlMjc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/ff6ebb626ea318e600556d77ea9005229d2aca9d",
+                    "sha": "ff6ebb626ea318e600556d77ea9005229d2aca9d",
+                    "url": "https://api.github.com/repos/cython/cython/commits/ff6ebb626ea318e600556d77ea9005229d2aca9d"
+                }
+            ],
+            "sha": "6caafdbe308cf5283f46d8422746e30412446e27",
+            "url": "https://api.github.com/repos/cython/cython/commits/6caafdbe308cf5283f46d8422746e30412446e27"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/069ddb8ef504c86c45f6253e6894b19fc3752d27/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-07T15:02:52Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-07T15:02:52Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "message": "add `frozendict` test for `dict(frozendict)` constructor",
+                "tree": {
+                    "sha": "aa257e7e52fe8c70503fa34c39070e910ff23b99",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/aa257e7e52fe8c70503fa34c39070e910ff23b99"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/069ddb8ef504c86c45f6253e6894b19fc3752d27",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/069ddb8ef504c86c45f6253e6894b19fc3752d27",
+            "node_id": "C_kwDOSQsl1toAKDA2OWRkYjhlZjUwNGM4NmM0NWY2MjUzZTY4OTRiMTlmYzM3NTJkMjc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/6caafdbe308cf5283f46d8422746e30412446e27",
+                    "sha": "6caafdbe308cf5283f46d8422746e30412446e27",
+                    "url": "https://api.github.com/repos/cython/cython/commits/6caafdbe308cf5283f46d8422746e30412446e27"
+                }
+            ],
+            "sha": "069ddb8ef504c86c45f6253e6894b19fc3752d27",
+            "url": "https://api.github.com/repos/cython/cython/commits/069ddb8ef504c86c45f6253e6894b19fc3752d27"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/4971b1479be59731a626cbc52f3475c271e46a62/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-07T15:06:12Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-07T15:06:12Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "message": "use `is_pyanydict_type` in `_special_builtin()`",
+                "tree": {
+                    "sha": "6a30b057b855c2f8568343863e6ab97e72958b0e",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6a30b057b855c2f8568343863e6ab97e72958b0e"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/4971b1479be59731a626cbc52f3475c271e46a62",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/4971b1479be59731a626cbc52f3475c271e46a62",
+            "node_id": "C_kwDOSQsl1toAKDQ5NzFiMTQ3OWJlNTk3MzFhNjI2Y2JjNTJmMzQ3NWMyNzFlNDZhNjI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/069ddb8ef504c86c45f6253e6894b19fc3752d27",
+                    "sha": "069ddb8ef504c86c45f6253e6894b19fc3752d27",
+                    "url": "https://api.github.com/repos/cython/cython/commits/069ddb8ef504c86c45f6253e6894b19fc3752d27"
+                }
+            ],
+            "sha": "4971b1479be59731a626cbc52f3475c271e46a62",
+            "url": "https://api.github.com/repos/cython/cython/commits/4971b1479be59731a626cbc52f3475c271e46a62"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/5b0e67f0baf396bde6fb316adfcef45da744c057/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-07T15:19:00Z",
+                    "email": "stefan_ml@behnel.de",
+                    "name": "scoder"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-07T15:19:00Z",
                     "email": "noreply@github.com",
                     "name": "GitHub"
                 },
-                "message": "Merge branch 'master' into frozendict-support",
+                "message": "Remove redundant test cases.",
                 "tree": {
-                    "sha": "4c69f7815de8bd0df8ae6b02b3b2744578c50629",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/4c69f7815de8bd0df8ae6b02b3b2744578c50629"
+                    "sha": "2a08e19a3487729fe44dbd54bc4bb7a1c0c4e183",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/2a08e19a3487729fe44dbd54bc4bb7a1c0c4e183"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/87909d2f9556429c0985c65604b4e318b05856a1",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/5b0e67f0baf396bde6fb316adfcef45da744c057",
                 "verification": {
-                    "payload": "tree 4c69f7815de8bd0df8ae6b02b3b2744578c50629\nparent 115a16819db3979413788cf4ef92ce55b8d7da3a\nparent c52acc09740e4729dafcd804e6820a9ab00b8f81\nauthor Omkar Kabde <omkarkabde@gmail.com> 1777676184 +0530\ncommitter GitHub <noreply@github.com> 1777676184 +0530\n\nMerge branch 'master' into frozendict-support",
+                    "payload": "tree 2a08e19a3487729fe44dbd54bc4bb7a1c0c4e183\nparent 4971b1479be59731a626cbc52f3475c271e46a62\nauthor scoder <stefan_ml@behnel.de> 1778167140 +0200\ncommitter GitHub <noreply@github.com> 1778167140 +0200\n\nRemove redundant test cases.",
                     "reason": "valid",
-                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp9S+YCRC1aQ7uu5UhlAAA2b4QAHb607QVcP0Mwnd3McioZ0lV\nlgDxFF2jdAuOhz6Ou6uvEVYVSJno2jwTIF/pEEqqTm+fzTqNRWmdoVBlPML85P8h\nZO5Yec/xJV1bSFQEB71HDNVDpKEq3RYZnw8ZG/GeeEw61qzD+6tWjA1wsoR9xV8h\naj25er8suAM2yuS2d7h0oJR1djiKzQ6QbE45bPgKJuHCHrZoxvoife3hA6Y7eYch\nxp4y4BUNouknvpHkz7XN54Dhbu5+uhlOizyROTfaRzyW38wUENYAeyzrjSUgLQtD\nKHkA7pnHvz62mRWqcDynYzFQNLuUgfsLpBQ2V0/byAZySs4YWDTokqsgu/TWbZBO\nzoN9mZA80iVCcFHWIMJqfcGlYOD2cda1yYC9MWMvUqPkg4nLigbjoHeOeAz2k/Cz\nYDZKKFxcBFjOYG+STAY0CAzZ7klq4gWl2Pr9KPnFVchRiAGQ0cJ8eUxdBvDLI3lQ\nd7TnGAGwRa3yfmbJi7k/NgUZKznprEK7DfkENmi1N3lAwUYF2A4UbZdgu3x5eOXZ\n1DRbcxYLLEKy3f0jFkhhhdC5BbS/Z/tFdiZDdjVb3hop9Ab3MOgDcUzI3euaa7V2\nRcrtzKidyMKPzL72a/9TPmx1vomA19doW7czFA4xUAXVLa6nemSXlyclXvElcQHu\nJ8qEHifZS53UCS74uLBu\n=OM62\n-----END PGP SIGNATURE-----\n",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp/K1kCRC1aQ7uu5UhlAAApd4QAGKrUGswU5/ULnGRr4lWa0Oh\n0QMWjhAdW9pKAWyMOrKW4ggftF/HTjNRQvBlDRbAFcBCps84T2O9RtzybtqTMid5\nVd1V2HZ5JGDvBCAt0A6xRUnXOdgLkW918DC4F8QrjfKTUN7YyT/lzTTyIuedRTWF\nnMc7V52cFlHCff9iqn+5/qvI8CxZ9PbKdZrJC+7XyOODjTo2QO9643MEpgGp427i\nVEvrHmw3x5/10hi8ym2bBr7sQ0LqSckfTtUgBiyVAUSvaopQeVbDNzsaxU81m8JL\nQJKfLq0YN1jZB8jKBPaYJ0l3LzKeFcxwiwrVhasDJONvZ1aOCxfa1/7FJwUjx8Gr\nWSM9ZxyFQD6rkAgJpDmGSkVflZ4zgMC727Ap6uSjOvorpW7gpPZiVG0RXHJwsZY8\nr5R2ZoCEjmceltp0Uhb54vmhXR1+C5RuPctWeGT+BMuQSv0UD/tHAqdaKUanvbpI\nFpSS/0EDTBepwLExomzpjjcagzljO8xcU5jTX1VhbZJrc/3PRy1qnJbDooVIh2Qd\nTkumGuDX9+paZbjl+Ze2NT+r6p0YlOLjN+RwvgQ1dqGP/Hfy7Td97Ytd+c1LZsdL\nJVvKphfz2eH8R/IK5/wERSLYUb1Dfg2GK4BhFZirLpXR4SM3ssb+IEYU3G3LKa6d\n6d2BDg1nhg4YtyWnmUKW\n=3Iz3\n-----END PGP SIGNATURE-----\n",
                     "verified": true,
-                    "verified_at": "2026-05-01T22:56:24Z"
+                    "verified_at": "2026-05-07T15:19:01Z"
                 }
             },
             "committer": {
@@ -1675,22 +2520,17 @@
                 "url": "https://api.github.com/users/web-flow",
                 "user_view_type": "public"
             },
-            "html_url": "https://github.com/cython/cython/commit/87909d2f9556429c0985c65604b4e318b05856a1",
-            "node_id": "C_kwDOSQsl1toAKDg3OTA5ZDJmOTU1NjQyOWMwOTg1YzY1NjA0YjRlMzE4YjA1ODU2YTE",
+            "html_url": "https://github.com/cython/cython/commit/5b0e67f0baf396bde6fb316adfcef45da744c057",
+            "node_id": "C_kwDOSQsl1toAKDViMGU2N2YwYmFmMzk2YmRlNmZiMzE2YWRmY2VmNDVkYTc0NGMwNTc",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/115a16819db3979413788cf4ef92ce55b8d7da3a",
-                    "sha": "115a16819db3979413788cf4ef92ce55b8d7da3a",
-                    "url": "https://api.github.com/repos/cython/cython/commits/115a16819db3979413788cf4ef92ce55b8d7da3a"
-                },
-                {
-                    "html_url": "https://github.com/cython/cython/commit/c52acc09740e4729dafcd804e6820a9ab00b8f81",
-                    "sha": "c52acc09740e4729dafcd804e6820a9ab00b8f81",
-                    "url": "https://api.github.com/repos/cython/cython/commits/c52acc09740e4729dafcd804e6820a9ab00b8f81"
+                    "html_url": "https://github.com/cython/cython/commit/4971b1479be59731a626cbc52f3475c271e46a62",
+                    "sha": "4971b1479be59731a626cbc52f3475c271e46a62",
+                    "url": "https://api.github.com/repos/cython/cython/commits/4971b1479be59731a626cbc52f3475c271e46a62"
                 }
             ],
-            "sha": "87909d2f9556429c0985c65604b4e318b05856a1",
-            "url": "https://api.github.com/repos/cython/cython/commits/87909d2f9556429c0985c65604b4e318b05856a1"
+            "sha": "5b0e67f0baf396bde6fb316adfcef45da744c057",
+            "url": "https://api.github.com/repos/cython/cython/commits/5b0e67f0baf396bde6fb316adfcef45da744c057"
         },
         {
             "author": {
@@ -1714,25 +2554,25 @@
                 "url": "https://api.github.com/users/omkar-334",
                 "user_view_type": "public"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/0790b8c40261a99ebff3ab68c8075a2ab0906bb6/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/9e402a4d5e05e1cbbddd0cf149ebee8e31b7985c/comments",
             "commit": {
                 "author": {
-                    "date": "2026-05-01T23:38:58Z",
+                    "date": "2026-05-07T15:20:21Z",
                     "email": "omkarkabde@gmail.com",
                     "name": "Omkar Kabde"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2026-05-01T23:38:58Z",
+                    "date": "2026-05-07T15:20:21Z",
                     "email": "omkarkabde@gmail.com",
                     "name": "Omkar Kabde"
                 },
-                "message": "extend `list[fd]` and `fd[k]`",
+                "message": "Recognize `frozendict` in `MergedDictNode` fast path",
                 "tree": {
-                    "sha": "98e3fcce992a6b17d55fdf42cd8751543d1517b1",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/98e3fcce992a6b17d55fdf42cd8751543d1517b1"
+                    "sha": "2af489cb916f20a22e92986666142c735a6a8d8a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/2af489cb916f20a22e92986666142c735a6a8d8a"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/0790b8c40261a99ebff3ab68c8075a2ab0906bb6",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/9e402a4d5e05e1cbbddd0cf149ebee8e31b7985c",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -1762,17 +2602,17 @@
                 "url": "https://api.github.com/users/omkar-334",
                 "user_view_type": "public"
             },
-            "html_url": "https://github.com/cython/cython/commit/0790b8c40261a99ebff3ab68c8075a2ab0906bb6",
-            "node_id": "C_kwDOSQsl1toAKDA3OTBiOGM0MDI2MWE5OWViZmYzYWI2OGM4MDc1YTJhYjA5MDZiYjY",
+            "html_url": "https://github.com/cython/cython/commit/9e402a4d5e05e1cbbddd0cf149ebee8e31b7985c",
+            "node_id": "C_kwDOSQsl1toAKDllNDAyYTRkNWUwNWUxY2JiZGRkMGNmMTQ5ZWJlZThlMzFiNzk4NWM",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/115a16819db3979413788cf4ef92ce55b8d7da3a",
-                    "sha": "115a16819db3979413788cf4ef92ce55b8d7da3a",
-                    "url": "https://api.github.com/repos/cython/cython/commits/115a16819db3979413788cf4ef92ce55b8d7da3a"
+                    "html_url": "https://github.com/cython/cython/commit/4971b1479be59731a626cbc52f3475c271e46a62",
+                    "sha": "4971b1479be59731a626cbc52f3475c271e46a62",
+                    "url": "https://api.github.com/repos/cython/cython/commits/4971b1479be59731a626cbc52f3475c271e46a62"
                 }
             ],
-            "sha": "0790b8c40261a99ebff3ab68c8075a2ab0906bb6",
-            "url": "https://api.github.com/repos/cython/cython/commits/0790b8c40261a99ebff3ab68c8075a2ab0906bb6"
+            "sha": "9e402a4d5e05e1cbbddd0cf149ebee8e31b7985c",
+            "url": "https://api.github.com/repos/cython/cython/commits/9e402a4d5e05e1cbbddd0cf149ebee8e31b7985c"
         },
         {
             "author": {
@@ -1796,25 +2636,107 @@
                 "url": "https://api.github.com/users/omkar-334",
                 "user_view_type": "public"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/487bb6e06ec933fcd2d2c33d28f92018a183f25a/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/d8b1573eaca942dd54ab78576e0f1c42ba998968/comments",
             "commit": {
                 "author": {
-                    "date": "2026-05-01T23:39:21Z",
+                    "date": "2026-05-07T15:20:28Z",
                     "email": "omkarkabde@gmail.com",
                     "name": "Omkar Kabde"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2026-05-01T23:39:21Z",
+                    "date": "2026-05-07T15:20:28Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "message": "Recognize `frozendict` in `dict()` copy fast path",
+                "tree": {
+                    "sha": "2cdd6f7f52cf3915dfce500729074d15839210ef",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/2cdd6f7f52cf3915dfce500729074d15839210ef"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/d8b1573eaca942dd54ab78576e0f1c42ba998968",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/d8b1573eaca942dd54ab78576e0f1c42ba998968",
+            "node_id": "C_kwDOSQsl1toAKGQ4YjE1NzNlYWNhOTQyZGQ1NGFiNzg1NzZlMGYxYzQyYmE5OTg5Njg",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/9e402a4d5e05e1cbbddd0cf149ebee8e31b7985c",
+                    "sha": "9e402a4d5e05e1cbbddd0cf149ebee8e31b7985c",
+                    "url": "https://api.github.com/repos/cython/cython/commits/9e402a4d5e05e1cbbddd0cf149ebee8e31b7985c"
+                }
+            ],
+            "sha": "d8b1573eaca942dd54ab78576e0f1c42ba998968",
+            "url": "https://api.github.com/repos/cython/cython/commits/d8b1573eaca942dd54ab78576e0f1c42ba998968"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
+                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
+                "followers_url": "https://api.github.com/users/omkar-334/followers",
+                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
+                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/omkar-334",
+                "id": 40126336,
+                "login": "omkar-334",
+                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
+                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
+                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
+                "repos_url": "https://api.github.com/users/omkar-334/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/omkar-334",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/c2cc0926e76f87720b954bc1c617acbba7c0b7ae/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-05-07T15:20:32Z",
+                    "email": "omkarkabde@gmail.com",
+                    "name": "Omkar Kabde"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-05-07T15:20:32Z",
                     "email": "omkarkabde@gmail.com",
                     "name": "Omkar Kabde"
                 },
                 "message": "Merge branch 'frozendict-support' of github-personal:omkar-334/cython into frozendict-support",
                 "tree": {
-                    "sha": "dda9bffe684448ad84c6d59eed5ba014c19363c8",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/dda9bffe684448ad84c6d59eed5ba014c19363c8"
+                    "sha": "7ca96ee9ffeb448e1746677b39ff4c4887d70380",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/7ca96ee9ffeb448e1746677b39ff4c4887d70380"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/487bb6e06ec933fcd2d2c33d28f92018a183f25a",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/c2cc0926e76f87720b954bc1c617acbba7c0b7ae",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -1844,601 +2766,22 @@
                 "url": "https://api.github.com/users/omkar-334",
                 "user_view_type": "public"
             },
-            "html_url": "https://github.com/cython/cython/commit/487bb6e06ec933fcd2d2c33d28f92018a183f25a",
-            "node_id": "C_kwDOSQsl1toAKDQ4N2JiNmUwNmVjOTMzZmNkMmQyYzMzZDI4ZjkyMDE4YTE4M2YyNWE",
+            "html_url": "https://github.com/cython/cython/commit/c2cc0926e76f87720b954bc1c617acbba7c0b7ae",
+            "node_id": "C_kwDOSQsl1toAKGMyY2MwOTI2ZTc2Zjg3NzIwYjk1NGJjMWM2MTdhY2JiYTdjMGI3YWU",
             "parents": [
                 {
-                    "html_url": "https://github.com/cython/cython/commit/0790b8c40261a99ebff3ab68c8075a2ab0906bb6",
-                    "sha": "0790b8c40261a99ebff3ab68c8075a2ab0906bb6",
-                    "url": "https://api.github.com/repos/cython/cython/commits/0790b8c40261a99ebff3ab68c8075a2ab0906bb6"
+                    "html_url": "https://github.com/cython/cython/commit/d8b1573eaca942dd54ab78576e0f1c42ba998968",
+                    "sha": "d8b1573eaca942dd54ab78576e0f1c42ba998968",
+                    "url": "https://api.github.com/repos/cython/cython/commits/d8b1573eaca942dd54ab78576e0f1c42ba998968"
                 },
                 {
-                    "html_url": "https://github.com/cython/cython/commit/87909d2f9556429c0985c65604b4e318b05856a1",
-                    "sha": "87909d2f9556429c0985c65604b4e318b05856a1",
-                    "url": "https://api.github.com/repos/cython/cython/commits/87909d2f9556429c0985c65604b4e318b05856a1"
+                    "html_url": "https://github.com/cython/cython/commit/5b0e67f0baf396bde6fb316adfcef45da744c057",
+                    "sha": "5b0e67f0baf396bde6fb316adfcef45da744c057",
+                    "url": "https://api.github.com/repos/cython/cython/commits/5b0e67f0baf396bde6fb316adfcef45da744c057"
                 }
             ],
-            "sha": "487bb6e06ec933fcd2d2c33d28f92018a183f25a",
-            "url": "https://api.github.com/repos/cython/cython/commits/487bb6e06ec933fcd2d2c33d28f92018a183f25a"
-        },
-        {
-            "author": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/5b3db339ef5a5dbe0ee6236bc4e0e8f43b389bbe/comments",
-            "commit": {
-                "author": {
-                    "date": "2026-05-02T17:01:38Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "comment_count": 0,
-                "committer": {
-                    "date": "2026-05-02T17:01:38Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "message": "remove helper function",
-                "tree": {
-                    "sha": "e0aa06db5864bedd1969ca7d8774bab591e1930f",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/e0aa06db5864bedd1969ca7d8774bab591e1930f"
-                },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/5b3db339ef5a5dbe0ee6236bc4e0e8f43b389bbe",
-                "verification": {
-                    "payload": null,
-                    "reason": "unsigned",
-                    "signature": null,
-                    "verified": false,
-                    "verified_at": null
-                }
-            },
-            "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "html_url": "https://github.com/cython/cython/commit/5b3db339ef5a5dbe0ee6236bc4e0e8f43b389bbe",
-            "node_id": "C_kwDOSQsl1toAKDViM2RiMzM5ZWY1YTVkYmUwZWU2MjM2YmM0ZTBlOGY0M2IzODliYmU",
-            "parents": [
-                {
-                    "html_url": "https://github.com/cython/cython/commit/487bb6e06ec933fcd2d2c33d28f92018a183f25a",
-                    "sha": "487bb6e06ec933fcd2d2c33d28f92018a183f25a",
-                    "url": "https://api.github.com/repos/cython/cython/commits/487bb6e06ec933fcd2d2c33d28f92018a183f25a"
-                }
-            ],
-            "sha": "5b3db339ef5a5dbe0ee6236bc4e0e8f43b389bbe",
-            "url": "https://api.github.com/repos/cython/cython/commits/5b3db339ef5a5dbe0ee6236bc4e0e8f43b389bbe"
-        },
-        {
-            "author": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/ebee08ba50a3ec2b27bcaf6a50d0a437b561b432/comments",
-            "commit": {
-                "author": {
-                    "date": "2026-05-02T17:24:04Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "comment_count": 0,
-                "committer": {
-                    "date": "2026-05-02T17:24:04Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "message": "move `from_keys_bound_frozendict` to `frozendict.pyx`",
-                "tree": {
-                    "sha": "f38caa452c0b8c9104eadedd56e1301847bca05d",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/f38caa452c0b8c9104eadedd56e1301847bca05d"
-                },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/ebee08ba50a3ec2b27bcaf6a50d0a437b561b432",
-                "verification": {
-                    "payload": null,
-                    "reason": "unsigned",
-                    "signature": null,
-                    "verified": false,
-                    "verified_at": null
-                }
-            },
-            "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "html_url": "https://github.com/cython/cython/commit/ebee08ba50a3ec2b27bcaf6a50d0a437b561b432",
-            "node_id": "C_kwDOSQsl1toAKGViZWUwOGJhNTBhM2VjMmIyN2JjYWY2YTUwZDBhNDM3YjU2MWI0MzI",
-            "parents": [
-                {
-                    "html_url": "https://github.com/cython/cython/commit/5b3db339ef5a5dbe0ee6236bc4e0e8f43b389bbe",
-                    "sha": "5b3db339ef5a5dbe0ee6236bc4e0e8f43b389bbe",
-                    "url": "https://api.github.com/repos/cython/cython/commits/5b3db339ef5a5dbe0ee6236bc4e0e8f43b389bbe"
-                }
-            ],
-            "sha": "ebee08ba50a3ec2b27bcaf6a50d0a437b561b432",
-            "url": "https://api.github.com/repos/cython/cython/commits/ebee08ba50a3ec2b27bcaf6a50d0a437b561b432"
-        },
-        {
-            "author": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/9653509ee287dafb7e19d112d97693080abf29ed/comments",
-            "commit": {
-                "author": {
-                    "date": "2026-05-02T18:01:37Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "comment_count": 0,
-                "committer": {
-                    "date": "2026-05-02T18:01:37Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "message": "Merge remote-tracking branch 'upstream/master' into frozendict-support\n\n# Conflicts:\n#\tCython/Compiler/PyrexTypes.py\n#\tCython/Compiler/Tests/TestTypes.py",
-                "tree": {
-                    "sha": "438b44e58317a38461eecd60793542f33e12512c",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/438b44e58317a38461eecd60793542f33e12512c"
-                },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/9653509ee287dafb7e19d112d97693080abf29ed",
-                "verification": {
-                    "payload": null,
-                    "reason": "unsigned",
-                    "signature": null,
-                    "verified": false,
-                    "verified_at": null
-                }
-            },
-            "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "html_url": "https://github.com/cython/cython/commit/9653509ee287dafb7e19d112d97693080abf29ed",
-            "node_id": "C_kwDOSQsl1toAKDk2NTM1MDllZTI4N2RhZmI3ZTE5ZDExMmQ5NzY5MzA4MGFiZjI5ZWQ",
-            "parents": [
-                {
-                    "html_url": "https://github.com/cython/cython/commit/ebee08ba50a3ec2b27bcaf6a50d0a437b561b432",
-                    "sha": "ebee08ba50a3ec2b27bcaf6a50d0a437b561b432",
-                    "url": "https://api.github.com/repos/cython/cython/commits/ebee08ba50a3ec2b27bcaf6a50d0a437b561b432"
-                },
-                {
-                    "html_url": "https://github.com/cython/cython/commit/87f82b7d7c84886396e15f0c09910011188047af",
-                    "sha": "87f82b7d7c84886396e15f0c09910011188047af",
-                    "url": "https://api.github.com/repos/cython/cython/commits/87f82b7d7c84886396e15f0c09910011188047af"
-                }
-            ],
-            "sha": "9653509ee287dafb7e19d112d97693080abf29ed",
-            "url": "https://api.github.com/repos/cython/cython/commits/9653509ee287dafb7e19d112d97693080abf29ed"
-        },
-        {
-            "author": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/4c89d1d3df770f057ae3087cdb3ebb3d30e96479/comments",
-            "commit": {
-                "author": {
-                    "date": "2026-05-02T22:07:44Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "comment_count": 0,
-                "committer": {
-                    "date": "2026-05-02T22:07:44Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "message": "Recognize `frozendict` in `__Pyx_dict_iterator` runtime fast path",
-                "tree": {
-                    "sha": "f21bac89a006922cc7b058f25e777f0703b5bef8",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/f21bac89a006922cc7b058f25e777f0703b5bef8"
-                },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/4c89d1d3df770f057ae3087cdb3ebb3d30e96479",
-                "verification": {
-                    "payload": null,
-                    "reason": "unsigned",
-                    "signature": null,
-                    "verified": false,
-                    "verified_at": null
-                }
-            },
-            "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "html_url": "https://github.com/cython/cython/commit/4c89d1d3df770f057ae3087cdb3ebb3d30e96479",
-            "node_id": "C_kwDOSQsl1toAKDRjODlkMWQzZGY3NzBmMDU3YWUzMDg3Y2RiM2ViYjNkMzBlOTY0Nzk",
-            "parents": [
-                {
-                    "html_url": "https://github.com/cython/cython/commit/9653509ee287dafb7e19d112d97693080abf29ed",
-                    "sha": "9653509ee287dafb7e19d112d97693080abf29ed",
-                    "url": "https://api.github.com/repos/cython/cython/commits/9653509ee287dafb7e19d112d97693080abf29ed"
-                }
-            ],
-            "sha": "4c89d1d3df770f057ae3087cdb3ebb3d30e96479",
-            "url": "https://api.github.com/repos/cython/cython/commits/4c89d1d3df770f057ae3087cdb3ebb3d30e96479"
-        },
-        {
-            "author": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/e7b6a4d46e15f576d37fb8a67d68f66664b624ef/comments",
-            "commit": {
-                "author": {
-                    "date": "2026-05-02T22:08:16Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "comment_count": 0,
-                "committer": {
-                    "date": "2026-05-02T22:08:16Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "message": "Recognize `frozendict` in `__Pyx_PyObject_Dict_GetItem` and `__Pyx_GetItemInt_Fast`",
-                "tree": {
-                    "sha": "4d8449b35578f81b0fe179bd730e03256573f593",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/4d8449b35578f81b0fe179bd730e03256573f593"
-                },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/e7b6a4d46e15f576d37fb8a67d68f66664b624ef",
-                "verification": {
-                    "payload": null,
-                    "reason": "unsigned",
-                    "signature": null,
-                    "verified": false,
-                    "verified_at": null
-                }
-            },
-            "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "html_url": "https://github.com/cython/cython/commit/e7b6a4d46e15f576d37fb8a67d68f66664b624ef",
-            "node_id": "C_kwDOSQsl1toAKGU3YjZhNGQ0NmUxNWY1NzZkMzdmYjhhNjdkNjhmNjY2NjRiNjI0ZWY",
-            "parents": [
-                {
-                    "html_url": "https://github.com/cython/cython/commit/4c89d1d3df770f057ae3087cdb3ebb3d30e96479",
-                    "sha": "4c89d1d3df770f057ae3087cdb3ebb3d30e96479",
-                    "url": "https://api.github.com/repos/cython/cython/commits/4c89d1d3df770f057ae3087cdb3ebb3d30e96479"
-                }
-            ],
-            "sha": "e7b6a4d46e15f576d37fb8a67d68f66664b624ef",
-            "url": "https://api.github.com/repos/cython/cython/commits/e7b6a4d46e15f576d37fb8a67d68f66664b624ef"
-        },
-        {
-            "author": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/9afe4f909242694a4f0d7f6077f86aaac3b97b1b/comments",
-            "commit": {
-                "author": {
-                    "date": "2026-05-03T09:04:58Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "comment_count": 0,
-                "committer": {
-                    "date": "2026-05-03T09:04:58Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "message": "remove comments",
-                "tree": {
-                    "sha": "14d2bfe680ea5f9eb792aec63067515a1ccef05c",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/14d2bfe680ea5f9eb792aec63067515a1ccef05c"
-                },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/9afe4f909242694a4f0d7f6077f86aaac3b97b1b",
-                "verification": {
-                    "payload": null,
-                    "reason": "unsigned",
-                    "signature": null,
-                    "verified": false,
-                    "verified_at": null
-                }
-            },
-            "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "html_url": "https://github.com/cython/cython/commit/9afe4f909242694a4f0d7f6077f86aaac3b97b1b",
-            "node_id": "C_kwDOSQsl1toAKDlhZmU0ZjkwOTI0MjY5NGE0ZjBkN2Y2MDc3Zjg2YWFhYzNiOTdiMWI",
-            "parents": [
-                {
-                    "html_url": "https://github.com/cython/cython/commit/e7b6a4d46e15f576d37fb8a67d68f66664b624ef",
-                    "sha": "e7b6a4d46e15f576d37fb8a67d68f66664b624ef",
-                    "url": "https://api.github.com/repos/cython/cython/commits/e7b6a4d46e15f576d37fb8a67d68f66664b624ef"
-                }
-            ],
-            "sha": "9afe4f909242694a4f0d7f6077f86aaac3b97b1b",
-            "url": "https://api.github.com/repos/cython/cython/commits/9afe4f909242694a4f0d7f6077f86aaac3b97b1b"
-        },
-        {
-            "author": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/8e4655f658906465975d8cc1d13d1d319d2b1f2c/comments",
-            "commit": {
-                "author": {
-                    "date": "2026-05-04T18:39:05Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "comment_count": 0,
-                "committer": {
-                    "date": "2026-05-04T18:39:05Z",
-                    "email": "omkarkabde@gmail.com",
-                    "name": "Omkar Kabde"
-                },
-                "message": "Recognize `frozendict` in `__Pyx_MergeKeywords` fast path",
-                "tree": {
-                    "sha": "473c689fbdf930a594732948f65c1cc3cf996a3e",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/473c689fbdf930a594732948f65c1cc3cf996a3e"
-                },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/8e4655f658906465975d8cc1d13d1d319d2b1f2c",
-                "verification": {
-                    "payload": null,
-                    "reason": "unsigned",
-                    "signature": null,
-                    "verified": false,
-                    "verified_at": null
-                }
-            },
-            "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
-                "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
-                "followers_url": "https://api.github.com/users/omkar-334/followers",
-                "following_url": "https://api.github.com/users/omkar-334/following{/other_user}",
-                "gists_url": "https://api.github.com/users/omkar-334/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/omkar-334",
-                "id": 40126336,
-                "login": "omkar-334",
-                "node_id": "MDQ6VXNlcjQwMTI2MzM2",
-                "organizations_url": "https://api.github.com/users/omkar-334/orgs",
-                "received_events_url": "https://api.github.com/users/omkar-334/received_events",
-                "repos_url": "https://api.github.com/users/omkar-334/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/omkar-334/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/omkar-334/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/omkar-334",
-                "user_view_type": "public"
-            },
-            "html_url": "https://github.com/cython/cython/commit/8e4655f658906465975d8cc1d13d1d319d2b1f2c",
-            "node_id": "C_kwDOSQsl1toAKDhlNDY1NWY2NTg5MDY0NjU5NzVkOGNjMWQxM2QxZDMxOWQyYjFmMmM",
-            "parents": [
-                {
-                    "html_url": "https://github.com/cython/cython/commit/9afe4f909242694a4f0d7f6077f86aaac3b97b1b",
-                    "sha": "9afe4f909242694a4f0d7f6077f86aaac3b97b1b",
-                    "url": "https://api.github.com/repos/cython/cython/commits/9afe4f909242694a4f0d7f6077f86aaac3b97b1b"
-                }
-            ],
-            "sha": "8e4655f658906465975d8cc1d13d1d319d2b1f2c",
-            "url": "https://api.github.com/repos/cython/cython/commits/8e4655f658906465975d8cc1d13d1d319d2b1f2c"
+            "sha": "c2cc0926e76f87720b954bc1c617acbba7c0b7ae",
+            "url": "https://api.github.com/repos/cython/cython/commits/c2cc0926e76f87720b954bc1c617acbba7c0b7ae"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/7649/commits",
@@ -2536,9 +2879,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/omkar-334/cython/pulls{/number}",
-            "pushed_at": "2026-05-04T18:39:11Z",
+            "pushed_at": "2026-05-07T15:20:35Z",
             "releases_url": "https://api.github.com/repos/omkar-334/cython/releases{/id}",
-            "size": 76202,
+            "size": 76657,
             "ssh_url": "git@github.com:omkar-334/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/omkar-334/cython/stargazers",
@@ -2557,7 +2900,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "8e4655f658906465975d8cc1d13d1d319d2b1f2c",
+        "sha": "c2cc0926e76f87720b954bc1c617acbba7c0b7ae",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
             "events_url": "https://api.github.com/users/omkar-334/events{/privacy}",
@@ -2613,11 +2956,11 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "0920542b9d355f7c29cb56876c3183834be4ee75",
-    "merged_at": null,
+    "merge_commit_sha": "f7d43d4d01dcb6b43671e42ec332122cbe588672",
+    "merged_at": "2026-05-07T20:34:25Z",
     "milestone": {
         "closed_at": null,
-        "closed_issues": 154,
+        "closed_issues": 160,
         "created_at": "2025-09-16T21:22:28Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -2647,10 +2990,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/118/labels",
         "node_id": "MI_kwDOABDGAc4A0Slr",
         "number": 118,
-        "open_issues": 19,
+        "open_issues": 17,
         "state": "open",
         "title": "3.3",
-        "updated_at": "2026-05-06T08:45:23Z",
+        "updated_at": "2026-05-08T10:50:49Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/118"
     },
     "node_id": "PR_kwDOABDGAc7XjMCb",
@@ -2660,10 +3003,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7649/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/8e4655f658906465975d8cc1d13d1d319d2b1f2c",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/c2cc0926e76f87720b954bc1c617acbba7c0b7ae",
     "title": "Extend `dict` optimisations to `frozendict`",
-    "updated_at": "2026-05-06T07:30:02Z",
+    "updated_at": "2026-05-08T07:59:36Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/7649",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/40126336?v=4",
