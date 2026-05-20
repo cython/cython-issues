@@ -5,6 +5,7 @@
     "author_association": "MEMBER",
     "body": "### Describe your issue\n\nThis is just a very broad issue to collate what we might do if we want Cython to give reproducible output:\r\n\r\n* It looks like Cython ends up embedding full paths into the source code https://github.com/cython/cython/issues/5949. Ideally this'd apply to both c code and comments embedded into the c source.\r\n* Do we ever embed a date/time into the output? (I don't think so but could be wrong).\r\n* Anywhere where `set`s are iterated over and the order is important - e.g. https://github.com/cython/cython/issues/5986\r\n* `dict` in older versions of Python (I'm inclined to treat this as a lost cause)\r\n* I think there may be places where the globally defined `BuiltinScope`, `CythonScope` or their entries are modified as Cython works. This means that if multiple modules are compiled in parallel then the exact output may depends on the order of parallel execution.\r\n* Other parallelization issues? (e.g. there used to be an issue with redirecting error output that was fixed in https://github.com/cython/cython/commit/f372c5ab67c73a4c28e68e2aa8bee16a2ec0e4e1, but it likely isn't the only such issue)\r\n* ????\r\n\r\nThere's then the question of how best to test it.",
     "closed_at": null,
+    "closed_by": null,
     "comment_data": [
         {
             "author_association": "MEMBER",
@@ -15,6 +16,7 @@
             "issue_url": "https://api.github.com/repos/cython/cython/issues/6118",
             "node_id": "IC_kwDOABDGAc6Ji53K",
             "performed_via_github_app": null,
+            "pin": null,
             "reactions": {
                 "+1": 0,
                 "-1": 0,
@@ -47,17 +49,148 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "I just added a diffing step to the CI runs that compares the generated test C/C++ sources of the latest master to the current test run, both for master builds and PRs.\nhttps://github.com/cython/cython/commit/e82ed27f8b813f4883991fb0321ae98293c24f63\n\nLooking through one of the diffs shows a couple of random changes that seem worth eliminating.\n\n```patch\ndiff -r -udB -x '*.py*' -x '*.html' -x '*.so' TEST_TMP/run/c/unicode_identifiers/unicode_identifiers.c ../TEST_TMP/run/c/unicode_identifiers/unicode_identifiers.c\n--- TEST_TMP/run/c/unicode_identifiers/unicode_identifiers.c    2026-05-14 03:26:30.000000000 +0000\n+++ ../TEST_TMP/run/c/unicode_identifiers/unicode_identifiers.c 2026-05-14 04:19:59.336443416 +0000\n@@ -2895,7 +2895,7 @@\n-static PyObject *__pyx_ff_map_fused_f3fa2a_1_2_a49aa9__float__and_43f53f__19unicode_identifiers__dund__etc(PyObject *); /*proto*/\n+static PyObject *__pyx_ff_map_fused_a764de_1_2_a49aa9__float__and_43f53f__19unicode_identifiers__dund__etc(PyObject *); /*proto*/\n```\n\n```patch\ndiff -r -udB -x '*.py*' -x '*.html' -x '*.so' TEST_TMP/compile/distutils_libraries_T845/a.c ../TEST_TMP/compile/distutils_libraries_T845/a.c\n--- TEST_TMP/compile/distutils_libraries_T845/a.c       2026-05-14 03:20:22.000000000 +0000\n+++ ../TEST_TMP/compile/distutils_libraries_T845/a.c    2026-05-14 04:10:49.419104332 +0000\n@@ -4,8 +4,8 @@\n {\n     \"distutils\": {\n         \"libraries\": [\n-            \"lib_x\",\n-            \"lib_y\"\n+            \"lib_y\",\n+            \"lib_x\"\n         ],\n```\n\n```patch\ndiff -r -udB -x '*.py*' -x '*.html' -x '*.so' TEST_TMP/compile/c/profile_exttypereturn/profile_exttypereturn.c ../TEST_TMP/compile/c/profile_exttypereturn/profile_exttypereturn.c\n--- TEST_TMP/compile/c/profile_exttypereturn/profile_exttypereturn.c    2026-05-14 03:20:46.000000000 +0000\n+++ ../TEST_TMP/compile/c/profile_exttypereturn/profile_exttypereturn.c 2026-05-14 04:11:20.640917457 +0000\n@@ -4522,7 +4522,7 @@\n   /*--- Execution code ---*/\n-  __Pyx_TraceStartFunc(\"PyInit_profile_exttypereturn\", __pyx_f[0], 1, 1, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));\n+  __Pyx_TraceStartFunc(\"PyInit_profile_exttypereturn\", __pyx_f[0], 1, 2, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));\n```\n\nProbably just due to the test setup, but at least the long path seems unhelpful:\n```patch\ndiff -r -udB -x '*.py*' -x '*.html' -x '*.so' TEST_TMP/memoryview/memoryview_shared_utility/pkg2/CythonShared.c ../TEST_TMP/memoryview/memoryview_shared_utility/pkg2/CythonShared.c\n--- TEST_TMP/memoryview/memoryview_shared_utility/pkg2/CythonShared.c   2026-05-14 03:20:42.000000000 +0000\n+++ ../TEST_TMP/memoryview/memoryview_shared_utility/pkg2/CythonShared.c        2026-05-14 04:11:24.120309594 +0000\n@@ -1368,7 +1368,7 @@\n /* #### Code section: filename_table ### */\n \n static const char* const __pyx_f[] = {\n-  \"../../../../../../../../tmp/tmpmh5rgk6p/CythonShared.pyx\",\n+  \"../../../../../../../../tmp/tmpbcp7cle1/CythonShared.pyx\",\n   \"View.MemoryView\",\n };\n```\n",
+            "created_at": "2026-05-14T05:49:17Z",
+            "html_url": "https://github.com/cython/cython/issues/6118#issuecomment-4448009056",
+            "id": 4448009056,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6118",
+            "node_id": "IC_kwDOABDGAc8AAAABCR87YA",
+            "performed_via_github_app": null,
+            "pin": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/4448009056/reactions"
+            },
+            "updated_at": "2026-05-14T05:49:17Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/4448009056",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "author_association": "MEMBER",
+            "body": "> Probably just due to the test setup, but at least the long path seems unhelpful:\n\nI think that's a real problem. https://github.com/cython/cython/pull/7634 is an attempt to fix it, but I think the wrong solution",
+            "created_at": "2026-05-14T07:20:27Z",
+            "html_url": "https://github.com/cython/cython/issues/6118#issuecomment-4448570922",
+            "id": 4448570922,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/6118",
+            "node_id": "IC_kwDOABDGAc8AAAABCSfOKg",
+            "performed_via_github_app": null,
+            "pin": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/4448570922/reactions"
+            },
+            "updated_at": "2026-05-14T07:20:27Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/4448570922",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         }
     ],
-    "comments": 1,
+    "comments": 3,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/6118/comments",
     "created_at": "2024-03-31T17:58:06Z",
-    "event_data": [],
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/53637421?v=4",
+                "events_url": "https://api.github.com/users/GalaxySnail/events{/privacy}",
+                "followers_url": "https://api.github.com/users/GalaxySnail/followers",
+                "following_url": "https://api.github.com/users/GalaxySnail/following{/other_user}",
+                "gists_url": "https://api.github.com/users/GalaxySnail/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/GalaxySnail",
+                "id": 53637421,
+                "login": "GalaxySnail",
+                "node_id": "MDQ6VXNlcjUzNjM3NDIx",
+                "organizations_url": "https://api.github.com/users/GalaxySnail/orgs",
+                "received_events_url": "https://api.github.com/users/GalaxySnail/received_events",
+                "repos_url": "https://api.github.com/users/GalaxySnail/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/GalaxySnail/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/GalaxySnail/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/GalaxySnail",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2025-02-01T13:24:45Z",
+            "event": "subscribed",
+            "id": 16150122866,
+            "node_id": "SE_lADOABDGAc6EJm5azwAAAAPCn1Fy",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/16150122866"
+        }
+    ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/6118/events",
     "html_url": "https://github.com/cython/cython/issues/6118",
     "id": 2217111130,
+    "issue_dependencies_summary": {
+        "blocked_by": 0,
+        "blocking": 0,
+        "total_blocked_by": 0,
+        "total_blocking": 0
+    },
     "labels": [],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/6118/labels{/name}",
     "locked": false,
@@ -65,6 +198,7 @@
     "node_id": "I_kwDOABDGAc6EJm5a",
     "number": 6118,
     "performed_via_github_app": null,
+    "pinned_comment": null,
     "reactions": {
         "+1": 0,
         "-1": 0,
@@ -80,9 +214,15 @@
     "repository_url": "https://api.github.com/repos/cython/cython",
     "state": "open",
     "state_reason": null,
+    "sub_issues_summary": {
+        "completed": 0,
+        "percent_completed": 0,
+        "total": 0
+    },
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/6118/timeline",
     "title": "[ENH] Reproducible output",
-    "updated_at": "2024-08-23T18:46:48Z",
+    "type": null,
+    "updated_at": "2026-05-14T07:20:27Z",
     "url": "https://api.github.com/repos/cython/cython/issues/6118",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
@@ -102,6 +242,7 @@
         "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/da-woods"
+        "url": "https://api.github.com/users/da-woods",
+        "user_view_type": "public"
     }
 }

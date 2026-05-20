@@ -6,11 +6,94 @@
     "body": "### Describe the bug\n\n`cython.typeof()` is currently tolerated in annotation contexts even when the type cannot be inferred, but the same unresolved type causes a compiler crash when used inside `cython.cast()`.\n\nMinimal reproducible example:\n\n```python\nimport cython\n\ndef f():\n    s = \"\"\n    y: cython.typeof(s)\n    b = cython.cast(cython.typeof(y), s)\n```\n\nThis crashes during compilation with:\n\n```text\nCompiler crash traceback from this point on:\n  File \"....\", line 11622, in analyse_types\n    if self.type.create_from_py_utility_code(env):\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'UnspecifiedType' object has no attribute 'create_from_py_utility_code'\n```\n\nHowever, the following version works correctly because the type can be resolved:\n\n```python\nimport cython\n\ndef f():\n    s: str = \"\"\n    y: cython.typeof(s)\n    b = cython.cast(cython.typeof(y), s)\n```\n\n### Current behavior\n\nIf the type cannot be inferred:\n\n```python\ns = \"\"\n```\n\nthen Cython still allows:\n\n```python\ny: cython.typeof(s)\n```\n\nbut crashes on:\n\n```python\ncython.cast(cython.typeof(y), s)\n```\n\ninstead of gracefully ignoring the unresolved cast or emitting a regular compilation error.\n\n\n\n### Code to reproduce the behaviour:\n\n```cython\nimport cython\n\ndef f():\n    s: str = \"\"\n    y: cython.typeof(s)\n    b = cython.cast(cython.typeof(y), s)\n```\n\n### Expected behaviour\n\n\nIf `cython.typeof(...)` resolves to `UnspecifiedType`, `cython.cast()` should not crash the compiler.\n\nA reasonable behavior would be to ignore the cast and return the operand unchanged, similarly to how unresolved `cython.typeof(...)` annotations are currently tolerated.\n\n### OS\n\n_No response_\n\n### Python version\n\n3.14\n\n### Cython version\n\ncurrent main: 401b195debacf5e790c7d081d11e85025442eb16\n\n### Additional context\n\n### Possible fix\n\nIn `TransformBuiltinMethods.visit_SimpleCallNode`, the `cast` handling could special-case `UnspecifiedType` before creating the `TypecastNode`.\n\nSomething along these lines:\n\n```python\nclass TransformBuiltinMethods(EnvTransform):\n    ...\n\n    def visit_SimpleCallNode(self, node):\n        ...\n\n        elif function == 'cast':\n            if len(node.args) != 2:\n                error(node.function.pos,\n                      \"cast() takes exactly two arguments and an optional typecheck keyword\")\n            else:\n                type = node.args[0].analyse_as_type(self.current_env())\n                if type:\n                    #########################\n                    if type.is_unspecified:\n                        # Ignore unresolved cast instead of crashing\n                        return node.args[1]\n                    #########################\n                    node = ExprNodes.TypecastNode(\n                        node.function.pos,\n                        type=type,\n                        operand=node.args[1],\n                        typecheck=False)\n                else:\n                    error(node.args[0].pos, \"Not a type\")\n```",
     "closed_at": null,
     "closed_by": null,
-    "comment_data": [],
-    "comments": 0,
+    "comment_data": [
+        {
+            "author_association": "MEMBER",
+            "body": "I think I'd prefer a compilation error for `cython.cast` rather than to silently ignore it. `cast` seems to me to be an active request to do something so shouldn't just fallback to nothing. While for annotations our general assumption is that they might not be for us and  we might not understand them so we try not to fail on unknown annotations (I could see an argument for breaking that rule for `cython.typeof` though, because clearly it is for us).\n\nDefinitely agree that it shouldn't crash though.",
+            "created_at": "2026-05-17T09:37:19Z",
+            "html_url": "https://github.com/cython/cython/issues/7683#issuecomment-4470173893",
+            "id": 4470173893,
+            "issue_url": "https://api.github.com/repos/cython/cython/issues/7683",
+            "node_id": "IC_kwDOABDGAc8AAAABCnFwxQ",
+            "performed_via_github_app": null,
+            "pin": null,
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/issues/comments/4470173893/reactions"
+            },
+            "updated_at": "2026-05-17T09:37:19Z",
+            "url": "https://api.github.com/repos/cython/cython/issues/comments/4470173893",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        }
+    ],
+    "comments": 1,
     "comments_url": "https://api.github.com/repos/cython/cython/issues/7683/comments",
     "created_at": "2026-05-12T00:47:33Z",
-    "event_data": [],
+    "event_data": [
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-05-17T09:37:26Z",
+            "event": "labeled",
+            "id": 25623860373,
+            "label": {
+                "color": "444444",
+                "name": "Error Reporting"
+            },
+            "node_id": "LE_lADOABDGAc8AAAABB8UhSc8AAAAF900UlQ",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/25623860373"
+        }
+    ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/7683/events",
     "html_url": "https://github.com/cython/cython/issues/7683",
     "id": 4425326921,
@@ -20,7 +103,17 @@
         "total_blocked_by": 0,
         "total_blocking": 0
     },
-    "labels": [],
+    "labels": [
+        {
+            "color": "444444",
+            "default": false,
+            "description": null,
+            "id": 425557478,
+            "name": "Error Reporting",
+            "node_id": "MDU6TGFiZWw0MjU1NTc0Nzg=",
+            "url": "https://api.github.com/repos/cython/cython/labels/Error%20Reporting"
+        }
+    ],
     "labels_url": "https://api.github.com/repos/cython/cython/issues/7683/labels{/name}",
     "locked": false,
     "milestone": null,
@@ -51,7 +144,7 @@
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/7683/timeline",
     "title": "[BUG] Cython.cast(cython.typeof(...), value) crashes when typeof() resolves to UnspecifiedType",
     "type": null,
-    "updated_at": "2026-05-12T07:52:52Z",
+    "updated_at": "2026-05-17T09:37:26Z",
     "url": "https://api.github.com/repos/cython/cython/issues/7683",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/15961835?v=4",
