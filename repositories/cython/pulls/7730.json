@@ -95,8 +95,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1537,
-            "open_issues_count": 1537,
+            "open_issues": 1541,
+            "open_issues_count": 1541,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -121,11 +121,11 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-06-03T09:19:52Z",
+            "pushed_at": "2026-06-14T14:14:00Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 80708,
+            "size": 80627,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10759,
+            "stargazers_count": 10767,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -144,11 +144,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-06-03T07:30:59Z",
+            "updated_at": "2026-06-14T12:51:05Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10759,
-            "watchers_count": 10759,
+            "watchers": 10767,
+            "watchers_count": 10767,
             "web_commit_signoff_required": false
         },
         "sha": "02dc3d415aaf44dc740fb7ddea476c69c01bf438",
@@ -1627,6 +1627,215 @@
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
                 "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7730#discussion_r3408064482"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7730"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3408064482"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I am now seeing warnings that `__pyx_refnanny` is an unsed argument in at least some of these functions. Is it a refactoring left-over, or is it going to be used at some later point?",
+            "commit_id": "f86e39545e210c31f15d680c9383983548768c66",
+            "created_at": "2026-06-13T14:09:55Z",
+            "diff_hunk": "@@ -403,3 +391,343 @@ static PyObject *__Pyx_MatchCase_UnknownTypeSliceToList(PyObject *x, Py_ssize_t\n #endif\n     return __Pyx_MatchCase_OtherSequenceSliceToList(x, start, end);\n }\n+\n+///////////////////////////// IsMapping.proto //////////////////////\n+\n+static int __Pyx_MatchCase_IsMapping(PyObject *o, unsigned int *sequence_mapping_temp); /* proto */\n+\n+//////////////////////////// IsMapping /////////////////////////\n+//@requires: ABCCheck\n+\n+static int __Pyx_MatchCase_IsMapping(PyObject *o, unsigned int *sequence_mapping_temp) {\n+#if PY_VERSION_HEX >= 0x030A0000 && !(CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY)\n+    return __Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_MAPPING);\n+#else\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+    // In the Limited API we have runtime access to Py_TPFLAGS_MAPPING\n+    // by looking it up on module init so it's still worth attempting\n+    // the fast path.\n+    if (__Pyx_Runtime_TPFLAGS_MAPPING) {\n+        return __Pyx_PyType_HasFeature(Py_TYPE(o), __Pyx_Runtime_TPFLAGS_MAPPING);\n+    }\n+#elif defined(Py_TPFLAGS_MAPPING)\n+    // Elsewhere *we* define Py_TPFLAGS_SEQUENCE but that doesn't necessarily\n+    // mean other types use it, so only success is meaningful.\n+    if (__Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_MAPPING)) {\n+        return 1;\n+    }\n+#endif\n+    unsigned int abc_result, dummy=0;\n+    if (sequence_mapping_temp) {\n+        // do we already know the answer?\n+        if (*sequence_mapping_temp & __PYX_DEFINITELY_MAPPING_FLAG) {\n+            return 1;\n+        } else if (*sequence_mapping_temp & __PYX_DEFINITELY_NOT_MAPPING_FLAG) {\n+            return 0;\n+        }\n+    } else {\n+        sequence_mapping_temp = &dummy; // just so we can assign freely without checking\n+    }\n+\n+    if (__Pyx_MatchCase_IsExactMapping(o)) {\n+        *sequence_mapping_temp |= (__PYX_DEFINITELY_MAPPING_FLAG | __PYX_DEFINITELY_NOT_SEQUENCE_FLAG);\n+        return 1;\n+    }\n+    if (__Pyx_MatchCase_IsExactSequence(o)) {\n+        *sequence_mapping_temp |= (__PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_NOT_MAPPING_FLAG);\n+        return 0;\n+    }\n+    if (__Pyx_MatchCase_IsExactNeitherSequenceNorMapping(o)) {\n+        *sequence_mapping_temp |= (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_NOT_MAPPING_FLAG);\n+        return 0;\n+    }\n+\n+    // otherwise check against collections.abc.Mapping\n+    abc_result = __Pyx_MatchCase_ABCCheck(\n+        o, 0,\n+        *sequence_mapping_temp & __PYX_DEFINITELY_NOT_SEQUENCE_FLAG,\n+        *sequence_mapping_temp & __PYX_DEFINITELY_NOT_MAPPING_FLAG\n+    );\n+    if (abc_result & __PYX_SEQUENCE_MAPPING_ERROR) {\n+        return -1;\n+    }\n+    *sequence_mapping_temp = abc_result;\n+    return *sequence_mapping_temp & __PYX_DEFINITELY_MAPPING_FLAG;\n+#endif\n+}\n+\n+//////////////////////// MappingKeyCheck.proto /////////////////////////\n+\n+static int __Pyx_MatchCase_CheckDuplicateKeys(PyObject *keys[], Py_ssize_t nFixedKeys, Py_ssize_t nKeys); /*proto */\n+\n+/////////////////////// MappingKeyCheck ////////////////////////////////\n+\n+static int __Pyx_MatchCase_CheckDuplicateKeys(PyObject *keys[], Py_ssize_t nFixedKeys, Py_ssize_t nKeys) {\n+    // Inputs are arrays, and typically fairly small. It may be more efficient to\n+    // loop over the array than create a set.\n+\n+    // The CPython implementation (match_keys in ceval.c) does this concurrently with\n+    // taking the keys out of the dictionary. I'm choosing to do it separately since the\n+    // majority of the time the keys will be known at compile-time so Cython can skip\n+    // this step completely.\n+\n+    PyObject *var_keys_set;\n+    PyObject *key;\n+    Py_ssize_t n;\n+    int contains;\n+\n+    var_keys_set = PySet_New(NULL);\n+    if (!var_keys_set) return -1;\n+\n+    for (n=nFixedKeys; n < nKeys; ++n) {\n+        key = keys[n];\n+        contains = PySet_Contains(var_keys_set, key);\n+        if (contains < 0) {\n+            goto bad;\n+        } else if (contains == 1) {\n+            goto raise_error;\n+        } else {\n+            if (PySet_Add(var_keys_set, key)) {\n+                goto bad;\n+            }\n+        }\n+    }\n+    for (n=0; n < nFixedKeys; ++n) {\n+        key = keys[n];\n+        contains = PySet_Contains(var_keys_set, key);\n+        if (contains < 0) {\n+            goto bad;\n+        } else if (contains == 1) {\n+            goto raise_error;\n+        }\n+    }\n+    Py_DECREF(var_keys_set);\n+    return 0;\n+\n+    raise_error:\n+    PyErr_Format(PyExc_ValueError,\n+                 \"mapping pattern checks duplicate key (%R)\", key);\n+    bad:\n+    Py_DECREF(var_keys_set);\n+    return -1;\n+}\n+\n+/////////////////////////// ExtractExactDict.proto ////////////////\n+\n+// The subjects array is a list of PyObject** to subjects to be filled. They may be NULL\n+// in which case they're ignored.\n+//\n+// This is a specialized version for when we have an exact (frozen)dict (which is likely to be pretty common)\n+\n+#if CYTHON_REFNANNY\n+#define __Pyx_MatchCase_Mapping_ExtractDict(...) __Pyx__MatchCase_Mapping_ExtractDict(__pyx_refnanny, __VA_ARGS__)\n+#else\n+#define __Pyx_MatchCase_Mapping_ExtractDict(...) __Pyx__MatchCase_Mapping_ExtractDict(NULL, __VA_ARGS__)\n+#endif\n+static CYTHON_INLINE int __Pyx__MatchCase_Mapping_ExtractDict(void *__pyx_refnanny, PyObject *dict, PyObject *keys[], Py_ssize_t nKeys, PyObject **subjects[]); /* proto */",
+            "html_url": "https://github.com/cython/cython/pull/7730#discussion_r3408064482",
+            "id": 3408064482,
+            "line": 527,
+            "node_id": "PRRC_kwDOABDGAc7LIu_i",
+            "original_commit_id": "f86e39545e210c31f15d680c9383983548768c66",
+            "original_line": 527,
+            "original_position": 237,
+            "original_start_line": 522,
+            "path": "Cython/Utility/MatchCase.c",
+            "position": 237,
+            "pull_request_review_id": 4491516878,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7730",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3408064482/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 522,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-06-13T14:09:55Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3408064482",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7730#discussion_r3408070866"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7730"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3408070866"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I believe it is used. I suspect if refnanny is disabled though it ends up being a pointless unused argument and should be marked as unused",
+            "commit_id": "f86e39545e210c31f15d680c9383983548768c66",
+            "created_at": "2026-06-13T14:15:08Z",
+            "diff_hunk": "@@ -403,3 +391,343 @@ static PyObject *__Pyx_MatchCase_UnknownTypeSliceToList(PyObject *x, Py_ssize_t\n #endif\n     return __Pyx_MatchCase_OtherSequenceSliceToList(x, start, end);\n }\n+\n+///////////////////////////// IsMapping.proto //////////////////////\n+\n+static int __Pyx_MatchCase_IsMapping(PyObject *o, unsigned int *sequence_mapping_temp); /* proto */\n+\n+//////////////////////////// IsMapping /////////////////////////\n+//@requires: ABCCheck\n+\n+static int __Pyx_MatchCase_IsMapping(PyObject *o, unsigned int *sequence_mapping_temp) {\n+#if PY_VERSION_HEX >= 0x030A0000 && !(CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY)\n+    return __Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_MAPPING);\n+#else\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+    // In the Limited API we have runtime access to Py_TPFLAGS_MAPPING\n+    // by looking it up on module init so it's still worth attempting\n+    // the fast path.\n+    if (__Pyx_Runtime_TPFLAGS_MAPPING) {\n+        return __Pyx_PyType_HasFeature(Py_TYPE(o), __Pyx_Runtime_TPFLAGS_MAPPING);\n+    }\n+#elif defined(Py_TPFLAGS_MAPPING)\n+    // Elsewhere *we* define Py_TPFLAGS_SEQUENCE but that doesn't necessarily\n+    // mean other types use it, so only success is meaningful.\n+    if (__Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_MAPPING)) {\n+        return 1;\n+    }\n+#endif\n+    unsigned int abc_result, dummy=0;\n+    if (sequence_mapping_temp) {\n+        // do we already know the answer?\n+        if (*sequence_mapping_temp & __PYX_DEFINITELY_MAPPING_FLAG) {\n+            return 1;\n+        } else if (*sequence_mapping_temp & __PYX_DEFINITELY_NOT_MAPPING_FLAG) {\n+            return 0;\n+        }\n+    } else {\n+        sequence_mapping_temp = &dummy; // just so we can assign freely without checking\n+    }\n+\n+    if (__Pyx_MatchCase_IsExactMapping(o)) {\n+        *sequence_mapping_temp |= (__PYX_DEFINITELY_MAPPING_FLAG | __PYX_DEFINITELY_NOT_SEQUENCE_FLAG);\n+        return 1;\n+    }\n+    if (__Pyx_MatchCase_IsExactSequence(o)) {\n+        *sequence_mapping_temp |= (__PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_NOT_MAPPING_FLAG);\n+        return 0;\n+    }\n+    if (__Pyx_MatchCase_IsExactNeitherSequenceNorMapping(o)) {\n+        *sequence_mapping_temp |= (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_NOT_MAPPING_FLAG);\n+        return 0;\n+    }\n+\n+    // otherwise check against collections.abc.Mapping\n+    abc_result = __Pyx_MatchCase_ABCCheck(\n+        o, 0,\n+        *sequence_mapping_temp & __PYX_DEFINITELY_NOT_SEQUENCE_FLAG,\n+        *sequence_mapping_temp & __PYX_DEFINITELY_NOT_MAPPING_FLAG\n+    );\n+    if (abc_result & __PYX_SEQUENCE_MAPPING_ERROR) {\n+        return -1;\n+    }\n+    *sequence_mapping_temp = abc_result;\n+    return *sequence_mapping_temp & __PYX_DEFINITELY_MAPPING_FLAG;\n+#endif\n+}\n+\n+//////////////////////// MappingKeyCheck.proto /////////////////////////\n+\n+static int __Pyx_MatchCase_CheckDuplicateKeys(PyObject *keys[], Py_ssize_t nFixedKeys, Py_ssize_t nKeys); /*proto */\n+\n+/////////////////////// MappingKeyCheck ////////////////////////////////\n+\n+static int __Pyx_MatchCase_CheckDuplicateKeys(PyObject *keys[], Py_ssize_t nFixedKeys, Py_ssize_t nKeys) {\n+    // Inputs are arrays, and typically fairly small. It may be more efficient to\n+    // loop over the array than create a set.\n+\n+    // The CPython implementation (match_keys in ceval.c) does this concurrently with\n+    // taking the keys out of the dictionary. I'm choosing to do it separately since the\n+    // majority of the time the keys will be known at compile-time so Cython can skip\n+    // this step completely.\n+\n+    PyObject *var_keys_set;\n+    PyObject *key;\n+    Py_ssize_t n;\n+    int contains;\n+\n+    var_keys_set = PySet_New(NULL);\n+    if (!var_keys_set) return -1;\n+\n+    for (n=nFixedKeys; n < nKeys; ++n) {\n+        key = keys[n];\n+        contains = PySet_Contains(var_keys_set, key);\n+        if (contains < 0) {\n+            goto bad;\n+        } else if (contains == 1) {\n+            goto raise_error;\n+        } else {\n+            if (PySet_Add(var_keys_set, key)) {\n+                goto bad;\n+            }\n+        }\n+    }\n+    for (n=0; n < nFixedKeys; ++n) {\n+        key = keys[n];\n+        contains = PySet_Contains(var_keys_set, key);\n+        if (contains < 0) {\n+            goto bad;\n+        } else if (contains == 1) {\n+            goto raise_error;\n+        }\n+    }\n+    Py_DECREF(var_keys_set);\n+    return 0;\n+\n+    raise_error:\n+    PyErr_Format(PyExc_ValueError,\n+                 \"mapping pattern checks duplicate key (%R)\", key);\n+    bad:\n+    Py_DECREF(var_keys_set);\n+    return -1;\n+}\n+\n+/////////////////////////// ExtractExactDict.proto ////////////////\n+\n+// The subjects array is a list of PyObject** to subjects to be filled. They may be NULL\n+// in which case they're ignored.\n+//\n+// This is a specialized version for when we have an exact (frozen)dict (which is likely to be pretty common)\n+\n+#if CYTHON_REFNANNY\n+#define __Pyx_MatchCase_Mapping_ExtractDict(...) __Pyx__MatchCase_Mapping_ExtractDict(__pyx_refnanny, __VA_ARGS__)\n+#else\n+#define __Pyx_MatchCase_Mapping_ExtractDict(...) __Pyx__MatchCase_Mapping_ExtractDict(NULL, __VA_ARGS__)\n+#endif\n+static CYTHON_INLINE int __Pyx__MatchCase_Mapping_ExtractDict(void *__pyx_refnanny, PyObject *dict, PyObject *keys[], Py_ssize_t nKeys, PyObject **subjects[]); /* proto */",
+            "html_url": "https://github.com/cython/cython/pull/7730#discussion_r3408070866",
+            "id": 3408070866,
+            "in_reply_to_id": 3408064482,
+            "line": 527,
+            "node_id": "PRRC_kwDOABDGAc7LIwjS",
+            "original_commit_id": "f86e39545e210c31f15d680c9383983548768c66",
+            "original_line": 527,
+            "original_position": 237,
+            "original_start_line": 522,
+            "path": "Cython/Utility/MatchCase.c",
+            "position": 237,
+            "pull_request_review_id": 4491523188,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7730",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3408070866/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 522,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-06-13T14:16:05Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3408070866",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7730#discussion_r3408215266"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7730"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3408215266"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "#7747 should fix the warning.",
+            "commit_id": "f86e39545e210c31f15d680c9383983548768c66",
+            "created_at": "2026-06-13T16:03:23Z",
+            "diff_hunk": "@@ -403,3 +391,343 @@ static PyObject *__Pyx_MatchCase_UnknownTypeSliceToList(PyObject *x, Py_ssize_t\n #endif\n     return __Pyx_MatchCase_OtherSequenceSliceToList(x, start, end);\n }\n+\n+///////////////////////////// IsMapping.proto //////////////////////\n+\n+static int __Pyx_MatchCase_IsMapping(PyObject *o, unsigned int *sequence_mapping_temp); /* proto */\n+\n+//////////////////////////// IsMapping /////////////////////////\n+//@requires: ABCCheck\n+\n+static int __Pyx_MatchCase_IsMapping(PyObject *o, unsigned int *sequence_mapping_temp) {\n+#if PY_VERSION_HEX >= 0x030A0000 && !(CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY)\n+    return __Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_MAPPING);\n+#else\n+#if CYTHON_COMPILING_IN_LIMITED_API\n+    // In the Limited API we have runtime access to Py_TPFLAGS_MAPPING\n+    // by looking it up on module init so it's still worth attempting\n+    // the fast path.\n+    if (__Pyx_Runtime_TPFLAGS_MAPPING) {\n+        return __Pyx_PyType_HasFeature(Py_TYPE(o), __Pyx_Runtime_TPFLAGS_MAPPING);\n+    }\n+#elif defined(Py_TPFLAGS_MAPPING)\n+    // Elsewhere *we* define Py_TPFLAGS_SEQUENCE but that doesn't necessarily\n+    // mean other types use it, so only success is meaningful.\n+    if (__Pyx_PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_MAPPING)) {\n+        return 1;\n+    }\n+#endif\n+    unsigned int abc_result, dummy=0;\n+    if (sequence_mapping_temp) {\n+        // do we already know the answer?\n+        if (*sequence_mapping_temp & __PYX_DEFINITELY_MAPPING_FLAG) {\n+            return 1;\n+        } else if (*sequence_mapping_temp & __PYX_DEFINITELY_NOT_MAPPING_FLAG) {\n+            return 0;\n+        }\n+    } else {\n+        sequence_mapping_temp = &dummy; // just so we can assign freely without checking\n+    }\n+\n+    if (__Pyx_MatchCase_IsExactMapping(o)) {\n+        *sequence_mapping_temp |= (__PYX_DEFINITELY_MAPPING_FLAG | __PYX_DEFINITELY_NOT_SEQUENCE_FLAG);\n+        return 1;\n+    }\n+    if (__Pyx_MatchCase_IsExactSequence(o)) {\n+        *sequence_mapping_temp |= (__PYX_DEFINITELY_SEQUENCE_FLAG | __PYX_DEFINITELY_NOT_MAPPING_FLAG);\n+        return 0;\n+    }\n+    if (__Pyx_MatchCase_IsExactNeitherSequenceNorMapping(o)) {\n+        *sequence_mapping_temp |= (__PYX_DEFINITELY_NOT_SEQUENCE_FLAG | __PYX_DEFINITELY_NOT_MAPPING_FLAG);\n+        return 0;\n+    }\n+\n+    // otherwise check against collections.abc.Mapping\n+    abc_result = __Pyx_MatchCase_ABCCheck(\n+        o, 0,\n+        *sequence_mapping_temp & __PYX_DEFINITELY_NOT_SEQUENCE_FLAG,\n+        *sequence_mapping_temp & __PYX_DEFINITELY_NOT_MAPPING_FLAG\n+    );\n+    if (abc_result & __PYX_SEQUENCE_MAPPING_ERROR) {\n+        return -1;\n+    }\n+    *sequence_mapping_temp = abc_result;\n+    return *sequence_mapping_temp & __PYX_DEFINITELY_MAPPING_FLAG;\n+#endif\n+}\n+\n+//////////////////////// MappingKeyCheck.proto /////////////////////////\n+\n+static int __Pyx_MatchCase_CheckDuplicateKeys(PyObject *keys[], Py_ssize_t nFixedKeys, Py_ssize_t nKeys); /*proto */\n+\n+/////////////////////// MappingKeyCheck ////////////////////////////////\n+\n+static int __Pyx_MatchCase_CheckDuplicateKeys(PyObject *keys[], Py_ssize_t nFixedKeys, Py_ssize_t nKeys) {\n+    // Inputs are arrays, and typically fairly small. It may be more efficient to\n+    // loop over the array than create a set.\n+\n+    // The CPython implementation (match_keys in ceval.c) does this concurrently with\n+    // taking the keys out of the dictionary. I'm choosing to do it separately since the\n+    // majority of the time the keys will be known at compile-time so Cython can skip\n+    // this step completely.\n+\n+    PyObject *var_keys_set;\n+    PyObject *key;\n+    Py_ssize_t n;\n+    int contains;\n+\n+    var_keys_set = PySet_New(NULL);\n+    if (!var_keys_set) return -1;\n+\n+    for (n=nFixedKeys; n < nKeys; ++n) {\n+        key = keys[n];\n+        contains = PySet_Contains(var_keys_set, key);\n+        if (contains < 0) {\n+            goto bad;\n+        } else if (contains == 1) {\n+            goto raise_error;\n+        } else {\n+            if (PySet_Add(var_keys_set, key)) {\n+                goto bad;\n+            }\n+        }\n+    }\n+    for (n=0; n < nFixedKeys; ++n) {\n+        key = keys[n];\n+        contains = PySet_Contains(var_keys_set, key);\n+        if (contains < 0) {\n+            goto bad;\n+        } else if (contains == 1) {\n+            goto raise_error;\n+        }\n+    }\n+    Py_DECREF(var_keys_set);\n+    return 0;\n+\n+    raise_error:\n+    PyErr_Format(PyExc_ValueError,\n+                 \"mapping pattern checks duplicate key (%R)\", key);\n+    bad:\n+    Py_DECREF(var_keys_set);\n+    return -1;\n+}\n+\n+/////////////////////////// ExtractExactDict.proto ////////////////\n+\n+// The subjects array is a list of PyObject** to subjects to be filled. They may be NULL\n+// in which case they're ignored.\n+//\n+// This is a specialized version for when we have an exact (frozen)dict (which is likely to be pretty common)\n+\n+#if CYTHON_REFNANNY\n+#define __Pyx_MatchCase_Mapping_ExtractDict(...) __Pyx__MatchCase_Mapping_ExtractDict(__pyx_refnanny, __VA_ARGS__)\n+#else\n+#define __Pyx_MatchCase_Mapping_ExtractDict(...) __Pyx__MatchCase_Mapping_ExtractDict(NULL, __VA_ARGS__)\n+#endif\n+static CYTHON_INLINE int __Pyx__MatchCase_Mapping_ExtractDict(void *__pyx_refnanny, PyObject *dict, PyObject *keys[], Py_ssize_t nKeys, PyObject **subjects[]); /* proto */",
+            "html_url": "https://github.com/cython/cython/pull/7730#discussion_r3408215266",
+            "id": 3408215266,
+            "in_reply_to_id": 3408064482,
+            "line": 527,
+            "node_id": "PRRC_kwDOABDGAc7LJTzi",
+            "original_commit_id": "f86e39545e210c31f15d680c9383983548768c66",
+            "original_line": 527,
+            "original_position": 237,
+            "original_start_line": 522,
+            "path": "Cython/Utility/MatchCase.c",
+            "position": 237,
+            "pull_request_review_id": 4491665740,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7730",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3408215266/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 522,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-06-13T16:03:23Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3408215266",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
                 "user_view_type": "public"
             }
         }
@@ -22489,9 +22698,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2026-06-03T07:23:05Z",
+            "pushed_at": "2026-06-14T14:25:12Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 84479,
+            "size": 84728,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -22561,7 +22770,7 @@
     "merged_at": "2026-06-02T11:20:51Z",
     "milestone": {
         "closed_at": null,
-        "closed_issues": 185,
+        "closed_issues": 191,
         "created_at": "2025-09-16T21:22:28Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -22594,7 +22803,7 @@
         "open_issues": 18,
         "state": "open",
         "title": "3.3",
-        "updated_at": "2026-06-02T19:15:03Z",
+        "updated_at": "2026-06-13T22:21:40Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/118"
     },
     "node_id": "PR_kwDOABDGAc7hQNM5",
@@ -22607,7 +22816,7 @@
     "state": "closed",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/f86e39545e210c31f15d680c9383983548768c66",
     "title": "Pattern matching for mappings",
-    "updated_at": "2026-06-02T16:24:55Z",
+    "updated_at": "2026-06-13T16:03:23Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/7730",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
