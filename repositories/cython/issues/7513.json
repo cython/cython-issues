@@ -3,7 +3,7 @@
     "assignee": null,
     "assignees": [],
     "author_association": "MEMBER",
-    "body": "### Describe the bug\n\nWhen casting different types to `<bool>`, the behaviour seems inconsistent.\n\n\n### Code to reproduce the behaviour:\n\n```cython\n# [1]\ncdef int int_x = 5\ncdef int int_bool_int_x = <int> <bool> int_x\n# TypeError: Expected bool, got int\n\n# [2]\ncdef object x = 5\ncdef char c = <char> <bint> x\n# c = 1\ncdef object x = 5\ncdef char c = <char> bool(x)\n# c = 1\ncdef object x = 5\ncdef char c = <char> <bool> x\n# c = 5\n\n# [3]\ncdef object x = 555\ncdef char c = <char> <bool> x\n# OverflowError: value too large to convert to char\n```\n\n\n### Expected behaviour\n\n1) We currently convert the C `int` to PyLong, then cast to PyBool (which fails in the type check) and then convert the result to C `int`. We should instead obey the cast and convert the C `int` to PyBool, then to C `int`. If we want to optimise, the way is through `bint` instead of  `bool`.\nI would consider a successful conversion more helpful here than a (compile time) failure.\n\n2) I think the `<bool>` cast ~should actually fail at runtime because~ we are trying to cast a Python object that is not `bool` to `bool`. If users want to do this, they can use `<bint>` or `bool()` to get an explicit conversion instead of a mere Python type cast. EDIT: We don't do type checks for explicit casts, so this is not a runtime error.\nWe might also want to issue warnings when users cast between incompatible known Python types (although that doesn't apply to `object` in this example code).\n\n3) This is more or less the same as [2] and should fail with a `TypeError` on the first cast, not get through to the second.\n\n**Alternatively:**\nWe could consider `<bool>` the Python equivalent of `<bint>` and always implement it as a truthiness test.\nThis wouldn't be quite in line with other Python types casts (which enforce a type tests), but would match the current behaviour of Python typed function arguments:\n\n```cython\ndef bool_arg(x: bool):\n    return x\n\n# bool_arg(0) -> False\n# bool_arg(1) -> True\n# bool_arg(12345) -> True\n```\n\nOne issue with this is that we'd introduce several ways to do it (`bool()`, `<bint>`, `<bool>` would all do the same thing), but without a way to get an actual `bool` type cast with type check if there is need for that. Users would have to resort to `isinstance()` and implement the error themselves. Not difficult, but it might be surprising to users that this is required, compared to other Python builtin type casts.\n\nGiven \"explicit is better than implicit\",\n**my proposal is**:\n\n- ~Make `<bool>` an explicit type cast and reject non-bool Python types.~\n- Let `<bool>` work on C types but make the result always True/False or 0/1 (when aliasing to `bint`). Use the C type specific truthiness test for the conversion. (NOTE: this is really optional – it seems perfectly ok to require `bool()` or `<bint>` instead of allowing a cast to `bool`.)\n- Require `bool()` or `<bint>` for boolean type conversions and (continue to) translate them to a truthiness test internally.\n\n### OS\n\n_No response_\n\n### Python version\n\n_No response_\n\n### Cython version\n\nmaster\n\n### Additional context\n\nThis also applies to older Cython versions but should not change in a point release.",
+    "body": "### Describe the bug\n\nWhen casting different types to `<bool>`, the behaviour seems inconsistent.\n\n\n### Code to reproduce the behaviour:\n\n```cython\n# [1]\ncdef int int_x = 5\ncdef int int_bool_int_x = <int> <bool> int_x\n# TypeError: Expected bool, got int\n\n# [2]\ncdef object x = 5\ncdef char c = <char> <bint> x\n# c = 1\ncdef object x = 5\ncdef char c = <char> bool(x)\n# c = 1\ncdef object x = 5\ncdef char c = <char> <bool> x\n# c = 5\n\n# [3]\ncdef object x = 555\ncdef char c = <char> <bool> x\n# OverflowError: value too large to convert to char\n```\n\n\n### Expected behaviour\n\n1) We currently convert the C `int` to PyLong, then cast to PyBool (which fails in the type check) and then convert the result to C `int`. We should instead obey the cast and convert the C `int` to PyBool, then to C `int`. If we want to optimise, the way is through `bint` instead of  `bool`.\nI would consider a successful conversion more helpful here than a (compile time) failure.\n\n2) I think the `<bool>` cast ~should actually fail at runtime because~ we are trying to cast a Python object that is not `bool` to `bool`. If users want to do this, they can use `<bint>` or `bool()` to get an explicit conversion instead of a mere Python type cast. EDIT: We don't do type checks for explicit casts, so this is not a runtime error.\nWe might also want to issue warnings when users cast between incompatible known Python types (although that doesn't apply to `object` in this example code).\n\n3) This is more or less the same as [2] and should ~fail with a `TypeError` on the first cast, not get through to the second~ turn the value of `x` into 0/1 before passing it to the second cast.\n\n**Alternatively:**\nWe could consider `<bool>` the Python equivalent of `<bint>` and always implement it as a truthiness test.\nThis ~wouldn't be quite in line with other Python types casts (which enforce a type tests), but~ would match the current behaviour of Python typed function arguments:\n\n```cython\ndef bool_arg(x: bool):\n    return x\n\n# bool_arg(0) -> False\n# bool_arg(1) -> True\n# bool_arg(12345) -> True\n```\n\nOne issue with this is that we'd introduce several ways to do it (`bool()`, `<bint>`, `<bool>` would all do the same thing), but without a way to get an actual `bool` type cast with type check if there is need for that. Users would have to resort to `isinstance()` and implement the error themselves. Not difficult, but it might be surprising to users that this is required, compared to other Python builtin type casts.\n\nGiven \"explicit is better than implicit\",\n**my proposal is**:\n\n- ~Make `<bool>` an explicit type cast and reject non-bool Python types.~\n- Let `<bool>` work on C types but make the result always True/False or 0/1 (when aliasing to `bint`). Use the C type specific truthiness test for the conversion. (NOTE: this is really optional – it seems perfectly ok to require `bool()` or `<bint>` instead of allowing a cast to `bool`.)\n- Require `bool()` or `<bint>` for boolean type conversions and (continue to) translate them to a truthiness test internally.\n\n### OS\n\n_No response_\n\n### Python version\n\n_No response_\n\n### Cython version\n\nmaster\n\n### Additional context\n\nThis also applies to older Cython versions but should not change in a point release.",
     "closed_at": null,
     "closed_by": null,
     "comment_data": [
@@ -266,6 +266,37 @@
                 "to": "[BUG] Python bool casts are inconsistent"
             },
             "url": "https://api.github.com/repos/cython/cython/issues/events/22637056347"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/53637421?v=4",
+                "events_url": "https://api.github.com/users/GalaxySnail/events{/privacy}",
+                "followers_url": "https://api.github.com/users/GalaxySnail/followers",
+                "following_url": "https://api.github.com/users/GalaxySnail/following{/other_user}",
+                "gists_url": "https://api.github.com/users/GalaxySnail/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/GalaxySnail",
+                "id": 53637421,
+                "login": "GalaxySnail",
+                "node_id": "MDQ6VXNlcjUzNjM3NDIx",
+                "organizations_url": "https://api.github.com/users/GalaxySnail/orgs",
+                "received_events_url": "https://api.github.com/users/GalaxySnail/received_events",
+                "repos_url": "https://api.github.com/users/GalaxySnail/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/GalaxySnail/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/GalaxySnail/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/GalaxySnail",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-06-17T06:14:35Z",
+            "event": "subscribed",
+            "id": 26844929794,
+            "node_id": "SE_lADOABDGAc7pXSFgzwAAAAZAFR8C",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/26844929794"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/7513/events",
@@ -277,6 +308,7 @@
         "total_blocked_by": 0,
         "total_blocking": 0
     },
+    "issue_field_values": [],
     "labels": [
         {
             "color": "444444",
@@ -319,7 +351,7 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 91,
+        "closed_issues": 221,
         "created_at": "2025-09-16T21:22:28Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -342,7 +374,7 @@
             "url": "https://api.github.com/users/scoder",
             "user_view_type": "public"
         },
-        "description": "",
+        "description": "Main features:\n- Pattern matching\n- Generics / subscripted container types\n- `@cython.collection_type()`\n- `restrict`\n- more vectorcalls\n- more thread safety\n- smaller modules, more shared code\n- remove Py3.8 support, keep Py3.9+",
         "due_on": null,
         "html_url": "https://github.com/cython/cython/milestone/118",
         "id": 13707627,
@@ -352,12 +384,13 @@
         "open_issues": 16,
         "state": "open",
         "title": "3.3",
-        "updated_at": "2026-02-10T08:32:50Z",
+        "updated_at": "2026-06-23T14:38:25Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/118"
     },
     "node_id": "I_kwDOABDGAc7pXSFg",
     "number": 7513,
     "performed_via_github_app": null,
+    "pinned_comment": null,
     "reactions": {
         "+1": 0,
         "-1": 0,
@@ -381,7 +414,7 @@
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/7513/timeline",
     "title": "[BUG] Python bool casts are inconsistent",
     "type": null,
-    "updated_at": "2026-02-09T16:00:34Z",
+    "updated_at": "2026-06-23T10:54:17Z",
     "url": "https://api.github.com/repos/cython/cython/issues/7513",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
