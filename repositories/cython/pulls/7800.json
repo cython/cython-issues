@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/7800"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/434c5729da3868500e1095b78b780a8fcd66666d"
+            "href": "https://api.github.com/repos/cython/cython/statuses/01f4a47e427b5cebaf535fd458648907c9cd93f9"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1613,
-            "forks_count": 1613,
+            "forks": 1617,
+            "forks_count": 1617,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -95,8 +95,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1514,
-            "open_issues_count": 1514,
+            "open_issues": 1515,
+            "open_issues_count": 1515,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -121,11 +121,11 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-07-08T14:17:31Z",
+            "pushed_at": "2026-07-10T11:15:52Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 81210,
+            "size": 81396,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10786,
+            "stargazers_count": 10792,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -144,11 +144,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-07-08T13:53:59Z",
+            "updated_at": "2026-07-10T12:40:05Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10786,
-            "watchers_count": 10786,
+            "watchers": 10792,
+            "watchers_count": 10792,
             "web_commit_signoff_required": false
         },
         "sha": "4a1310f0e7dee08b6efdb749209c81ee78bfabdf",
@@ -175,8 +175,218 @@
         }
     },
     "body": "This PR allows users to select the features in the shared utility module.\r\n\r\nI had first envisioned a semantic list of feature names, but while putting it together, it seemed to correspond broadly with the utility file names that we use. Thus, the list of features to chose from is automatically gathered by finding the names of C files in `Cython/Utility/` that export code, as for the utility code collection before. I added a utility code tag `//@feature: NAME` that allows setting a different (more specific) name for a code section. I do that for the `AutoPickle` feature.\r\n\r\nCommenting and trying it out is welcome.",
-    "closed_at": null,
-    "comment_data": [],
+    "closed_at": "2026-07-09T19:45:51Z",
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7800#discussion_r3547380646"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7800"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3547380646"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "I'm not completely convinced by having \"whole file features\" and \"subfeatures\" for a couple of reasons:\n* I don't think it's obviously got this structure from the help, and if we do document it then it seems like an extra complication to explain.\n* I agree with your conclusion that the file names currently do a decent job of grouping things. But I'm not sure we want the utility code location to be dictated by that. It suddenly becomes a user-facing decision where you put a block of utility code when there may be multiple possible options that make sense.\n\n  (For some recent additions I've chosen to add new utility code files, just because the existing files are big and a hard-to-navigate. I don't think any of that would particularly be wrong if those names were exposed as shared feature, but it wasn't _really_ what I was thinking when putting them there)\n\n  Letting the tag be an override of the feature name rather than a sub-feature avoids that.",
+            "commit_id": "0eb3aa55895eaa85bef8449a86fe9ca998bd7aae",
+            "created_at": "2026-07-08T21:32:34Z",
+            "diff_hunk": "@@ -5,40 +5,117 @@\n )\n from Cython.Compiler.StringEncoding import EncodedString\n from Cython.Compiler.Scanning import SharedUtilitySourceDescriptor\n+from Cython.Compiler.Errors import warning\n \n \n-def create_shared_library_pipeline(context, scope, options, result):\n+def list_of_features(included=None, excluded=None, _list_of_features=[]):\n+    if _list_of_features:\n+        feature_names = _list_of_features[:]\n+    else:\n+        feature_names = sorted({feature_name for feature_name, _, _ in _iter_exports()})\n+        _list_of_features[:] = feature_names\n+\n+    return _select_features(feature_names, included, excluded)\n+\n+\n+def _select_features(all_names, included, excluded):\n+    names = all_names\n+    if included:\n+        included = set(included)\n+        unknown = included.difference(all_names)\n+        if unknown:\n+            warning(None, f\"Unknown shared module features selected: {', '.join(sorted(unknown))}\")\n+\n+        names = [name for name in names if name in included]\n+\n+    if excluded:\n+        excluded = set(excluded)\n+        unknown = excluded.difference(all_names)\n+        if unknown:\n+            warning(None, f\"Unknown shared module features excluded: {', '.join(sorted(unknown))}\")\n+        unused = excluded.difference(names)\n+        if unused:\n+            warning(None, f\"Shared module features excluded that was not included: {', '.join(sorted(unused))}\")\n+\n+        names = [name for name in names if name not in excluded]\n+\n+    return names\n+\n+\n+def _iter_exports(selected_features=None):\n+    UtilityCode = Code.UtilityCode\n+    match_special = UtilityCode.get_special_comment_matcher('/')\n+\n+    for c_utility_file in os.listdir(Code.get_utility_dir()):\n+        if not c_utility_file.endswith('.c'):\n+            continue\n+\n+        file_base_name = os.path.splitext(os.path.basename(c_utility_file))[0]\n+        current_feature_name = file_base_name.partition('_')[0]\n+\n+        if selected_features is not None and current_feature_name not in selected_features:\n+            # Disable whole file feature, including any @features declared therein.\n+            continue",
+            "html_url": "https://github.com/cython/cython/pull/7800#discussion_r3547380646",
+            "id": 3547380646,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc7TcLum",
+            "original_commit_id": "0eb3aa55895eaa85bef8449a86fe9ca998bd7aae",
+            "original_line": 58,
+            "original_position": 55,
+            "original_start_line": 56,
+            "path": "Cython/Build/SharedModule.py",
+            "position": 1,
+            "pull_request_review_id": 4658068166,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7800",
+            "reactions": {
+                "+1": 1,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 1,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3547380646/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-07-08T21:32:34Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3547380646",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7800#discussion_r3547426090"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7800"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3547426090"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Just as an example - I think `ObjectHandling` and `Optimize` are probably too generic to be useful features. We don't currently have any of that code in the shared module but if we did I think we'd probably want to override it rather than isn't it as a \"subfeature\"",
+            "commit_id": "0eb3aa55895eaa85bef8449a86fe9ca998bd7aae",
+            "created_at": "2026-07-08T21:42:07Z",
+            "diff_hunk": "@@ -5,40 +5,117 @@\n )\n from Cython.Compiler.StringEncoding import EncodedString\n from Cython.Compiler.Scanning import SharedUtilitySourceDescriptor\n+from Cython.Compiler.Errors import warning\n \n \n-def create_shared_library_pipeline(context, scope, options, result):\n+def list_of_features(included=None, excluded=None, _list_of_features=[]):\n+    if _list_of_features:\n+        feature_names = _list_of_features[:]\n+    else:\n+        feature_names = sorted({feature_name for feature_name, _, _ in _iter_exports()})\n+        _list_of_features[:] = feature_names\n+\n+    return _select_features(feature_names, included, excluded)\n+\n+\n+def _select_features(all_names, included, excluded):\n+    names = all_names\n+    if included:\n+        included = set(included)\n+        unknown = included.difference(all_names)\n+        if unknown:\n+            warning(None, f\"Unknown shared module features selected: {', '.join(sorted(unknown))}\")\n+\n+        names = [name for name in names if name in included]\n+\n+    if excluded:\n+        excluded = set(excluded)\n+        unknown = excluded.difference(all_names)\n+        if unknown:\n+            warning(None, f\"Unknown shared module features excluded: {', '.join(sorted(unknown))}\")\n+        unused = excluded.difference(names)\n+        if unused:\n+            warning(None, f\"Shared module features excluded that was not included: {', '.join(sorted(unused))}\")\n+\n+        names = [name for name in names if name not in excluded]\n+\n+    return names\n+\n+\n+def _iter_exports(selected_features=None):\n+    UtilityCode = Code.UtilityCode\n+    match_special = UtilityCode.get_special_comment_matcher('/')\n+\n+    for c_utility_file in os.listdir(Code.get_utility_dir()):\n+        if not c_utility_file.endswith('.c'):\n+            continue\n+\n+        file_base_name = os.path.splitext(os.path.basename(c_utility_file))[0]\n+        current_feature_name = file_base_name.partition('_')[0]\n+\n+        if selected_features is not None and current_feature_name not in selected_features:\n+            # Disable whole file feature, including any @features declared therein.\n+            continue",
+            "html_url": "https://github.com/cython/cython/pull/7800#discussion_r3547426090",
+            "id": 3547426090,
+            "in_reply_to_id": 3547380646,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc7TcW0q",
+            "original_commit_id": "0eb3aa55895eaa85bef8449a86fe9ca998bd7aae",
+            "original_line": 58,
+            "original_position": 55,
+            "original_start_line": 56,
+            "path": "Cython/Build/SharedModule.py",
+            "position": 1,
+            "pull_request_review_id": 4658123542,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7800",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3547426090/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-07-08T21:42:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3547426090",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7800#discussion_r3549073951"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7800"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3549073951"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "> Just as an example - I think `ObjectHandling` and `Optimize` are probably too generic to be useful features.\r\n\r\nI agree – although from prior experience, I do not expect much non-inline code to appear in these files.\r\n\r\nI think your arguments against sub-features are sound, though. That would quickly become difficult to explain. I removed them (making `//@feature` _always_ override the file name), and also the ability to assign multiple feature names per section. It's not currently needed and the intended effect of that is unclear. I made the tag repetition an error to prevent accidental misuse on our side.",
+            "commit_id": "0eb3aa55895eaa85bef8449a86fe9ca998bd7aae",
+            "created_at": "2026-07-09T05:18:54Z",
+            "diff_hunk": "@@ -5,40 +5,117 @@\n )\n from Cython.Compiler.StringEncoding import EncodedString\n from Cython.Compiler.Scanning import SharedUtilitySourceDescriptor\n+from Cython.Compiler.Errors import warning\n \n \n-def create_shared_library_pipeline(context, scope, options, result):\n+def list_of_features(included=None, excluded=None, _list_of_features=[]):\n+    if _list_of_features:\n+        feature_names = _list_of_features[:]\n+    else:\n+        feature_names = sorted({feature_name for feature_name, _, _ in _iter_exports()})\n+        _list_of_features[:] = feature_names\n+\n+    return _select_features(feature_names, included, excluded)\n+\n+\n+def _select_features(all_names, included, excluded):\n+    names = all_names\n+    if included:\n+        included = set(included)\n+        unknown = included.difference(all_names)\n+        if unknown:\n+            warning(None, f\"Unknown shared module features selected: {', '.join(sorted(unknown))}\")\n+\n+        names = [name for name in names if name in included]\n+\n+    if excluded:\n+        excluded = set(excluded)\n+        unknown = excluded.difference(all_names)\n+        if unknown:\n+            warning(None, f\"Unknown shared module features excluded: {', '.join(sorted(unknown))}\")\n+        unused = excluded.difference(names)\n+        if unused:\n+            warning(None, f\"Shared module features excluded that was not included: {', '.join(sorted(unused))}\")\n+\n+        names = [name for name in names if name not in excluded]\n+\n+    return names\n+\n+\n+def _iter_exports(selected_features=None):\n+    UtilityCode = Code.UtilityCode\n+    match_special = UtilityCode.get_special_comment_matcher('/')\n+\n+    for c_utility_file in os.listdir(Code.get_utility_dir()):\n+        if not c_utility_file.endswith('.c'):\n+            continue\n+\n+        file_base_name = os.path.splitext(os.path.basename(c_utility_file))[0]\n+        current_feature_name = file_base_name.partition('_')[0]\n+\n+        if selected_features is not None and current_feature_name not in selected_features:\n+            # Disable whole file feature, including any @features declared therein.\n+            continue",
+            "html_url": "https://github.com/cython/cython/pull/7800#discussion_r3549073951",
+            "id": 3549073951,
+            "in_reply_to_id": 3547380646,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc7TipIf",
+            "original_commit_id": "0eb3aa55895eaa85bef8449a86fe9ca998bd7aae",
+            "original_line": 58,
+            "original_position": 55,
+            "original_start_line": 56,
+            "path": "Cython/Build/SharedModule.py",
+            "position": 1,
+            "pull_request_review_id": 4660039082,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7800",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3549073951/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-07-09T05:18:55Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3549073951",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/7800/comments",
     "commit_data": [
         {
@@ -752,6 +962,334 @@
             ],
             "sha": "434c5729da3868500e1095b78b780a8fcd66666d",
             "url": "https://api.github.com/repos/cython/cython/commits/434c5729da3868500e1095b78b780a8fcd66666d"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/0eb3aa55895eaa85bef8449a86fe9ca998bd7aae/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-07-08T16:21:03Z",
+                    "email": "stefan_ml@behnel.de",
+                    "name": "Stefan Behnel"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-07-08T16:21:03Z",
+                    "email": "stefan_ml@behnel.de",
+                    "name": "Stefan Behnel"
+                },
+                "message": "Allow excluding sub-features explicitly and via file features.",
+                "tree": {
+                    "sha": "80992a06c018fc5ca56ab839b2f750db60f382e1",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/80992a06c018fc5ca56ab839b2f750db60f382e1"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/0eb3aa55895eaa85bef8449a86fe9ca998bd7aae",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/0eb3aa55895eaa85bef8449a86fe9ca998bd7aae",
+            "node_id": "C_kwDOACXZ0toAKDBlYjNhYTU1ODk1ZWFhODViZWY4NDQ5YTg2ZmU5Y2E5OThiZDdhYWU",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/434c5729da3868500e1095b78b780a8fcd66666d",
+                    "sha": "434c5729da3868500e1095b78b780a8fcd66666d",
+                    "url": "https://api.github.com/repos/cython/cython/commits/434c5729da3868500e1095b78b780a8fcd66666d"
+                }
+            ],
+            "sha": "0eb3aa55895eaa85bef8449a86fe9ca998bd7aae",
+            "url": "https://api.github.com/repos/cython/cython/commits/0eb3aa55895eaa85bef8449a86fe9ca998bd7aae"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/e045890c97e3719d2d54537e8bc51dae0590c2d9/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-07-09T05:00:30Z",
+                    "email": "stefan_ml@behnel.de",
+                    "name": "Stefan Behnel"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-07-09T05:00:30Z",
+                    "email": "stefan_ml@behnel.de",
+                    "name": "Stefan Behnel"
+                },
+                "message": "Remove sub-features but still allow multiple feature tags per section.",
+                "tree": {
+                    "sha": "330ca4d834830fd990e805dc8a3ab441e75afcdd",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/330ca4d834830fd990e805dc8a3ab441e75afcdd"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/e045890c97e3719d2d54537e8bc51dae0590c2d9",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/e045890c97e3719d2d54537e8bc51dae0590c2d9",
+            "node_id": "C_kwDOACXZ0toAKGUwNDU4OTBjOTdlMzcxOWQyZDU0NTM3ZThiYzUxZGFlMDU5MGMyZDk",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/0eb3aa55895eaa85bef8449a86fe9ca998bd7aae",
+                    "sha": "0eb3aa55895eaa85bef8449a86fe9ca998bd7aae",
+                    "url": "https://api.github.com/repos/cython/cython/commits/0eb3aa55895eaa85bef8449a86fe9ca998bd7aae"
+                }
+            ],
+            "sha": "e045890c97e3719d2d54537e8bc51dae0590c2d9",
+            "url": "https://api.github.com/repos/cython/cython/commits/e045890c97e3719d2d54537e8bc51dae0590c2d9"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/0aae1ec7e8879d2fb52bfb2b8ecd2c4eacc84ba1/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-07-09T05:13:45Z",
+                    "email": "stefan_ml@behnel.de",
+                    "name": "Stefan Behnel"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-07-09T05:13:45Z",
+                    "email": "stefan_ml@behnel.de",
+                    "name": "Stefan Behnel"
+                },
+                "message": "Remove support for multiple feature names per section.\nIt's unclear if it will be needed and how it should work then. Make it an error instead.",
+                "tree": {
+                    "sha": "a33a94e60293cac959c10b3756a56c7381b21a82",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/a33a94e60293cac959c10b3756a56c7381b21a82"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/0aae1ec7e8879d2fb52bfb2b8ecd2c4eacc84ba1",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/0aae1ec7e8879d2fb52bfb2b8ecd2c4eacc84ba1",
+            "node_id": "C_kwDOACXZ0toAKDBhYWUxZWM3ZTg4NzlkMmZiNTJiZmIyYjhlY2QyYzRlYWNjODRiYTE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/e045890c97e3719d2d54537e8bc51dae0590c2d9",
+                    "sha": "e045890c97e3719d2d54537e8bc51dae0590c2d9",
+                    "url": "https://api.github.com/repos/cython/cython/commits/e045890c97e3719d2d54537e8bc51dae0590c2d9"
+                }
+            ],
+            "sha": "0aae1ec7e8879d2fb52bfb2b8ecd2c4eacc84ba1",
+            "url": "https://api.github.com/repos/cython/cython/commits/0aae1ec7e8879d2fb52bfb2b8ecd2c4eacc84ba1"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/01f4a47e427b5cebaf535fd458648907c9cd93f9/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-07-09T06:31:40Z",
+                    "email": "stefan_ml@behnel.de",
+                    "name": "Stefan Behnel"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-07-09T06:31:40Z",
+                    "email": "stefan_ml@behnel.de",
+                    "name": "Stefan Behnel"
+                },
+                "message": "Add documentation.",
+                "tree": {
+                    "sha": "7b0a48ba7cacf03cbdcf955bbed73dad823d8a5c",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/7b0a48ba7cacf03cbdcf955bbed73dad823d8a5c"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/01f4a47e427b5cebaf535fd458648907c9cd93f9",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/01f4a47e427b5cebaf535fd458648907c9cd93f9",
+            "node_id": "C_kwDOACXZ0toAKDAxZjRhNDdlNDI3YjVjZWJhZjUzNWZkNDU4NjQ4OTA3YzljZDkzZjk",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/0aae1ec7e8879d2fb52bfb2b8ecd2c4eacc84ba1",
+                    "sha": "0aae1ec7e8879d2fb52bfb2b8ecd2c4eacc84ba1",
+                    "url": "https://api.github.com/repos/cython/cython/commits/0aae1ec7e8879d2fb52bfb2b8ecd2c4eacc84ba1"
+                }
+            ],
+            "sha": "01f4a47e427b5cebaf535fd458648907c9cd93f9",
+            "url": "https://api.github.com/repos/cython/cython/commits/01f4a47e427b5cebaf535fd458648907c9cd93f9"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/7800/commits",
@@ -849,9 +1387,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/scoder/cython/pulls{/number}",
-            "pushed_at": "2026-07-08T14:17:23Z",
+            "pushed_at": "2026-07-10T11:24:55Z",
             "releases_url": "https://api.github.com/repos/scoder/cython/releases{/id}",
-            "size": 80526,
+            "size": 80742,
             "ssh_url": "git@github.com:scoder/cython.git",
             "stargazers_count": 11,
             "stargazers_url": "https://api.github.com/repos/scoder/cython/stargazers",
@@ -863,14 +1401,14 @@
             "teams_url": "https://api.github.com/repos/scoder/cython/teams",
             "topics": [],
             "trees_url": "https://api.github.com/repos/scoder/cython/git/trees{/sha}",
-            "updated_at": "2026-07-05T05:19:40Z",
+            "updated_at": "2026-07-10T11:13:08Z",
             "url": "https://api.github.com/repos/scoder/cython",
             "visibility": "public",
             "watchers": 11,
             "watchers_count": 11,
             "web_commit_signoff_required": false
         },
-        "sha": "434c5729da3868500e1095b78b780a8fcd66666d",
+        "sha": "01f4a47e427b5cebaf535fd458648907c9cd93f9",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
             "events_url": "https://api.github.com/users/scoder/events{/privacy}",
@@ -917,8 +1455,8 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "fe254cdd7397cafdcff9767bdc5920f8bfcb4001",
-    "merged_at": null,
+    "merge_commit_sha": "f4974cc82a44530f73c6650cfe7553c82bcb9e19",
+    "merged_at": "2026-07-09T19:45:51Z",
     "milestone": null,
     "node_id": "PR_kwDOABDGAc7uG6lx",
     "number": 7800,
@@ -944,36 +1482,15 @@
             "type": "User",
             "url": "https://api.github.com/users/matusvalo",
             "user_view_type": "public"
-        },
-        {
-            "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
-            "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
-            "followers_url": "https://api.github.com/users/da-woods/followers",
-            "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
-            "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
-            "gravatar_id": "",
-            "html_url": "https://github.com/da-woods",
-            "id": 10536947,
-            "login": "da-woods",
-            "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
-            "organizations_url": "https://api.github.com/users/da-woods/orgs",
-            "received_events_url": "https://api.github.com/users/da-woods/received_events",
-            "repos_url": "https://api.github.com/users/da-woods/repos",
-            "site_admin": false,
-            "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
-            "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
-            "type": "User",
-            "url": "https://api.github.com/users/da-woods",
-            "user_view_type": "public"
         }
     ],
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7800/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/434c5729da3868500e1095b78b780a8fcd66666d",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/01f4a47e427b5cebaf535fd458648907c9cd93f9",
     "title": "Simple feature list for shared module based on utility file names",
-    "updated_at": "2026-07-08T14:17:24Z",
+    "updated_at": "2026-07-09T19:45:55Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/7800",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
