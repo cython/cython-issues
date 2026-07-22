@@ -1,28 +1,28 @@
 {
     "_links": {
         "comments": {
-            "href": "https://api.github.com/repos/cython/cython/issues/7808/comments"
+            "href": "https://api.github.com/repos/cython/cython/issues/7842/comments"
         },
         "commits": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/7808/commits"
+            "href": "https://api.github.com/repos/cython/cython/pulls/7842/commits"
         },
         "html": {
-            "href": "https://github.com/cython/cython/pull/7808"
+            "href": "https://github.com/cython/cython/pull/7842"
         },
         "issue": {
-            "href": "https://api.github.com/repos/cython/cython/issues/7808"
+            "href": "https://api.github.com/repos/cython/cython/issues/7842"
         },
         "review_comment": {
             "href": "https://api.github.com/repos/cython/cython/pulls/comments{/number}"
         },
         "review_comments": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/7808/comments"
+            "href": "https://api.github.com/repos/cython/cython/pulls/7842/comments"
         },
         "self": {
-            "href": "https://api.github.com/repos/cython/cython/pulls/7808"
+            "href": "https://api.github.com/repos/cython/cython/pulls/7842"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/247094d755c37b88ed077cfd7bae16a7d5eb744c"
+            "href": "https://api.github.com/repos/cython/cython/statuses/852c6e2db9e4d038f9cdba3a737730908059e9dc"
         }
     },
     "active_lock_reason": null,
@@ -151,7 +151,7 @@
             "watchers_count": 10803,
             "web_commit_signoff_required": false
         },
-        "sha": "2dc07522ec0e90ba8600d58216bbd134e0d744bf",
+        "sha": "c4922a948dfdef72fc124a0d377aa486078f365b",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -174,10 +174,10 @@
             "user_view_type": "public"
         }
     },
-    "body": "## Summary\r\nThis pull request adds subcommand support to the `cython` CLI while preserving full backward compatibility with the legacy command structure:\r\n- `cython MODULE.pyx` &rarr; `cython compile MODULE.pyx`\r\n- `cython --shared cyshared MODULE.pyx` &rarr; `cython compile --shared MODULE.pyx` (with `--shared` defaulting to `'cyshared'` if the name is omitted)\r\n- `cython --generate-shared cyshared.c` &rarr; `cython generate-shared cyshared.c`\r\n- `cythonize -fib MODULE.pyx` &rarr; `cython build -fi MODULE.pyx`\r\n\r\n## Subcommands Overview\r\n\r\n1. **`compile`**: Translates `.pyx` or `.py` files to C/C++. Supports all existing compiler options.\r\n2. **`generate-shared`**: Generates a shared C/C++ module with specified utility features (formerly `--generate-shared`).\r\n3. **`build`**: Compiles and builds extension modules using setuptools/distutils (acting as a clean alias for the `cythonize` CLI).\r\n\r\n## Key Implementation Details\r\n- **Backward Compatibility**: A custom argument preprocessing step checks if a subcommand was supplied. If not, it falls back to the legacy parser, ensuring existing build scripts and integrations do not break.\r\n- **`--shared` Defaulting**: Preprocesses `--shared` to default to `'cyshared'` if no value is explicitly supplied.\r\n- **Reusable Parsers**: Modified `Cythonize` argument parser to accept an `add_help` argument. This allows reusing the entire `cythonize` parser definition under the new `build` subcommand without option conflicts.\r\n- **Build Delegation**: If the `build` subcommand is detected, the CLI hands off control directly to `Cython.Build.Cythonize.main` and exits.\r\n\r\n## Changes\r\n- **`Cython/Build/Cythonize.py`**: Added `add_help` parameter to `create_args_parser` for subcommand parent parser support.\r\n- **`Cython/Compiler/CmdLine.py`**:\r\n  - Factored compile option additions into `add_compile_arguments`.\r\n  - Implemented `create_cython_subcommand_parser` with subparsers.\r\n  - Implemented `preprocess_shared_args` and subcommand detection logic.\r\n  - Updated `parse_command_line` to route subcommands/legacy configurations.\r\n- **`Cython/Compiler/Tests/TestCmdLine.py`**: Added comprehensive test coverage for `compile`, `generate-shared`, and `build` subcommands, as well as `--shared` defaulting.\r\n\r\n## Verification\r\nRan the command-line parser test suite directly:\r\n```bash\r\npython -c \"import sys; sys.path.insert(0, '.'); import unittest; import Cython.Compiler.Tests.TestCmdLine as t; unittest.main(t)\"\r\n```\r\nAll **56 unit tests passed successfully** (including existing legacy tests and the new subcommand/defaulting tests).\r\n",
+    "body": "# Add `cython generate-shared` subcommand for Cython 3.3\r\n\r\n## Summary\r\n\r\nAs suggested in https://github.com/cython/cython/pull/7808, this PR extracts only the **`generate-shared`** subcommand (`cython generate-shared OUTPUT_FILE`) from the broader CLI hierarchy refactoring so that it can be included in the upcoming **Cython 3.3** release. The comprehensive CLI cleanup (`compile` and `build` subcommands) is deferred to Cython 3.4 to allow more time for design refinement.\r\n\r\n## Key Changes\r\n\r\n### 1. New `generate-shared` Subcommand\r\n- Added `cython generate-shared OUTPUT_FILE` along with the feature selection options:\r\n  - `--shared-only FEATURES` (`options.shared_utility_features_enabled`)\r\n  - `--shared-exclude FEATURES` (`options.shared_utility_features_disabled`)\r\n- Retained full backward compatibility for the legacy flat option `--generate-shared=OUTPUT_FILE` on the main parser.\r\n\r\n### 2. Restricted Option Set for Subcommand (`CmdLine.py`)\r\n- Extracted common option setup into `add_compile_arguments(parser, include_sources=True, for_shared=False)`.\r\n- When `for_shared=True`, the following compile options are strictly excluded as they do not apply to shared module generation:\r\n  - `--embed`, `--embed-modules`, `-p` / `--embed-positions`\r\n  - `-2`, `-3`, `--3str`\r\n  - `--lenient`\r\n  - `--capi-reexport-cincludes`\r\n  - `-E` / `--compile-time-env`\r\n- `--version` (`-V`) is restricted to the global root parser level (`cython --version generate-shared ...` works; `cython generate-shared --version` raises an `argparse` unknown option error).\r\n\r\n### 3. Subcommand Routing & Error Prevention\r\n- Updated `parse_command_line` to route `generate-shared` invocations to the focused subparser while enforcing strict option boundaries.\r\n- Added checks in `parse_command_line_raw` to reject forbidden options (`--embed*`) and catch negative option strings (e.g. `-2`, `-3`) from being consumed as positional file paths when passed to the subcommand.\r\n\r\n### 4. Unit Testing (`TestCmdLine.py`)\r\n- Added `test_generate_shared_subcommand` verifying positional `OUTPUT_FILE` extraction, feature filtering (`--shared-only`/`--shared-exclude`), and compatibility with valid compile flags (`-I`, `-l`, `-D`, `-a`, `-+`, `-X`, `--fast-fail`, `-Werror`, `--cleanup`).\r\n- Added exhaustive error test cases in `test_errors` ensuring that extra `.pyx` source files and every excluded compile option raise exact `argparse` errors when passed inside `generate-shared`.\r\n\r\n## Verification\r\n\r\nAll command-line and compiler tests pass without error:\r\n- `python -m pytest Cython/Compiler/Tests/TestCmdLine.py -v` (53 passed)\r\n- `python -m unittest discover -v Cython.Compiler.Tests` (137 passed)\r\n",
     "closed_at": null,
     "comment_data": [],
-    "comments_url": "https://api.github.com/repos/cython/cython/issues/7808/comments",
+    "comments_url": "https://api.github.com/repos/cython/cython/issues/7842/comments",
     "commit_data": [
         {
             "author": {
@@ -201,25 +201,25 @@
                 "url": "https://api.github.com/users/raza-khan0108",
                 "user_view_type": "public"
             },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/f455460dead92ff35c96d76efc3de4147fddb81b/comments",
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/852c6e2db9e4d038f9cdba3a737730908059e9dc/comments",
             "commit": {
                 "author": {
-                    "date": "2026-07-10T18:07:14Z",
+                    "date": "2026-07-20T13:57:48Z",
                     "email": "razawarsi828@gmail.com",
                     "name": "coffeecoder08"
                 },
                 "comment_count": 0,
                 "committer": {
-                    "date": "2026-07-10T18:07:14Z",
+                    "date": "2026-07-20T13:57:48Z",
                     "email": "razawarsi828@gmail.com",
                     "name": "coffeecoder08"
                 },
-                "message": "Migrate Cython CLI to support sub-commands (compile, generate-shared, build)",
+                "message": "Add generate-shared subcommand for Cython 3.3 (#7808)",
                 "tree": {
-                    "sha": "4fc8417d6d8c4824fa76c45f37b0da912cb790d0",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/4fc8417d6d8c4824fa76c45f37b0da912cb790d0"
+                    "sha": "f3f17753f7becb86a3c89dcbf2a8798095aa99a9",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/f3f17753f7becb86a3c89dcbf2a8798095aa99a9"
                 },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/f455460dead92ff35c96d76efc3de4147fddb81b",
+                "url": "https://api.github.com/repos/cython/cython/git/commits/852c6e2db9e4d038f9cdba3a737730908059e9dc",
                 "verification": {
                     "payload": null,
                     "reason": "unsigned",
@@ -249,8 +249,8 @@
                 "url": "https://api.github.com/users/raza-khan0108",
                 "user_view_type": "public"
             },
-            "html_url": "https://github.com/cython/cython/commit/f455460dead92ff35c96d76efc3de4147fddb81b",
-            "node_id": "C_kwDOTUsiNNoAKGY0NTU0NjBkZWFkOTJmZjM1Yzk2ZDc2ZWZjM2RlNDE0N2ZkZGI4MWI",
+            "html_url": "https://github.com/cython/cython/commit/852c6e2db9e4d038f9cdba3a737730908059e9dc",
+            "node_id": "C_kwDOTUsiNNoAKDg1MmM2ZTJkYjllNGQwMzhmOWNkYmEzYTczNzczMDkwODA1OWU5ZGM",
             "parents": [
                 {
                     "html_url": "https://github.com/cython/cython/commit/2dc07522ec0e90ba8600d58216bbd134e0d744bf",
@@ -258,99 +258,17 @@
                     "url": "https://api.github.com/repos/cython/cython/commits/2dc07522ec0e90ba8600d58216bbd134e0d744bf"
                 }
             ],
-            "sha": "f455460dead92ff35c96d76efc3de4147fddb81b",
-            "url": "https://api.github.com/repos/cython/cython/commits/f455460dead92ff35c96d76efc3de4147fddb81b"
-        },
-        {
-            "author": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/110333158?v=4",
-                "events_url": "https://api.github.com/users/raza-khan0108/events{/privacy}",
-                "followers_url": "https://api.github.com/users/raza-khan0108/followers",
-                "following_url": "https://api.github.com/users/raza-khan0108/following{/other_user}",
-                "gists_url": "https://api.github.com/users/raza-khan0108/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/raza-khan0108",
-                "id": 110333158,
-                "login": "raza-khan0108",
-                "node_id": "U_kgDOBpOM5g",
-                "organizations_url": "https://api.github.com/users/raza-khan0108/orgs",
-                "received_events_url": "https://api.github.com/users/raza-khan0108/received_events",
-                "repos_url": "https://api.github.com/users/raza-khan0108/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/raza-khan0108/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/raza-khan0108/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/raza-khan0108",
-                "user_view_type": "public"
-            },
-            "comments_url": "https://api.github.com/repos/cython/cython/commits/247094d755c37b88ed077cfd7bae16a7d5eb744c/comments",
-            "commit": {
-                "author": {
-                    "date": "2026-07-11T11:28:07Z",
-                    "email": "razawarsi828@gmail.com",
-                    "name": "coffeecoder08"
-                },
-                "comment_count": 0,
-                "committer": {
-                    "date": "2026-07-11T11:28:07Z",
-                    "email": "razawarsi828@gmail.com",
-                    "name": "coffeecoder08"
-                },
-                "message": "Fix code style issue in TestCmdLine.py",
-                "tree": {
-                    "sha": "ac41e6da5e7c54d72f9b4a1361506516f4cbe224",
-                    "url": "https://api.github.com/repos/cython/cython/git/trees/ac41e6da5e7c54d72f9b4a1361506516f4cbe224"
-                },
-                "url": "https://api.github.com/repos/cython/cython/git/commits/247094d755c37b88ed077cfd7bae16a7d5eb744c",
-                "verification": {
-                    "payload": null,
-                    "reason": "unsigned",
-                    "signature": null,
-                    "verified": false,
-                    "verified_at": null
-                }
-            },
-            "committer": {
-                "avatar_url": "https://avatars.githubusercontent.com/u/110333158?v=4",
-                "events_url": "https://api.github.com/users/raza-khan0108/events{/privacy}",
-                "followers_url": "https://api.github.com/users/raza-khan0108/followers",
-                "following_url": "https://api.github.com/users/raza-khan0108/following{/other_user}",
-                "gists_url": "https://api.github.com/users/raza-khan0108/gists{/gist_id}",
-                "gravatar_id": "",
-                "html_url": "https://github.com/raza-khan0108",
-                "id": 110333158,
-                "login": "raza-khan0108",
-                "node_id": "U_kgDOBpOM5g",
-                "organizations_url": "https://api.github.com/users/raza-khan0108/orgs",
-                "received_events_url": "https://api.github.com/users/raza-khan0108/received_events",
-                "repos_url": "https://api.github.com/users/raza-khan0108/repos",
-                "site_admin": false,
-                "starred_url": "https://api.github.com/users/raza-khan0108/starred{/owner}{/repo}",
-                "subscriptions_url": "https://api.github.com/users/raza-khan0108/subscriptions",
-                "type": "User",
-                "url": "https://api.github.com/users/raza-khan0108",
-                "user_view_type": "public"
-            },
-            "html_url": "https://github.com/cython/cython/commit/247094d755c37b88ed077cfd7bae16a7d5eb744c",
-            "node_id": "C_kwDOTUsiNNoAKDI0NzA5NGQ3NTVjMzdiODhlZDA3N2NmZDdiYWUxNmE3ZDVlYjc0NGM",
-            "parents": [
-                {
-                    "html_url": "https://github.com/cython/cython/commit/f455460dead92ff35c96d76efc3de4147fddb81b",
-                    "sha": "f455460dead92ff35c96d76efc3de4147fddb81b",
-                    "url": "https://api.github.com/repos/cython/cython/commits/f455460dead92ff35c96d76efc3de4147fddb81b"
-                }
-            ],
-            "sha": "247094d755c37b88ed077cfd7bae16a7d5eb744c",
-            "url": "https://api.github.com/repos/cython/cython/commits/247094d755c37b88ed077cfd7bae16a7d5eb744c"
+            "sha": "852c6e2db9e4d038f9cdba3a737730908059e9dc",
+            "url": "https://api.github.com/repos/cython/cython/commits/852c6e2db9e4d038f9cdba3a737730908059e9dc"
         }
     ],
-    "commits_url": "https://api.github.com/repos/cython/cython/pulls/7808/commits",
-    "created_at": "2026-07-10T18:10:41Z",
-    "diff_url": "https://github.com/cython/cython/pull/7808.diff",
+    "commits_url": "https://api.github.com/repos/cython/cython/pulls/7842/commits",
+    "created_at": "2026-07-20T14:00:18Z",
+    "diff_url": "https://github.com/cython/cython/pull/7842.diff",
     "draft": false,
     "head": {
-        "label": "raza-khan0108:cli-subcommands",
-        "ref": "cli-subcommands",
+        "label": "raza-khan0108:generate-shared-subcommand",
+        "ref": "generate-shared-subcommand",
         "repo": {
             "allow_forking": true,
             "archive_url": "https://api.github.com/repos/raza-khan0108/cython/{archive_format}{/ref}",
@@ -460,7 +378,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "247094d755c37b88ed077cfd7bae16a7d5eb744c",
+        "sha": "852c6e2db9e4d038f9cdba3a737730908059e9dc",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/110333158?v=4",
             "events_url": "https://api.github.com/users/raza-khan0108/events{/privacy}",
@@ -483,82 +401,26 @@
             "user_view_type": "public"
         }
     },
-    "html_url": "https://github.com/cython/cython/pull/7808",
-    "id": 4031476721,
-    "issue_url": "https://api.github.com/repos/cython/cython/issues/7808",
-    "labels": [
-        {
-            "color": "c2e0c6",
-            "default": false,
-            "description": null,
-            "id": 414805463,
-            "name": "feature",
-            "node_id": "MDU6TGFiZWw0MTQ4MDU0NjM=",
-            "url": "https://api.github.com/repos/cython/cython/labels/feature"
-        },
-        {
-            "color": "444444",
-            "default": false,
-            "description": null,
-            "id": 425556353,
-            "name": "Build System",
-            "node_id": "MDU6TGFiZWw0MjU1NTYzNTM=",
-            "url": "https://api.github.com/repos/cython/cython/labels/Build%20System"
-        }
-    ],
+    "html_url": "https://github.com/cython/cython/pull/7842",
+    "id": 4091671585,
+    "issue_url": "https://api.github.com/repos/cython/cython/issues/7842",
+    "labels": [],
     "locked": false,
-    "merge_commit_sha": "76c17c70a9bcc0dcab50f2c79ad27a8892747561",
+    "merge_commit_sha": "c34aaa344041cd05330ba9b8eccf6c6a2730b80c",
     "merged_at": null,
-    "milestone": {
-        "closed_at": null,
-        "closed_issues": 0,
-        "created_at": "2026-07-20T03:55:25Z",
-        "creator": {
-            "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
-            "events_url": "https://api.github.com/users/scoder/events{/privacy}",
-            "followers_url": "https://api.github.com/users/scoder/followers",
-            "following_url": "https://api.github.com/users/scoder/following{/other_user}",
-            "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
-            "gravatar_id": "",
-            "html_url": "https://github.com/scoder",
-            "id": 491659,
-            "login": "scoder",
-            "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
-            "organizations_url": "https://api.github.com/users/scoder/orgs",
-            "received_events_url": "https://api.github.com/users/scoder/received_events",
-            "repos_url": "https://api.github.com/users/scoder/repos",
-            "site_admin": false,
-            "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
-            "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
-            "type": "User",
-            "url": "https://api.github.com/users/scoder",
-            "user_view_type": "public"
-        },
-        "description": "",
-        "due_on": null,
-        "html_url": "https://github.com/cython/cython/milestone/131",
-        "id": 16889290,
-        "labels_url": "https://api.github.com/repos/cython/cython/milestones/131/labels",
-        "node_id": "MI_kwDOABDGAc4BAbXK",
-        "number": 131,
-        "open_issues": 1,
-        "state": "open",
-        "title": "3.4",
-        "updated_at": "2026-07-20T03:55:33Z",
-        "url": "https://api.github.com/repos/cython/cython/milestones/131"
-    },
-    "node_id": "PR_kwDOABDGAc7wS3Px",
-    "number": 7808,
-    "patch_url": "https://github.com/cython/cython/pull/7808.patch",
+    "milestone": null,
+    "node_id": "PR_kwDOABDGAc7z4fQh",
+    "number": 7842,
+    "patch_url": "https://github.com/cython/cython/pull/7842.patch",
     "requested_reviewers": [],
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
-    "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7808/comments",
+    "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7842/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/247094d755c37b88ed077cfd7bae16a7d5eb744c",
-    "title": "Migrate Cython CLI to support sub-commands",
-    "updated_at": "2026-07-20T14:04:28Z",
-    "url": "https://api.github.com/repos/cython/cython/pulls/7808",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/852c6e2db9e4d038f9cdba3a737730908059e9dc",
+    "title": "Add cython generate-shared subcommand for Cython 3.3",
+    "updated_at": "2026-07-20T14:00:18Z",
+    "url": "https://api.github.com/repos/cython/cython/pulls/7842",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/110333158?v=4",
         "events_url": "https://api.github.com/users/raza-khan0108/events{/privacy}",
