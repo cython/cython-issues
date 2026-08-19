@@ -22,13 +22,13 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/7899"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/f816b94f701dc2c2ffd5553f7c5064b1377500b0"
+            "href": "https://api.github.com/repos/cython/cython/statuses/473f4b37a6d8685e834be0ae2fbb659ecafd2dc4"
         }
     },
     "active_lock_reason": null,
     "assignee": null,
     "assignees": [],
-    "author_association": "FIRST_TIME_CONTRIBUTOR",
+    "author_association": "NONE",
     "auto_merge": null,
     "base": {
         "label": "cython:master",
@@ -95,8 +95,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1501,
-            "open_issues_count": 1501,
+            "open_issues": 1499,
+            "open_issues_count": 1499,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -121,9 +121,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-08-12T04:16:25Z",
+            "pushed_at": "2026-08-12T19:05:35Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 81771,
+            "size": 81782,
             "ssh_url": "git@github.com:cython/cython.git",
             "stargazers_count": 10824,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
@@ -144,7 +144,7 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-08-12T04:16:33Z",
+            "updated_at": "2026-08-13T23:54:12Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
             "watchers": 10824,
@@ -175,7 +175,7 @@
         }
     },
     "body": "This implements the list, set, and dictionary comprehension portion of PEP 798 from #7898.\n\nList and set comprehensions keep using `ComprehensionAppendNode`. During analysis it records whether the expression is starred, and code generation then extends the result list or updates the result set instead of appending one value. Dictionary unpacking uses a dedicated `DictComprehensionUpdateNode` to update from each produced mapping, preserving later-key-wins behavior and the mapping-specific `TypeError`.\n\nThe parser accepts top-level `*` and `**` in the corresponding comprehensions, including async comprehensions. Generator expressions are intentionally left for a separate follow-up because their lowering is different.\n\nThe new run test covers filtering and nested loops, evaluation order, assignment-expression scope, all three collection types, duplicate dictionary keys, the mapping protocol, invalid inputs, async comprehensions, C and C++ backends, and the Limited API.\n\nValidation:\n\n- `python runtests.py -v --backends=c,cpp listcomp setcomp dictcomp comprehension_unpacking_T7898` (94 passed)\n- `python runtests.py -v --no-cpp --limited-api=3.11 comprehension_unpacking_T7898` (12 passed)\n- related compiler unit tests (18 passed)\n- code-style check\n",
-    "closed_at": null,
+    "closed_at": "2026-08-13T15:42:10Z",
     "comment_data": [
         {
             "_links": {
@@ -260,19 +260,19 @@
             },
             "author_association": "MEMBER",
             "body": "I don't see why we'd need special error handling here. Why not just use `code.error_goto_if_neg()` ? Is it to change the error message?",
-            "commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "commit_id": "473f4b37a6d8685e834be0ae2fbb659ecafd2dc4",
             "created_at": "2026-08-12T08:26:12Z",
             "diff_hunk": "@@ -9702,6 +9727,30 @@ def generate_function_definitions(self, env, code):\n     def annotate(self, code):\n         self.expr.annotate(code)\n \n+\n+class DictComprehensionUpdateNode(ComprehensionAppendNode):\n+    \"\"\"Update a dict comprehension result with each expression value.\"\"\"\n+\n+    def generate_execution_code(self, code):\n+        self.expr.generate_evaluation_code(code)\n+\n+        if not self.target.type.is_pydict_type:\n+            raise InternalError(\n+                \"Invalid type for dict comprehension node: %s\" % self.target.type)\n+\n+        code.globalstate.use_utility_code(\n+            UtilityCode.load_cached(\"RaiseMappingExpected\", \"FunctionArguments.c\"))\n+        code.putln(\"if (unlikely(PyDict_Update(%s, %s) < 0)) {\" % (\n+            self.target.result(), self.expr.py_result()))\n+        code.putln(\"if (PyErr_ExceptionMatches(PyExc_AttributeError)) \"\n+                   \"__Pyx_RaiseMappingExpectedError(%s);\" % self.expr.py_result())\n+        code.putln(code.error_goto(self.pos))",
             "html_url": "https://github.com/cython/cython/pull/7899#discussion_r3764766772",
             "id": 3764766772,
-            "line": 9738,
+            "line": 9740,
             "node_id": "PRRC_kwDOABDGAc7gZcg0",
             "original_commit_id": "f1ca967811e8214d45061b1b3dd0275a75a8e93f",
             "original_line": 9747,
             "original_position": 63,
             "original_start_line": 9741,
             "path": "Cython/Compiler/ExprNodes.py",
-            "position": 66,
+            "position": 67,
             "pull_request_review_id": 4914456234,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7899",
             "reactions": {
@@ -288,7 +288,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/3764766772/reactions"
             },
             "side": "RIGHT",
-            "start_line": 9732,
+            "start_line": 9734,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2026-08-12T08:52:37Z",
@@ -607,20 +607,20 @@
             },
             "author_association": "NONE",
             "body": "Yes, the special handling preserves `**` unpacking exception semantics. `PyDict_Update()` reports `AttributeError` when the object has no mapping protocol, whereas `**` unpacking requires a `TypeError` saying that the object is not a mapping. This follows the existing `MergedDictNode` update path, and `invalid_dict_unpacking` covers the `TypeError` and message. I added a comment in `f816b94f7` to make the reason explicit.\n",
-            "commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "commit_id": "473f4b37a6d8685e834be0ae2fbb659ecafd2dc4",
             "created_at": "2026-08-12T09:22:19Z",
             "diff_hunk": "@@ -9702,6 +9727,30 @@ def generate_function_definitions(self, env, code):\n     def annotate(self, code):\n         self.expr.annotate(code)\n \n+\n+class DictComprehensionUpdateNode(ComprehensionAppendNode):\n+    \"\"\"Update a dict comprehension result with each expression value.\"\"\"\n+\n+    def generate_execution_code(self, code):\n+        self.expr.generate_evaluation_code(code)\n+\n+        if not self.target.type.is_pydict_type:\n+            raise InternalError(\n+                \"Invalid type for dict comprehension node: %s\" % self.target.type)\n+\n+        code.globalstate.use_utility_code(\n+            UtilityCode.load_cached(\"RaiseMappingExpected\", \"FunctionArguments.c\"))\n+        code.putln(\"if (unlikely(PyDict_Update(%s, %s) < 0)) {\" % (\n+            self.target.result(), self.expr.py_result()))\n+        code.putln(\"if (PyErr_ExceptionMatches(PyExc_AttributeError)) \"\n+                   \"__Pyx_RaiseMappingExpectedError(%s);\" % self.expr.py_result())\n+        code.putln(code.error_goto(self.pos))",
             "html_url": "https://github.com/cython/cython/pull/7899#discussion_r3765140038",
             "id": 3765140038,
             "in_reply_to_id": 3764766772,
-            "line": 9738,
+            "line": 9740,
             "node_id": "PRRC_kwDOABDGAc7ga3pG",
             "original_commit_id": "f1ca967811e8214d45061b1b3dd0275a75a8e93f",
             "original_line": 9747,
             "original_position": 63,
             "original_start_line": 9741,
             "path": "Cython/Compiler/ExprNodes.py",
-            "position": 66,
+            "position": 67,
             "pull_request_review_id": 4914942974,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7899",
             "reactions": {
@@ -636,7 +636,7 @@
                 "url": "https://api.github.com/repos/cython/cython/pulls/comments/3765140038/reactions"
             },
             "side": "RIGHT",
-            "start_line": 9732,
+            "start_line": 9734,
             "start_side": "RIGHT",
             "subject_type": "line",
             "updated_at": "2026-08-12T09:22:20Z",
@@ -730,6 +730,489 @@
                 "subscriptions_url": "https://api.github.com/users/fzlzjerry/subscriptions",
                 "type": "User",
                 "url": "https://api.github.com/users/fzlzjerry",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7899#discussion_r3767871513"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7899"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3767871513"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "We really have three different cases here, let's make that clearer.\n```suggestion\n            if self.is_starred:\n                utility_code_name = \"ListExtend\"\n                function = \"__Pyx_PyList_Extend\"\n            elif self.expr.is_temp:\n                steal_temp = True\n                utility_code_name = \"ListCompAppendAndDecref\"\n                function = \"__Pyx_ListComp_AppendAndDecref\"\n            else:\n                utility_code_name = \"ListCompAppend\"\n                function = \"__Pyx_ListComp_Append\"\n\n            code.globalstate.use_utility_code(\n                UtilityCode.load_cached(utility_code_name, \"Optimize.c\"))\n```",
+            "commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "created_at": "2026-08-12T15:33:09Z",
+            "diff_hunk": "@@ -9673,12 +9677,22 @@ def analyse_expressions(self, env):\n     def generate_execution_code(self, code):\n         steal_temp = False\n         if self.target.type.is_pylist_type:\n-            steal_temp = self.expr.is_temp\n-            code.globalstate.use_utility_code(\n-                UtilityCode.load_cached(\"ListCompAppendAndDecref\" if steal_temp else \"ListCompAppend\", \"Optimize.c\"))\n-            function = \"__Pyx_ListComp_AppendAndDecref\" if steal_temp else \"__Pyx_ListComp_Append\"\n+            if self.is_starred:\n+                code.globalstate.use_utility_code(\n+                    UtilityCode.load_cached(\"ListExtend\", \"Optimize.c\"))\n+                function = \"__Pyx_PyList_Extend\"\n+            else:\n+                steal_temp = self.expr.is_temp\n+                code.globalstate.use_utility_code(\n+                    UtilityCode.load_cached(\"ListCompAppendAndDecref\" if steal_temp else \"ListCompAppend\", \"Optimize.c\"))\n+                function = \"__Pyx_ListComp_AppendAndDecref\" if steal_temp else \"__Pyx_ListComp_Append\"",
+            "html_url": "https://github.com/cython/cython/pull/7899#discussion_r3767871513",
+            "id": 3767871513,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc7glSgZ",
+            "original_commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "original_line": 9688,
+            "original_position": 31,
+            "original_start_line": 9680,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 1,
+            "pull_request_review_id": 4918248635,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7899",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3767871513/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-08-12T16:22:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3767871513",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7899#discussion_r3767882714"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7899"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3767882714"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "An internal assertion is certainly enough here.\n```suggestion\n        assert self.target.type.is_pydict_type, self.target.type\n```",
+            "commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "created_at": "2026-08-12T15:34:40Z",
+            "diff_hunk": "@@ -9702,6 +9716,32 @@ def generate_function_definitions(self, env, code):\n     def annotate(self, code):\n         self.expr.annotate(code)\n \n+\n+class DictComprehensionUpdateNode(ComprehensionAppendNode):\n+    \"\"\"Update a dict comprehension result with each expression value.\"\"\"\n+\n+    def generate_execution_code(self, code):\n+        self.expr.generate_evaluation_code(code)\n+\n+        if not self.target.type.is_pydict_type:\n+            raise InternalError(\n+                \"Invalid type for dict comprehension node: %s\" % self.target.type)",
+            "html_url": "https://github.com/cython/cython/pull/7899#discussion_r3767882714",
+            "id": 3767882714,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc7glVPa",
+            "original_commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "original_line": 9728,
+            "original_position": 56,
+            "original_start_line": 9726,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 1,
+            "pull_request_review_id": 4918248635,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7899",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3767882714/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-08-12T16:22:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3767882714",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7899#discussion_r3767914796"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7899"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3767914796"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "The comment reads badly when split like this.\n```suggestion\n        # PyDict_Update raises AttributeError for non-mappings, whereas \"**dict\" unpacking\n        # raises TypeError. Match Python's unpacking error here.\n```",
+            "commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "created_at": "2026-08-12T15:38:21Z",
+            "diff_hunk": "@@ -9702,6 +9716,32 @@ def generate_function_definitions(self, env, code):\n     def annotate(self, code):\n         self.expr.annotate(code)\n \n+\n+class DictComprehensionUpdateNode(ComprehensionAppendNode):\n+    \"\"\"Update a dict comprehension result with each expression value.\"\"\"\n+\n+    def generate_execution_code(self, code):\n+        self.expr.generate_evaluation_code(code)\n+\n+        if not self.target.type.is_pydict_type:\n+            raise InternalError(\n+                \"Invalid type for dict comprehension node: %s\" % self.target.type)\n+\n+        # PyDict_Update raises AttributeError for non-mappings, whereas **\n+        # unpacking raises TypeError. Match Python's unpacking error here.",
+            "html_url": "https://github.com/cython/cython/pull/7899#discussion_r3767914796",
+            "id": 3767914796,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc7gldEs",
+            "original_commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "original_line": 9731,
+            "original_position": 59,
+            "original_start_line": 9730,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 1,
+            "pull_request_review_id": 4918248635,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7899",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3767914796/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-08-12T16:22:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3767914796",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7899#discussion_r3768017449"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7899"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3768017449"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Why is this needed in addition? Isn't the `s.expect('}')` call below enough ? That's what I intended the `and len(parts) == 1` condition above to make it run into.\n\nI actually wonder if it wouldn't be better to refactor the parsing part inside of the braces into an initial part of the first expression and then two different continuations, depending on whether we find `,` or `for` / `async`. Splitting this into three functions might simplify and clarify this a lot.",
+            "commit_id": "d7aa60999210099dec9fe11847e072702f8a4cd3",
+            "created_at": "2026-08-12T15:50:21Z",
+            "diff_hunk": "@@ -1495,29 +1494,32 @@ def p_dict_or_set_maker(s: PyrexScanner):\n         else:\n             break\n \n-    if s.sy in ('for', 'async'):\n+    if s.sy in ('for', 'async') and len(parts) == 1:\n         # dict/set comprehension\n-        if len(parts) == 1 and isinstance(parts[0], list) and len(parts[0]) == 1:\n-            item = parts[0][0]\n+        item = parts[0]\n+        if isinstance(item, list) and len(item) == 1:\n+            item = item[0]\n+\n+        if not isinstance(item, list):\n             if target_type == 2:\n-                assert isinstance(item, ExprNodes.DictItemNode), type(item)\n                 comprehension_type = Builtin.dict_type\n-                append = ExprNodes.DictComprehensionAppendNode(\n-                    item.pos, key_expr=item.key, value_expr=item.value)\n+                if isinstance(item, ExprNodes.DictItemNode):\n+                    append = ExprNodes.DictComprehensionAppendNode(\n+                        item.pos, key_expr=item.key, value_expr=item.value)\n+                else:\n+                    append = ExprNodes.DictComprehensionUpdateNode(item.pos, expr=item)\n             else:\n                 comprehension_type = Builtin.set_type\n                 append = ExprNodes.ComprehensionAppendNode(item.pos, expr=item)\n+\n             loop = p_comp_for(s, append)\n             s.expect('}')\n             return ExprNodes.ComprehensionNode(pos, loop=loop, append=append, type=comprehension_type)\n-        else:\n-            # syntax error, try to find a good error message\n-            if len(parts) == 1 and not isinstance(parts[0], list):\n-                s.error(\"iterable unpacking cannot be used in comprehension\")\n-            else:\n-                # e.g. \"{1,2,3 for ...\"\n-                s.expect('}')\n-            return ExprNodes.DictNode(pos, key_value_pairs=[])\n+\n+    if s.sy in ('for', 'async'):\n+        # syntax error, e.g. \"{1, 2, 3 for ...}\"\n+        s.expect('}')\n+        return ExprNodes.DictNode(pos, key_value_pairs=[])",
+            "html_url": "https://github.com/cython/cython/pull/7899#discussion_r3768017449",
+            "id": 3768017449,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc7gl2Ip",
+            "original_commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "original_line": 1522,
+            "original_position": 66,
+            "original_start_line": 1519,
+            "path": "Cython/Compiler/Parsing.py",
+            "position": 1,
+            "pull_request_review_id": 4918248635,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7899",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3768017449/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-08-12T16:22:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3768017449",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7899#discussion_r3768067048"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7899"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3768067048"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "```suggestion\n            # merged set/dict literal or unpacking comprehension\n```",
+            "commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "created_at": "2026-08-12T15:56:19Z",
+            "diff_hunk": "",
+            "html_url": "https://github.com/cython/cython/pull/7899#discussion_r3768067048",
+            "id": 3768067048,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc7gmCPo",
+            "original_commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "original_line": 1461,
+            "original_position": 1,
+            "original_start_line": null,
+            "path": "Cython/Compiler/Parsing.py",
+            "position": 1,
+            "pull_request_review_id": 4918248635,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7899",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3768067048/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-08-12T16:22:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3768067048",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7899#discussion_r3768235658"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7899"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3768235658"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "Where does this come from? Doesn't it lose the information whether we are unpacking or not?",
+            "commit_id": "473f4b37a6d8685e834be0ae2fbb659ecafd2dc4",
+            "created_at": "2026-08-12T16:18:47Z",
+            "diff_hunk": "@@ -1531,7 +1533,7 @@ def p_dict_or_set_maker(s: PyrexScanner):\n                 if set_items:\n                     items.append(ExprNodes.SetNode(set_items[0].pos, args=set_items))\n                     set_items = []\n-                items.append(part)\n+                items.append(part.target if part.is_starred else part)",
+            "html_url": "https://github.com/cython/cython/pull/7899#discussion_r3768235658",
+            "id": 3768235658,
+            "line": 1531,
+            "node_id": "PRRC_kwDOABDGAc7gmraK",
+            "original_commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "original_line": 1536,
+            "original_position": 75,
+            "original_start_line": 1534,
+            "path": "Cython/Compiler/Parsing.py",
+            "position": 153,
+            "pull_request_review_id": 4918248635,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7899",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3768235658/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": 1534,
+            "start_side": "LEFT",
+            "subject_type": "line",
+            "updated_at": "2026-08-12T16:22:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3768235658",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/7899#discussion_r3768253872"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/7899"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/3768253872"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "You could rename this file to a plain `.py` file and let it run in regular Py3.15 for comparison.\n```suggestion\n# mode: run\n# tag: comprehension, pure3.15\n```",
+            "commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "created_at": "2026-08-12T16:21:24Z",
+            "diff_hunk": "@@ -0,0 +1,141 @@\n+# mode: run\n+# tag: comprehension",
+            "html_url": "https://github.com/cython/cython/pull/7899#discussion_r3768253872",
+            "id": 3768253872,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc7gmv2w",
+            "original_commit_id": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+            "original_line": 2,
+            "original_position": 2,
+            "original_start_line": 1,
+            "path": "tests/run/comprehension_unpacking_T7898.pyx",
+            "position": 1,
+            "pull_request_review_id": 4918248635,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7899",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/3768253872/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-08-12T16:22:07Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/3768253872",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
                 "user_view_type": "public"
             }
         }
@@ -1063,6 +1546,170 @@
             ],
             "sha": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
             "url": "https://api.github.com/repos/cython/cython/commits/f816b94f701dc2c2ffd5553f7c5064b1377500b0"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/d7aa60999210099dec9fe11847e072702f8a4cd3/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-08-13T04:12:30Z",
+                    "email": "stefan_ml@behnel.de",
+                    "name": "scoder"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-08-13T04:12:30Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Apply style suggestions from code review\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                "tree": {
+                    "sha": "6c5346773119a5dece585fb26307e7871bc711f8",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/6c5346773119a5dece585fb26307e7871bc711f8"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/d7aa60999210099dec9fe11847e072702f8a4cd3",
+                "verification": {
+                    "payload": "tree 6c5346773119a5dece585fb26307e7871bc711f8\nparent f816b94f701dc2c2ffd5553f7c5064b1377500b0\nauthor scoder <stefan_ml@behnel.de> 1786594350 +0200\ncommitter GitHub <noreply@github.com> 1786594350 +0200\n\nApply style suggestions from code review\n\nCo-authored-by: scoder <stefan_ml@behnel.de>",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqfUQuCRC1aQ7uu5UhlAAAoKQQAFW1r81QAwdKBPbyYZWfM55r\ndlqVKCgI4xphzB3hZt9zcwG2+ucgXjVURKL8bedetHqIUv+Nro8U8xiB6J54YWL8\nKhEy7SFW7+pzECMSVJlUyyV3dRUkl+4NqHcGXEwMuee/Udgl26SPCmC2jeNCa9Wk\nZwwCAYzHAwGVs3NJCAhzZSf0H3i9iDY2KaOPvWMj5mClnY0FUanjmHMHJvZrZUh1\ngGDAo2IpCyLe8AN9dpsMJRaCeFITJvJsVJigN8fL5U6MnSyXP0S65X9gr/9mg0Gj\nXqOhbzCiw/2uhhj6j+azoP0IgxjqgUuL6TWHqynvgBzPbIDPpIg9BWG1W3sS5d2H\n6co0Hm+V/tMPkG/sF3fwqcVld5biMghgVg0SZCND8XoDXPNaHk3M4z1N2hp11Lzn\n812shUuj+CpEyn5AMpeuBQLW4sw5ZenmCTi4AGX2gKjlfxdsBtzTBUDdOTBLIyxi\nOROpw09v01/ldgWImtxqIh66wdIccNlgm941zCF6cmglFqJa3XGScLLy5objtVwy\nU1LP0Mwv90ZoUFfIoZKrEpjfB71USWy/nImv9zCIsNpZV3eHfALVY2OF+kHmHVir\n5RIe1HA7KwjyQt+wTN253xcaPN/IWN2ufTD6v5N1LOOHKrq1de+iiVyjngMwGn4D\nIfuYNIl4UgF8FZvO7cvf\n=XhHT\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2026-08-13T04:12:36Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/d7aa60999210099dec9fe11847e072702f8a4cd3",
+            "node_id": "C_kwDOT18KNdoAKGQ3YWE2MDk5OTIxMDA5OWRlYzlmZTExODQ3ZTA3MjcwMmY4YTRjZDM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+                    "sha": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+                    "url": "https://api.github.com/repos/cython/cython/commits/f816b94f701dc2c2ffd5553f7c5064b1377500b0"
+                }
+            ],
+            "sha": "d7aa60999210099dec9fe11847e072702f8a4cd3",
+            "url": "https://api.github.com/repos/cython/cython/commits/d7aa60999210099dec9fe11847e072702f8a4cd3"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/100508620?v=4",
+                "events_url": "https://api.github.com/users/fzlzjerry/events{/privacy}",
+                "followers_url": "https://api.github.com/users/fzlzjerry/followers",
+                "following_url": "https://api.github.com/users/fzlzjerry/following{/other_user}",
+                "gists_url": "https://api.github.com/users/fzlzjerry/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/fzlzjerry",
+                "id": 100508620,
+                "login": "fzlzjerry",
+                "node_id": "U_kgDOBf2jzA",
+                "organizations_url": "https://api.github.com/users/fzlzjerry/orgs",
+                "received_events_url": "https://api.github.com/users/fzlzjerry/received_events",
+                "repos_url": "https://api.github.com/users/fzlzjerry/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/fzlzjerry/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/fzlzjerry/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/fzlzjerry",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/473f4b37a6d8685e834be0ae2fbb659ecafd2dc4/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-08-13T09:35:01Z",
+                    "email": "james20081204@gmail.com",
+                    "name": "Morax"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-08-13T09:35:01Z",
+                    "email": "james20081204@gmail.com",
+                    "name": "Morax"
+                },
+                "message": "Refactor dict and set display parsing",
+                "tree": {
+                    "sha": "336aa0917b2db48ce0fb771d0a1d05e8612b90bd",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/336aa0917b2db48ce0fb771d0a1d05e8612b90bd"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/473f4b37a6d8685e834be0ae2fbb659ecafd2dc4",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/100508620?v=4",
+                "events_url": "https://api.github.com/users/fzlzjerry/events{/privacy}",
+                "followers_url": "https://api.github.com/users/fzlzjerry/followers",
+                "following_url": "https://api.github.com/users/fzlzjerry/following{/other_user}",
+                "gists_url": "https://api.github.com/users/fzlzjerry/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/fzlzjerry",
+                "id": 100508620,
+                "login": "fzlzjerry",
+                "node_id": "U_kgDOBf2jzA",
+                "organizations_url": "https://api.github.com/users/fzlzjerry/orgs",
+                "received_events_url": "https://api.github.com/users/fzlzjerry/received_events",
+                "repos_url": "https://api.github.com/users/fzlzjerry/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/fzlzjerry/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/fzlzjerry/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/fzlzjerry",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/473f4b37a6d8685e834be0ae2fbb659ecafd2dc4",
+            "node_id": "C_kwDOT18KNdoAKDQ3M2Y0YjM3YTZkODY4NWU4MzRiZTBhZTJmYmI2NTllY2FmZDJkYzQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/d7aa60999210099dec9fe11847e072702f8a4cd3",
+                    "sha": "d7aa60999210099dec9fe11847e072702f8a4cd3",
+                    "url": "https://api.github.com/repos/cython/cython/commits/d7aa60999210099dec9fe11847e072702f8a4cd3"
+                }
+            ],
+            "sha": "473f4b37a6d8685e834be0ae2fbb659ecafd2dc4",
+            "url": "https://api.github.com/repos/cython/cython/commits/473f4b37a6d8685e834be0ae2fbb659ecafd2dc4"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/7899/commits",
@@ -1160,9 +1807,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/fzlzjerry/cython/pulls{/number}",
-            "pushed_at": "2026-08-12T09:21:30Z",
+            "pushed_at": "2026-08-13T09:35:14Z",
             "releases_url": "https://api.github.com/repos/fzlzjerry/cython/releases{/id}",
-            "size": 82030,
+            "size": 82287,
             "ssh_url": "git@github.com:fzlzjerry/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/fzlzjerry/cython/stargazers",
@@ -1181,7 +1828,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+        "sha": "473f4b37a6d8685e834be0ae2fbb659ecafd2dc4",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/100508620?v=4",
             "events_url": "https://api.github.com/users/fzlzjerry/events{/privacy}",
@@ -1209,7 +1856,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/7899",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "6f354a732ec1bdba8e4e47c21b7e42fd11411d99",
+    "merge_commit_sha": "6b24fa5d79e203232d451bd82a4af941d5a77756",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc7936Gm",
@@ -1219,10 +1866,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7899/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/f816b94f701dc2c2ffd5553f7c5064b1377500b0",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/473f4b37a6d8685e834be0ae2fbb659ecafd2dc4",
     "title": "Support PEP 798 unpacking in comprehensions",
-    "updated_at": "2026-08-12T09:22:37Z",
+    "updated_at": "2026-08-13T15:42:10Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/7899",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/100508620?v=4",
