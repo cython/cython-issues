@@ -4,8 +4,28 @@
     "assignees": [],
     "author_association": "CONTRIBUTOR",
     "body": "### Describe the bug\n\nI'm reporting [this issue from Cartopy](https://github.com/SciTools/cartopy/issues/2722) upstream as I can't see what exactly is going wrong. The attached code is a distilled version of https://github.com/SciTools/cartopy/blob/main/lib/cartopy/trace.pyx When I run `cythonize` on the code, it results in the following compile error somewhere in Cython internals:\n```\n$ CYTHON_FORCE_REGEN=1 ./cythonize.py trace.pyx \n[1/1] Cythonizing /home/elliott/code/cython/trace.pyx\n\nError compiling Cython file:\n------------------------------------------------------------\n...\n    cdef cpp_list[X].const_iterator iter = v.begin()\n\n    while iter != v.end():\n        item = cython.operator.dereference(iter)\n        Py_INCREF(item)\n        __Pyx_PyList_SET_ITEM(o, i, item)\n                              ^\n------------------------------------------------------------\nlist.to_py:145:30: Cannot convert 'list[T]' to Python object\n\nError compiling Cython file:\n------------------------------------------------------------\n...\n        Py_INCREF(item)\n        __Pyx_PyList_SET_ITEM(o, i, item)\n        cython.operator.preincrement(iter)\n        i += 1\n\n    return o\n           ^\n------------------------------------------------------------\nlist.to_py:149:11: Cannot convert 'list[T]' to Python object\nTraceback (most recent call last):\n  File \"/home/elliott/code/cython/./cythonize.py\", line 9, in <module>\n    main()\n    ~~~~^^\n  File \"/home/elliott/code/cython/Cython/Build/Cythonize.py\", line 324, in main\n    ext_modules_by_basedir = _cython_compile_files(all_paths, options)\n  File \"/home/elliott/code/cython/Cython/Build/Cythonize.py\", line 51, in _cython_compile_files\n    ext_modules = cythonize(\n        paths,\n    ...<8 lines>...\n        language=options.language,\n        **options.options)\n  File \"/home/elliott/code/cython/Cython/Build/Dependencies.py\", line 1153, in cythonize\n    cythonize_one(*args)\n    ~~~~~~~~~~~~~^^^^^^^\n  File \"/home/elliott/code/cython/Cython/Build/Dependencies.py\", line 1264, in cythonize_one\n    raise CompileError(None, pyx_file)\nCython.Compiler.Errors.CompileError: /home/elliott/code/cython/trace.pyx\n```\n\nThe crash does not point to anything in the original code, but if I remove the class attribute, then it builds fine.\n\nIf I build with 3.2.9, then it also is fine. AFAICT, with that version, the `lines` attribute is not exposed in any way to Python, so I'm not sure what is causing a `PyList_SET_ITEM` call:\n```python\n>>> from cartopy.trace import LineAccumulator\n>>> dir(LineAccumulator)\n['__class__', '__delattr__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__ne__', '__new__', '__pyx_vtable__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__setstate__', '__sizeof__', '__str__', '__subclasshook__']\n>>> la = LineAccumulator()\n>>> dir(la)\n['__class__', '__delattr__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__ne__', '__new__', '__pyx_vtable__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__setstate__', '__sizeof__', '__str__', '__subclasshook__']\n```\n\n### Code to reproduce the behaviour:\n\n```cython\n# distutils: language = c++\n\nfrom libcpp.list cimport list\n\ncdef class LineAccumulator:\n    cdef list[double] lines\n```\n\n\n### Expected behaviour\n\nCompile works, as it does with 3.2.9.\n\n### OS\n\nFedora 44\n\n### Python version\n\n3.14.6\n\n### Cython version\n\n6d669bf6e19bc497508f092fd3129d17a1573f07\n\n### Additional context\n\nA bisect from 3.2.9 to 3.3.0 points to 6d669bf6e19bc497508f092fd3129d17a1573f07 but I'm uncertain how that caused the problem.",
-    "closed_at": null,
-    "closed_by": null,
+    "closed_at": "2026-09-20T10:13:29Z",
+    "closed_by": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+        "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+        "followers_url": "https://api.github.com/users/scoder/followers",
+        "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+        "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/scoder",
+        "id": 491659,
+        "login": "scoder",
+        "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+        "organizations_url": "https://api.github.com/users/scoder/orgs",
+        "received_events_url": "https://api.github.com/users/scoder/received_events",
+        "repos_url": "https://api.github.com/users/scoder/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/scoder",
+        "user_view_type": "public"
+    },
     "comment_data": [
         {
             "author_association": "CONTRIBUTOR",
@@ -55,7 +75,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "I also met this bug in sagemath",
             "created_at": "2026-08-27T04:12:48Z",
             "html_url": "https://github.com/cython/cython/issues/7939#issuecomment-5434280831",
@@ -478,7 +498,7 @@
             }
         },
         {
-            "author_association": "NONE",
+            "author_association": "CONTRIBUTOR",
             "body": "So this is not a bug? @da-woods ",
             "created_at": "2026-09-11T10:50:41Z",
             "html_url": "https://github.com/cython/cython/issues/7939#issuecomment-5633339877",
@@ -1276,6 +1296,70 @@
             "node_id": "LE_lADOABDGAc8AAAABOacrf88AAAAHNxVhjA",
             "performed_via_github_app": null,
             "url": "https://api.github.com/repos/cython/cython/issues/events/30988919180"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": "f4b7aafeac5325098f71af0cff3127392e6a844c",
+            "commit_url": "https://api.github.com/repos/cython/cython/commits/f4b7aafeac5325098f71af0cff3127392e6a844c",
+            "created_at": "2026-09-20T10:13:29Z",
+            "event": "referenced",
+            "id": 31477938220,
+            "node_id": "REFE_lADOABDGAc8AAAABOacrf88AAAAHVDs4LA",
+            "performed_via_github_app": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/31477938220"
+        },
+        {
+            "actor": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            },
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2026-09-20T10:13:29Z",
+            "event": "closed",
+            "id": 31477938260,
+            "intent": null,
+            "node_id": "CE_lADOABDGAc8AAAABOacrf88AAAAHVDs4VA",
+            "performed_via_github_app": null,
+            "state_reason": null,
+            "url": "https://api.github.com/repos/cython/cython/issues/events/31477938260"
         }
     ],
     "events_url": "https://api.github.com/repos/cython/cython/issues/7939/events",
@@ -1316,7 +1400,7 @@
     "locked": false,
     "milestone": {
         "closed_at": null,
-        "closed_issues": 43,
+        "closed_issues": 49,
         "created_at": "2026-08-22T05:22:37Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -1346,10 +1430,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/133/labels",
         "node_id": "MI_kwDOABDGAc4BCdDa",
         "number": 133,
-        "open_issues": 4,
+        "open_issues": 2,
         "state": "open",
         "title": "3.3.1",
-        "updated_at": "2026-09-12T13:59:02Z",
+        "updated_at": "2026-09-20T11:03:03Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/133"
     },
     "node_id": "I_kwDOABDGAc8AAAABOacrfw",
@@ -1369,8 +1453,8 @@
         "url": "https://api.github.com/repos/cython/cython/issues/7939/reactions"
     },
     "repository_url": "https://api.github.com/repos/cython/cython",
-    "state": "open",
-    "state_reason": null,
+    "state": "closed",
+    "state_reason": "completed",
     "sub_issues_summary": {
         "completed": 0,
         "percent_completed": 0,
@@ -1379,7 +1463,7 @@
     "timeline_url": "https://api.github.com/repos/cython/cython/issues/7939/timeline",
     "title": "[BUG] list[T] class attribute no longer compiles with 3.3 due to auto_pickle",
     "type": null,
-    "updated_at": "2026-09-12T12:13:13Z",
+    "updated_at": "2026-09-20T10:13:29Z",
     "url": "https://api.github.com/repos/cython/cython/issues/7939",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/302469?v=4",
