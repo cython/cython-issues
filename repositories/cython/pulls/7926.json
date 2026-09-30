@@ -22,14 +22,39 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/7926"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/12fa2fe93c9e04b341abed530bf83f56a7b2d838"
+            "href": "https://api.github.com/repos/cython/cython/statuses/58f72c70219dd06b184fbf11e8071c3a687beecb"
         }
     },
     "active_lock_reason": null,
     "assignee": null,
     "assignees": [],
     "author_association": "MEMBER",
-    "auto_merge": null,
+    "auto_merge": {
+        "commit_message": "With module state, it's possible that the utility code types\ntraverse/clear/dealloc may be called during destructor shutdown when the\nmodule state is no longer findable. This is especially an issue for the\nsingle-phase init mode, but I think is a general problem.\n\nThe usual approach we've used in similar situations for heap-types is to\nbail out and not complete the destruction. For cyfunctions I think we\nunderstand the type hierarchy well enough make it work but this may not\ngenerally be possible for all types.",
+        "commit_title": "Handle destruction of opaque cyfuncs safely during cleanup (#7926)",
+        "enabled_by": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+            "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+            "followers_url": "https://api.github.com/users/da-woods/followers",
+            "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+            "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/da-woods",
+            "id": 10536947,
+            "login": "da-woods",
+            "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+            "organizations_url": "https://api.github.com/users/da-woods/orgs",
+            "received_events_url": "https://api.github.com/users/da-woods/received_events",
+            "repos_url": "https://api.github.com/users/da-woods/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/da-woods",
+            "user_view_type": "public"
+        },
+        "merge_method": "squash"
+    },
     "base": {
         "label": "cython:master",
         "ref": "master",
@@ -121,11 +146,11 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-09-22T11:40:51Z",
+            "pushed_at": "2026-09-24T08:58:43Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 82049,
+            "size": 81856,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10847,
+            "stargazers_count": 10848,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -144,11 +169,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-09-23T06:48:33Z",
+            "updated_at": "2026-09-24T08:58:53Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10847,
-            "watchers_count": 10847,
+            "watchers": 10848,
+            "watchers_count": 10848,
             "web_commit_signoff_required": false
         },
         "sha": "3292aa6703019891897b8d979582447b5e21ecee",
@@ -175,7 +200,7 @@
         }
     },
     "body": "With module state, it's possible that the utility code types traverse/clear/dealloc may be called during destructor shutdown when the module state is no longer findable. This is especially an issue for the single-phase init mode, but I think is a general problem.\r\n\r\nThe usual approach we've used in similar situations for heap-types is to bail out and not complete the destruction. For cyfunctions I think we understand the type hierarchy well enough make it work but this may not generally be possible for all types.",
-    "closed_at": null,
+    "closed_at": "2026-09-24T08:58:43Z",
     "comment_data": [
         {
             "_links": {
@@ -191,19 +216,19 @@
             },
             "author_association": "MEMBER",
             "body": "This is really an internal function/macro that doesn't need to be declared globally. By declaring it here, you can roll back the macro move/change above.\n```suggestion\n#else\n#define __Pyx_as_CyFunctionObject_safe __Pyx_as_CyFunctionObject\n#endif\n```",
-            "commit_id": "12fa2fe93c9e04b341abed530bf83f56a7b2d838",
+            "commit_id": "58f72c70219dd06b184fbf11e8071c3a687beecb",
             "created_at": "2026-09-23T14:24:28Z",
             "diff_hunk": "@@ -134,6 +141,20 @@ static int __pyx_CyFunction_init(PyObject *module);\n //////////////////// CythonFunctionPerModule /////////////////////\n //@requires: ObjectHandling.c::CachedMethodType\n \n+#if CYTHON_OPAQUE_SHARED_TYPES && CYTHON_USE_MODULE_STATE\n+static __pyx_CyFunctionObject *__Pyx_as_CyFunctionObject_safe(PyObject *o) {\n+    PyTypeObject *cyfunctype = Py_TYPE(o);\n+    while (1) {\n+        PyTypeObject *base = (PyTypeObject *)PyType_GetSlot(cyfunctype, Py_tp_base);\n+        if (base == &PyBaseObject_Type || base == NULL) {\n+            break;\n+        }\n+        cyfunctype = base;\n+    }\n+    return (__pyx_CyFunctionObject *)PyObject_GetTypeData((o), cyfunctype);\n+}\n+#endif",
             "html_url": "https://github.com/cython/cython/pull/7926#discussion_r4083522038",
             "id": 4083522038,
-            "line": 156,
+            "line": 153,
             "node_id": "PRRC_kwDOABDGAc7zZZn2",
             "original_commit_id": "12fa2fe93c9e04b341abed530bf83f56a7b2d838",
             "original_line": 156,
             "original_position": 49,
             "original_start_line": null,
             "path": "Cython/Utility/CythonFunction.c",
-            "position": 49,
+            "position": 20,
             "pull_request_review_id": 5292287026,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7926",
             "reactions": {
@@ -260,19 +285,19 @@
             },
             "author_association": "MEMBER",
             "body": "```suggestion\n// Slower version of \"__Pyx_as_CyFunctionObject\" that's safe to use in destructors\n// (where the current module may have been lost).\nstatic __pyx_CyFunctionObject *__Pyx_as_CyFunctionObject_safe(PyObject *o) {\n```",
-            "commit_id": "12fa2fe93c9e04b341abed530bf83f56a7b2d838",
+            "commit_id": "58f72c70219dd06b184fbf11e8071c3a687beecb",
             "created_at": "2026-09-23T14:28:15Z",
             "diff_hunk": "@@ -134,6 +141,20 @@ static int __pyx_CyFunction_init(PyObject *module);\n //////////////////// CythonFunctionPerModule /////////////////////\n //@requires: ObjectHandling.c::CachedMethodType\n \n+#if CYTHON_OPAQUE_SHARED_TYPES && CYTHON_USE_MODULE_STATE\n+static __pyx_CyFunctionObject *__Pyx_as_CyFunctionObject_safe(PyObject *o) {",
             "html_url": "https://github.com/cython/cython/pull/7926#discussion_r4083562295",
             "id": 4083562295,
-            "line": 145,
+            "line": 140,
             "node_id": "PRRC_kwDOABDGAc7zZjc3",
             "original_commit_id": "12fa2fe93c9e04b341abed530bf83f56a7b2d838",
             "original_line": 145,
             "original_position": 38,
             "original_start_line": null,
             "path": "Cython/Utility/CythonFunction.c",
-            "position": 38,
+            "position": 7,
             "pull_request_review_id": 5292287026,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/7926",
             "reactions": {
@@ -399,6 +424,88 @@
             ],
             "sha": "12fa2fe93c9e04b341abed530bf83f56a7b2d838",
             "url": "https://api.github.com/repos/cython/cython/commits/12fa2fe93c9e04b341abed530bf83f56a7b2d838"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/58f72c70219dd06b184fbf11e8071c3a687beecb/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-09-24T06:30:20Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-09-24T06:30:20Z",
+                    "email": "dw-git@d-woods.co.uk",
+                    "name": "da-woods"
+                },
+                "message": "Move definition",
+                "tree": {
+                    "sha": "777b8c9933125a7dba5c1059abd0420039ade08d",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/777b8c9933125a7dba5c1059abd0420039ade08d"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/58f72c70219dd06b184fbf11e8071c3a687beecb",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/58f72c70219dd06b184fbf11e8071c3a687beecb",
+            "node_id": "C_kwDOAhr4b9oAKDU4ZjcyYzcwMjE5ZGQwNmIxODRmYmYxMWU4MDcxYzNhNjg3YmVlY2I",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/12fa2fe93c9e04b341abed530bf83f56a7b2d838",
+                    "sha": "12fa2fe93c9e04b341abed530bf83f56a7b2d838",
+                    "url": "https://api.github.com/repos/cython/cython/commits/12fa2fe93c9e04b341abed530bf83f56a7b2d838"
+                }
+            ],
+            "sha": "58f72c70219dd06b184fbf11e8071c3a687beecb",
+            "url": "https://api.github.com/repos/cython/cython/commits/58f72c70219dd06b184fbf11e8071c3a687beecb"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/7926/commits",
@@ -496,9 +603,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2026-09-22T19:42:23Z",
+            "pushed_at": "2026-09-24T06:30:42Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 85452,
+            "size": 85453,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -517,7 +624,7 @@
             "watchers_count": 2,
             "web_commit_signoff_required": false
         },
-        "sha": "12fa2fe93c9e04b341abed530bf83f56a7b2d838",
+        "sha": "58f72c70219dd06b184fbf11e8071c3a687beecb",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
             "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
@@ -568,11 +675,11 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "2201f54d1ffed5b26fffacdbe0c8c915f5de0d16",
-    "merged_at": null,
+    "merge_commit_sha": "bf28fc47642285e7e91b85e6e839fdf7c5f7e20c",
+    "merged_at": "2026-09-24T08:58:43Z",
     "milestone": {
         "closed_at": null,
-        "closed_issues": 52,
+        "closed_issues": 53,
         "created_at": "2026-08-22T05:22:37Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -602,10 +709,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/133/labels",
         "node_id": "MI_kwDOABDGAc4BCdDa",
         "number": 133,
-        "open_issues": 4,
+        "open_issues": 3,
         "state": "open",
         "title": "3.3.1",
-        "updated_at": "2026-09-23T14:32:33Z",
+        "updated_at": "2026-09-24T08:58:44Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/133"
     },
     "node_id": "PR_kwDOABDGAc8AAAABA2rpRA",
@@ -615,10 +722,10 @@
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/7926/comments",
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/12fa2fe93c9e04b341abed530bf83f56a7b2d838",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/58f72c70219dd06b184fbf11e8071c3a687beecb",
     "title": "Handle destruction of opaque cyfuncs safely during cleanup",
-    "updated_at": "2026-09-23T14:32:41Z",
+    "updated_at": "2026-09-24T08:58:43Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/7926",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
