@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/8046"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/bf9d7fe6e376bb840e4e8bd05bca47dbbd2af82a"
+            "href": "https://api.github.com/repos/cython/cython/statuses/c2ecb46467f9da797a5a1a0aea2905a261ae8512"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1640,
-            "forks_count": 1640,
+            "forks": 1645,
+            "forks_count": 1645,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -95,8 +95,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1530,
-            "open_issues_count": 1530,
+            "open_issues": 1538,
+            "open_issues_count": 1538,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -121,11 +121,11 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-10-13T13:06:34Z",
+            "pushed_at": "2026-10-17T07:27:03Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 82166,
+            "size": 82204,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10865,
+            "stargazers_count": 10869,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -144,11 +144,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-10-13T13:06:40Z",
+            "updated_at": "2026-10-17T07:27:07Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10865,
-            "watchers_count": 10865,
+            "watchers": 10869,
+            "watchers_count": 10869,
             "web_commit_signoff_required": false
         },
         "sha": "beb9b5387cf04272fdb0edc02769062981630ca7",
@@ -174,7 +174,7 @@
             "user_view_type": "public"
         }
     },
-    "body": "A literal tuple multiplied by a constant integer is turned into a cached constant that is built during module init. If the repetition fails, the module import fails, even when the expression is in a branch that never runs:\n\n```python\ndef f(do_it):\n    if do_it:\n        return (1, 2, 3) * 2**63\n```\n\nImporting the compiled module raises `OverflowError: cannot fit 'int' into an index-sized integer` from `init`. With `(1,) * 10**15` the import raises `MemoryError`. In CPython both only raise when `f(True)` is called, and a surrounding `try` can catch them.\n\nThe change keeps the constant only when the result has at most 256 items (the same limit CPython uses when it folds sequence repetition) and otherwise leaves the multiplication to runtime, where the existing `mult_factor` code path handles it. Small repetitions like `(1, 2) * 3` are still constants.\n\nTests: two doctests in `tests/run/tuple_constants.pyx`.\n\n- Before the change, `runtests.py tuple_constants` fails at import with the `OverflowError` above.\n- After: `runtests.py tuple_constants seq_mul constant_folding` passes (107 tests), and `runtests.py -j8 tuple list const mul starred unpack` passes (556 tests).\n\nRun on Linux x86_64 with CPython 3.12 and `--no-cpp`. I did not run the full test suite, C++ mode, or other Python versions.\n",
+    "body": "A literal tuple multiplied by a constant integer is turned into a cached constant that is built during module init. If the repetition fails, the module import fails, even when the expression is in a branch that never runs:\n\n```python\ndef f(do_it):\n    if do_it:\n        return (1, 2, 3) * 2**63\n```\n\nImporting the compiled module raises `OverflowError: cannot fit 'int' into an index-sized integer` from `init`. With `(1,) * 10**15` the import raises `MemoryError`. In CPython both only raise when `f(True)` is called, and a surrounding `try` can catch them.\n\nThe change keeps the constant only when the result has at most 256 items (the same limit CPython uses when it folds sequence repetition) and otherwise leaves the multiplication to runtime, where the existing `mult_factor` code path handles it. Small repetitions like `(1, 2) * 3` are still constants.\n\nTests: two doctests in `tests/run/tuple_constants.pyx`.\n\n- Before the change, `runtests.py tuple_constants` fails at import with the `OverflowError` above.\n- After: `runtests.py tuple_constants seq_mul constant_folding` passes (107 tests), and `runtests.py -j8 tuple list const mul starred unpack` passes (556 tests).\n\nRun on Linux x86_64 with CPython 3.12 and `--no-cpp`. I did not run the full test suite, C++ mode, or other Python versions.\n\n\n### Follow-up validation — October 16\n\nFollow-up validation (October 16): the huge-tuple doctest now accepts MemoryError, OverflowError, or IndexError according to the interpreter/index width; unexpected success or another exception still fails. Targeted tuple_constants, seq_mul, and constant_folding suites pass locally in both C and C++ modes on CPython 3.12/macOS ARM64. GraalPy and 32-bit Windows were diagnosed from hosted logs, not rerun locally. The unrelated Windows 3.15 coverage_api failure is not claimed fixed.\n",
     "closed_at": null,
     "comment_data": [],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/8046/comments",
@@ -322,6 +322,88 @@
             ],
             "sha": "bf9d7fe6e376bb840e4e8bd05bca47dbbd2af82a",
             "url": "https://api.github.com/repos/cython/cython/commits/bf9d7fe6e376bb840e4e8bd05bca47dbbd2af82a"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/66793913?v=4",
+                "events_url": "https://api.github.com/users/Shaisolaris/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Shaisolaris/followers",
+                "following_url": "https://api.github.com/users/Shaisolaris/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Shaisolaris/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Shaisolaris",
+                "id": 66793913,
+                "login": "Shaisolaris",
+                "node_id": "MDQ6VXNlcjY2NzkzOTEz",
+                "organizations_url": "https://api.github.com/users/Shaisolaris/orgs",
+                "received_events_url": "https://api.github.com/users/Shaisolaris/received_events",
+                "repos_url": "https://api.github.com/users/Shaisolaris/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Shaisolaris/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Shaisolaris/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Shaisolaris",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/c2ecb46467f9da797a5a1a0aea2905a261ae8512/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-16T13:14:31Z",
+                    "email": "66793913+Shaisolaris@users.noreply.github.com",
+                    "name": "Shaisolaris"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-16T13:14:31Z",
+                    "email": "66793913+Shaisolaris@users.noreply.github.com",
+                    "name": "Shaisolaris"
+                },
+                "message": "Make huge tuple regression portable across Python runtimes",
+                "tree": {
+                    "sha": "929ecd899f7b495180de6c3ae56e43f95f8e791a",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/929ecd899f7b495180de6c3ae56e43f95f8e791a"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/c2ecb46467f9da797a5a1a0aea2905a261ae8512",
+                "verification": {
+                    "payload": null,
+                    "reason": "unsigned",
+                    "signature": null,
+                    "verified": false,
+                    "verified_at": null
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/66793913?v=4",
+                "events_url": "https://api.github.com/users/Shaisolaris/events{/privacy}",
+                "followers_url": "https://api.github.com/users/Shaisolaris/followers",
+                "following_url": "https://api.github.com/users/Shaisolaris/following{/other_user}",
+                "gists_url": "https://api.github.com/users/Shaisolaris/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/Shaisolaris",
+                "id": 66793913,
+                "login": "Shaisolaris",
+                "node_id": "MDQ6VXNlcjY2NzkzOTEz",
+                "organizations_url": "https://api.github.com/users/Shaisolaris/orgs",
+                "received_events_url": "https://api.github.com/users/Shaisolaris/received_events",
+                "repos_url": "https://api.github.com/users/Shaisolaris/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/Shaisolaris/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/Shaisolaris/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/Shaisolaris",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/c2ecb46467f9da797a5a1a0aea2905a261ae8512",
+            "node_id": "C_kwDOVF0gL9oAKGMyZWNiNDY0NjdmOWRhNzk3YTVhMWEwYWVhMjkwNWEyNjFhZTg1MTI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/bf9d7fe6e376bb840e4e8bd05bca47dbbd2af82a",
+                    "sha": "bf9d7fe6e376bb840e4e8bd05bca47dbbd2af82a",
+                    "url": "https://api.github.com/repos/cython/cython/commits/bf9d7fe6e376bb840e4e8bd05bca47dbbd2af82a"
+                }
+            ],
+            "sha": "c2ecb46467f9da797a5a1a0aea2905a261ae8512",
+            "url": "https://api.github.com/repos/cython/cython/commits/c2ecb46467f9da797a5a1a0aea2905a261ae8512"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/8046/commits",
@@ -419,9 +501,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/Shaisolaris/cython/pulls{/number}",
-            "pushed_at": "2026-10-12T13:09:25Z",
+            "pushed_at": "2026-10-16T13:14:34Z",
             "releases_url": "https://api.github.com/repos/Shaisolaris/cython/releases{/id}",
-            "size": 82326,
+            "size": 82142,
             "ssh_url": "git@github.com:Shaisolaris/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/Shaisolaris/cython/stargazers",
@@ -440,7 +522,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "bf9d7fe6e376bb840e4e8bd05bca47dbbd2af82a",
+        "sha": "c2ecb46467f9da797a5a1a0aea2905a261ae8512",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/66793913?v=4",
             "events_url": "https://api.github.com/users/Shaisolaris/events{/privacy}",
@@ -491,7 +573,7 @@
         }
     ],
     "locked": false,
-    "merge_commit_sha": "49da3f72a56d903b021f4ce80e5b487a99ac2434",
+    "merge_commit_sha": "63075e65b137b4da92d39618779a6606ab5926f9",
     "merged_at": null,
     "milestone": {
         "closed_at": null,
@@ -539,9 +621,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/8046/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/bf9d7fe6e376bb840e4e8bd05bca47dbbd2af82a",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/c2ecb46467f9da797a5a1a0aea2905a261ae8512",
     "title": "Do not create large repeated constant tuples at module init",
-    "updated_at": "2026-10-12T19:02:44Z",
+    "updated_at": "2026-10-16T13:18:50Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/8046",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/66793913?v=4",
