@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/8108"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/c18b436f286032545c33fa8760848dc7cbd56b54"
+            "href": "https://api.github.com/repos/cython/cython/statuses/a9f652b09fc7923cf4bef7a0a9604723959a5946"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1660,
-            "forks_count": 1660,
+            "forks": 1661,
+            "forks_count": 1661,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -95,8 +95,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1548,
-            "open_issues_count": 1548,
+            "open_issues": 1551,
+            "open_issues_count": 1551,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -121,9 +121,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-11-03T22:03:08Z",
+            "pushed_at": "2026-11-05T23:02:14Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 82639,
+            "size": 82705,
             "ssh_url": "git@github.com:cython/cython.git",
             "stargazers_count": 10893,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
@@ -144,7 +144,7 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-11-03T12:08:25Z",
+            "updated_at": "2026-11-07T13:56:15Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
             "watchers": 10893,
@@ -174,7 +174,7 @@
             "user_view_type": "public"
         }
     },
-    "body": "Concurrent Cython invocations sharing a compiler-cache directory can write the same temporary filename, causing cache publication to fail. Abandoned temporary files accumulate outside the cache quota, and transient cache filesystem errors can turn an otherwise valid compilation into a build failure.\n\nCoordinate cache access with a shared lifecycle lock and per-entry writer locks, using `flock` on POSIX and `LockFileEx` on Windows. Publish complete artifacts through unique temporary files and `os.replace()`, checking for an existing entry under its write lock. Store temporary artifacts in a separate directory so cleanup can reclaim interrupted writes without deleting older Cython writers' active temporary files.\n\nCleanup acquires the lifecycle lock exclusively without waiting for active cache operations, and coalesces requests within one second across processes. Reuse one artifact-directory scan for size accounting, LRU eviction, and orphaned entry-lock reclamation. Replace the `du` subprocess with portable `os.scandir()` accounting that excludes lock metadata.\n\nTreat cache-specific filesystem and locking failures as cache misses or skipped cache writes, while preserving errors writing the requested generated output. Add process/thread concurrency and filesystem-failure regression coverage, and document shared-cache behavior.\n\n",
+    "body": "This PR aims to resolve a few concurrency issues with the Cython cache beyond what was reported in previous issues (#7983 and #7985) or fixed in #8090 or #7986. Here is a list of the fixes along with the failure modes that they avoid:\r\n\r\n- **Isolate same-entry writers:** Give each process or thread its own randomly named temporary file, created exclusively in the cache directory. This prevents writers from truncating or interleaving each other's compressed data, publishing an artifact another writer is still modifying, or renaming away the temporary pathname another writer still needs. This addresses the additional same-entry writer race noted in #7983.\r\n\r\n- **Handle concurrent publication:** If Windows reports `FileExistsError` because another writer already published the destination, retain that entry and discard the caller's temporary rather than fail compilation. Where rename replaces the destination, either complete artifact may win.\r\n\r\n- **Clean up failed writes:** Attempt to remove the caller's temporary file after compression or publication errors, including when another writer has already published the destination, instead of leaving unfinished artifacts behind on failure.\r\n\r\n- **Reclaim abandoned temporaries:** When cleanup scans the cache, attempt to remove `.tmp` files whose last modification was more than one week ago, while preserving recent temporary files. Treat missing or inaccessible temporary files as best-effort cleanup failures.\r\n\r\nAge-based cleanup is a conservative heuristic, not proof that a writer has exited: a writer inactive for more than a week can still lose its temporary file. The existing `du` fast path remains unchanged, so older temporaries may remain while the cache is below its size limit. An earlier iteration of the PR attempted to provide safe cleanup, but doing so required a complex file locking scheme that we determined wasn't worthwhile, see https://github.com/cython/cython/pull/8108#issuecomment-6653082020.",
     "closed_at": null,
     "comment_data": [],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/8108/comments",
@@ -424,12 +424,340 @@
             ],
             "sha": "c18b436f286032545c33fa8760848dc7cbd56b54",
             "url": "https://api.github.com/repos/cython/cython/commits/c18b436f286032545c33fa8760848dc7cbd56b54"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
+                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vyasr/followers",
+                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/vyasr",
+                "id": 1538165,
+                "login": "vyasr",
+                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
+                "organizations_url": "https://api.github.com/users/vyasr/orgs",
+                "received_events_url": "https://api.github.com/users/vyasr/received_events",
+                "repos_url": "https://api.github.com/users/vyasr/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/vyasr",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/0eda048558014c197487090ec28fcd88fadf7fc6/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-04T23:42:34Z",
+                    "email": "vyasr@nvidia.com",
+                    "name": "Vyas Ramasubramani"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-04T23:42:34Z",
+                    "email": "vyasr@nvidia.com",
+                    "name": "Vyas Ramasubramani"
+                },
+                "message": "Streamline compiler-cache regression tests",
+                "tree": {
+                    "sha": "4075f1b147300d8b1a61e8527cfe762627cb3b84",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/4075f1b147300d8b1a61e8527cfe762627cb3b84"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/0eda048558014c197487090ec28fcd88fadf7fc6",
+                "verification": {
+                    "payload": "tree 4075f1b147300d8b1a61e8527cfe762627cb3b84\nparent c18b436f286032545c33fa8760848dc7cbd56b54\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1793835754 -0800\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1793835754 -0800\n\nStreamline compiler-cache regression tests\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgp8bi/8GVvD18La60sP5Y95GKeC\nIq6Q9OQhn68lIHoPIAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQGx67B23b1oQNXawFaKHYKf5tKsbEWCKz/Hptg2e4c5t1kPJG5/nrOR3f11AoIVHpq\n/LYLoXatcs76UcUzpV0gc=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-04T23:52:01Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
+                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vyasr/followers",
+                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/vyasr",
+                "id": 1538165,
+                "login": "vyasr",
+                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
+                "organizations_url": "https://api.github.com/users/vyasr/orgs",
+                "received_events_url": "https://api.github.com/users/vyasr/received_events",
+                "repos_url": "https://api.github.com/users/vyasr/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/vyasr",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/0eda048558014c197487090ec28fcd88fadf7fc6",
+            "node_id": "C_kwDOJN8Rp9oAKDBlZGEwNDg1NTgwMTRjMTk3NDg3MDkwZWMyOGZjZDg4ZmFkZjdmYzY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/c18b436f286032545c33fa8760848dc7cbd56b54",
+                    "sha": "c18b436f286032545c33fa8760848dc7cbd56b54",
+                    "url": "https://api.github.com/repos/cython/cython/commits/c18b436f286032545c33fa8760848dc7cbd56b54"
+                }
+            ],
+            "sha": "0eda048558014c197487090ec28fcd88fadf7fc6",
+            "url": "https://api.github.com/repos/cython/cython/commits/0eda048558014c197487090ec28fcd88fadf7fc6"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
+                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vyasr/followers",
+                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/vyasr",
+                "id": 1538165,
+                "login": "vyasr",
+                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
+                "organizations_url": "https://api.github.com/users/vyasr/orgs",
+                "received_events_url": "https://api.github.com/users/vyasr/received_events",
+                "repos_url": "https://api.github.com/users/vyasr/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/vyasr",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/2bdc78ed3313e111a33984a6b6b71de3898d6f1c/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-05T20:44:37Z",
+                    "email": "vyasr@nvidia.com",
+                    "name": "Vyas Ramasubramani"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-05T20:44:37Z",
+                    "email": "vyasr@nvidia.com",
+                    "name": "Vyas Ramasubramani"
+                },
+                "message": "Narrow cache concurrency fix to unique temporary artifacts",
+                "tree": {
+                    "sha": "81b1ffc51abcc73d1a035fba27fcc05170870e5f",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/81b1ffc51abcc73d1a035fba27fcc05170870e5f"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/2bdc78ed3313e111a33984a6b6b71de3898d6f1c",
+                "verification": {
+                    "payload": "tree 81b1ffc51abcc73d1a035fba27fcc05170870e5f\nparent 0eda048558014c197487090ec28fcd88fadf7fc6\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1793911477 -0800\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1793911477 -0800\n\nNarrow cache concurrency fix to unique temporary artifacts\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgp8bi/8GVvD18La60sP5Y95GKeC\nIq6Q9OQhn68lIHoPIAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQBkxv2CbIJJ3vWRXP2L0QaoU74soOMucF9p6HUhr2HgQ6HEqjBJGF8KrdJq3juD2Lp\nxv1BKppek4kgVlOVDpkAY=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-05T20:45:11Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
+                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vyasr/followers",
+                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/vyasr",
+                "id": 1538165,
+                "login": "vyasr",
+                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
+                "organizations_url": "https://api.github.com/users/vyasr/orgs",
+                "received_events_url": "https://api.github.com/users/vyasr/received_events",
+                "repos_url": "https://api.github.com/users/vyasr/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/vyasr",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/2bdc78ed3313e111a33984a6b6b71de3898d6f1c",
+            "node_id": "C_kwDOJN8Rp9oAKDJiZGM3OGVkMzMxM2UxMTFhMzM5ODRhNmI2YjcxZGUzODk4ZDZmMWM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/0eda048558014c197487090ec28fcd88fadf7fc6",
+                    "sha": "0eda048558014c197487090ec28fcd88fadf7fc6",
+                    "url": "https://api.github.com/repos/cython/cython/commits/0eda048558014c197487090ec28fcd88fadf7fc6"
+                }
+            ],
+            "sha": "2bdc78ed3313e111a33984a6b6b71de3898d6f1c",
+            "url": "https://api.github.com/repos/cython/cython/commits/2bdc78ed3313e111a33984a6b6b71de3898d6f1c"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
+                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vyasr/followers",
+                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/vyasr",
+                "id": 1538165,
+                "login": "vyasr",
+                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
+                "organizations_url": "https://api.github.com/users/vyasr/orgs",
+                "received_events_url": "https://api.github.com/users/vyasr/received_events",
+                "repos_url": "https://api.github.com/users/vyasr/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/vyasr",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/a7dc4df4b832734103d0d536066f8b04bf54b0e3/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-05T22:10:34Z",
+                    "email": "vyasr@nvidia.com",
+                    "name": "Vyas Ramasubramani"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-05T22:10:34Z",
+                    "email": "vyasr@nvidia.com",
+                    "name": "Vyas Ramasubramani"
+                },
+                "message": "Preserve shared-cache permissions and temporary-file ownership",
+                "tree": {
+                    "sha": "d2a1e89fad7d791b666274e5f9b12e3b4eaf6cca",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/d2a1e89fad7d791b666274e5f9b12e3b4eaf6cca"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/a7dc4df4b832734103d0d536066f8b04bf54b0e3",
+                "verification": {
+                    "payload": "tree d2a1e89fad7d791b666274e5f9b12e3b4eaf6cca\nparent 2bdc78ed3313e111a33984a6b6b71de3898d6f1c\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1793916634 -0800\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1793916634 -0800\n\nPreserve shared-cache permissions and temporary-file ownership\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgp8bi/8GVvD18La60sP5Y95GKeC\nIq6Q9OQhn68lIHoPIAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQPwBpP6XZrnZjFugSEt74zP3mK2GwekMaMdoGS5FgnIvFjznbhnGy/I3SVGgYOkwui\nnyrVA3FUwwvtpRt93O4Qc=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-05T22:11:09Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
+                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vyasr/followers",
+                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/vyasr",
+                "id": 1538165,
+                "login": "vyasr",
+                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
+                "organizations_url": "https://api.github.com/users/vyasr/orgs",
+                "received_events_url": "https://api.github.com/users/vyasr/received_events",
+                "repos_url": "https://api.github.com/users/vyasr/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/vyasr",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/a7dc4df4b832734103d0d536066f8b04bf54b0e3",
+            "node_id": "C_kwDOJN8Rp9oAKGE3ZGM0ZGY0YjgzMjczNDEwM2QwZDUzNjA2NmY4YjA0YmY1NGIwZTM",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/2bdc78ed3313e111a33984a6b6b71de3898d6f1c",
+                    "sha": "2bdc78ed3313e111a33984a6b6b71de3898d6f1c",
+                    "url": "https://api.github.com/repos/cython/cython/commits/2bdc78ed3313e111a33984a6b6b71de3898d6f1c"
+                }
+            ],
+            "sha": "a7dc4df4b832734103d0d536066f8b04bf54b0e3",
+            "url": "https://api.github.com/repos/cython/cython/commits/a7dc4df4b832734103d0d536066f8b04bf54b0e3"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
+                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vyasr/followers",
+                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/vyasr",
+                "id": 1538165,
+                "login": "vyasr",
+                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
+                "organizations_url": "https://api.github.com/users/vyasr/orgs",
+                "received_events_url": "https://api.github.com/users/vyasr/received_events",
+                "repos_url": "https://api.github.com/users/vyasr/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/vyasr",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/a9f652b09fc7923cf4bef7a0a9604723959a5946/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-06T18:29:45Z",
+                    "email": "vyasr@nvidia.com",
+                    "name": "Vyas Ramasubramani"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-06T18:29:45Z",
+                    "email": "vyasr@nvidia.com",
+                    "name": "Vyas Ramasubramani"
+                },
+                "message": "Reclaim compiler-cache temporaries older than one week",
+                "tree": {
+                    "sha": "e206860bfa3efeeb4e9d80a73402a24d70f3b38d",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/e206860bfa3efeeb4e9d80a73402a24d70f3b38d"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/a9f652b09fc7923cf4bef7a0a9604723959a5946",
+                "verification": {
+                    "payload": "tree e206860bfa3efeeb4e9d80a73402a24d70f3b38d\nparent a7dc4df4b832734103d0d536066f8b04bf54b0e3\nauthor Vyas Ramasubramani <vyasr@nvidia.com> 1793989785 -0800\ncommitter Vyas Ramasubramani <vyasr@nvidia.com> 1793989785 -0800\n\nReclaim compiler-cache temporaries older than one week\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgp8bi/8GVvD18La60sP5Y95GKeC\nIq6Q9OQhn68lIHoPIAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQENGYu0srkFlzHR6yqPqbtOpHHkosDChPk0jlQUcAHNOZDmko/M4gNGBvSgjBrlo6v\nxjlGApnWk8YZid4fOZogg=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-06T18:30:09Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
+                "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
+                "followers_url": "https://api.github.com/users/vyasr/followers",
+                "following_url": "https://api.github.com/users/vyasr/following{/other_user}",
+                "gists_url": "https://api.github.com/users/vyasr/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/vyasr",
+                "id": 1538165,
+                "login": "vyasr",
+                "node_id": "MDQ6VXNlcjE1MzgxNjU=",
+                "organizations_url": "https://api.github.com/users/vyasr/orgs",
+                "received_events_url": "https://api.github.com/users/vyasr/received_events",
+                "repos_url": "https://api.github.com/users/vyasr/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/vyasr/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/vyasr/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/vyasr",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/a9f652b09fc7923cf4bef7a0a9604723959a5946",
+            "node_id": "C_kwDOJN8Rp9oAKGE5ZjY1MmIwOWZjNzkyM2NmNGJlZjdhMGE5NjA0NzIzOTU5YTU5NDY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/a7dc4df4b832734103d0d536066f8b04bf54b0e3",
+                    "sha": "a7dc4df4b832734103d0d536066f8b04bf54b0e3",
+                    "url": "https://api.github.com/repos/cython/cython/commits/a7dc4df4b832734103d0d536066f8b04bf54b0e3"
+                }
+            ],
+            "sha": "a9f652b09fc7923cf4bef7a0a9604723959a5946",
+            "url": "https://api.github.com/repos/cython/cython/commits/a9f652b09fc7923cf4bef7a0a9604723959a5946"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/8108/commits",
     "created_at": "2026-11-03T17:39:12Z",
     "diff_url": "https://github.com/cython/cython/pull/8108.diff",
-    "draft": true,
+    "draft": false,
     "head": {
         "label": "vyasr:fix/shared-cache-concurrency",
         "ref": "fix/shared-cache-concurrency",
@@ -521,9 +849,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/vyasr/cython/pulls{/number}",
-            "pushed_at": "2026-11-03T21:51:17Z",
+            "pushed_at": "2026-11-06T18:30:08Z",
             "releases_url": "https://api.github.com/repos/vyasr/cython/releases{/id}",
-            "size": 78756,
+            "size": 78579,
             "ssh_url": "git@github.com:vyasr/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/vyasr/cython/stargazers",
@@ -542,7 +870,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "c18b436f286032545c33fa8760848dc7cbd56b54",
+        "sha": "a9f652b09fc7923cf4bef7a0a9604723959a5946",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
             "events_url": "https://api.github.com/users/vyasr/events{/privacy}",
@@ -570,7 +898,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/8108",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "aa08eb752ceaa231b77ba5246f5ebb27e62a9c2e",
+    "merge_commit_sha": "629d29694a7b0634c9ed63b6126c428a06e27252",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc8AAAABMnoW0Q",
@@ -581,9 +909,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/8108/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/c18b436f286032545c33fa8760848dc7cbd56b54",
-    "title": "Make shared compiler-cache publication and cleanup concurrency-safe",
-    "updated_at": "2026-11-03T21:52:35Z",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/a9f652b09fc7923cf4bef7a0a9604723959a5946",
+    "title": "Use unique temporary files for compiler cache entries",
+    "updated_at": "2026-11-06T18:45:28Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/8108",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/1538165?v=4",
