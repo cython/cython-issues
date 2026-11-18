@@ -80,8 +80,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1661,
-            "forks_count": 1661,
+            "forks": 1660,
+            "forks_count": 1660,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -120,8 +120,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1558,
-            "open_issues_count": 1558,
+            "open_issues": 1562,
+            "open_issues_count": 1562,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -169,7 +169,7 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-11-11T03:51:36Z",
+            "updated_at": "2026-11-11T21:20:18Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
             "watchers": 10891,
@@ -1128,6 +1128,78 @@
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
                 "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/5030#discussion_r4541652862"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/5030"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/4541652862"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "@mattip The problem is that I was trying to do this before `PyType_Ready`. That's probably a pretty dubious thing to do even on CPython. I can fix this easily for PyPy",
+            "commit_id": "1bacd37ecd91efcced09a36cc1f2747d58a0893e",
+            "copilot_code_review_sources": [],
+            "created_at": "2026-11-11T18:17:14Z",
+            "diff_hunk": "@@ -894,3 +894,41 @@ static PyObject *__Pyx_AllocateExtensionType(PyTypeObject *t, int is_final) {\n     (__PYX_CHECK_FINAL_TYPE_FOR_FREELISTS((t), (expected_tp), (expected_size)) & \\\n      (int) (!__Pyx_PyType_HasFeature((t), __PYX_CHECK_TYPE_FOR_FREELIST_FLAGS)))\n #endif\n+\n+/////////////////// ApplySequenceOrMappingFlag.proto //////////////////////\n+\n+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY\n+int __Pyx_ApplySequenceOrMappingFlag(PyTypeObject *tp, int is_sequence);\n+#else\n+// No-op - the type flag is sufficient.\n+#define __Pyx_ApplySequenceOrMappingFlag(tp, is_sequence) (0)\n+#endif\n+\n+/////////////////// ApplySequenceOrMappingFlag //////////////////////\n+\n+#if CYTHON_COMPILING_IN_LIMITED_API || (CYTHON_COMPILING_IN_PYPY && CYTHON_USE_TYPE_SPECS)\n+int __Pyx_ApplySequenceOrMappingFlag(PyTypeObject *tp, int is_sequence) {\n+    PyObject *abc;\n+    PyObject *collections_abc = PyImport_ImportModule(\"collections.abc\");\n+    if (unlikely(!collections_abc)) return -1;\n+    abc = PyObject_GetAttrString(collections_abc, is_sequence ? \"Sequence\": \"Mapping\");\n+    Py_DECREF(collections_abc);\n+    if (unlikely(!abc)) return -1;\n+\n+    PyObject *register_result = PyObject_CallMethod(abc, \"register\", \"O\", (PyObject*)tp);\n+    Py_DECREF(abc);\n+    if (unlikely(!register_result)) return -1;\n+    Py_DECREF(register_result);\n+    return 0;\n+}\n+#elif CYTHON_COMPILING_IN_PYPY // && !CYTHON_USE_TYPE_SPECS\n+int __Pyx_ApplySequenceOrMappingFlag(PyTypeObject *tp, int is_sequence) {\n+    CYTHON_UNUSED_VAR(tp);\n+    CYTHON_UNUSED_VAR(is_sequence);\n+    return PyErr_WarnEx(\n+        PyExc_RuntimeWarning,\n+        \"cython.collection_type only works on PyPy with the C flag CYTHON_USE_TYPE_SPECS=1\",\n+        1\n+    );",
+            "html_url": "https://github.com/cython/cython/pull/5030#discussion_r4541652862",
+            "id": 4541652862,
+            "in_reply_to_id": 4531740940,
+            "is_copilot_code_review": false,
+            "line": 932,
+            "node_id": "PRRC_kwDOABDGAc8AAAABDrQffg",
+            "original_commit_id": "1bacd37ecd91efcced09a36cc1f2747d58a0893e",
+            "original_line": 932,
+            "original_position": 39,
+            "original_start_line": null,
+            "path": "Cython/Utility/ExtensionTypes.c",
+            "position": 39,
+            "pull_request_review_id": 5863476536,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5030",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/4541652862/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": null,
+            "subject_type": "line",
+            "updated_at": "2026-11-11T18:17:15Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/4541652862",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",
+                "events_url": "https://api.github.com/users/da-woods/events{/privacy}",
+                "followers_url": "https://api.github.com/users/da-woods/followers",
+                "following_url": "https://api.github.com/users/da-woods/following{/other_user}",
+                "gists_url": "https://api.github.com/users/da-woods/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/da-woods",
+                "id": 10536947,
+                "login": "da-woods",
+                "node_id": "MDQ6VXNlcjEwNTM2OTQ3",
+                "organizations_url": "https://api.github.com/users/da-woods/orgs",
+                "received_events_url": "https://api.github.com/users/da-woods/received_events",
+                "repos_url": "https://api.github.com/users/da-woods/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/da-woods",
                 "user_view_type": "public"
             }
         }
@@ -2716,9 +2788,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/da-woods/cython/pulls{/number}",
-            "pushed_at": "2026-11-11T08:48:51Z",
+            "pushed_at": "2026-11-11T18:20:33Z",
             "releases_url": "https://api.github.com/repos/da-woods/cython/releases{/id}",
-            "size": 86568,
+            "size": 86569,
             "ssh_url": "git@github.com:da-woods/cython.git",
             "stargazers_count": 2,
             "stargazers_url": "https://api.github.com/repos/da-woods/cython/stargazers",
@@ -2838,7 +2910,7 @@
     "state": "closed",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/1bacd37ecd91efcced09a36cc1f2747d58a0893e",
     "title": "Allow setting type flags for pattern matching",
-    "updated_at": "2026-11-11T09:11:58Z",
+    "updated_at": "2026-11-11T18:17:15Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/5030",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/10536947?v=4",

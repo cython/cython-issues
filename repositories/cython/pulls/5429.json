@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1394,
-            "forks_count": 1394,
+            "forks": 1662,
+            "forks_count": 1662,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -64,10 +64,11 @@
             "git_tags_url": "https://api.github.com/repos/cython/cython/git/tags{/sha}",
             "git_url": "git://github.com/cython/cython.git",
             "has_discussions": false,
-            "has_downloads": true,
+            "has_downloads": false,
             "has_issues": true,
-            "has_pages": false,
-            "has_projects": true,
+            "has_pages": true,
+            "has_projects": false,
+            "has_pull_requests": true,
             "has_wiki": true,
             "homepage": "https://cython.org",
             "hooks_url": "https://api.github.com/repos/cython/cython/hooks",
@@ -79,7 +80,7 @@
             "issues_url": "https://api.github.com/repos/cython/cython/issues{/number}",
             "keys_url": "https://api.github.com/repos/cython/cython/keys{/key_id}",
             "labels_url": "https://api.github.com/repos/cython/cython/labels{/name}",
-            "language": "Python",
+            "language": "Cython",
             "languages_url": "https://api.github.com/repos/cython/cython/languages",
             "license": {
                 "key": "apache-2.0",
@@ -94,8 +95,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1162,
-            "open_issues_count": 1162,
+            "open_issues": 1555,
+            "open_issues_count": 1555,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -114,15 +115,17 @@
                 "starred_url": "https://api.github.com/users/cython/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/cython/subscriptions",
                 "type": "Organization",
-                "url": "https://api.github.com/users/cython"
+                "url": "https://api.github.com/users/cython",
+                "user_view_type": "public"
             },
             "private": false,
+            "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2023-06-04T10:46:58Z",
+            "pushed_at": "2026-11-18T08:38:39Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 69275,
+            "size": 82702,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 7974,
+            "stargazers_count": 10896,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -141,11 +144,11 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2023-06-04T11:10:00Z",
+            "updated_at": "2026-11-18T03:38:11Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 7974,
-            "watchers_count": 7974,
+            "watchers": 10896,
+            "watchers_count": 10896,
             "web_commit_signoff_required": false
         },
         "sha": "29c7fb39add896f127494bfa58e5d02a6c164d21",
@@ -167,7 +170,8 @@
             "starred_url": "https://api.github.com/users/cython/starred{/owner}{/repo}",
             "subscriptions_url": "https://api.github.com/users/cython/subscriptions",
             "type": "Organization",
-            "url": "https://api.github.com/users/cython"
+            "url": "https://api.github.com/users/cython",
+            "user_view_type": "public"
         }
     },
     "body": "PyPy3.9 passes these tests, once the `sys.getrefcount` part is skipped. I am working on getting `test_asyncgen` to pass so grpcio work with PyPY, see [pypy issue 3280](https://foss.heptapod.net/pypy/pypy/-/issues/3280) and [pypy issue 3935](https://foss.heptapod.net/pypy/pypy/-/issues/3935)",
@@ -188,10 +192,12 @@
             "author_association": "CONTRIBUTOR",
             "body": "It seems these are only needed in the `test_async_gen_asyncio_gc_aclose_09` test I skipped. I skipped it since the cython version adds a finalizer to `tp_dealloc` which revives the object, which PyPy refuses to do and `exit()`'s instead. In the pure python version somehow that does not happen and the test fails, but does not crash. Adding a `gc.collect()` after the `del gen` to the pure python version makes the test pass.",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-11T14:40:32Z",
             "diff_hunk": "@@ -216,15 +218,22 @@ __Pyx_async_gen_init_hooks(__pyx_PyAsyncGenObject *o)\n \n     o->ag_hooks_inited = 1;\n \n+#if CYTHON_COMPILING_IN_CPYTHON\n     tstate = __Pyx_PyThreadState_Current;\n-\n     finalizer = tstate->async_gen_finalizer;\n+#else\n+    finalizer = _PyEval_GetAsyncGenFinalizer();\n+#endif\n     if (finalizer) {\n         Py_INCREF(finalizer);\n         o->ag_finalizer = finalizer;\n     }\n \n+#if CYTHON_COMPILING_IN_CPYTHON\n     firstiter = tstate->async_gen_firstiter;\n+#else\n+    firstiter = _PyEval_GetAsyncGenFirstiter();\n+#endif",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1191281816",
             "id": 1191281816,
+            "is_copilot_code_review": false,
             "line": 236,
             "node_id": "PRRC_kwDOABDGAc5HAYSY",
             "original_commit_id": "28fb74aefe7fcf5f4d45529542c4afe85f0cf3e3",
@@ -238,7 +244,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
@@ -256,10 +263,12 @@
             "author_association": "MEMBER",
             "body": "I'm not completely sure, but I wonder if `CYTHON_USE_TYPE_SLOTS` would be the more appropriate check here (and later)",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-11T18:29:35Z",
             "diff_hunk": "@@ -216,15 +218,22 @@ __Pyx_async_gen_init_hooks(__pyx_PyAsyncGenObject *o)\n \n     o->ag_hooks_inited = 1;\n \n+#if CYTHON_COMPILING_IN_CPYTHON",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1191549180",
             "id": 1191549180,
+            "is_copilot_code_review": false,
             "line": null,
             "node_id": "PRRC_kwDOABDGAc5HBZj8",
             "original_commit_id": "28fb74aefe7fcf5f4d45529542c4afe85f0cf3e3",
@@ -267,7 +276,7 @@
             "original_position": 14,
             "original_start_line": null,
             "path": "Cython/Utility/AsyncGen.c",
-            "position": null,
+            "position": 1,
             "pull_request_review_id": 1423199310,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5429",
             "reactions": {
@@ -306,7 +315,8 @@
                 "starred_url": "https://api.github.com/users/da-woods/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/da-woods/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/da-woods"
+                "url": "https://api.github.com/users/da-woods",
+                "user_view_type": "public"
             }
         },
         {
@@ -324,11 +334,13 @@
             "author_association": "CONTRIBUTOR",
             "body": "I am not sure, I thought `CYTHON_USE_TYPE_SLOTS` is for the documented dunder slots like `tp_str` -> `__str__` as generated by the [`typeslots.py`](https://github.com/python/cpython/blob/0449ffe3a4ddf03367a5ee3d943c89f442b7b407/Objects/typeslots.py#L2) code generator.",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-11T18:54:34Z",
             "diff_hunk": "@@ -216,15 +218,22 @@ __Pyx_async_gen_init_hooks(__pyx_PyAsyncGenObject *o)\n \n     o->ag_hooks_inited = 1;\n \n+#if CYTHON_COMPILING_IN_CPYTHON",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1191574231",
             "id": 1191574231,
             "in_reply_to_id": 1191549180,
+            "is_copilot_code_review": false,
             "line": null,
             "node_id": "PRRC_kwDOABDGAc5HBfrX",
             "original_commit_id": "28fb74aefe7fcf5f4d45529542c4afe85f0cf3e3",
@@ -336,7 +348,7 @@
             "original_position": 14,
             "original_start_line": null,
             "path": "Cython/Utility/AsyncGen.c",
-            "position": null,
+            "position": 1,
             "pull_request_review_id": 1423244241,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5429",
             "reactions": {
@@ -375,7 +387,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
@@ -393,11 +406,13 @@
             "author_association": "CONTRIBUTOR",
             "body": "... which generates [these slot functions](https://github.com/python/cpython/blob/0449ffe3a4ddf03367a5ee3d943c89f442b7b407/Objects/typeslots.inc#L1)",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-11T18:56:08Z",
             "diff_hunk": "@@ -216,15 +218,22 @@ __Pyx_async_gen_init_hooks(__pyx_PyAsyncGenObject *o)\n \n     o->ag_hooks_inited = 1;\n \n+#if CYTHON_COMPILING_IN_CPYTHON",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1191575668",
             "id": 1191575668,
             "in_reply_to_id": 1191549180,
+            "is_copilot_code_review": false,
             "line": null,
             "node_id": "PRRC_kwDOABDGAc5HBgB0",
             "original_commit_id": "28fb74aefe7fcf5f4d45529542c4afe85f0cf3e3",
@@ -405,7 +420,7 @@
             "original_position": 14,
             "original_start_line": null,
             "path": "Cython/Utility/AsyncGen.c",
-            "position": null,
+            "position": 1,
             "pull_request_review_id": 1423247575,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5429",
             "reactions": {
@@ -444,7 +459,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
@@ -462,11 +478,13 @@
             "author_association": "CONTRIBUTOR",
             "body": "No, these are needed in more tests. Modified the github action to use the PyPy3.9 nightly that contains these functions.",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-15T04:30:49Z",
             "diff_hunk": "@@ -216,15 +218,22 @@ __Pyx_async_gen_init_hooks(__pyx_PyAsyncGenObject *o)\n \n     o->ag_hooks_inited = 1;\n \n+#if CYTHON_COMPILING_IN_CPYTHON\n     tstate = __Pyx_PyThreadState_Current;\n-\n     finalizer = tstate->async_gen_finalizer;\n+#else\n+    finalizer = _PyEval_GetAsyncGenFinalizer();\n+#endif\n     if (finalizer) {\n         Py_INCREF(finalizer);\n         o->ag_finalizer = finalizer;\n     }\n \n+#if CYTHON_COMPILING_IN_CPYTHON\n     firstiter = tstate->async_gen_firstiter;\n+#else\n+    firstiter = _PyEval_GetAsyncGenFirstiter();\n+#endif",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1193315165",
             "id": 1193315165,
             "in_reply_to_id": 1191281816,
+            "is_copilot_code_review": false,
             "line": 236,
             "node_id": "PRRC_kwDOABDGAc5HIItd",
             "original_commit_id": "28fb74aefe7fcf5f4d45529542c4afe85f0cf3e3",
@@ -513,7 +531,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
@@ -531,11 +550,13 @@
             "author_association": "MEMBER",
             "body": "`CYTHON_USE_TYPE_SLOTS` is for code that directly uses the `tp_*` slot functions of types, not for attributes on the thread state. There's `CYTHON_FAST_THREAD_STATE`, but I don't think that applies here, either. That guard controls the way we get at the thread state, more that what we do with it (although that might still depend on how fast we can get our hands on it when we need it).\r\n\r\nIf this it PyPy specific code, why not use `CYTHON_COMPILING_IN_PYPY`?",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-21T09:44:34Z",
             "diff_hunk": "@@ -216,15 +218,22 @@ __Pyx_async_gen_init_hooks(__pyx_PyAsyncGenObject *o)\n \n     o->ag_hooks_inited = 1;\n \n+#if CYTHON_COMPILING_IN_CPYTHON",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1199732098",
             "id": 1199732098,
             "in_reply_to_id": 1191549180,
+            "is_copilot_code_review": false,
             "line": null,
             "node_id": "PRRC_kwDOABDGAc5HgnWC",
             "original_commit_id": "28fb74aefe7fcf5f4d45529542c4afe85f0cf3e3",
@@ -543,7 +564,7 @@
             "original_position": 14,
             "original_start_line": null,
             "path": "Cython/Utility/AsyncGen.c",
-            "position": null,
+            "position": 1,
             "pull_request_review_id": 1435504233,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5429",
             "reactions": {
@@ -582,7 +603,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -600,10 +622,12 @@
             "author_association": "MEMBER",
             "body": "These were removed from CPython a year ago: https://github.com/python/cpython/pull/32017\r\nThat probably means they are not future proof.",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-21T09:45:18Z",
             "diff_hunk": "@@ -216,15 +218,22 @@ __Pyx_async_gen_init_hooks(__pyx_PyAsyncGenObject *o)\n \n     o->ag_hooks_inited = 1;\n \n+#if CYTHON_COMPILING_IN_CPYTHON\n     tstate = __Pyx_PyThreadState_Current;\n-\n     finalizer = tstate->async_gen_finalizer;\n+#else\n+    finalizer = _PyEval_GetAsyncGenFinalizer();",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1199732227",
             "id": 1199732227,
+            "is_copilot_code_review": false,
             "line": null,
             "node_id": "PRRC_kwDOABDGAc5HgnYD",
             "original_commit_id": "389d960fb151b4d401908bd2ca165ee4e2f77bf4",
@@ -611,7 +635,7 @@
             "original_position": 19,
             "original_start_line": null,
             "path": "Cython/Utility/AsyncGen.c",
-            "position": null,
+            "position": 1,
             "pull_request_review_id": 1435504233,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5429",
             "reactions": {
@@ -650,7 +674,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -668,10 +693,12 @@
             "author_association": "MEMBER",
             "body": "Sorry for sounding a bit pedantic here, but I'd reverse these two to have the more generic option first.\r\n```suggestion\r\n#if CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY\r\n```",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-21T09:46:58Z",
             "diff_hunk": "@@ -196,12 +196,14 @@ static CYTHON_INLINE PyObject *__Pyx_PyIter_Next2(PyObject* iterator, PyObject*\n     // We always do a quick slot check because calling PyIter_Check() is so wasteful.\n     iternextfunc iternext = Py_TYPE(iterator)->tp_iternext;\n     if (likely(iternext)) {\n-#if CYTHON_USE_TYPE_SLOTS\n+#if CYTHON_COMPILING_IN_PYPY || CYTHON_USE_TYPE_SLOTS",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1199732474",
             "id": 1199732474,
+            "is_copilot_code_review": false,
             "line": null,
             "node_id": "PRRC_kwDOABDGAc5Hgnb6",
             "original_commit_id": "389d960fb151b4d401908bd2ca165ee4e2f77bf4",
@@ -679,7 +706,7 @@
             "original_position": 5,
             "original_start_line": null,
             "path": "Cython/Utility/ObjectHandling.c",
-            "position": null,
+            "position": 1,
             "pull_request_review_id": 1435504233,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5429",
             "reactions": {
@@ -718,7 +745,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -736,11 +764,13 @@
             "author_association": "CONTRIBUTOR",
             "body": "The code-path is for non-CPython compilation. Is there a better way to work around the [opaque PyThreadState](https://docs.python.org/3/c-api/init.html?highlight=pythreadstate#c.PyThreadState) fields?",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-21T10:24:55Z",
             "diff_hunk": "@@ -216,15 +218,22 @@ __Pyx_async_gen_init_hooks(__pyx_PyAsyncGenObject *o)\n \n     o->ag_hooks_inited = 1;\n \n+#if CYTHON_COMPILING_IN_CPYTHON\n     tstate = __Pyx_PyThreadState_Current;\n-\n     finalizer = tstate->async_gen_finalizer;\n+#else\n+    finalizer = _PyEval_GetAsyncGenFinalizer();",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1199738451",
             "id": 1199738451,
             "in_reply_to_id": 1199732227,
+            "is_copilot_code_review": false,
             "line": null,
             "node_id": "PRRC_kwDOABDGAc5Hgo5T",
             "original_commit_id": "389d960fb151b4d401908bd2ca165ee4e2f77bf4",
@@ -748,7 +778,7 @@
             "original_position": 19,
             "original_start_line": null,
             "path": "Cython/Utility/AsyncGen.c",
-            "position": null,
+            "position": 1,
             "pull_request_review_id": 1435511592,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5429",
             "reactions": {
@@ -787,7 +817,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
@@ -805,10 +836,12 @@
             "author_association": "MEMBER",
             "body": "```suggestion\r\n  #define CYTHON_USE_TP_FINALIZE  (PY_VERSION_HEX >= 0x030400a1)\r\n```",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-22T18:48:51Z",
             "diff_hunk": "@@ -167,7 +167,7 @@\n   #undef CYTHON_USE_MODULE_STATE\n   #define CYTHON_USE_MODULE_STATE 0\n   #undef CYTHON_USE_TP_FINALIZE\n-  #define CYTHON_USE_TP_FINALIZE 0\n+  #define CYTHON_USE_TP_FINALIZE PY_VERSION_HEX >= 0x030400a1",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1200905952",
             "id": 1200905952,
+            "is_copilot_code_review": false,
             "line": null,
             "node_id": "PRRC_kwDOABDGAc5HlF7g",
             "original_commit_id": "2034c4193fd4d14a7fa21f85b99d756a76775033",
@@ -816,7 +849,7 @@
             "original_position": 5,
             "original_start_line": null,
             "path": "Cython/Utility/ModuleSetupCode.c",
-            "position": null,
+            "position": 1,
             "pull_request_review_id": 1437250613,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5429",
             "reactions": {
@@ -855,7 +888,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -873,11 +907,13 @@
             "author_association": "MEMBER",
             "body": "> The code-path is for non-CPython compilation.\r\n\r\nRight, but the fact that CPython had them and removed them means that other implementation won't necessarily have them either. As long as only PyPy is known to have them, I'd use the PYPY guard instead of the CPYTHON guard here.\r\n\r\nThefunctions were removed from CPython in favour of `sys.get_asyncgen_hooks()`, which sounds rather annoying to call from C, but we could do that here.\r\n\r\n> Is there a better way to work around the [opaque PyThreadState](https://docs.python.org/3/c-api/init.html?highlight=pythreadstate#c.PyThreadState) fields?\r\n\r\nIt's an opaque struct in the Limited API, not in regular CPython.",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-22T19:00:29Z",
             "diff_hunk": "@@ -216,15 +218,22 @@ __Pyx_async_gen_init_hooks(__pyx_PyAsyncGenObject *o)\n \n     o->ag_hooks_inited = 1;\n \n+#if CYTHON_COMPILING_IN_CPYTHON\n     tstate = __Pyx_PyThreadState_Current;\n-\n     finalizer = tstate->async_gen_finalizer;\n+#else\n+    finalizer = _PyEval_GetAsyncGenFinalizer();",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1200918025",
             "id": 1200918025,
             "in_reply_to_id": 1199732227,
+            "is_copilot_code_review": false,
             "line": null,
             "node_id": "PRRC_kwDOABDGAc5HlI4J",
             "original_commit_id": "389d960fb151b4d401908bd2ca165ee4e2f77bf4",
@@ -885,7 +921,7 @@
             "original_position": 19,
             "original_start_line": null,
             "path": "Cython/Utility/AsyncGen.c",
-            "position": null,
+            "position": 1,
             "pull_request_review_id": 1437250613,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5429",
             "reactions": {
@@ -924,7 +960,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -942,11 +979,13 @@
             "author_association": "CONTRIBUTOR",
             "body": "done",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-22T20:36:43Z",
             "diff_hunk": "@@ -167,7 +167,7 @@\n   #undef CYTHON_USE_MODULE_STATE\n   #define CYTHON_USE_MODULE_STATE 0\n   #undef CYTHON_USE_TP_FINALIZE\n-  #define CYTHON_USE_TP_FINALIZE 0\n+  #define CYTHON_USE_TP_FINALIZE PY_VERSION_HEX >= 0x030400a1",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1201045859",
             "id": 1201045859,
             "in_reply_to_id": 1200905952,
+            "is_copilot_code_review": false,
             "line": null,
             "node_id": "PRRC_kwDOABDGAc5HloFj",
             "original_commit_id": "2034c4193fd4d14a7fa21f85b99d756a76775033",
@@ -954,7 +993,7 @@
             "original_position": 5,
             "original_start_line": null,
             "path": "Cython/Utility/ModuleSetupCode.c",
-            "position": null,
+            "position": 1,
             "pull_request_review_id": 1437480816,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5429",
             "reactions": {
@@ -993,7 +1032,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
@@ -1011,11 +1051,13 @@
             "author_association": "CONTRIBUTOR",
             "body": "done",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-22T20:52:28Z",
             "diff_hunk": "@@ -196,12 +196,14 @@ static CYTHON_INLINE PyObject *__Pyx_PyIter_Next2(PyObject* iterator, PyObject*\n     // We always do a quick slot check because calling PyIter_Check() is so wasteful.\n     iternextfunc iternext = Py_TYPE(iterator)->tp_iternext;\n     if (likely(iternext)) {\n-#if CYTHON_USE_TYPE_SLOTS\n+#if CYTHON_COMPILING_IN_PYPY || CYTHON_USE_TYPE_SLOTS",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1201076209",
             "id": 1201076209,
             "in_reply_to_id": 1199732474,
+            "is_copilot_code_review": false,
             "line": null,
             "node_id": "PRRC_kwDOABDGAc5Hlvfx",
             "original_commit_id": "389d960fb151b4d401908bd2ca165ee4e2f77bf4",
@@ -1023,7 +1065,7 @@
             "original_position": 5,
             "original_start_line": null,
             "path": "Cython/Utility/ObjectHandling.c",
-            "position": null,
+            "position": 1,
             "pull_request_review_id": 1437536632,
             "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/5429",
             "reactions": {
@@ -1062,7 +1104,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         },
         {
@@ -1080,10 +1123,12 @@
             "author_association": "MEMBER",
             "body": "Just to be sure, this is not version specific in PyPy, right?",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-23T20:12:00Z",
             "diff_hunk": "@@ -196,12 +196,14 @@ static CYTHON_INLINE PyObject *__Pyx_PyIter_Next2(PyObject* iterator, PyObject*\n     // We always do a quick slot check because calling PyIter_Check() is so wasteful.\n     iternextfunc iternext = Py_TYPE(iterator)->tp_iternext;\n     if (likely(iternext)) {\n-#if CYTHON_USE_TYPE_SLOTS\n+#if CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY\n         next = iternext(iterator);\n         if (likely(next))\n             return next;",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1202944026",
             "id": 1202944026,
+            "is_copilot_code_review": false,
             "line": 202,
             "node_id": "PRRC_kwDOABDGAc5Hs3ga",
             "original_commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
@@ -1130,7 +1175,8 @@
                 "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/scoder"
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
             }
         },
         {
@@ -1148,11 +1194,13 @@
             "author_association": "CONTRIBUTOR",
             "body": "Correct.",
             "commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
+            "copilot_code_review_sources": [],
             "created_at": "2023-05-23T20:21:27Z",
             "diff_hunk": "@@ -196,12 +196,14 @@ static CYTHON_INLINE PyObject *__Pyx_PyIter_Next2(PyObject* iterator, PyObject*\n     // We always do a quick slot check because calling PyIter_Check() is so wasteful.\n     iternextfunc iternext = Py_TYPE(iterator)->tp_iternext;\n     if (likely(iternext)) {\n-#if CYTHON_USE_TYPE_SLOTS\n+#if CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY\n         next = iternext(iterator);\n         if (likely(next))\n             return next;",
             "html_url": "https://github.com/cython/cython/pull/5429#discussion_r1202955493",
             "id": 1202955493,
             "in_reply_to_id": 1202944026,
+            "is_copilot_code_review": false,
             "line": 202,
             "node_id": "PRRC_kwDOABDGAc5Hs6Tl",
             "original_commit_id": "fbc5750349712fef3727c8d9e8d964f13c2adc30",
@@ -1199,7 +1247,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             }
         }
     ],
@@ -1224,7 +1273,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/6e34e09116bd5508e799c3f8610bfa2fc08b4d34/comments",
             "commit": {
@@ -1249,7 +1299,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1270,7 +1321,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/6e34e09116bd5508e799c3f8610bfa2fc08b4d34",
             "node_id": "C_kwDOBHLfr9oAKDZlMzRlMDkxMTZiZDU1MDhlNzk5YzNmODYxMGJmYTJmYzA4YjRkMzQ",
@@ -1303,7 +1355,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/00113c355fa06197be9966ccfa0c99ca67f2f414/comments",
             "commit": {
@@ -1328,7 +1381,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1349,7 +1403,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/00113c355fa06197be9966ccfa0c99ca67f2f414",
             "node_id": "C_kwDOBHLfr9oAKDAwMTEzYzM1NWZhMDYxOTdiZTk5NjZjY2ZhMGM5OWNhNjdmMmY0MTQ",
@@ -1382,7 +1437,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/4182bf438233c9504d982b8aa622281a4f9c3fa4/comments",
             "commit": {
@@ -1407,7 +1463,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1428,7 +1485,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/4182bf438233c9504d982b8aa622281a4f9c3fa4",
             "node_id": "C_kwDOBHLfr9oAKDQxODJiZjQzODIzM2M5NTA0ZDk4MmI4YWE2MjIyODFhNGY5YzNmYTQ",
@@ -1461,7 +1519,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/fcf16953e75393562ae5c566ad488a3140f975ef/comments",
             "commit": {
@@ -1486,7 +1545,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1507,7 +1567,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/fcf16953e75393562ae5c566ad488a3140f975ef",
             "node_id": "C_kwDOBHLfr9oAKGZjZjE2OTUzZTc1MzkzNTYyYWU1YzU2NmFkNDg4YTMxNDBmOTc1ZWY",
@@ -1540,7 +1601,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/4a2c544e8f905b9ad329dd8b7dc9c9ce73e4fecb/comments",
             "commit": {
@@ -1565,7 +1627,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1586,7 +1649,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/4a2c544e8f905b9ad329dd8b7dc9c9ce73e4fecb",
             "node_id": "C_kwDOBHLfr9oAKDRhMmM1NDRlOGY5MDViOWFkMzI5ZGQ4YjdkYzljOWNlNzNlNGZlY2I",
@@ -1619,7 +1683,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/36b212ee95c21671c2a1c285db8a4f71a8d70a3e/comments",
             "commit": {
@@ -1644,7 +1709,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1665,7 +1731,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/36b212ee95c21671c2a1c285db8a4f71a8d70a3e",
             "node_id": "C_kwDOBHLfr9oAKDM2YjIxMmVlOTVjMjE2NzFjMmExYzI4NWRiOGE0ZjcxYThkNzBhM2U",
@@ -1698,7 +1765,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/2034c4193fd4d14a7fa21f85b99d756a76775033/comments",
             "commit": {
@@ -1723,7 +1791,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1744,7 +1813,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/2034c4193fd4d14a7fa21f85b99d756a76775033",
             "node_id": "C_kwDOBHLfr9oAKDIwMzRjNDE5M2ZkNGQxNGE3ZmEyMWY4NWI5OWQ3NTZhNzY3NzUwMzM",
@@ -1777,7 +1847,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/5fa3935db2feb463c804dc3e8fb0887f003ed500/comments",
             "commit": {
@@ -1802,7 +1873,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1823,7 +1895,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/5fa3935db2feb463c804dc3e8fb0887f003ed500",
             "node_id": "C_kwDOBHLfr9oAKDVmYTM5MzVkYjJmZWI0NjNjODA0ZGMzZThmYjA4ODdmMDAzZWQ1MDA",
@@ -1856,7 +1929,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "comments_url": "https://api.github.com/repos/cython/cython/commits/fbc5750349712fef3727c8d9e8d964f13c2adc30/comments",
             "commit": {
@@ -1881,7 +1955,8 @@
                     "payload": null,
                     "reason": "unsigned",
                     "signature": null,
-                    "verified": false
+                    "verified": false,
+                    "verified_at": null
                 }
             },
             "committer": {
@@ -1902,7 +1977,8 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "html_url": "https://github.com/cython/cython/commit/fbc5750349712fef3727c8d9e8d964f13c2adc30",
             "node_id": "C_kwDOBHLfr9oAKGZiYzU3NTAzNDk3MTJmZWYzNzI3YzhkOWU4ZDk2NGYxM2MyYWRjMzA",
@@ -1955,10 +2031,11 @@
             "git_tags_url": "https://api.github.com/repos/mattip/cython/git/tags{/sha}",
             "git_url": "git://github.com/mattip/cython.git",
             "has_discussions": false,
-            "has_downloads": true,
+            "has_downloads": false,
             "has_issues": false,
             "has_pages": false,
             "has_projects": true,
+            "has_pull_requests": true,
             "has_wiki": true,
             "homepage": "http://cython.org",
             "hooks_url": "https://api.github.com/repos/mattip/cython/hooks",
@@ -2005,13 +2082,15 @@
                 "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
                 "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
                 "type": "User",
-                "url": "https://api.github.com/users/mattip"
+                "url": "https://api.github.com/users/mattip",
+                "user_view_type": "public"
             },
             "private": false,
+            "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/mattip/cython/pulls{/number}",
-            "pushed_at": "2023-06-04T06:18:33Z",
+            "pushed_at": "2026-11-18T15:09:32Z",
             "releases_url": "https://api.github.com/repos/mattip/cython/releases{/id}",
-            "size": 69385,
+            "size": 81162,
             "ssh_url": "git@github.com:mattip/cython.git",
             "stargazers_count": 1,
             "stargazers_url": "https://api.github.com/repos/mattip/cython/stargazers",
@@ -2049,7 +2128,8 @@
             "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
             "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
             "type": "User",
-            "url": "https://api.github.com/users/mattip"
+            "url": "https://api.github.com/users/mattip",
+            "user_view_type": "public"
         }
     },
     "html_url": "https://github.com/cython/cython/pull/5429",
@@ -2057,6 +2137,8 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/5429",
     "labels": [
         {
+            "archived_at": null,
+            "archived_by": null,
             "color": "444444",
             "default": false,
             "description": null,
@@ -2066,6 +2148,8 @@
             "url": "https://api.github.com/repos/cython/cython/labels/Testing"
         },
         {
+            "archived_at": null,
+            "archived_by": null,
             "color": "000000",
             "default": false,
             "description": "",
@@ -2079,8 +2163,8 @@
     "merge_commit_sha": "f89268616749c620f296d3af498d2df53733eacc",
     "merged_at": "2023-05-24T05:27:53Z",
     "milestone": {
-        "closed_at": null,
-        "closed_issues": 913,
+        "closed_at": "2023-11-27T08:20:11Z",
+        "closed_issues": 952,
         "created_at": "2018-08-18T06:33:08Z",
         "creator": {
             "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
@@ -2100,7 +2184,8 @@
             "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
             "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
             "type": "User",
-            "url": "https://api.github.com/users/scoder"
+            "url": "https://api.github.com/users/scoder",
+            "user_view_type": "public"
         },
         "description": "Goals:\r\n– New version scheme: 3.x instead of 0.x.\r\n– Change default `language_level` from `2` to `3str`.\r\n– Change default for `binding` directive from `False` to `True`.\r\n– Fix some Python compatibility issues (if possible, allowing for breaking changes).\r\n",
         "due_on": null,
@@ -2109,10 +2194,10 @@
         "labels_url": "https://api.github.com/repos/cython/cython/milestones/58/labels",
         "node_id": "MDk6TWlsZXN0b25lMzU4MDM4Nw==",
         "number": 58,
-        "open_issues": 47,
-        "state": "open",
+        "open_issues": 0,
+        "state": "closed",
         "title": "3.0",
-        "updated_at": "2023-06-02T07:29:22Z",
+        "updated_at": "2025-05-04T10:31:37Z",
         "url": "https://api.github.com/repos/cython/cython/milestones/58"
     },
     "node_id": "PR_kwDOABDGAc5QQ0eg",
@@ -2125,7 +2210,7 @@
     "state": "closed",
     "statuses_url": "https://api.github.com/repos/cython/cython/statuses/fbc5750349712fef3727c8d9e8d964f13c2adc30",
     "title": "unskip and fix some passing tests",
-    "updated_at": "2023-06-03T05:58:39Z",
+    "updated_at": "2026-11-18T15:09:27Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/5429",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/823911?v=4",
@@ -2145,6 +2230,7 @@
         "starred_url": "https://api.github.com/users/mattip/starred{/owner}{/repo}",
         "subscriptions_url": "https://api.github.com/users/mattip/subscriptions",
         "type": "User",
-        "url": "https://api.github.com/users/mattip"
+        "url": "https://api.github.com/users/mattip",
+        "user_view_type": "public"
     }
 }
