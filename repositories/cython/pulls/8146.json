@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/cython/cython/pulls/8146"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/cython/cython/statuses/cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346"
+            "href": "https://api.github.com/repos/cython/cython/statuses/36a947bd5ebfeb70016801c1524f027a769351b9"
         }
     },
     "active_lock_reason": null,
@@ -55,8 +55,8 @@
             "downloads_url": "https://api.github.com/repos/cython/cython/downloads",
             "events_url": "https://api.github.com/repos/cython/cython/events",
             "fork": false,
-            "forks": 1662,
-            "forks_count": 1662,
+            "forks": 1663,
+            "forks_count": 1663,
             "forks_url": "https://api.github.com/repos/cython/cython/forks",
             "full_name": "cython/cython",
             "git_commits_url": "https://api.github.com/repos/cython/cython/git/commits{/sha}",
@@ -95,8 +95,8 @@
             "name": "cython",
             "node_id": "MDEwOlJlcG9zaXRvcnkxMDk5MjY1",
             "notifications_url": "https://api.github.com/repos/cython/cython/notifications{?since,all,participating}",
-            "open_issues": 1555,
-            "open_issues_count": 1555,
+            "open_issues": 1554,
+            "open_issues_count": 1554,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
                 "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -121,11 +121,11 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/cython/cython/pulls{/number}",
-            "pushed_at": "2026-11-18T08:38:39Z",
+            "pushed_at": "2026-11-19T10:46:09Z",
             "releases_url": "https://api.github.com/repos/cython/cython/releases{/id}",
-            "size": 82702,
+            "size": 82741,
             "ssh_url": "git@github.com:cython/cython.git",
-            "stargazers_count": 10896,
+            "stargazers_count": 10897,
             "stargazers_url": "https://api.github.com/repos/cython/cython/stargazers",
             "statuses_url": "https://api.github.com/repos/cython/cython/statuses/{sha}",
             "subscribers_url": "https://api.github.com/repos/cython/cython/subscribers",
@@ -144,14 +144,14 @@
                 "python"
             ],
             "trees_url": "https://api.github.com/repos/cython/cython/git/trees{/sha}",
-            "updated_at": "2026-11-18T03:38:11Z",
+            "updated_at": "2026-11-19T22:53:56Z",
             "url": "https://api.github.com/repos/cython/cython",
             "visibility": "public",
-            "watchers": 10896,
-            "watchers_count": 10896,
+            "watchers": 10897,
+            "watchers_count": 10897,
             "web_commit_signoff_required": false
         },
-        "sha": "e99970f9d42e7f0ccdb3578340526577df634399",
+        "sha": "9d9c0ab154c13d94298e682428c4704c2960f4db",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/486082?v=4",
             "events_url": "https://api.github.com/users/cython/events{/privacy}",
@@ -176,7 +176,153 @@
     },
     "body": "Fixes #7500\n\nOptimised comparisons and comparisons used as booleans generate a C `bint` but call Python C-API helpers such as `PyUnicode_Compare`, `PyDict_Contains` and `__Pyx_PyObject_RichCompareBool`, so they cannot run without the GIL\n\nThe `nogil` check only inspected the result type and thus missed them whenever the result was coerced to `bint`\n\nReject these comparisons in `nogil` sections, while keeping pointer comparisons, `is` / `is not` checks and `in` checks on C pointer slices valid\n",
     "closed_at": null,
-    "comment_data": [],
+    "comment_data": [
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/8146#discussion_r4626694150"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/8146"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/4626694150"
+                }
+            },
+            "author_association": "MEMBER",
+            "body": "This is essentially duplicated code, but it doesn't look the same as `.is_python_comparison()`. It probably should be just that.",
+            "commit_id": "cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346",
+            "copilot_code_review_severity": null,
+            "copilot_code_review_sources": [],
+            "created_at": "2026-11-19T09:25:27Z",
+            "diff_hunk": "@@ -14258,6 +14258,19 @@ class CmpNode:\n     special_bool_cmp_utility_code = None\n     special_bool_extra_args = []\n \n+    def needs_gil(self):\n+        # Optimised comparisons call into the Python C-API even when their\n+        # result is a C bint, so they require the GIL.  \"is\" comparisons and\n+        # memoryview None checks only compare pointers, and \"in\" checks on\n+        # C pointers are transformed into C loops.\n+        if self.special_bool_cmp_function:\n+            return True\n+        if self.operator in ('is', 'is_not') or self.is_ptr_contains():\n+            return False\n+        if getattr(self, 'is_memslice_nonecheck', False):\n+            return False\n+        return self.has_python_operands()",
+            "html_url": "https://github.com/cython/cython/pull/8146#discussion_r4626694150",
+            "id": 4626694150,
+            "is_copilot_code_review": false,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc8AAAABE8XABg",
+            "original_commit_id": "cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346",
+            "original_line": 14272,
+            "original_position": 15,
+            "original_start_line": 14261,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 1,
+            "pull_request_review_id": 5972369484,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/8146",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/4626694150/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-11-19T09:25:27Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/4626694150",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/491659?v=4",
+                "events_url": "https://api.github.com/users/scoder/events{/privacy}",
+                "followers_url": "https://api.github.com/users/scoder/followers",
+                "following_url": "https://api.github.com/users/scoder/following{/other_user}",
+                "gists_url": "https://api.github.com/users/scoder/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/scoder",
+                "id": 491659,
+                "login": "scoder",
+                "node_id": "MDQ6VXNlcjQ5MTY1OQ==",
+                "organizations_url": "https://api.github.com/users/scoder/orgs",
+                "received_events_url": "https://api.github.com/users/scoder/received_events",
+                "repos_url": "https://api.github.com/users/scoder/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/scoder/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/scoder/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/scoder",
+                "user_view_type": "public"
+            }
+        },
+        {
+            "_links": {
+                "html": {
+                    "href": "https://github.com/cython/cython/pull/8146#discussion_r4628250450"
+                },
+                "pull_request": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/8146"
+                },
+                "self": {
+                    "href": "https://api.github.com/repos/cython/cython/pulls/comments/4628250450"
+                }
+            },
+            "author_association": "CONTRIBUTOR",
+            "body": "Updated in 36a947bd5 to reuse `CmpNode.is_python_comparison()` directly from `PrimaryCmpNode.nogil_check()` instead of adding `needs_gil()`, updating `is_python_comparison()` to include `special_bool_cmp_function` and exclude `is` / `is_not` and memoryview `None` checks",
+            "commit_id": "cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346",
+            "copilot_code_review_severity": null,
+            "copilot_code_review_sources": [],
+            "created_at": "2026-11-19T11:47:22Z",
+            "diff_hunk": "@@ -14258,6 +14258,19 @@ class CmpNode:\n     special_bool_cmp_utility_code = None\n     special_bool_extra_args = []\n \n+    def needs_gil(self):\n+        # Optimised comparisons call into the Python C-API even when their\n+        # result is a C bint, so they require the GIL.  \"is\" comparisons and\n+        # memoryview None checks only compare pointers, and \"in\" checks on\n+        # C pointers are transformed into C loops.\n+        if self.special_bool_cmp_function:\n+            return True\n+        if self.operator in ('is', 'is_not') or self.is_ptr_contains():\n+            return False\n+        if getattr(self, 'is_memslice_nonecheck', False):\n+            return False\n+        return self.has_python_operands()",
+            "html_url": "https://github.com/cython/cython/pull/8146#discussion_r4628250450",
+            "id": 4628250450,
+            "in_reply_to_id": 4626694150,
+            "is_copilot_code_review": false,
+            "line": null,
+            "node_id": "PRRC_kwDOABDGAc8AAAABE91_Ug",
+            "original_commit_id": "cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346",
+            "original_line": 14272,
+            "original_position": 15,
+            "original_start_line": 14261,
+            "path": "Cython/Compiler/ExprNodes.py",
+            "position": 1,
+            "pull_request_review_id": 5974410824,
+            "pull_request_url": "https://api.github.com/repos/cython/cython/pulls/8146",
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/cython/cython/pulls/comments/4628250450/reactions"
+            },
+            "side": "RIGHT",
+            "start_line": null,
+            "start_side": "RIGHT",
+            "subject_type": "line",
+            "updated_at": "2026-11-19T11:47:22Z",
+            "url": "https://api.github.com/repos/cython/cython/pulls/comments/4628250450",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/148060537?v=4",
+                "events_url": "https://api.github.com/users/akasakariko/events{/privacy}",
+                "followers_url": "https://api.github.com/users/akasakariko/followers",
+                "following_url": "https://api.github.com/users/akasakariko/following{/other_user}",
+                "gists_url": "https://api.github.com/users/akasakariko/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/akasakariko",
+                "id": 148060537,
+                "login": "akasakariko",
+                "node_id": "U_kgDOCNM5eQ",
+                "organizations_url": "https://api.github.com/users/akasakariko/orgs",
+                "received_events_url": "https://api.github.com/users/akasakariko/received_events",
+                "repos_url": "https://api.github.com/users/akasakariko/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/akasakariko/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/akasakariko/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/akasakariko",
+                "user_view_type": "public"
+            }
+        }
+    ],
     "comments_url": "https://api.github.com/repos/cython/cython/issues/8146/comments",
     "commit_data": [
         {
@@ -260,6 +406,88 @@
             ],
             "sha": "cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346",
             "url": "https://api.github.com/repos/cython/cython/commits/cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/148060537?v=4",
+                "events_url": "https://api.github.com/users/akasakariko/events{/privacy}",
+                "followers_url": "https://api.github.com/users/akasakariko/followers",
+                "following_url": "https://api.github.com/users/akasakariko/following{/other_user}",
+                "gists_url": "https://api.github.com/users/akasakariko/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/akasakariko",
+                "id": 148060537,
+                "login": "akasakariko",
+                "node_id": "U_kgDOCNM5eQ",
+                "organizations_url": "https://api.github.com/users/akasakariko/orgs",
+                "received_events_url": "https://api.github.com/users/akasakariko/received_events",
+                "repos_url": "https://api.github.com/users/akasakariko/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/akasakariko/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/akasakariko/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/akasakariko",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/cython/cython/commits/36a947bd5ebfeb70016801c1524f027a769351b9/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-19T11:47:07Z",
+                    "email": "148060537+akasakariko@users.noreply.github.com",
+                    "name": "akasakariko"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-19T11:47:07Z",
+                    "email": "148060537+akasakariko@users.noreply.github.com",
+                    "name": "akasakariko"
+                },
+                "message": "Use is_python_comparison() for nogil check on comparisons\n\nUpdate CmpNode.is_python_comparison() to treat special_bool_cmp_function as a Python comparison and exclude is/is_not and memoryview slice None checks, then call it directly from PrimaryCmpNode.nogil_check() instead of duplicating logic in needs_gil()",
+                "tree": {
+                    "sha": "08aaf8a467d0716581248535c9e5d47e77b96fd9",
+                    "url": "https://api.github.com/repos/cython/cython/git/trees/08aaf8a467d0716581248535c9e5d47e77b96fd9"
+                },
+                "url": "https://api.github.com/repos/cython/cython/git/commits/36a947bd5ebfeb70016801c1524f027a769351b9",
+                "verification": {
+                    "payload": "tree 08aaf8a467d0716581248535c9e5d47e77b96fd9\nparent cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346\nauthor akasakariko <148060537+akasakariko@users.noreply.github.com> 1795088827 +0900\ncommitter akasakariko <148060537+akasakariko@users.noreply.github.com> 1795088827 +0900\n\nUse is_python_comparison() for nogil check on comparisons\n\nUpdate CmpNode.is_python_comparison() to treat special_bool_cmp_function as a Python comparison and exclude is/is_not and memoryview slice None checks, then call it directly from PrimaryCmpNode.nogil_check() instead of duplicating logic in needs_gil()\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgHoPlOv56eGfsubbyfuXizxPx9v\nooCr4Kpg/3lmawcS8AAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQL+T30JgYIT/74FI2ha5fAooktGj0x/Ga5m31mNeOmUVa+9CXHlnoQQdxqO8j2BI2m\nIAWQCYlNBb2fbfGM+qEQA=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-19T11:47:10Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/148060537?v=4",
+                "events_url": "https://api.github.com/users/akasakariko/events{/privacy}",
+                "followers_url": "https://api.github.com/users/akasakariko/followers",
+                "following_url": "https://api.github.com/users/akasakariko/following{/other_user}",
+                "gists_url": "https://api.github.com/users/akasakariko/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/akasakariko",
+                "id": 148060537,
+                "login": "akasakariko",
+                "node_id": "U_kgDOCNM5eQ",
+                "organizations_url": "https://api.github.com/users/akasakariko/orgs",
+                "received_events_url": "https://api.github.com/users/akasakariko/received_events",
+                "repos_url": "https://api.github.com/users/akasakariko/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/akasakariko/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/akasakariko/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/akasakariko",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/cython/cython/commit/36a947bd5ebfeb70016801c1524f027a769351b9",
+            "node_id": "C_kwDOVitrmdoAKDM2YTk0N2JkNWViZmViNzAwMTY4MDFjMTUyNGYwMjdhNzY5MzUxYjk",
+            "parents": [
+                {
+                    "html_url": "https://github.com/cython/cython/commit/cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346",
+                    "sha": "cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346",
+                    "url": "https://api.github.com/repos/cython/cython/commits/cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346"
+                }
+            ],
+            "sha": "36a947bd5ebfeb70016801c1524f027a769351b9",
+            "url": "https://api.github.com/repos/cython/cython/commits/36a947bd5ebfeb70016801c1524f027a769351b9"
         }
     ],
     "commits_url": "https://api.github.com/repos/cython/cython/pulls/8146/commits",
@@ -357,9 +585,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/akasakariko/cython/pulls{/number}",
-            "pushed_at": "2026-11-17T13:14:04Z",
+            "pushed_at": "2026-11-19T11:47:09Z",
             "releases_url": "https://api.github.com/repos/akasakariko/cython/releases{/id}",
-            "size": 82703,
+            "size": 82702,
             "ssh_url": "git@github.com:akasakariko/cython.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/akasakariko/cython/stargazers",
@@ -378,7 +606,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346",
+        "sha": "36a947bd5ebfeb70016801c1524f027a769351b9",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/148060537?v=4",
             "events_url": "https://api.github.com/users/akasakariko/events{/privacy}",
@@ -406,7 +634,7 @@
     "issue_url": "https://api.github.com/repos/cython/cython/issues/8146",
     "labels": [],
     "locked": false,
-    "merge_commit_sha": "9542c982e167c4964de53157a10b46b219507889",
+    "merge_commit_sha": "c91be85856245b552caa2a8b5d81ecea1957021f",
     "merged_at": null,
     "milestone": null,
     "node_id": "PR_kwDOABDGAc8AAAABP1VQZQ",
@@ -417,9 +645,9 @@
     "review_comment_url": "https://api.github.com/repos/cython/cython/pulls/comments{/number}",
     "review_comments_url": "https://api.github.com/repos/cython/cython/pulls/8146/comments",
     "state": "open",
-    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/cc76c8bf3f50d6e9cf9d6a1f7f14f991e0793346",
+    "statuses_url": "https://api.github.com/repos/cython/cython/statuses/36a947bd5ebfeb70016801c1524f027a769351b9",
     "title": "Reject GIL-requiring comparisons in nogil sections",
-    "updated_at": "2026-11-17T13:14:11Z",
+    "updated_at": "2026-11-19T14:13:56Z",
     "url": "https://api.github.com/repos/cython/cython/pulls/8146",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/148060537?v=4",
